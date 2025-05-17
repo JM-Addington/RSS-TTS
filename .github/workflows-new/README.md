@@ -19,7 +19,7 @@ This directory contains improved versions of GitHub Actions workflows for the RS
 ## Implementation Steps
 
 1. Create a directory `.github/workflows-new/`
-2. Copy these files into that directory
+2. Copy these files into that directory 
 3. After testing, rename the directory to `.github/workflows/` to replace the existing workflows
 
 ## Note
