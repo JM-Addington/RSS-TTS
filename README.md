@@ -42,6 +42,9 @@ docker-compose logs -f
 
 # Stop all services
 docker-compose down
+
+# For production
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ### GitHub Codespaces
