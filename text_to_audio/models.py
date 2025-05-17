@@ -11,15 +11,21 @@ class Feed(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="feeds",
+        null=False,
+        blank=False,
         help_text="The user who owns this feed."
     )
     name = models.CharField(
         max_length=100,
+        null=False,
+        blank=False,
         help_text="The name of the feed."
     )
     token = models.UUIDField(
         default=uuid.uuid4,
         unique=True,
+        null=False,
+        blank=False,
         help_text="Unique token for accessing the feed."
     )
     created_at = models.DateTimeField(
@@ -48,10 +54,14 @@ class Article(models.Model):
         Feed,
         on_delete=models.CASCADE,
         related_name="articles",
+        null=False,
+        blank=False,
         help_text="The feed this article belongs to."
     )
     title = models.CharField(
         max_length=255,
+        null=False,
+        blank=False,
         help_text="The title of the article."
     )
     source_url = models.URLField(
@@ -60,6 +70,8 @@ class Article(models.Model):
         help_text="The URL of the source article."
     )
     text_content = models.TextField(
+        null=False,
+        blank=False,
         help_text="The text content of the article."
     )
     audio_file_path = models.CharField(
@@ -71,6 +83,8 @@ class Article(models.Model):
         max_length=20,
         choices=STATUS_CHOICES,
         default=PROCESSING,
+        null=False,
+        blank=False,
         help_text="The current status of the article."
     )
     created_at = models.DateTimeField(
