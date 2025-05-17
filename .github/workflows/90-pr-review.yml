@@ -13,9 +13,22 @@ on:
     types: [created]
 
 jobs:
+  check_comment:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/test')
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
+    steps:
+      - id: check
+        run: |
+          echo "should_run=true" >> $GITHUB_OUTPUT
+          echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+
   pr_agent_job:
     # Only run after other workflows have completed
-    if: (github.event.sender.type != 'Bot' || github.event_name == 'workflow_dispatch') && !github.event.pull_request.draft
+    if: (github.event.sender.type != 'Bot' || github.event_name == 'workflow_dispatch' || (github.event_name == 'issue_comment' && needs.check_comment.outputs.should_run == 'true')) && (!github.event.pull_request.draft || github.event_name == 'issue_comment')
+    needs: [check_comment]
     runs-on: ubuntu-latest
     permissions:
       issues: write
