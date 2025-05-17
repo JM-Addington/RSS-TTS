@@ -74,7 +74,7 @@ pre-commit install
 
 ### Coding Standards
 
-We follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide for Python code. See [CODING_STANDARDS.md](CODING_STANDARDS.md) for our complete coding guidelines.
+We follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide for Python code. All classes, methods and functions should include docstrings using the [Google Python style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings). See [CODING_STANDARDS.md](CODING_STANDARDS.md) for our complete coding guidelines.
 
 ### Branching Strategy
 
