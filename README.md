@@ -44,6 +44,16 @@ docker-compose logs -f
 docker-compose down
 ```
 
+### Environment Configuration
+
+Copy `.env.sample` to `.env` and update the values with your local secrets:
+
+```bash
+cp .env.sample .env
+```
+
+The application and Docker Compose will load environment variables from this file.
+
 ### GitHub Codespaces
 
 This project is configured to work with GitHub Codespaces:
