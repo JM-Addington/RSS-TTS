@@ -77,4 +77,8 @@ We use GitHub Actions for continuous integration. On each push to `main` or `dev
 - Run linting with Flake8
 - Perform type checking with mypy
 
-See `.github/workflows/ci.yml` for details.
+See `.github/workflows/` directory for workflow files:
+- `00-lint.yml`: Runs code formatting and linting
+- `10-type-check.yml`: Performs type checking with mypy
+- `20-test.yml`: Runs the test suite
+- `90-pr-review.yml`: Provides automated PR reviews
