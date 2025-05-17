@@ -40,7 +40,7 @@ jobs:
         id: git-check
         run: |
           git status --porcelain
-          echo "modified=$(if git status --porcelain | grep .; then echo true; else echo false; fi)" >> $GITHUB_OUTPUT
+          echo "modified=$(if git status --porcelain | grep .; then echo true; else echo false; fi)" >> "$GITHUB_OUTPUT"
       
       # Commit changes if any were made
       - name: Commit formatting changes
