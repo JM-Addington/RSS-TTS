@@ -1,17 +1,22 @@
 name: '99 - Request Qodo PR Review'
 
 on:
+  workflow_run:
+    workflows: ['00 - Lint and Format', '10 - Type Check', '20 - Test']
+    types:
+      - completed
+    branches:
+      - '**'
   workflow_dispatch:
     inputs:
       pr_number:
         description: 'Pull Request Number'
         required: true
         type: string
-  pull_request:
   issue_comment:
 jobs:
   pr_agent_job:
-    if: ${{ github.event.sender.type != 'Bot' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (github.event.sender.type != 'Bot' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run') && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       issues: write
