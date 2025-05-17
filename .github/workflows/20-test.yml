@@ -34,7 +34,7 @@ jobs:
           python-version: '3.12'
       
       - name: Cache pip dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -50,6 +50,6 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests
         env:
-          DEBUG: "True"
-          SECRET_KEY: "ci-test-key-not-for-production"
+          DJANGO_DEBUG: "True"
+          DJANGO_SECRET_KEY: "ci-test-key-not-for-production"
           DATABASE_URL: "postgres://postgres:postgres@localhost:5432/rss_tts_test"
