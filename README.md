@@ -23,5 +23,9 @@ python manage.py runserver
 Activate the virtual environment and run:
 
 ```bash
+# Install test dependencies
+pip install -r requirements-test.txt
+
+# Run tests
 python -m unittest discover -s tests
 ```
