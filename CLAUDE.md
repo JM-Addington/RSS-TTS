@@ -20,3 +20,16 @@ When setting up the project for development, make sure to:
 2. Follow the coding standards in CODING_STANDARDS.md
 3. Set up pre-commit hooks to enforce code quality
 4. Reference the PROJECT_PLAN.md for the overall roadmap
+   
+## PR Reviews
+
+PR reviews should be thorough and constructive.
+
+You should:
+- Review the code for correctness, readability, and adherence to coding standards
+- Review all comments. Keep in mind that many are AI generated and may not be relevant. They _usually_
+  are, but not always.
+- Check for any potential security issues
+- Ensure that the code is well-documented and includes tests
+- Ensure that all automated tests run and pass
+- Comment "/review" as the last time, and review the automated comments afterwards (takes 2-3 minutes)
