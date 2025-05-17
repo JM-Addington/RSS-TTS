@@ -1,3 +1,9 @@
+Use as many subtasks as you can.
+
+Work as independently as possible, this project is 100% AI driven. 
+
+Remember to use TDD.         
+
 ## Documentation
 
 You should always read these other files in the repo:
