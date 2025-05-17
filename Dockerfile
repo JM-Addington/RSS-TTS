@@ -1,18 +1,21 @@
 # Use official Python runtime as a parent image
 FROM python:3.12-slim
 
+# Set build arguments with defaults
+ARG DJANGO_DEBUG=False
+ARG DJANGO_SECRET_KEY=placeholder-replaced-at-runtime
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    DJANGO_SECRET_KEY=dev-secret-key \
-    DJANGO_DEBUG=True
+    DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY} \
+    DJANGO_DEBUG=${DJANGO_DEBUG}
 
 # Set work directory
 WORKDIR /app
 
 # Install dependencies
-COPY requirements.txt requirements-test.txt ./
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir celery
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt celery
 
 # Copy project files
 COPY . .
