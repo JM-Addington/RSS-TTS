@@ -13,6 +13,8 @@ For more details, see [PROJECT_PLAN.md](PROJECT_PLAN.md).
 
 ## Setup
 
+### Local Development
+
 Install dependencies in a virtual environment:
 
 ```bash
@@ -26,6 +28,31 @@ Run the development server:
 ```bash
 python manage.py runserver
 ```
+
+### Docker Development
+
+We use Docker Compose for local development to ensure consistency across environments:
+
+```bash
+# Build and start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop all services
+docker-compose down
+```
+
+### GitHub Codespaces
+
+This project is configured to work with GitHub Codespaces:
+
+1. In GitHub, click the "Code" button on the repository
+2. Select the "Codespaces" tab
+3. Click "Create codespace on main"
+
+The Codespace will automatically build the Docker environment and provide a full development setup with all dependencies installed.
 
 ## Development
 
