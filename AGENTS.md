@@ -1,0 +1,61 @@
+## Test driven development
+
+You should write tests for your code before you write the code itself. This is called test driven development (TDD). TDD is a software development process that relies on the repetition of a very short development cycle: write a failing automated test case that defines a desired improvement or new function, produce the minimum amount of code to pass that test, and refactor the code to pass all tests. The cycle is repeated for each new feature or improvement.
+
+## Branches
+
+`main` is production code. It should always be in a working state. You should never commit code directly to `main`. Instead, you should create a new branch for each new feature or improvement you are working on. The branch name should be descriptive and follow the format `feature/description` or `bugfix/description`. For example, if you are working on a new feature that adds a new agent, you might name your branch `feature/add-new-agent`.
+
+
+Dev branches are `dev/main` which is the main development branch. It should usually be in a working state. Typically, you will squash commit bugfix and feature branches into `dev/main` before merging them into `main`. You should rarely commit code directly to `dev/main`, but you can as needed.
+
+PR branches are `pr/description` which are branches that are created for pull requests. They should be used to review code before it is merged into `dev/main` or `main`.
+
+By the time you are ready to merge your code into `main`, you should have a working version of your code that has been tested and reviewed, and the final PR is just a final safety check.
+
+## Commit messages
+
+You should write clear and descriptive commit messages. A good commit message should explain what the commit does and why it is necessary. It should be written in the imperative mood, as if you are giving a command. For example, instead of writing "fixed a bug", you should write "fix bug".
+
+Use semantic commit messages. Semantic commit messages are a convention for writing commit messages that convey the meaning of the changes made in the commit. They are structured in a way that makes it easy to understand what the commit does and why it is necessary.
+
+Here are some examples of semantic commit messages for this project:
+
+*   `feat: Implement user authentication` - This commit adds user authentication functionality to the project.
+*   `fix: Resolve issue with TTS API integration` - This commit fixes an issue with the TTS API integration that was causing errors.
+*   `refactor: Improve code structure for article processing` - This commit refactors the code structure for article processing to improve readability and maintainability.
+
+## Pep8
+
+You should follow the PEP 8 style guide for Python code. PEP 8 is the style guide for Python code. It is a set of recommendations for writing Python code that is readable and consistent. It covers topics such as naming conventions, indentation, line length, and whitespace. You can find the full PEP 8 style guide at https://www.python.org/dev/peps/pep-0008/.
+
+You should use Autopep8 to automatically format your code. Autopep8 is a tool that automatically formats Python code to conform to the PEP 8 style guide. You should add it to your pre-commit hooks so that it runs automatically before you commit your code.
+
+## Project Information
+
+Here's a summary of key information from other files in the repository:
+
+### Technology Stack
+
+*   Django 5 + DRF
+*   Celery 6 + Redis
+*   PostgreSQL
+*   OpenAI TTS (`tts-1` / `gpt-4o-mini-tts`)
+*   OpenAI o3-mini & GPT-4.1 for tone/extraction
+*   Docker Compose dev/prod
+*   Bootstrap 5 for UI
+
+### Key Constraints
+
+*   URL/text length hard-cap = 30 000 words.
+*   Local storage of MP3s (no external bucket in Phase 0-2).
+*   One TTS chunk ≤ 4 096 chars.
+*   Private feeds via unguessable UUID tokens (no auth headers).
+
+## Documentation
+
+You should always read these other files in the repo:
+- README.md (if it exists)
+- CLAUDE.md (if it exists)
+- PROJECT_PLAN.md (if it exists)
+
