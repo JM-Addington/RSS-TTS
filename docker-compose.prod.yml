@@ -6,10 +6,11 @@ services:
     command: gunicorn rss_tts.wsgi:application --bind 0.0.0.0:8000
     env_file: .env
     depends_on:
-      - db
       - redis
     ports:
       - "8000:8000"
+    volumes:
+      - sqlite-data:/app/data
 
   worker:
     build: .
@@ -17,19 +18,11 @@ services:
     env_file: .env
     depends_on:
       - redis
-      - db
+    volumes:
+      - sqlite-data:/app/data
 
   redis:
     image: redis:7
 
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: rss_tts
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-
 volumes:
-  postgres-data:
+  sqlite-data:
