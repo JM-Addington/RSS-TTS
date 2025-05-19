@@ -1,6 +1,8 @@
+"""Celery configuration for the RSS-TTS project."""
+
 import os
 
-from celery import Celery
+from celery import Celery  # type: ignore
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "rss_tts.settings")
 

@@ -2,7 +2,7 @@
   "name": "RSS-TTS Development",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "web",
-  "runServices": ["web", "worker", "redis", "db"],
+  "runServices": ["web", "worker", "redis"],
   "workspaceFolder": "/app",
   "forwardPorts": [8000],
   "customizations": {
