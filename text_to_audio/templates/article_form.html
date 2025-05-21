@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Submit Article - RSS-TTS{% endblock %}
+{% block header_title %}Submit Article{% endblock %}
+
+{% block content %}
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+{% endblock %}
