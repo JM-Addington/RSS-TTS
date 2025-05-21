@@ -25,14 +25,11 @@ class TestSettingsEnvironment(unittest.TestCase):
         settings = self._import_settings()
         self.assertEqual(settings.OPENAI_API_KEY, "sample-key")
 
-    def test_database_url_parsed(self):
+    def test_sqlite_data_dir_from_env(self):
         os.environ["DJANGO_SECRET_KEY"] = "test"
-        os.environ["DATABASE_URL"] = "postgres://user:pass@localhost:5432/mydb"
+        os.environ["SQLITE_DATA_DIR"] = "custom"
         settings = self._import_settings()
         default_db = settings.DATABASES["default"]
-        self.assertEqual(default_db["ENGINE"], "django.db.backends.postgresql")
-        self.assertEqual(default_db["NAME"], "mydb")
-        self.assertEqual(default_db["USER"], "user")
-        self.assertEqual(default_db["PASSWORD"], "pass")
-        self.assertEqual(default_db["HOST"], "localhost")
-        self.assertEqual(str(default_db["PORT"]), "5432")
+        self.assertEqual(default_db["ENGINE"], "django.db.backends.sqlite3")
+        self.assertTrue(default_db["NAME"].endswith("custom/db.sqlite3"))
+
