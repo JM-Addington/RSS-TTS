@@ -118,7 +118,6 @@ class TestLoginView(TestCase):
         self.assertNotIn("_auth_user_id", self.client.session)
         self.assertContains(response, "Please enter a correct username and password")
 
-
 class TestSignUpView(TestCase):
     """Tests for the user signup view."""
 

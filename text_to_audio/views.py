@@ -1,9 +1,11 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.forms import UserCreationForm
 from django.urls import reverse_lazy
-from django.views.generic import TemplateView, CreateView
+from django.views.generic import CreateView, TemplateView
 
 from .forms import ArticleSubmissionForm
 from .models import Feed
+from .tasks import process_article
 
 
 class HomeView(TemplateView):
@@ -20,10 +22,17 @@ class ArticleCreateView(LoginRequiredMixin, CreateView):
     success_url = reverse_lazy("home")
 
     def form_valid(self, form):
-        feed, _ = Feed.objects.get_or_create(
-            user=self.request.user, name="Default"
-        )
+        feed, _ = Feed.objects.get_or_create(user=self.request.user, name="Default")
         article = form.save(commit=False)
         article.feed = feed
         article.save()
+        process_article.delay(article.id)
         return super().form_valid(form)
+
+
+class SignUpView(CreateView):
+    """View for registering a new user."""
+
+    form_class = UserCreationForm
+    template_name = "registration/signup.html"
+    success_url = reverse_lazy("login")
