@@ -11,10 +11,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "default-insecure-key-for-development")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
+DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
 
 # Optional API keys
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
@@ -69,6 +69,8 @@ WSGI_APPLICATION = "rss_tts.wsgi.application"
 db_url = os.environ.get("DATABASE_URL")
 if db_url:
     parsed = urlparse(db_url)
+    if parsed.scheme not in ("postgres", "postgresql"):
+        raise ValueError(f"Unsupported DATABASE_URL scheme: {parsed.scheme}")
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -76,14 +78,14 @@ if db_url:
             "USER": parsed.username,
             "PASSWORD": parsed.password,
             "HOST": parsed.hostname,
-            "PORT": parsed.port or "",
+            "PORT": str(parsed.port) if parsed.port else "",
         }
     }
 else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            "NAME": str(BASE_DIR / "db.sqlite3"),  # Convert Path to str to fix type error
         }
     }
 
