@@ -1,6 +1,13 @@
 name: 20 - Test
 
 on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or tag to run workflow on'
+        required: false
+        default: ''
+        type: string
   push:
     branches:
       - main
@@ -27,6 +34,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || (github.event_name == 'pull_request' && github.head_ref) || github.ref }}
       
       - name: Set up Python
         uses: actions/setup-python@v4
