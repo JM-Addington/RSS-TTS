@@ -1,4 +1,5 @@
 """Tests that verify the project structure and required files exist."""
+
 import os
 import unittest
 
@@ -50,8 +51,9 @@ class TestProjectStructure(unittest.TestCase):
         """Ensure docker-compose.yml does not define an external redis service."""
         with open("docker-compose.yml", "r", encoding="utf-8") as f:
             compose_content = f.read()
-            
+
         import yaml
+
         compose_data = yaml.safe_load(compose_content)
         self.assertNotIn("redis", compose_data.get("services", {}))
 

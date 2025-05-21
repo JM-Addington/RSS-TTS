@@ -9,4 +9,3 @@ class ArticleSubmissionForm(forms.ModelForm):
     class Meta:
         model = Article
         fields = ["title", "source_url", "text_content"]
-

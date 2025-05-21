@@ -6,78 +6,65 @@ from django.db import models
 
 class Feed(models.Model):
     """Model representing a user's collection of articles (podcast feed)."""
-    
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="feeds",
         null=False,
         blank=False,
-        help_text="The user who owns this feed."
+        help_text="The user who owns this feed.",
     )
     name = models.CharField(
-        max_length=100,
-        null=False,
-        blank=False,
-        help_text="The name of the feed."
+        max_length=100, null=False, blank=False, help_text="The name of the feed."
     )
     token = models.UUIDField(
         default=uuid.uuid4,
         unique=True,
         null=False,
         blank=False,
-        help_text="Unique token for accessing the feed."
+        help_text="Unique token for accessing the feed.",
     )
     created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="When the feed was created."
+        auto_now_add=True, help_text="When the feed was created."
     )
-    
+
     def __str__(self):
         return self.name
 
 
 class Article(models.Model):
     """Model representing an article that has been converted to audio."""
-    
+
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
-    
+
     STATUS_CHOICES = [
         (PROCESSING, "Processing"),
         (COMPLETED, "Completed"),
         (FAILED, "Failed"),
     ]
-    
+
     feed = models.ForeignKey(
         Feed,
         on_delete=models.CASCADE,
         related_name="articles",
         null=False,
         blank=False,
-        help_text="The feed this article belongs to."
+        help_text="The feed this article belongs to.",
     )
     title = models.CharField(
-        max_length=255,
-        null=False,
-        blank=False,
-        help_text="The title of the article."
+        max_length=255, null=False, blank=False, help_text="The title of the article."
     )
     source_url = models.URLField(
-        max_length=2000,
-        blank=True,
-        help_text="The URL of the source article."
+        max_length=2000, blank=True, help_text="The URL of the source article."
     )
     text_content = models.TextField(
-        null=False,
-        blank=False,
-        help_text="The text content of the article."
+        null=False, blank=False, help_text="The text content of the article."
     )
     audio_file_path = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Path to the audio file."
+        max_length=255, blank=True, help_text="Path to the audio file."
     )
     status = models.CharField(
         max_length=20,
@@ -85,12 +72,11 @@ class Article(models.Model):
         default=PROCESSING,
         null=False,
         blank=False,
-        help_text="The current status of the article."
+        help_text="The current status of the article.",
     )
     created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="When the article was created."
+        auto_now_add=True, help_text="When the article was created."
     )
-    
+
     def __str__(self):
         return self.title

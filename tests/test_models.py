@@ -17,9 +17,7 @@ class TestModels(TestCase):
     def setUp(self):
         """Set up test data."""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
 
     def test_models_file_exists(self):
@@ -32,22 +30,24 @@ class TestModels(TestCase):
         """Test that the Feed model exists and has the required fields."""
         try:
             from text_to_audio.models import Feed
-            
+
             # Check that Feed model inherits from models.Model
             self.assertTrue(issubclass(Feed, models.Model))
-            
+
             # Check required fields
             self.assertTrue(hasattr(Feed, "user"))
             self.assertTrue(hasattr(Feed, "name"))
             self.assertTrue(hasattr(Feed, "token"))
             self.assertTrue(hasattr(Feed, "created_at"))
-            
+
             # Check field types
             self.assertIsInstance(Feed._meta.get_field("user"), models.ForeignKey)
             self.assertIsInstance(Feed._meta.get_field("name"), models.CharField)
             self.assertIsInstance(Feed._meta.get_field("token"), models.UUIDField)
-            self.assertIsInstance(Feed._meta.get_field("created_at"), models.DateTimeField)
-            
+            self.assertIsInstance(
+                Feed._meta.get_field("created_at"), models.DateTimeField
+            )
+
             # Check field attributes
             self.assertEqual(Feed._meta.get_field("user").related_model, User)
             self.assertEqual(Feed._meta.get_field("name").max_length, 100)
@@ -60,10 +60,10 @@ class TestModels(TestCase):
         """Test that the Article model exists and has the required fields."""
         try:
             from text_to_audio.models import Article, Feed
-            
+
             # Check that Article model inherits from models.Model
             self.assertTrue(issubclass(Article, models.Model))
-            
+
             # Check required fields
             self.assertTrue(hasattr(Article, "feed"))
             self.assertTrue(hasattr(Article, "title"))
@@ -72,22 +72,30 @@ class TestModels(TestCase):
             self.assertTrue(hasattr(Article, "audio_file_path"))
             self.assertTrue(hasattr(Article, "status"))
             self.assertTrue(hasattr(Article, "created_at"))
-            
+
             # Check field types
             self.assertIsInstance(Article._meta.get_field("feed"), models.ForeignKey)
             self.assertIsInstance(Article._meta.get_field("title"), models.CharField)
-            self.assertIsInstance(Article._meta.get_field("source_url"), models.URLField)
-            self.assertIsInstance(Article._meta.get_field("text_content"), models.TextField)
-            self.assertIsInstance(Article._meta.get_field("audio_file_path"), models.CharField)
+            self.assertIsInstance(
+                Article._meta.get_field("source_url"), models.URLField
+            )
+            self.assertIsInstance(
+                Article._meta.get_field("text_content"), models.TextField
+            )
+            self.assertIsInstance(
+                Article._meta.get_field("audio_file_path"), models.CharField
+            )
             self.assertIsInstance(Article._meta.get_field("status"), models.CharField)
-            self.assertIsInstance(Article._meta.get_field("created_at"), models.DateTimeField)
-            
+            self.assertIsInstance(
+                Article._meta.get_field("created_at"), models.DateTimeField
+            )
+
             # Check field attributes
             self.assertEqual(Article._meta.get_field("feed").related_model, Feed)
             self.assertEqual(Article._meta.get_field("title").max_length, 255)
             self.assertEqual(Article._meta.get_field("audio_file_path").max_length, 255)
             self.assertTrue(Article._meta.get_field("created_at").auto_now_add)
-            
+
             # Check status choices
             self.assertTrue(hasattr(Article, "STATUS_CHOICES"))
             self.assertIn(("PROCESSING", "Processing"), Article.STATUS_CHOICES)
@@ -100,11 +108,8 @@ class TestModels(TestCase):
         """Test the Feed model's __str__ method."""
         try:
             from text_to_audio.models import Feed
-            
-            feed = Feed.objects.create(
-                user=self.user,
-                name="Test Feed"
-            )
+
+            feed = Feed.objects.create(user=self.user, name="Test Feed")
             self.assertEqual(str(feed), "Test Feed")
         except ImportError:
             self.fail("Feed model does not exist in text_to_audio.models")
@@ -112,19 +117,16 @@ class TestModels(TestCase):
     def test_article_str_method(self):
         """Test the Article model's __str__ method."""
         try:
-            from text_to_audio.models import Feed, Article
-            
-            feed = Feed.objects.create(
-                user=self.user,
-                name="Test Feed"
-            )
+            from text_to_audio.models import Article, Feed
+
+            feed = Feed.objects.create(user=self.user, name="Test Feed")
             article = Article.objects.create(
                 feed=feed,
                 title="Test Article",
                 source_url="https://example.com",
                 text_content="Test content",
                 audio_file_path="",
-                status="PROCESSING"
+                status="PROCESSING",
             )
             self.assertEqual(str(article), "Test Article")
         except ImportError:

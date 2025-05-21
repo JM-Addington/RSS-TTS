@@ -1,4 +1,5 @@
 """Tests for the Dockerfile configuration."""
+
 import os
 import unittest
 
@@ -38,7 +39,9 @@ class TestDockerfile(unittest.TestCase):
             self.skipTest("requirements.txt missing")
         with open(requirements_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("celery", content.lower(), "requirements.txt should include Celery")
+        self.assertIn(
+            "celery", content.lower(), "requirements.txt should include Celery"
+        )
 
     def test_install_redis(self):
         """Verify redis-server is installed in the Dockerfile."""
