@@ -35,7 +35,7 @@
 * **Phase 1** covers Stories 1, 4, 7, 8, 9 (core loop, single default feed).
 * **Phase 2** adds Stories 2, 3, 5, 6 (tone/speed, multiple feeds, analytics).
 
-Group each story in GitHub **Projects** as cards under the matching Phase milestone, and break them into the finer tasks you already listed (e.g., Celery task, feed endpoint, UI form).
+Break each story into finer tasks (e.g., Celery task, feed endpoint, UI form) and group them by Phase milestones.
 
 With this overview and backlog, the roadmap is now fully self-contained for a two-developer team.
 

@@ -25,11 +25,17 @@ Here are some examples of semantic commit messages for this project:
 *   `fix: Resolve issue with TTS API integration` - This commit fixes an issue with the TTS API integration that was causing errors.
 *   `refactor: Improve code structure for article processing` - This commit refactors the code structure for article processing to improve readability and maintainability.
 
-## Pep8
+## Coding Standards
 
-You should follow the PEP 8 style guide for Python code. PEP 8 is the style guide for Python code. It is a set of recommendations for writing Python code that is readable and consistent. It covers topics such as naming conventions, indentation, line length, and whitespace. You can find the full PEP 8 style guide at https://www.python.org/dev/peps/pep-0008/.
+Please follow our project's detailed coding standards documented in [CODING_STANDARDS.md](CODING_STANDARDS.md). This includes:
 
-You should use Autopep8 to automatically format your code. Autopep8 is a tool that automatically formats Python code to conform to the PEP 8 style guide. You should add it to your pre-commit hooks so that it runs automatically before you commit your code.
+- Python style guide (PEP 8)
+- Django best practices
+- Documentation requirements
+- Testing approach
+- Code quality tools configuration
+
+We use pre-commit hooks to enforce these standards. Set them up using the instructions in the README.md file.
 
 ## Project Information
 
@@ -58,4 +64,4 @@ You should always read these other files in the repo:
 - README.md (if it exists)
 - CLAUDE.md (if it exists)
 - PROJECT_PLAN.md (if it exists)
-
+- CODING_STANDARDS.md (if it exists)
