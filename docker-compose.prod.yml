@@ -6,23 +6,42 @@ services:
     command: gunicorn rss_tts.wsgi:application --bind 0.0.0.0:8000
     env_file: .env
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     ports:
       - "8000:8000"
     volumes:
       - sqlite-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   worker:
     build: .
     command: celery -A rss_tts worker --loglevel=info
     env_file: .env
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     volumes:
       - sqlite-data:/app/data
+    healthcheck:
+      test: ["CMD", "celery", "-A", "rss_tts", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   redis:
     image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
 
 volumes:
   sqlite-data:
