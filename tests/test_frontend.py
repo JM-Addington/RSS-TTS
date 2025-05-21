@@ -72,3 +72,29 @@ class TestLogoutView(TestCase):
         response = self.client.post("/accounts/logout/")
         self.assertEqual(response.status_code, 302)
         self.assertNotIn("_auth_user_id", self.client.session)
+
+
+class TestSignUpView(TestCase):
+    """Tests for the user signup view."""
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_signup_page_renders(self):
+        response = self.client.get("/accounts/signup/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "registration/signup.html")
+
+    def test_post_creates_user(self):
+        response = self.client.post(
+            "/accounts/signup/",
+            {
+                "username": "newuser",
+                "password1": "ComplexPass123",
+                "password2": "ComplexPass123",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])
+        User = get_user_model()
+        self.assertTrue(User.objects.filter(username="newuser").exists())
