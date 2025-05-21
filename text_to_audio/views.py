@@ -1,4 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.forms import UserCreationForm
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, CreateView
 
@@ -27,3 +28,11 @@ class ArticleCreateView(LoginRequiredMixin, CreateView):
         article.feed = feed
         article.save()
         return super().form_valid(form)
+
+
+class SignUpView(CreateView):
+    """View for registering a new user."""
+
+    form_class = UserCreationForm
+    template_name = "registration/signup.html"
+    success_url = reverse_lazy("login")
