@@ -1,0 +1,112 @@
+{
+  "numStartups": 1,
+  "customApiKeyResponses": {
+    "approved": [
+      "is8ly069SyA-LfavbAAA"
+    ],
+    "rejected": []
+  },
+  "tipsHistory": {
+    "new-user-warmup": 1
+  },
+  "promptQueueUseCount": 1,
+  "firstStartTime": "2025-05-21T15:41:49.064Z",
+  "userID": "2be42202413e6d7e0b4add082bffd322befc857cb79eb05357f6216886e0dfbc",
+  "statsigModel": {
+    "bedrock": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+    "vertex": "claude-3-7-sonnet@20250219",
+    "firstParty": "claude-3-7-sonnet-20250219"
+  },
+  "oauthAccount": {
+    "accountUuid": "9b43ad5d-52a3-4402-a2fb-9fa259d79f8b",
+    "emailAddress": "jonathan.addington@jmaddington.com",
+    "organizationUuid": "bc453021-e4c4-48d5-8bce-74f0086ea405",
+    "organizationRole": "admin",
+    "workspaceRole": "workspace_developer",
+    "organizationName": "JM Addington Technology Solutions"
+  },
+  "isQualifiedForDataSharing": false,
+  "claudeMaxTier": "not_max",
+  "shiftEnterKeyBindingInstalled": true,
+  "projects": {
+    "/Users/jonathanaddington/Dev/RSS-TTS": {
+      "allowedTools": [],
+      "history": [
+        {
+          "display": "ok, let's keep working!",
+          "pastedContents": {}
+        },
+        {
+          "display": "push changes, then tell me what the next thing we need to do on this task is",
+          "pastedContents": {}
+        },
+        {
+          "display": "ok, we need to remove .claude/config.json",
+          "pastedContents": {}
+        },
+        {
+          "display": "this needs to be removed from git: /Users/jonathanaddington/Dev/RSS-TTS/.claude/projects/-Users-jonathanaddington-Dev-RSS-TTS/01118bd0-5c7b-40ff-b323-b1b357ce172c.jsonl",
+          "pastedContents": {}
+        },
+        {
+          "display": "we should remove the .claude directory from git",
+          "pastedContents": {}
+        },
+        {
+          "display": "checkout dev/main instead",
+          "pastedContents": {}
+        },
+        {
+          "display": "please merge PRs 18 and 19",
+          "pastedContents": {}
+        },
+        {
+          "display": "/clear ",
+          "pastedContents": {}
+        },
+        {
+          "display": "can I merge and close those PRs?",
+          "pastedContents": {}
+        },
+        {
+          "display": "add a workflow_dispatch trigger to the qodo workflow",
+          "pastedContents": {}
+        },
+        {
+          "display": "please resolve the issues in #18 and #19",
+          "pastedContents": {}
+        },
+        {
+          "display": "please review each open PR on github, see which can be merged and tell me. If any should just be closed, please tell me.",
+          "pastedContents": {}
+        }
+      ],
+      "dontCrawlDirectory": false,
+      "mcpContextUris": [],
+      "mcpServers": {},
+      "enabledMcpjsonServers": [],
+      "disabledMcpjsonServers": [],
+      "enableAllProjectMcpServers": false,
+      "hasTrustDialogAccepted": true,
+      "ignorePatterns": [],
+      "projectOnboardingSeenCount": 0,
+      "hasClaudeMdExternalIncludesApproved": false,
+      "hasClaudeMdExternalIncludesWarningShown": false,
+      "hasCompletedProjectOnboarding": true,
+      "exampleFiles": [
+        "text_to_audio/models.py",
+        "rss_tts/settings.py",
+        "rss_tts/urls.py",
+        "README.md",
+        "tests/test_project_structure.py"
+      ],
+      "exampleFilesGeneratedAt": 1747842124282
+    }
+  },
+  "hasCompletedOnboarding": true,
+  "lastOnboardingVersion": "0.2.124",
+  "cachedChangelog": "# Changelog\n\n## 0.2.117\n\n- Breaking change: --print JSON output now returns nested message objects, for forwards-compatability as we introduce new metadata fields\n- Introduced settings.cleanupPeriodDays\n- Introduced CLAUDE_CODE_API_KEY_HELPER_TTL_MS env var\n- Introduced --debug mode\n\n## 0.2.108\n\n- You can now send messages to Claude while it works to steer Claude in real-time\n- Introduced BASH_DEFAULT_TIMEOUT_MS and BASH_MAX_TIMEOUT_MS env vars\n- Fixed a bug where thinking was not working in -p mode\n- Fixed a regression in /cost reporting\n- Deprecated MCP wizard interface in favor of other MCP commands\n- Lots of other bugfixes and improvements\n\n## 0.2.107\n\n- CLAUDE.md files can now import other files. Add @path/to/file.md to ./CLAUDE.md to load additional files on launch\n\n## 0.2.106\n\n- MCP SSE server configs can now specify custom headers\n- Fixed a bug where MCP permission prompt didn't always show correctly\n\n## 0.2.105\n\n- Claude can now search the web\n- Moved system & account status to /status\n- Added word movement keybindings for Vim\n- Improved latency for startup, todo tool, and file edits\n\n## 0.2.102\n\n- Improved thinking triggering reliability\n- Improved @mention reliability for images and folders\n- You can now paste multiple large chunks into one prompt\n\n## 0.2.100\n\n- Fixed a crash caused by a stack overflow error\n- Made db storage optional; missing db support disables --continue and --resume\n\n## 0.2.98\n\n- Fixed an issue where auto-compact was running twice\n\n## 0.2.96\n\n- Claude Code can now also be used with a Claude Max subscription (https://claude.ai/upgrade)\n\n## 0.2.93\n\n- Resume conversations from where you left off from with \"claude --continue\" and \"claude --resume\"\n- Claude now has access to a Todo list that helps it stay on track and be more organized\n\n## 0.2.82\n\n- Added support for --disallowedTools\n- Renamed tools for consistency: LSTool -> LS, View -> Read, etc.\n\n## 0.2.75\n\n- Hit Enter to queue up additional messages while Claude is working\n- Drag in or copy/paste image files directly into the prompt\n- @-mention files to directly add them to context\n- Run one-off MCP servers with `claude --mcp-config <path-to-file>`\n- Improved performance for filename auto-complete\n\n## 0.2.74\n\n- Added support for refreshing dynamically generated API keys (via apiKeyHelper), with a 5 minute TTL\n- Task tool can now perform writes and run bash commands\n\n## 0.2.72\n\n- Updated spinner to indicate tokens loaded and tool usage\n\n## 0.2.70\n\n- Network commands like curl are now available for Claude to use\n- Claude can now run multiple web queries in parallel\n- Pressing ESC once immediately interrupts Claude in Auto-accept mode\n\n## 0.2.69\n\n- Fixed UI glitches with improved Select component behavior\n- Enhanced terminal output display with better text truncation logic\n\n## 0.2.67\n\n- Shared project permission rules can be saved in .claude/settings.json\n\n## 0.2.66\n\n- Print mode (-p) now supports streaming output via --output-format=stream-json\n- Fixed issue where pasting could trigger memory or bash mode unexpectedly\n\n## 0.2.63\n\n- Fixed an issue where MCP tools were loaded twice, which caused tool call errors\n\n## 0.2.61\n\n- Navigate menus with vim-style keys (j/k) or bash/emacs shortcuts (Ctrl+n/p) for faster interaction\n- Enhanced image detection for more reliable clipboard paste functionality\n- Fixed an issue where ESC key could crash the conversation history selector\n\n## 0.2.59\n\n- Copy+paste images directly into your prompt\n- Improved progress indicators for bash and fetch tools\n- Bugfixes for non-interactive mode (-p)\n\n## 0.2.54\n\n- Quickly add to Memory by starting your message with '#'\n- Press ctrl+r to see full output for long tool results\n- Added support for MCP SSE transport\n\n## 0.2.53\n\n- New web fetch tool lets Claude view URLs that you paste in\n- Fixed a bug with JPEG detection\n\n## 0.2.50\n\n- New MCP \"project\" scope now allows you to add MCP servers to .mcp.json files and commit them to your repository\n\n## 0.2.49\n\n- Previous MCP server scopes have been renamed: previous \"project\" scope is now \"local\" and \"global\" scope is now \"user\"\n\n## 0.2.47\n\n- Press Tab to auto-complete file and folder names\n- Press Shift + Tab to toggle auto-accept for file edits\n- Automatic conversation compaction for infinite conversation length (toggle with /config)\n\n## 0.2.44\n\n- Ask Claude to make a plan with thinking mode: just say 'think' or 'think harder' or even 'ultrathink'\n\n## 0.2.41\n\n- MCP server startup timeout can now be configured via MCP_TIMEOUT environment variable\n- MCP server startup no longer blocks the app from starting up\n\n## 0.2.37\n\n- New /release-notes command lets you view release notes at any time\n- `claude config add/remove` commands now accept multiple values separated by commas or spaces\n\n## 0.2.36\n\n- Import MCP servers from Claude Desktop with `claude mcp add-from-claude-desktop`\n- Add MCP servers as JSON strings with `claude mcp add-json <n> <json>`\n\n## 0.2.34\n\n- Vim bindings for text input - enable with /vim or /config\n\n## 0.2.32\n\n- Interactive MCP setup wizard: Run \"claude mcp add\" to add MCP servers with a step-by-step interface\n- Fix for some PersistentShell issues\n\n## 0.2.31\n\n- Custom slash commands: Markdown files in .claude/commands/ directories now appear as custom slash commands to insert prompts into your conversation\n- MCP debug mode: Run with --mcp-debug flag to get more information about MCP server errors\n\n## 0.2.30\n\n- Added ANSI color theme for better terminal compatibility\n- Fixed issue where slash command arguments weren't being sent properly\n- (Mac-only) API keys are now stored in macOS Keychain\n\n## 0.2.26\n\n- New /approved-tools command for managing tool permissions\n- Word-level diff display for improved code readability\n- Fuzzy matching for slash commands\n\n## 0.2.21\n\n- Fuzzy matching for /commands\n",
+  "changelogLastFetched": 1747842123021,
+  "maxSubscriptionNoticeCount": 0,
+  "hasAvailableMaxSubscription": false
+}
