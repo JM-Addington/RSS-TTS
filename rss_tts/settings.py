@@ -66,6 +66,7 @@ WSGI_APPLICATION = "rss_tts.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# Support for PostgreSQL via DATABASE_URL or SQLite
 db_url = os.environ.get("DATABASE_URL")
 if db_url:
     parsed = urlparse(db_url)
@@ -82,12 +83,18 @@ if db_url:
         }
     }
 else:
+    # Using SQLite for simplicity and lighter footprint
+    data_dir = os.environ.get("SQLITE_DATA_DIR", "")
+    db_path = os.path.join(data_dir, "db.sqlite3") if data_dir else "db.sqlite3"
+    
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": str(BASE_DIR / "db.sqlite3"),  # Convert Path to str to fix type error
+            "NAME": str(BASE_DIR / db_path),  # Convert Path to str to fix type error
         }
     }
+
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

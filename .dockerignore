@@ -1,0 +1,43 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Environment and local config
+.env
+.env.*
+!.env.sample
+.venv
+.python-version
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Developer tools
+.idea
+.vscode
+.devcontainer
+.coverage
+.mypy_cache
+.pytest_cache
+htmlcov/
+
+# Build artifacts
+*.log
+*.pot
+*.pyc
+db.sqlite3*
+local_settings.py
+
+# Docker
+Dockerfile
+docker-compose*
+.dockerignore
+
+# Documentation
+*.md
+LICENSE
+
+# Temp files
+tmp/
+.DS_Store

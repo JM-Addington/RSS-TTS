@@ -6,3 +6,5 @@ flake8>=6.1.0
 mypy>=1.5.1
 django-stubs>=4.2.3
 djangorestframework-stubs>=3.14.2
+types-redis>=4.6.0
+# No official type stubs for celery, add mypy.ini config instead
