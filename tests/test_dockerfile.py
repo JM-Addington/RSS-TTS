@@ -37,6 +37,14 @@ class TestDockerfile(unittest.TestCase):
             content = f.read()
         self.assertIn("celery", content.lower(), "Dockerfile should install Celery")
 
+    def test_install_redis(self):
+        """Verify redis-server is installed in the Dockerfile."""
+        if not os.path.isfile(self.dockerfile_path):
+            self.skipTest("Dockerfile missing")
+        with open(self.dockerfile_path, "r", encoding="utf-8") as f:
+            content = f.read().lower()
+        self.assertIn("redis-server", content, "Dockerfile should install redis-server")
+
     def test_expose_port(self):
         """Verify port 8000 is exposed in the Dockerfile."""
         if not os.path.isfile(self.dockerfile_path):
