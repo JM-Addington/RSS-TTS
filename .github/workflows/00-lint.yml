@@ -31,15 +31,17 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    needs: [check_comment]
-    if: github.event_name != 'issue_comment' || needs.check_comment.outputs.should_run == 'true'
+    needs: ${{ github.event_name == 'issue_comment' && fromJSON('["check_comment"]') || fromJSON('[]') }}
+    if: |
+      (github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/test'))
     permissions:
       contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref || (github.event_name == 'pull_request' && github.head_ref) || (github.event_name == 'issue_comment' && format('refs/pull/{0}/head', needs.check_comment.outputs.pr_number)) || github.ref }}
+          ref: ${{ github.event.inputs.ref || (github.event_name == 'pull_request' && github.head_ref) || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test') && format('refs/pull/{0}/head', github.event.issue.number)) || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python

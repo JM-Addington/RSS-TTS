@@ -9,7 +9,7 @@ services:
       - sqlite-data:/app/data
       - redis-data:/data/redis
     ports:
-      - "8000:8000"
+      - "8084:8000"
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
