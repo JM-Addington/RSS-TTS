@@ -42,8 +42,18 @@ class TestProjectStructure(unittest.TestCase):
             data = json.load(f)
 
         self.assertIn("runServices", data)
-        # Ensure db service is not required in services list
-        self.assertIn("redis", data["runServices"])
+        # Redis should now run inside a service container, so it is not a
+        # separate service in runServices
+        self.assertNotIn("redis", data["runServices"])
+
+    def test_docker_compose_has_no_redis_service(self):
+        """Ensure docker-compose.yml does not define an external redis service."""
+        with open("docker-compose.yml", "r", encoding="utf-8") as f:
+            compose_content = f.read()
+            
+        import yaml
+        compose_data = yaml.safe_load(compose_content)
+        self.assertNotIn("redis", compose_data.get("services", {}))
 
 
 if __name__ == "__main__":
