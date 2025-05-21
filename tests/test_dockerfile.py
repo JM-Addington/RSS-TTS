@@ -30,12 +30,15 @@ class TestDockerfile(unittest.TestCase):
         )
 
     def test_install_celery(self):
-        """Verify Celery is installed in the Dockerfile."""
-        if not os.path.isfile(self.dockerfile_path):
-            self.skipTest("Dockerfile missing")
-        with open(self.dockerfile_path, "r", encoding="utf-8") as f:
+        """Verify Celery is installed in the requirements.txt file."""
+        requirements_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "requirements.txt"
+        )
+        if not os.path.isfile(requirements_path):
+            self.skipTest("requirements.txt missing")
+        with open(requirements_path, "r", encoding="utf-8") as f:
             content = f.read()
-        self.assertIn("celery", content.lower(), "Dockerfile should install Celery")
+        self.assertIn("celery", content.lower(), "requirements.txt should include Celery")
 
     def test_install_redis(self):
         """Verify redis-server is installed in the Dockerfile."""
