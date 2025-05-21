@@ -16,7 +16,7 @@ WORKDIR /app
 # Install dependencies
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-# Install Celery (pulled from requirements.txt)
+# Celery is included in requirements.txt and installed above
 
 # Copy project files
 COPY . .
