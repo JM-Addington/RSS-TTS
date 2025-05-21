@@ -65,7 +65,7 @@ This roadmap outlines a **phase-wise development plan** for a Django application
 
   * **Start Django Project:** Create the project `rss_tts` with a core Django app `text_to_audio` for our functionality. Add this app to `INSTALLED_APPS`. *(Est.: 0.5 day)* ✅
   * **User Authentication Setup:** Enable Django's built-in auth system. Using default Django User model. *(Est.: 0.5 day)* ✅
-  * **Bootstrap Frontend Integration:** Not yet implemented. *(Est.: 0.5 day)* ⏳
+  * **Bootstrap Frontend Integration:** Base template with partials implemented. Added home view. *(Est.: 0.5 day)* ✅
   * **Initial GitHub Issues & Milestone:** Not yet implemented. *(Est.: 0.5 day)* ⏳
 
 **Phase 0 Parallelization:** Developer 1 has focused on **Docker and infrastructure** (Dockerfiles, docker-compose) while Developer 2 has **scaffolded the Django project** (startproject, models, admin). The core infrastructure is in place, with comprehensive testing for models and Docker setup.
@@ -79,10 +79,10 @@ This roadmap outlines a **phase-wise development plan** for a Django application
 - ✅ Feed and Article models created with proper relationships, including UUID tokens for private feed URLs
 - ✅ Django admin interface configured for both models
 - ✅ Celery configuration set up with Redis broker
+- ✅ Basic frontend UI with Bootstrap templates implemented
 - ⏳ User registration and login views not implemented
 - ⏳ Article submission and processing not implemented
 - ⏳ RSS feed generation not implemented
-- ⏳ Frontend UI not implemented
 
 ### Epic 1.1: User Accounts & Feed Models
 
@@ -140,8 +140,8 @@ This roadmap outlines a **phase-wise development plan** for a Django application
 * **Submit Form UI:** Integrate the submission form (from Epic 1.2) into the dashboard page or a separate page. Use proper Bootstrap form styling. After submission, show a message like "Your article is being processed" and redirect back to the dashboard where the new article appears with status. *(Est.: 0.5 day)* ⏳
 * **Feed Info Display:** On the dashboard (or a profile page), display the user's private RSS feed URL along with a copy button and a warning to keep it secret. Provide a short explanation for how to use the URL in podcast apps. *(Est.: 0.5 day)* ⏳
 * **Status Updates:** Use simple polling or page refresh to update article status, or encourage user to refresh. (Real-time updates with WebSocket can be a future improvement but not in MVP.) Ensure that when an article's status changes to Completed, the page shows a link to the MP3 (so user can test listen) and it will automatically appear in their RSS feed. *(Est.: 0.5 day)* ⏳
-* **Basic Styling & Usability:** Apply Bootstrap classes to make the UI clean. Navigation bar with app name, and a logout button. Ensure pages are mobile-friendly (Bootstrap's responsive grid). *(Est.: 0.5 day)* ⏳
-* **Testing & QA:** Unit tests for models and project structure have been implemented. End-to-end testing will be done once more components are in place. *(Est.: 1 day)* 🟡
+* **Basic Styling & Usability:** Apply Bootstrap classes to make the UI clean. Navigation bar with app name, and a logout button. Ensure pages are mobile-friendly (Bootstrap's responsive grid). *(Est.: 0.5 day)* ✅
+* **Testing & QA:** Unit tests for models and project structure have been implemented. Frontend template tests have been added. End-to-end testing will be done once more components are in place. *(Est.: 1 day)* 🟡
 
 **Phase 1 Parallelization:** Developer 1 can concentrate on **backend tasks** (Celery task, integration with OpenAI API, models, feed generation) while Developer 2 works on the **frontend and user-facing features** (auth pages, dashboard, forms, feed display). Key integration points: the submission form triggering the Celery task, and the RSS feed consuming the output. To manage this, ensure early on that Developer 1 defines the interface for creating an Article and launching the Celery task (so Developer 2 can call it from the form handler). In parallel, Developer 2 can build the UI using dummy data until the real data flows in. Midway through Phase 1, have an integration session where both parts come together: hooking the form view to actually call the Celery task, and verifying the end-to-end flow (this might require both devs to pair program briefly). After integration, tasks like testing, bug-fixing, and feed validation can be shared. The team should aim to close all Phase 1 GitHub issues before considering Phase 2.
 
