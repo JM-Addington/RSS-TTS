@@ -10,6 +10,7 @@ This project converts web articles and text into audio files using Django and Dj
 | **Technology Stack** | Django 5 + DRF • Celery 6 + Redis • SQLite • OpenAI TTS • Bootstrap 5 for UI. |
 
 For more details, see [PROJECT_PLAN.md](PROJECT_PLAN.md).
+Each user manages one or more **Feeds**. A feed groups a user's converted articles and is accessed via a unique token-based URL, e.g. `/feeds/<feed_token>/`. The token is generated using UUID4 when the feed is created so the RSS feed remains private.
 
 ## Setup
 
@@ -75,7 +76,6 @@ services:
     volumes:
       - ./redis-data:/data/redis
 ```
-
 
 ### Environment Configuration
 
