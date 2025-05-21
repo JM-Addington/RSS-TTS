@@ -74,9 +74,9 @@ This roadmap outlines a **phase-wise development plan** for a Django application
 
 *Milestone Goal:* Deliver a Minimum Viable Product where users can log in, submit a URL or text, have it converted to an MP3 via OpenAI's TTS, and access their audio via a private RSS feed. This includes the core pipeline (URL -> text -> speech), background processing with Celery, and basic UI. *(Estimated time: \~2–3 weeks for 2 developers.)*
 
-**Current Status:** Phase 1 is partially implemented. The data models (Feed and Article) have been created and the Django admin interface is configured, but the views, forms, and core functionality (text extraction, TTS conversion, RSS feed generation) are still pending implementation. Key components:
+**Current Status:** Phase 1 is partially implemented. The data models (Feed and Article) have been created with automatic UUID tokens for each Feed and the Django admin interface is configured, but the views, forms, and core functionality (text extraction, TTS conversion, RSS feed generation) are still pending implementation. Key components:
 
-- ✅ Feed and Article models created with proper relationships
+- ✅ Feed and Article models created with proper relationships, including UUID tokens for private feed URLs
 - ✅ Django admin interface configured for both models
 - ✅ Celery configuration set up with Redis broker
 - ⏳ User registration and login views not implemented
