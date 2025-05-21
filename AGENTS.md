@@ -45,7 +45,7 @@ Here's a summary of key information from other files in the repository:
 
 *   Django 5 + DRF
 *   Celery 6 + Redis
-*   PostgreSQL
+*   SQLite
 *   OpenAI TTS (`tts-1` / `gpt-4o-mini-tts`)
 *   OpenAI o3-mini & GPT-4.1 for tone/extraction
 *   Docker Compose dev/prod
