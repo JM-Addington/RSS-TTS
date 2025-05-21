@@ -65,6 +65,16 @@ cp .env.example .env
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
+### Environment Configuration
+
+Copy `.env.sample` to `.env` and update the values with your local secrets:
+
+```bash
+cp .env.sample .env
+```
+
+The application and Docker Compose will load environment variables from this file.
+
 ### GitHub Codespaces
 
 This project is configured to work with GitHub Codespaces:
@@ -95,7 +105,7 @@ pre-commit install
 
 ### Coding Standards
 
-We follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide for Python code. See [CODING_STANDARDS.md](CODING_STANDARDS.md) for our complete coding guidelines.
+We follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide for Python code. All classes, methods and functions should include docstrings using the [Google Python style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings). See [CODING_STANDARDS.md](CODING_STANDARDS.md) for our complete coding guidelines.
 
 ### Branching Strategy
 
