@@ -1,4 +1,5 @@
 import os
+from unittest.mock import patch
 from django.conf import settings
 from django.test import Client, TestCase
 
@@ -50,12 +51,13 @@ class TestArticleSubmission(TestCase):
 
     def test_post_creates_article(self):
         self.client.login(username="tester", password="pass123")
-        response = self.client.post(
-            "/articles/submit/",
-            {"title": "Test", "text_content": "Hello"},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(Article.objects.filter(title="Test").exists())
+        with patch("text_to_audio.views.process_article.delay"):
+            response = self.client.post(
+                "/articles/submit/",
+                {"title": "Test", "text_content": "Hello"},
+            )
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(Article.objects.filter(title="Test").exists())
 
 
 class TestLogoutView(TestCase):
