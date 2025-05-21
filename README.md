@@ -31,10 +31,10 @@ python manage.py runserver
 
 ### Environment Configuration
 
-The project uses environment variables for configuration. Copy the sample file and adjust as needed:
+The project uses environment variables for configuration. Copy the example file and adjust as needed:
 
 ```bash
-cp .env.sample .env
+cp .env.example .env
 # Edit .env with your settings
 ```
 
@@ -59,6 +59,9 @@ docker-compose logs -f
 docker-compose down
 
 # For production
+# First, ensure you've set up your .env file with appropriate production values
+cp .env.example .env
+# Edit .env with production settings
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
