@@ -9,6 +9,7 @@
   "tipsHistory": {
     "new-user-warmup": 1
   },
+  "promptQueueUseCount": 1,
   "firstStartTime": "2025-05-21T15:41:49.064Z",
   "userID": "2be42202413e6d7e0b4add082bffd322befc857cb79eb05357f6216886e0dfbc",
   "statsigModel": {
@@ -31,6 +32,30 @@
     "/Users/jonathanaddington/Dev/RSS-TTS": {
       "allowedTools": [],
       "history": [
+        {
+          "display": "we should remove the .claude directory from git",
+          "pastedContents": {}
+        },
+        {
+          "display": "checkout dev/main instead",
+          "pastedContents": {}
+        },
+        {
+          "display": "please merge PRs 18 and 19",
+          "pastedContents": {}
+        },
+        {
+          "display": "/clear ",
+          "pastedContents": {}
+        },
+        {
+          "display": "can I merge and close those PRs?",
+          "pastedContents": {}
+        },
+        {
+          "display": "add a workflow_dispatch trigger to the qodo workflow",
+          "pastedContents": {}
+        },
         {
           "display": "please resolve the issues in #18 and #19",
           "pastedContents": {}

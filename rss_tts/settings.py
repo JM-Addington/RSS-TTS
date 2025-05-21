@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,6 +15,9 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "default-insecure-key-for-devel
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
+
+# Optional API keys
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 ALLOWED_HOSTS: list[str] = []
 
@@ -62,17 +66,33 @@ WSGI_APPLICATION = "rss_tts.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# Using SQLite for simplicity and lighter footprint
-# For production with high concurrency, consider PostgreSQL
-data_dir = os.environ.get("SQLITE_DATA_DIR", "")
-db_path = os.path.join(data_dir, "db.sqlite3") if data_dir else "db.sqlite3"
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": str(BASE_DIR / db_path),  # Convert Path to str to fix type error
+# Support for PostgreSQL via DATABASE_URL or SQLite
+db_url = os.environ.get("DATABASE_URL")
+if db_url:
+    parsed = urlparse(db_url)
+    if parsed.scheme not in ("postgres", "postgresql"):
+        raise ValueError(f"Unsupported DATABASE_URL scheme: {parsed.scheme}")
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": parsed.path.lstrip("/"),
+            "USER": parsed.username,
+            "PASSWORD": parsed.password,
+            "HOST": parsed.hostname,
+            "PORT": str(parsed.port) if parsed.port else "",
+        }
     }
-}
+else:
+    # Using SQLite for simplicity and lighter footprint
+    data_dir = os.environ.get("SQLITE_DATA_DIR", "")
+    db_path = os.path.join(data_dir, "db.sqlite3") if data_dir else "db.sqlite3"
+    
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": str(BASE_DIR / db_path),  # Convert Path to str to fix type error
+        }
+    }
 
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
 

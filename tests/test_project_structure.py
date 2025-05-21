@@ -1,5 +1,4 @@
 """Tests that verify the project structure and required files exist."""
-
 import os
 import unittest
 
