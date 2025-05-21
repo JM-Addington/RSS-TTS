@@ -1,0 +1,32 @@
+{
+  "name": "RSS-TTS Development",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "web",
+  "runServices": ["web", "worker", "redis"],
+  "workspaceFolder": "/app",
+  "forwardPorts": [8000],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "batisteo.vscode-django",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "python.linting.enabled": true,
+        "python.linting.flake8Enabled": true,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": true
+        },
+        "python.linting.lintOnSave": true
+      }
+    }
+  },
+  "postCreateCommand": "pip install -r requirements.txt && pip install -r requirements-test.txt",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:1": {}
+  }
+}
