@@ -65,6 +65,18 @@ cp .env.example .env
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
+Redis runs inside the worker container. Its data lives in `/data/redis` which is
+mapped to the named volume `redis-data`. If you want to persist Redis data on
+your host machine, replace that volume mapping with a bind mount:
+
+```yaml
+services:
+  worker:
+    volumes:
+      - ./redis-data:/data/redis
+```
+
+
 ### Environment Configuration
 
 Copy `.env.sample` to `.env` and update the values with your local secrets:

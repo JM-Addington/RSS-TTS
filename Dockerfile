@@ -15,13 +15,17 @@ WORKDIR /app
 
 # Install dependencies
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends redis-server \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy project files
 COPY . .
+RUN chmod +x /app/start-with-redis.sh
 
 # Expose port for Django
 EXPOSE 8000
 
-# Default command to run the Django development server
+ENTRYPOINT ["/app/start-with-redis.sh"]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
