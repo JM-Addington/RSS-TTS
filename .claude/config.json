@@ -33,22 +33,6 @@
       "allowedTools": [],
       "history": [
         {
-          "display": "ok, let's keep working!",
-          "pastedContents": {}
-        },
-        {
-          "display": "push changes, then tell me what the next thing we need to do on this task is",
-          "pastedContents": {}
-        },
-        {
-          "display": "ok, we need to remove .claude/config.json",
-          "pastedContents": {}
-        },
-        {
-          "display": "this needs to be removed from git: /Users/jonathanaddington/Dev/RSS-TTS/.claude/projects/-Users-jonathanaddington-Dev-RSS-TTS/01118bd0-5c7b-40ff-b323-b1b357ce172c.jsonl",
-          "pastedContents": {}
-        },
-        {
           "display": "we should remove the .claude directory from git",
           "pastedContents": {}
         },
