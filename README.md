@@ -108,12 +108,15 @@ We use several tools to maintain code quality:
 - **Flake8**: For linting
 - **mypy**: For type checking
 
-Install pre-commit hooks to automatically run these tools:
+Install pre-commit hooks to automatically run these tools. You can run the
+commands manually or execute the provided helper script:
 
 ```bash
-pip install pre-commit
-pre-commit install
+./setup_precommit.sh
 ```
+
+The script installs the `pre-commit` package if needed and configures the git
+hooks for you.
 
 ### Coding Standards
 
