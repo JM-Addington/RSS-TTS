@@ -32,7 +32,7 @@ jobs:
        github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/review'))) &&
       (github.event.sender.type != 'Bot' || github.event_name == 'workflow_dispatch')
-      
+
     needs: ${{ github.event_name == 'issue_comment' && fromJSON('["check_comment"]') || fromJSON('[]') }}
     runs-on: ubuntu-latest
     permissions:
@@ -43,11 +43,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref || (github.event_name == 'pull_request' && github.head_ref) || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/review') && format('refs/pull/{0}/head', github.event.issue.number)) || github.ref }}
+          ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: PR Agent action step
         id: pragent
         uses: qodo-ai/pr-agent@v0.28
         env:
-          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY || 'dummy-key-for-testing' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
