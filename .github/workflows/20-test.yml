@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref || (github.event_name == 'pull_request' && github.head_ref) || (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/test') && format('refs/pull/{0}/head', github.event.issue.number)) || github.ref }}
+          ref: ${{ github.event.inputs.ref || github.ref }}
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
