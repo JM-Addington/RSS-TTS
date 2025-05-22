@@ -15,10 +15,12 @@ WORKDIR /app
 
 # Install dependencies
 COPY requirements.txt ./
+COPY requirements-test.txt ./
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends redis-server \
+    && apt-get install -y --no-install-recommends redis-server ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir -r requirements-test.txt
 # Celery is included in requirements.txt and installed above
 
 # Copy project files
