@@ -9,31 +9,15 @@ on:
         type: string
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  issue_comment:
-    types: [created]
 
 jobs:
-  check_comment:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/review')
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
-      pr_number: ${{ steps.check.outputs.pr_number }}
-    steps:
-      - id: check
-        run: |
-          echo "should_run=true" >> $GITHUB_OUTPUT
-          echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-
   pr_agent_job:
     # Only run after other workflows have completed
     if: |
       ((github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
-       github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/review'))) &&
+       github.event_name == 'workflow_dispatch') &&
       (github.event.sender.type != 'Bot' || github.event_name == 'workflow_dispatch')
 
-    needs: ${{ github.event_name == 'issue_comment' && fromJSON('["check_comment"]') || fromJSON('[]') }}
     runs-on: ubuntu-latest
     permissions:
       issues: write
