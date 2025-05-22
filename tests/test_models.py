@@ -18,7 +18,7 @@ class TestModels(TestCase):
 
     def setUp(self):
         """Set up test data."""
-        self.user = User.objects.create_user(
+        self.user = User.objects.create_user(  # type: ignore
             username="testuser", email="test@example.com", password="testpass123"
         )
 
