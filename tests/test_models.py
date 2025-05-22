@@ -1,8 +1,10 @@
 """Tests for the text_to_audio app models."""
 # mypy: disable-error-code="attr-defined"
+# mypy: disable-error-code="union-attr"
 
 import uuid
 from importlib import util
+from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import get_user_model

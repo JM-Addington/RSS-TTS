@@ -13,7 +13,7 @@ from pathlib import Path
 import openai
 from celery import shared_task  # type: ignore
 from django.conf import settings
-from pydub import AudioSegment
+from pydub import AudioSegment  # type: ignore
 
 from .models import Article
 
