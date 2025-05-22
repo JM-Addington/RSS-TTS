@@ -4,9 +4,61 @@
 {% block header_title %}Submit Article{% endblock %}
 
 {% block content %}
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit" class="btn btn-primary">Submit</button>
-</form>
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-header bg-light">
+        <h4>Add New Article to Feed</h4>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          You can either paste a URL to import content automatically, or enter text directly.
+        </div>
+
+        {% if form.errors %}
+        <div class="alert alert-danger">
+          <strong>Please correct the errors below:</strong>
+          <ul class="mb-0">
+            {% for field, errors in form.errors.items %}
+              {% for error in errors %}
+                <li>{{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
+            {{ form.title.errors }}
+            {{ form.title|add_class:"form-control" }}
+            <div class="form-text">Enter a title for this article</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="{{ form.source_url.id_for_label }}" class="form-label">{{ form.source_url.label }}</label>
+            {{ form.source_url.errors }}
+            {{ form.source_url|add_class:"form-control" }}
+            <div class="form-text">Enter the URL of an article to automatically extract its content</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="{{ form.text_content.id_for_label }}" class="form-label">{{ form.text_content.label }}</label>
+            {{ form.text_content.errors }}
+            {{ form.text_content|add_class:"form-control" }}
+            <div class="form-text">Or paste/enter text content directly</div>
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary">Convert to Audio</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
