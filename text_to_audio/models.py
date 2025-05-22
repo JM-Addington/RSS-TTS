@@ -79,6 +79,11 @@ class Article(models.Model):
         blank=True,
         help_text="Path to the audio file."
     )
+    error_message = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="Detailed error message if processing failed."
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
