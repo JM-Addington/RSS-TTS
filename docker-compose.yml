@@ -14,32 +14,28 @@ services:
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
-      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://worker:6379/0
     depends_on:
-      - redis
       - worker
 
   worker:
     build: .
-    command: celery -A rss_tts worker --loglevel=info
+    command: >
+      bash -c "redis-server /app/redis.conf &
+      sleep 1 &&
+      celery -A rss_tts worker --loglevel=info"
     volumes:
       - .:/app
       - sqlite-data:/app/data
+      - redis-data:/data/redis
+    ports:
+      - "6379:6379"
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
-      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/0
     env_file:
       - .env
-    depends_on:
-      - redis
-
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
 
 volumes:
   sqlite-data:
