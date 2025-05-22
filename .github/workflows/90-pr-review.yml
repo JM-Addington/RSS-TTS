@@ -32,6 +32,7 @@ jobs:
        github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '/review'))) &&
       (github.event.sender.type != 'Bot' || github.event_name == 'workflow_dispatch')
+      
     needs: ${{ github.event_name == 'issue_comment' && fromJSON('["check_comment"]') || fromJSON('[]') }}
     runs-on: ubuntu-latest
     permissions:
