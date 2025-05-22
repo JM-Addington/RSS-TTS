@@ -71,3 +71,4 @@ jobs:
           SQLITE_DATA_DIR: data
           CELERY_BROKER_URL: "memory://"
           CELERY_TASK_ALWAYS_EAGER: "True"
+          PYTHONPATH: "."
