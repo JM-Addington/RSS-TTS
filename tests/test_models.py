@@ -4,14 +4,13 @@
 
 import uuid
 from importlib import util
-from typing import Any
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models
 from django.test import TestCase
 
-User = get_user_model()
+User = get_user_model()  # type: ignore
 
 
 class TestModels(TestCase):
