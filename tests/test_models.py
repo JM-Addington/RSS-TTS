@@ -1,7 +1,8 @@
-import unittest
+"""Tests for the text_to_audio app models."""
+# mypy: disable-error-code="attr-defined"
+
 import uuid
 from importlib import util
-from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -133,5 +134,8 @@ class TestModels(TestCase):
             self.fail("Article model does not exist in text_to_audio.models")
 
 
+# For pytest compatibility
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    pytest.main([__file__])
