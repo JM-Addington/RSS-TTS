@@ -1,10 +1,22 @@
+"""Views for the text_to_audio app.
+
+This module defines the views used for the RSS-to-TTS system, handling article
+submission, listing, and media serving.
+"""
+
+import os
+
+from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import FileResponse, HttpResponseNotFound
+from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, TemplateView
+from django.views import View
+from django.views.generic import CreateView, ListView, TemplateView
 
 from .forms import ArticleSubmissionForm
-from .models import Feed
+from .models import Article, Feed
 from .tasks import process_article
 
 
@@ -19,15 +31,116 @@ class ArticleCreateView(LoginRequiredMixin, CreateView):
 
     form_class = ArticleSubmissionForm
     template_name = "article_form.html"
-    success_url = reverse_lazy("home")
+    success_url = reverse_lazy("article-list")
 
     def form_valid(self, form):
+        """Process the form and create the article.
+
+        Creates a default feed for the user if none exists, saves the article
+        to the database, and schedules the article for processing.
+        """
         feed, _ = Feed.objects.get_or_create(user=self.request.user, name="Default")
         article = form.save(commit=False)
         article.feed = feed
         article.save()
         process_article.delay(article.id)
         return super().form_valid(form)
+
+
+class ArticleListView(LoginRequiredMixin, ListView):
+    """View for listing a user's articles."""
+
+    model = Article
+    template_name = "article_list.html"
+    context_object_name = "articles"
+
+    def get_queryset(self):
+        """Return only the user's articles."""
+        user = self.request.user
+        return Article.objects.filter(feed__user=user).order_by("-created_at")
+
+
+class ArticleMediaView(LoginRequiredMixin, View):
+    """View for serving article media files."""
+
+    def _find_by_pattern(self, article):
+        """Try to find audio file by standard patterns and update article if found."""
+        patterns = [
+            os.path.join(
+                settings.BASE_DIR, "articles", "1", "1", f"article_{article.pk}.mp3"
+            ),
+            os.path.join(settings.BASE_DIR, "articles", f"article_{article.pk}.mp3"),
+        ]
+
+        for path in patterns:
+            if os.path.exists(path):
+                relative_path = os.path.relpath(path, settings.BASE_DIR)
+                article.audio_file_path = relative_path
+                article.status = Article.COMPLETED
+                article.save()
+                return path
+        return None
+
+    def _resolve_path(self, article):
+        """Resolve the audio file path based on different storage strategies."""
+        if article.audio_file_path.startswith("/app/"):
+            # Docker path correction
+            path_suffix = article.audio_file_path.replace("/app/media/", "").replace(
+                "/app/", ""
+            )
+            file_path = os.path.join(settings.BASE_DIR, path_suffix)
+        elif not os.path.isabs(article.audio_file_path):
+            # Relative path
+            file_path = os.path.join(settings.BASE_DIR, article.audio_file_path)
+        else:
+            # Absolute path
+            file_path = article.audio_file_path
+
+        # Check if file exists
+        if os.path.exists(file_path):
+            return file_path
+
+        # Try fallback with just the filename
+        filename = article.audio_file_path.split("/")[-1]
+        fallback_path = os.path.join(settings.BASE_DIR, "articles", filename)
+        if os.path.exists(fallback_path):
+            return fallback_path
+
+        return None
+
+    def _find_audio_file(self, article):
+        """Find the audio file for an article using various path strategies."""
+        # Case 1: No path set, try to find by pattern
+        if not article.audio_file_path:
+            return self._find_by_pattern(article)
+
+        # Case 2: Path set, try to resolve it
+        file_path = self._resolve_path(article)
+        if file_path:
+            return file_path
+
+        # Case 3: Last resort, try to find by pattern again
+        return self._find_by_pattern(article)
+
+    def get(self, request, article_id):
+        """Serve the media file for an article."""
+        article = get_object_or_404(Article, id=article_id, feed__user=request.user)
+
+        if article.status != Article.COMPLETED and not article.audio_file_path:
+            return HttpResponseNotFound("Audio file not available")
+
+        file_path = self._find_audio_file(article)
+        if not file_path:
+            return HttpResponseNotFound("Audio file not found")
+
+        # Serve the file
+        response = FileResponse(open(file_path, "rb"))
+
+        # Clean the filename for the Content-Disposition header
+        safe_title = article.title.replace('"', "_").replace("/", "_")
+        response["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
+
+        return response
 
 
 class SignUpView(CreateView):
