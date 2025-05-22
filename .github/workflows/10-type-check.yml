@@ -60,7 +60,8 @@ jobs:
 
       - name: Setup SQLite directories
         run: |
-          mkdir -p data
+          mkdir -p ./data
+          chmod 777 ./data
 
       - name: Run mypy type checking
         run: |
@@ -68,7 +69,7 @@ jobs:
         env:
           DJANGO_DEBUG: "True"
           DJANGO_SECRET_KEY: "ci-test-key-not-for-production"
-          SQLITE_DATA_DIR: data
+          SQLITE_DATA_DIR: "./data"
           CELERY_BROKER_URL: "memory://"
           CELERY_TASK_ALWAYS_EAGER: "True"
           PYTHONPATH: "."
