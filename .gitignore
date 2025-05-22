@@ -7,3 +7,4 @@ tests/__pycache__/*
 .claude/
 media/
 db.sqlite3
+testoutput.log

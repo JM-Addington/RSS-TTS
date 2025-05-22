@@ -32,4 +32,3 @@ class TestSettingsEnvironment(unittest.TestCase):
         default_db = settings.DATABASES["default"]
         self.assertEqual(default_db["ENGINE"], "django.db.backends.sqlite3")
         self.assertTrue(default_db["NAME"].endswith("custom/db.sqlite3"))
-

@@ -35,27 +35,27 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install autopep8
-      
+
       - name: Run formatter
         run: |
           autopep8 --in-place --recursive .
-      
+
       - name: Check for changes
         id: git-check
         run: |
           git status --porcelain
           echo "::set-output name=modified::$(if git status --porcelain | grep .; then echo true; else echo false; fi)"
-      
+
       - name: Commit formatting changes
         if: steps.git-check.outputs.modified == 'true'
         run: |

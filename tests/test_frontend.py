@@ -1,6 +1,10 @@
 import os
+
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
+
+from text_to_audio.models import Article, Feed
 
 
 class TestFrontendTemplates(TestCase):
@@ -33,10 +37,6 @@ class TestFrontendTemplates(TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "index.html")
-
-
-from django.contrib.auth import get_user_model
-from text_to_audio.models import Article, Feed
 
 
 class TestArticleSubmission(TestCase):
@@ -117,6 +117,7 @@ class TestLoginView(TestCase):
         self.assertEqual(response.status_code, 200)  # Stays on the login page
         self.assertNotIn("_auth_user_id", self.client.session)
         self.assertContains(response, "Please enter a correct username and password")
+
 
 class TestSignUpView(TestCase):
     """Tests for the user signup view."""
