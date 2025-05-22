@@ -12,6 +12,7 @@
                 <thead>
                     <tr>
                         <th>Title</th>
+                        <th>Source</th>
                         <th>Date Added</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -20,7 +21,22 @@
                 <tbody>
                     {% for article in articles %}
                     <tr>
-                        <td>{{ article.title }}</td>
+                        <td>
+                            {{ article.title }}
+                            {% if article.source_url %}
+                                <span class="badge bg-info text-dark">URL Import</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if article.source_url %}
+                                <a href="{{ article.source_url }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ article.source_url }}">
+                                    {{ article.source_url|truncatechars:30 }}
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                            {% else %}
+                                <span class="text-muted">Direct entry</span>
+                            {% endif %}
+                        </td>
                         <td>{{ article.created_at|date:"M d, Y" }}</td>
                         <td>
                             {% if article.status == 'COMPLETED' %}
