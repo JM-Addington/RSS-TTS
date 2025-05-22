@@ -7,13 +7,15 @@ services:
     volumes:
       - .:/app
       - sqlite-data:/app/data
+      - redis-data:/data/redis
     ports:
-      - "8000:8000"
+      - "8084:8000"
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
+      CELERY_BROKER_URL: redis://worker:6379/0
     depends_on:
-      - redis
+      - worker
 
   worker:
     build: .
@@ -21,17 +23,14 @@ services:
     volumes:
       - .:/app
       - sqlite-data:/app/data
+      - redis-data:/data/redis
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
-      CELERY_BROKER_URL: redis://redis:6379/0
-    depends_on:
-      - redis
-
-  redis:
-    image: redis:7
+      CELERY_BROKER_URL: redis://localhost:6379/0
     ports:
       - "6379:6379"
 
 volumes:
   sqlite-data:
+  redis-data:

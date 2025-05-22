@@ -57,8 +57,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-test.txt
-          pip install mypy
+
+      - name: Setup SQLite directories
+        run: |
+          mkdir -p data
 
       - name: Run mypy type checking
         run: |
           mypy .
+        env:
+          DJANGO_DEBUG: "True"
+          DJANGO_SECRET_KEY: "ci-test-key-not-for-production"
+          SQLITE_DATA_DIR: data
+          CELERY_BROKER_URL: "memory://"
+          CELERY_TASK_ALWAYS_EAGER: "True"

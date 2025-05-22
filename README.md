@@ -10,6 +10,7 @@ This project converts web articles and text into audio files using Django and Dj
 | **Technology Stack** | Django 5 + DRF • Celery 6 + Redis • SQLite • OpenAI TTS • Bootstrap 5 for UI. |
 
 For more details, see [PROJECT_PLAN.md](PROJECT_PLAN.md).
+Each user manages one or more **Feeds**. A feed groups a user's converted articles and is accessed via a unique token-based URL, e.g. `/feeds/<feed_token>/`. The token is generated using UUID4 when the feed is created so the RSS feed remains private.
 
 ## Setup
 
@@ -65,6 +66,17 @@ cp .env.example .env
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
+Redis runs inside the worker container. Its data lives in `/data/redis` which is
+mapped to the named volume `redis-data`. If you want to persist Redis data on
+your host machine, replace that volume mapping with a bind mount:
+
+```yaml
+services:
+  worker:
+    volumes:
+      - ./redis-data:/data/redis
+```
+
 ### Environment Configuration
 
 Copy `.env.sample` to `.env` and update the values with your local secrets:
@@ -96,12 +108,15 @@ We use several tools to maintain code quality:
 - **Flake8**: For linting
 - **mypy**: For type checking
 
-Install pre-commit hooks to automatically run these tools:
+Install pre-commit hooks to automatically run these tools. You can run the
+commands manually or execute the provided helper script:
 
 ```bash
-pip install pre-commit
-pre-commit install
+./setup_precommit.sh
 ```
+
+The script installs the `pre-commit` package if needed and configures the git
+hooks for you.
 
 ### Coding Standards
 
