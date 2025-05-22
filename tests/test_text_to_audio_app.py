@@ -1,4 +1,5 @@
 """Tests for the text_to_audio app configuration."""
+
 # mypy: disable-error-code="attr-defined"
 
 import os

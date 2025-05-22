@@ -1,4 +1,5 @@
 """Tests for the frontend templates and views."""
+
 # mypy: disable-error-code="attr-defined"
 
 import os

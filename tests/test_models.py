@@ -1,4 +1,5 @@
 """Tests for the text_to_audio app models."""
+
 # mypy: disable-error-code="attr-defined"
 # mypy: disable-error-code="union-attr"
 

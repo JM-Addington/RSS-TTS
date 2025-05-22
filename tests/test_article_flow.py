@@ -1,4 +1,5 @@
 """Tests for article submission flow in the text_to_audio app."""
+
 # mypy: disable-error-code="attr-defined"
 
 from unittest.mock import patch
