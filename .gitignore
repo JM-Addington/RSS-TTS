@@ -8,3 +8,5 @@ tests/__pycache__/*
 media/
 db.sqlite3
 testoutput.log
+.DS_Store
+articles/**/*.mp3
