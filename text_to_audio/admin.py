@@ -6,7 +6,7 @@ from .models import Article, Feed
 @admin.register(Feed)
 class FeedAdmin(admin.ModelAdmin):
     """Admin interface for the Feed model."""
-    
+
     list_display = ["name", "user", "created_at"]
     list_filter = ["created_at"]
     search_fields = ["name", "user__username"]
@@ -16,7 +16,7 @@ class FeedAdmin(admin.ModelAdmin):
 @admin.register(Article)
 class ArticleAdmin(admin.ModelAdmin):
     """Admin interface for the Article model."""
-    
+
     list_display = ["title", "feed", "status", "created_at"]
     list_filter = ["status", "created_at", "feed"]
     search_fields = ["title", "feed__name", "feed__user__username"]

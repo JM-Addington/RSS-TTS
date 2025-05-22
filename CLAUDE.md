@@ -1,8 +1,8 @@
 Use as many subtasks as you can.
 
-Work as independently as possible, this project is 100% AI driven. 
+Work as independently as possible, this project is 100% AI driven.
 
-Remember to use TDD.         
+Remember to use TDD.
 
 ## Documentation
 
@@ -20,7 +20,7 @@ When setting up the project for development, make sure to:
 2. Follow the coding standards in CODING_STANDARDS.md
 3. Set up pre-commit hooks to enforce code quality
 4. Reference the PROJECT_PLAN.md for the overall roadmap
-   
+
 ## PR Reviews
 
 PR reviews should be thorough and constructive.
