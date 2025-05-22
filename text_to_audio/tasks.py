@@ -16,6 +16,7 @@ from django.conf import settings
 from pydub import AudioSegment  # type: ignore
 
 from .models import Article
+from .utils import process_url_to_text
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -189,6 +190,30 @@ def process_article(self, article_id: int) -> str:
             media_root / "articles" / str(article.feed.user_id) / str(article.feed.id)
         )
         article_media_dir.mkdir(parents=True, exist_ok=True)
+
+        # If article has a source_url but no text_content, fetch and extract content
+        if article.source_url and not article.text_content:
+            logger.info(
+                f"Fetching content from URL: {article.source_url} "
+                f"for Article ID: {article_id}"
+            )
+            success, extracted_text, error = process_url_to_text(article.source_url)
+
+            if not success or not extracted_text:
+                error_msg = error or "Unknown error during URL content extraction"
+                logger.error(
+                    f"Failed to extract content from URL {article.source_url}: "
+                    f"{error_msg}"
+                )
+                raise ValueError(f"Failed to extract content from URL: {error_msg}")
+
+            # Update the article with extracted text
+            article.text_content = extracted_text
+            article.save(update_fields=["text_content"])
+            logger.info(
+                f"Successfully extracted {len(extracted_text)} characters "
+                f"from URL for Article ID: {article_id}"
+            )
 
         if not article.text_content:
             raise ValueError("Article text_content is empty.")
