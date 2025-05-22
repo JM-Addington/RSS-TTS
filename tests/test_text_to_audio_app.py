@@ -1,12 +1,14 @@
-import os
-import unittest
-from importlib import import_module, util
+"""Tests for the text_to_audio app configuration."""
+# mypy: disable-error-code="attr-defined"
 
-from django.apps import apps
+import os
+from importlib import util
+from unittest import TestCase
+
 from django.conf import settings
 
 
-class TestTextToAudioApp(unittest.TestCase):
+class TestTextToAudioApp(TestCase):
     """Tests for the text_to_audio app."""
 
     def test_app_exists(self):
@@ -47,9 +49,10 @@ class TestTextToAudioApp(unittest.TestCase):
         spec = util.spec_from_file_location("text_to_audio.apps", apps_module_path)
 
         # This test will fail if the app doesn't exist yet, which is expected in TDD
-        if os.path.exists(apps_module_path):
+        if os.path.exists(apps_module_path) and spec is not None:
             apps_module = util.module_from_spec(spec)
-            spec.loader.exec_module(apps_module)
+            if hasattr(spec, "loader") and spec.loader is not None:
+                spec.loader.exec_module(apps_module)
 
             # Check if TextToAudioConfig is defined and has the required attributes
             self.assertTrue(
@@ -71,5 +74,8 @@ class TestTextToAudioApp(unittest.TestCase):
         )
 
 
+# For pytest compatibility
 if __name__ == "__main__":
-    unittest.main()
+    import pytest
+
+    pytest.main([__file__])
