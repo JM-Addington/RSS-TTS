@@ -41,6 +41,15 @@ jobs:
       contents: write
     name: Run PR review analysis
     steps:
+      - name: Debug Workflow
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
+          echo "Action: ${{ github.action }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Repo: ${{ github.repository }}"
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
