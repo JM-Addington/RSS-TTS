@@ -191,6 +191,11 @@ def process_article(self, article_id: int) -> str:
         )
         article_media_dir.mkdir(parents=True, exist_ok=True)
 
+        # Generate a UUID for the article audio file if not already set
+        if not article.audio_uuid:
+            article.audio_uuid = uuid.uuid4()
+            article.save(update_fields=["audio_uuid"])
+
         # If article has a source_url but no text_content, fetch and extract content
         if article.source_url and not article.text_content:
             logger.info(
@@ -276,7 +281,7 @@ def process_article(self, article_id: int) -> str:
         # Stitch audio files
         if len(temp_audio_files) == 1:
             final_audio_path_temp = temp_audio_files[0]
-            final_audio_path = article_media_dir / f"article_{article_id}.mp3"
+            final_audio_path = article_media_dir / f"article_{article.audio_uuid}.mp3"
             final_audio_path_temp.rename(final_audio_path)
             logger.info(f"Single audio chunk moved to {final_audio_path}")
         else:
@@ -293,7 +298,7 @@ def process_article(self, article_id: int) -> str:
                         f"Failed to process audio chunk {temp_file.name}: {e}"
                     ) from e
 
-            final_audio_path = article_media_dir / f"article_{article_id}.mp3"
+            final_audio_path = article_media_dir / f"article_{article.audio_uuid}.mp3"
             combined_audio.export(final_audio_path, format="mp3")
             logger.info(
                 f"Combined {len(temp_audio_files)} audio chunks into {final_audio_path}"
