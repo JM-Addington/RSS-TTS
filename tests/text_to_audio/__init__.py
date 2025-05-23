@@ -1,1 +1,4 @@
-# This file makes tests/text_to_audio a Python package
+"""Text-to-audio app test package.
+
+Contains tests specific to the text_to_audio Django application.
+"""

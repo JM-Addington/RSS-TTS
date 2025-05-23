@@ -1,8 +1,16 @@
+"""Migration to add validation constraints to model fields.
+
+This migration adds explicit null=False and blank=False constraints to required fields
+in the Feed and Article models to ensure data integrity.
+"""
+
 import django.db.models.deletion
 from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    """Migration adding validation constraints to Feed and Article models."""
+
     dependencies = [
         ("text_to_audio", "0001_initial"),
     ]

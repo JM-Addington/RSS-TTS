@@ -35,6 +35,59 @@ def extract_title_from_html(html: str) -> str:
         return ""
 
 
+def _handle_http_error(status_code: int, url: str) -> Optional[Tuple[bool, str, str]]:
+    """Handle common HTTP error status codes.
+
+    Args:
+        status_code: The HTTP status code to handle.
+        url: The URL that was accessed.
+
+    Returns:
+        None if the status code is 200 or a server error that should be retried,
+        or a tuple with (success, content, error_message) otherwise.
+    """
+    if status_code == 404:
+        return (
+            False,
+            "",
+            f"404 Not Found: The requested page '{url}' could not be found.",
+        )
+    elif status_code == 403:
+        return (
+            False,
+            "",
+            f"403 Forbidden: Access to '{url}' is forbidden. "
+            f"The site may require authentication or block automated access.",
+        )
+    elif status_code == 500:
+        # Server error - should be retried
+        return None
+    elif status_code != 200:
+        return (
+            False,
+            "",
+            f"HTTP Error {status_code}: Unable to access '{url}'.",
+        )
+
+    # Status code is 200 (success)
+    return None
+
+
+def _handle_retry(retry_count: int, max_retries: int, url: str, error: str) -> None:
+    """Handle retry logic with exponential backoff.
+
+    Args:
+        retry_count: Current retry count.
+        max_retries: Maximum number of retries allowed.
+        url: The URL being accessed.
+        error: Error message to log.
+    """
+    logger.warning(f"Attempt {retry_count}/{max_retries}: {error} for {url}")
+    if retry_count < max_retries:
+        # Exponential backoff
+        time.sleep(2**retry_count)
+
+
 def fetch_url_content(
     url: str, timeout: int = 10, max_retries: int = 5
 ) -> Tuple[bool, str, Optional[str]]:
@@ -60,37 +113,18 @@ def fetch_url_content(
             response = requests.get(url, timeout=timeout)
 
             # Handle common HTTP error status codes
-            if response.status_code == 404:
-                return (
-                    False,
-                    "",
-                    f"404 Not Found: The requested page '{url}' could not be found.",
-                )
-            elif response.status_code == 403:
-                return (
-                    False,
-                    "",
-                    f"403 Forbidden: Access to '{url}' is forbidden. "
-                    f"The site may require authentication or block automated access.",
-                )
-            elif response.status_code == 500:
-                # This is a server error - we might retry this one
+            result = _handle_http_error(response.status_code, url)
+            if result:
+                return result
+
+            # Handle server error (status code 500)
+            if response.status_code == 500:
                 last_error = (
                     f"500 Server Error: The server at '{url}' encountered an error."
                 )
                 retry_count += 1
-                logger.warning(
-                    f"Attempt {retry_count}/{max_retries}: Server error for {url}: "
-                    f"{last_error}"
-                )
-                time.sleep(2**retry_count)  # Exponential backoff
+                _handle_retry(retry_count, max_retries, url, "Server error")
                 continue
-            elif response.status_code != 200:
-                return (
-                    False,
-                    "",
-                    f"HTTP Error {response.status_code}: Unable to access '{url}'.",
-                )
 
             # Success - return the content
             return True, response.text, None
@@ -98,9 +132,7 @@ def fetch_url_content(
         except requests.Timeout:
             last_error = f"Connection timed out after {timeout} seconds."
             retry_count += 1
-            logger.warning(f"Attempt {retry_count}/{max_retries}: Timeout for {url}")
-            if retry_count < max_retries:
-                time.sleep(2**retry_count)  # Exponential backoff
+            _handle_retry(retry_count, max_retries, url, "Timeout")
 
         except requests.ConnectionError:
             last_error = (
@@ -108,11 +140,7 @@ def fetch_url_content(
                 f"The site may be down or the URL may be invalid."
             )
             retry_count += 1
-            logger.warning(
-                f"Attempt {retry_count}/{max_retries}: Connection error for {url}"
-            )
-            if retry_count < max_retries:
-                time.sleep(2**retry_count)  # Exponential backoff
+            _handle_retry(retry_count, max_retries, url, "Connection error")
 
         except requests.RequestException as e:
             error_message = f"Error fetching URL {url}: {str(e)}"

@@ -1,3 +1,8 @@
+"""Initial migration for text_to_audio application.
+
+Creates the initial database schema for Feed and Article models with relationships.
+"""
+
 import uuid
 
 import django.db.models.deletion
@@ -6,6 +11,8 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    """Initial migration creating Feed and Article models."""
+
     initial = True
 
     dependencies = [
