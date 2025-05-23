@@ -11,3 +11,4 @@ testoutput.log
 .DS_Store
 articles/**/*.mp3
 dump.rdb
+tts demo/
