@@ -25,7 +25,7 @@ RUN apt-get update \
 
 # Copy project files
 COPY . .
-RUN chmod +x /app/start-with-redis.sh
+RUN chmod +x /app/start-with-redis.sh /app/start-web.sh
 
 # Expose port for Django
 EXPOSE 8000
