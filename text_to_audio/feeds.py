@@ -160,3 +160,25 @@ class UserFeed(Feed):
     def item_pubdate(self, item: Article):
         """Get the publication date for a feed item."""
         return item.created_at
+
+    def item_link(self, item: Article) -> str:
+        """Get the link for a feed item.
+
+        This method is required by Django's syndication framework when
+        the model doesn't have a get_absolute_url() method.
+
+        Returns:
+            The URL to the original article or the article media URL.
+        """
+        if item.source_url:
+            return str(item.source_url)
+
+        # If no source URL, return the media URL
+        if not hasattr(self, "request"):
+            # Fallback when request is not available (like in tests)
+            return reverse("article-media", kwargs={"article_id": item.pk})
+
+        media_url = reverse("article-media", kwargs={"article_id": item.pk})
+        domain = self.request.get_host()
+        protocol = "https" if self.request.is_secure() else "http"
+        return f"{protocol}://{domain}{media_url}"
