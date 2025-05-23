@@ -62,13 +62,16 @@ class Article(models.Model):
         help_text="The feed this article belongs to.",
     )
     title: models.CharField = models.CharField(
-        max_length=255, null=False, blank=False, help_text="The title of the article."
+        max_length=255,
+        null=False,
+        blank=True,
+        help_text="The title of the article. Optional if URL is provided.",
     )
     source_url: models.URLField = models.URLField(
         max_length=2000, blank=True, help_text="The URL of the source article."
     )
     text_content: models.TextField = models.TextField(
-        null=False, blank=False, help_text="The text content of the article."
+        null=False, blank=True, help_text="The text content of the article."
     )
     audio_file_path: models.CharField = models.CharField(
         max_length=255, blank=True, help_text="Path to the audio file."
