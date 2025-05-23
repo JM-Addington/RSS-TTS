@@ -18,6 +18,7 @@ from django.views.generic import CreateView, ListView, TemplateView
 from .forms import ArticleSubmissionForm
 from .models import Article, Feed
 from .tasks import process_article
+from .utils import extract_article_text, extract_title_from_html, fetch_url_content
 
 
 class HomeView(TemplateView):
@@ -38,10 +39,34 @@ class ArticleCreateView(LoginRequiredMixin, CreateView):
 
         Creates a default feed for the user if none exists, saves the article
         to the database, and schedules the article for processing.
+        If no title is provided but a URL is, extracts title from the page.
+        Validates URL accessibility before submission.
         """
         feed, _ = Feed.objects.get_or_create(user=self.request.user, name="Default")
         article = form.save(commit=False)
         article.feed = feed
+
+        # If URL is provided, validate it first
+        if article.source_url:
+            success, html, error = fetch_url_content(article.source_url)
+            if not success:
+                # Add the error to the form for user-friendly display
+                form.add_error("source_url", error)
+                return self.form_invalid(form)
+
+            # If no title provided but URL is valid, try to extract title
+            if not article.title:
+                # Try to extract title from HTML
+                title = extract_title_from_html(html)
+
+                # If no title found, use first 100 chars of content
+                if not title:
+                    success, content, _ = extract_article_text(html)
+                    if success and content:
+                        title = content[:100] + ("..." if len(content) > 100 else "")
+
+                article.title = title or f"Article from {article.source_url}"
+
         article.save()
         process_article.delay(article.id)
         return super().form_valid(form)
