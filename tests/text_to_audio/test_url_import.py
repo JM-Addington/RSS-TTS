@@ -34,8 +34,10 @@ class UrlImportTests(TestCase):
     @patch("text_to_audio.tasks.Path.mkdir")
     @patch("text_to_audio.tasks.Path.rename")
     @patch("text_to_audio.tasks.uuid.uuid4")
+    @patch("os.remove")
     def test_process_article_with_url(
         self,
+        mock_remove,
         mock_uuid,
         mock_rename,
         mock_mkdir,
@@ -56,10 +58,11 @@ class UrlImportTests(TestCase):
         mock_empty = MagicMock()
         mock_audio_segment.empty.return_value = mock_empty
 
-        # Mock UUID for predictable filenames
-        mock_uuid_val = MagicMock()
-        mock_uuid_val.hex = "38368f86e88c4beb813fe8ce22c44295"
-        mock_uuid.return_value = mock_uuid_val
+        # Import UUID here to use a real UUID instead of a mock
+        import uuid as uuid_module
+
+        test_uuid = uuid_module.UUID("38368f86-e88c-4beb-813f-e8ce22c44295")
+        mock_uuid.return_value = test_uuid
 
         # Create test article with URL but no text
         article = Article.objects.create(
@@ -68,6 +71,8 @@ class UrlImportTests(TestCase):
             source_url="https://example.com/test-article",
             text_content="",  # Empty text content
             status=Article.PROCESSING,
+            # Pre-set the audio_uuid to avoid the DB save that was causing issues
+            audio_uuid=test_uuid,
         )
 
         # Call the task

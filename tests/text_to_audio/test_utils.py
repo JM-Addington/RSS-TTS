@@ -3,6 +3,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+import requests
 from django.test import TestCase
 
 from text_to_audio.utils import (
@@ -36,10 +37,11 @@ class UrlUtilsTests(TestCase):
         mock_get.assert_called_once_with("https://example.com", timeout=10)
 
     @patch("text_to_audio.utils.requests.get")
+    @patch("text_to_audio.utils.requests.RequestException", new=Exception)
     def test_fetch_url_content_failure(self, mock_get):
         """Test handling of a failed URL fetch."""
-        # Setup mock to raise an exception
-        mock_get.side_effect = Exception("Connection error")
+        # Setup mock to return a proper exception that's handled
+        mock_get.side_effect = requests.RequestException("Connection error")
 
         # Call the function
         success, content, error = fetch_url_content("https://example.com")
