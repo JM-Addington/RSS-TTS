@@ -44,6 +44,7 @@ Key environment variables:
 - `DJANGO_DEBUG`: Set to "True" for development
 - `SQLITE_DATA_DIR`: Directory to store SQLite database (optional)
 - `CELERY_BROKER_URL`: Redis URL for Celery
+- `SITE_URL`: Full URL of your site (e.g., "https://example.com") for RSS feed links
 
 ### Docker Development
 
