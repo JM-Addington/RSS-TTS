@@ -92,13 +92,18 @@ class ArticleListView(LoginRequiredMixin, ListView):
         feed = Feed.objects.filter(user=self.request.user).first()
 
         if feed:
-            # Construct the full URL to the feed
-            request = self.request
-            domain = request.get_host()
-            protocol = "https" if request.is_secure() else "http"
-            feed_url = (
-                f"{protocol}://{domain}{reverse('feed', kwargs={'token': feed.token})}"
-            )
+            feed_path = reverse("feed", kwargs={"token": feed.token})
+
+            # Use SITE_URL from settings if available
+            if hasattr(settings, "SITE_URL"):
+                feed_url = f"{settings.SITE_URL.rstrip('/')}{feed_path}"
+            else:
+                # Fallback to request host
+                request = self.request
+                domain = request.get_host()
+                protocol = "https" if request.is_secure() else "http"
+                feed_url = f"{protocol}://{domain}{feed_path}"
+
             context["feed_url"] = feed_url
 
         return context
@@ -109,37 +114,25 @@ class ArticleMediaView(LoginRequiredMixin, View):
 
     def _find_by_pattern(self, article):
         """Try to find audio file by standard patterns and update article if found."""
-        patterns = [
-            # Try UUID-based filenames first
-            (
-                os.path.join(
-                    settings.BASE_DIR,
-                    "articles",
-                    str(article.feed.user_id),
-                    str(article.feed.id),
-                    f"article_{article.audio_uuid}.mp3",
-                )
-                if article.audio_uuid
-                else None
-            ),
-            # Fall back to legacy ID-based filenames
-            os.path.join(
-                settings.BASE_DIR,
-                "articles",
-                str(article.feed.user_id),
-                str(article.feed.id),
-                f"article_{article.pk}.mp3",
-            ),
-            os.path.join(settings.BASE_DIR, "articles", f"article_{article.pk}.mp3"),
-        ]
+        if not article.audio_uuid:
+            return None
 
-        for path in patterns:
-            if path and os.path.exists(path):
-                relative_path = os.path.relpath(path, settings.BASE_DIR)
-                article.audio_file_path = relative_path
-                article.status = Article.COMPLETED
-                article.save()
-                return path
+        # Only look for UUID-based filenames
+        path = os.path.join(
+            settings.BASE_DIR,
+            "articles",
+            str(article.feed.user_id),
+            str(article.feed.id),
+            f"article_{article.audio_uuid}.mp3",
+        )
+
+        if os.path.exists(path):
+            relative_path = os.path.relpath(path, settings.BASE_DIR)
+            article.audio_file_path = relative_path
+            article.status = Article.COMPLETED
+            article.save()
+            return path
+
         return None
 
     def _resolve_path(self, article):
@@ -183,25 +176,20 @@ class ArticleMediaView(LoginRequiredMixin, View):
         # Case 3: Last resort, try to find by pattern again
         return self._find_by_pattern(article)
 
-    def get(self, request, article_id=None, audio_uuid=None):
-        """Serve the media file for an article.
+    def get(self, request, audio_uuid):
+        """Serve the media file for an article by audio_uuid.
 
-        This view can be accessed either by article_id or audio_uuid.
+        This view can only be accessed by audio_uuid.
         """
-        # Get the article by either ID or UUID
-        if audio_uuid:
-            article = get_object_or_404(
-                Article,
-                audio_uuid=audio_uuid,
-                feed__user=request.user,
-                status=Article.COMPLETED,
-            )
-        elif article_id:
-            article = get_object_or_404(Article, id=article_id, feed__user=request.user)
-        else:
-            return HttpResponseNotFound("No article identifier provided")
+        # Get the article by UUID
+        article = get_object_or_404(
+            Article,
+            audio_uuid=audio_uuid,
+            feed__user=request.user,
+            status=Article.COMPLETED,
+        )
 
-        if article.status != Article.COMPLETED and not article.audio_file_path:
+        if not article.audio_file_path:
             return HttpResponseNotFound("Audio file not available")
 
         file_path = self._find_audio_file(article)

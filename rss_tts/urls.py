@@ -23,11 +23,6 @@ urlpatterns = [
     path("articles/", ArticleListView.as_view(), name="article-list"),
     path("articles/submit/", ArticleCreateView.as_view(), name="article-submit"),
     path(
-        "articles/<int:article_id>/media/",
-        ArticleMediaView.as_view(),
-        name="article-media-legacy",
-    ),
-    path(
         "audio/<uuid:audio_uuid>/",
         ArticleMediaView.as_view(),
         name="article-media",
