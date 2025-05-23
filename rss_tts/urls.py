@@ -25,6 +25,11 @@ urlpatterns = [
     path(
         "articles/<int:article_id>/media/",
         ArticleMediaView.as_view(),
+        name="article-media-legacy",
+    ),
+    path(
+        "audio/<uuid:audio_uuid>/",
+        ArticleMediaView.as_view(),
         name="article-media",
     ),
     path("feeds/<uuid:token>/", UserFeed(), name="feed"),

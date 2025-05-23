@@ -183,9 +183,23 @@ class ArticleMediaView(LoginRequiredMixin, View):
         # Case 3: Last resort, try to find by pattern again
         return self._find_by_pattern(article)
 
-    def get(self, request, article_id):
-        """Serve the media file for an article."""
-        article = get_object_or_404(Article, id=article_id, feed__user=request.user)
+    def get(self, request, article_id=None, audio_uuid=None):
+        """Serve the media file for an article.
+
+        This view can be accessed either by article_id or audio_uuid.
+        """
+        # Get the article by either ID or UUID
+        if audio_uuid:
+            article = get_object_or_404(
+                Article,
+                audio_uuid=audio_uuid,
+                feed__user=request.user,
+                status=Article.COMPLETED,
+            )
+        elif article_id:
+            article = get_object_or_404(Article, id=article_id, feed__user=request.user)
+        else:
+            return HttpResponseNotFound("No article identifier provided")
 
         if article.status != Article.COMPLETED and not article.audio_file_path:
             return HttpResponseNotFound("Audio file not available")

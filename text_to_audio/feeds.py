@@ -133,7 +133,11 @@ class UserFeed(Feed):
 
     def item_enclosure_url(self, item: Article) -> str:
         """Get the enclosure URL for a feed item (MP3 file)."""
-        media_url = reverse("article-media", kwargs={"article_id": item.pk})
+        # Use audio_uuid if available, otherwise fall back to article_id
+        if item.audio_uuid:
+            media_url = reverse("article-media", kwargs={"audio_uuid": item.audio_uuid})
+        else:
+            media_url = reverse("article-media-legacy", kwargs={"article_id": item.pk})
 
         # Get domain from settings or use request.get_host() as fallback
         if hasattr(settings, "SITE_URL"):
@@ -185,7 +189,11 @@ class UserFeed(Feed):
             return str(item.source_url)
 
         # If no source URL, return the media URL
-        media_url = reverse("article-media", kwargs={"article_id": item.pk})
+        # Use audio_uuid if available, otherwise fall back to article_id
+        if item.audio_uuid:
+            media_url = reverse("article-media", kwargs={"audio_uuid": item.audio_uuid})
+        else:
+            media_url = reverse("article-media-legacy", kwargs={"article_id": item.pk})
 
         # Get domain from settings or use request.get_host() as fallback
         if hasattr(settings, "SITE_URL"):

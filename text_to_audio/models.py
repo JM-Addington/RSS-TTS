@@ -111,4 +111,10 @@ class Article(models.Model):
 
         if self.source_url:
             return str(self.source_url)
-        return reverse("article-media", kwargs={"article_id": self.pk})
+
+        # Use audio_uuid if available, otherwise fall back to article_id
+        if self.audio_uuid:
+            return reverse("article-media", kwargs={"audio_uuid": self.audio_uuid})
+
+        # Legacy fallback
+        return reverse("article-media-legacy", kwargs={"article_id": self.pk})
