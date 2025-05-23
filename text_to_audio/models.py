@@ -76,6 +76,12 @@ class Article(models.Model):
     audio_file_path: models.CharField = models.CharField(
         max_length=255, blank=True, help_text="Path to the audio file."
     )
+    audio_uuid: models.UUIDField = models.UUIDField(
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Unique identifier for the audio file.",
+    )
     error_message: models.TextField = models.TextField(
         blank=True, null=True, help_text="Detailed error message if processing failed."
     )

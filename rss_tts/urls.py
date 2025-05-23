@@ -6,6 +6,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
+from text_to_audio.feeds import UserFeed
 from text_to_audio.views import (
     ArticleCreateView,
     ArticleListView,
@@ -26,6 +27,7 @@ urlpatterns = [
         ArticleMediaView.as_view(),
         name="article-media",
     ),
+    path("feeds/<uuid:token>/", UserFeed(), name="feed"),
     path("", HomeView.as_view(), name="home"),
 ]
 

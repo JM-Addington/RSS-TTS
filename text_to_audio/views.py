@@ -11,7 +11,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import FileResponse, HttpResponseNotFound
 from django.shortcuts import get_object_or_404
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, ListView, TemplateView
 
@@ -84,6 +84,25 @@ class ArticleListView(LoginRequiredMixin, ListView):
         user = self.request.user
         return Article.objects.filter(feed__user=user).order_by("-created_at")
 
+    def get_context_data(self, **kwargs):
+        """Add feed URL to context."""
+        context = super().get_context_data(**kwargs)
+
+        # Get the user's default feed
+        feed = Feed.objects.filter(user=self.request.user).first()
+
+        if feed:
+            # Construct the full URL to the feed
+            request = self.request
+            domain = request.get_host()
+            protocol = "https" if request.is_secure() else "http"
+            feed_url = (
+                f"{protocol}://{domain}{reverse('feed', kwargs={'token': feed.token})}"
+            )
+            context["feed_url"] = feed_url
+
+        return context
+
 
 class ArticleMediaView(LoginRequiredMixin, View):
     """View for serving article media files."""
@@ -91,14 +110,31 @@ class ArticleMediaView(LoginRequiredMixin, View):
     def _find_by_pattern(self, article):
         """Try to find audio file by standard patterns and update article if found."""
         patterns = [
+            # Try UUID-based filenames first
+            (
+                os.path.join(
+                    settings.BASE_DIR,
+                    "articles",
+                    str(article.feed.user_id),
+                    str(article.feed.id),
+                    f"article_{article.audio_uuid}.mp3",
+                )
+                if article.audio_uuid
+                else None
+            ),
+            # Fall back to legacy ID-based filenames
             os.path.join(
-                settings.BASE_DIR, "articles", "1", "1", f"article_{article.pk}.mp3"
+                settings.BASE_DIR,
+                "articles",
+                str(article.feed.user_id),
+                str(article.feed.id),
+                f"article_{article.pk}.mp3",
             ),
             os.path.join(settings.BASE_DIR, "articles", f"article_{article.pk}.mp3"),
         ]
 
         for path in patterns:
-            if os.path.exists(path):
+            if path and os.path.exists(path):
                 relative_path = os.path.relpath(path, settings.BASE_DIR)
                 article.audio_file_path = relative_path
                 article.status = Article.COMPLETED
