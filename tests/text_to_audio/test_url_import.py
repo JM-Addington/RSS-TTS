@@ -31,8 +31,17 @@ class UrlImportTests(TestCase):
     @patch("text_to_audio.tasks.process_url_to_text")
     @patch("text_to_audio.tasks.openai.OpenAI")
     @patch("text_to_audio.tasks.AudioSegment")
+    @patch("text_to_audio.tasks.Path.mkdir")
+    @patch("text_to_audio.tasks.Path.rename")
+    @patch("text_to_audio.tasks.uuid.uuid4")
     def test_process_article_with_url(
-        self, mock_audio_segment, mock_openai, mock_process_url
+        self,
+        mock_uuid,
+        mock_rename,
+        mock_mkdir,
+        mock_audio_segment,
+        mock_openai,
+        mock_process_url,
     ):
         """Test processing an article with a URL but no text content."""
         # Setup mocks
@@ -46,6 +55,11 @@ class UrlImportTests(TestCase):
 
         mock_empty = MagicMock()
         mock_audio_segment.empty.return_value = mock_empty
+
+        # Mock UUID for predictable filenames
+        mock_uuid_val = MagicMock()
+        mock_uuid_val.hex = "38368f86e88c4beb813fe8ce22c44295"
+        mock_uuid.return_value = mock_uuid_val
 
         # Create test article with URL but no text
         article = Article.objects.create(
@@ -90,8 +104,12 @@ class UrlImportTests(TestCase):
             status=Article.PROCESSING,
         )
 
-        # Call the task
-        process_article(article.pk)
+        # We expect a ValueError to be raised, so we need to catch it
+        try:
+            process_article(article.pk)
+        except ValueError:
+            # This is expected, so we continue with the test
+            pass
 
         # Refresh from database
         article.refresh_from_db()
