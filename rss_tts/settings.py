@@ -19,6 +19,11 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 ALLOWED_HOSTS: list[str] = []
+ALLOWED_HOSTS += (
+    os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+    if os.environ.get("DJANGO_ALLOWED_HOSTS")
+    else []
+)
 
 # Application definition
 
