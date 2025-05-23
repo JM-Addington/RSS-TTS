@@ -18,6 +18,8 @@ services:
     depends_on:
       - worker
       - redis
+    networks:
+      - rsstts
 
   worker:
     build: .
@@ -33,6 +35,8 @@ services:
       - .env
     depends_on:
       - redis
+    networks:
+      - rsstts
 
   redis:
     image: redis:7
@@ -41,15 +45,18 @@ services:
       - .:/app
       - redis-data:/data
       - ./redis.conf:/usr/local/etc/redis/redis.conf
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
+    networks:
+      - rsstts
 
 volumes:
   sqlite-data:
   redis-data:
+
+networks:
+  rsstts:
