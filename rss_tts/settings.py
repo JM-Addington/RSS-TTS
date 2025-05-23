@@ -133,6 +133,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
+# Directory structure for articles - this should match the structure in tasks.py
+ARTICLE_STORAGE_DIR = os.path.join(BASE_DIR, "articles")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_REDIRECT_URL = "home"
@@ -141,4 +144,5 @@ LOGOUT_REDIRECT_URL = "home"
 
 # RSS Feed Settings
 PODCAST_IMAGE_URL = os.environ.get("PODCAST_IMAGE_URL", "")
+RSS_EXTERNAL_HOSTNAME = os.environ.get("RSS_EXTERNAL_HOSTNAME", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
