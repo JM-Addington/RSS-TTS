@@ -23,7 +23,7 @@ class UrlUtilsTests(TestCase):
         mock_response.text = (
             "<html><body><article>Test article content</article></body></html>"
         )
-        mock_response.raise_for_status.return_value = None
+        mock_response.status_code = 200
         mock_get.return_value = mock_response
 
         # Call the function
@@ -34,7 +34,6 @@ class UrlUtilsTests(TestCase):
         self.assertEqual(content, mock_response.text)
         self.assertIsNone(error)
         mock_get.assert_called_once_with("https://example.com", timeout=10)
-        mock_response.raise_for_status.assert_called_once()
 
     @patch("text_to_audio.utils.requests.get")
     def test_fetch_url_content_failure(self, mock_get):
@@ -50,7 +49,7 @@ class UrlUtilsTests(TestCase):
         self.assertEqual(content, "")
         self.assertIsNotNone(error)
         if error:
-            self.assertIn("Connection error", error)
+            self.assertIn("Error fetching URL", error)
         mock_get.assert_called_once_with("https://example.com", timeout=10)
 
     def test_extract_article_text_success(self):

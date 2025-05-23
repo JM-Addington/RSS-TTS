@@ -27,8 +27,8 @@ def extract_title_from_html(html: str) -> str:
     try:
         soup = BeautifulSoup(html, "html.parser")
         title_tag = soup.find("title")
-        if title_tag and title_tag.string:
-            return str(title_tag.string.strip())
+        if title_tag and title_tag.text:
+            return str(title_tag.text.strip())
         return ""
     except Exception as e:
         logger.error(f"Error extracting title: {str(e)}")
@@ -162,7 +162,19 @@ def _find_main_container(soup: BeautifulSoup) -> Optional[Tag]:
         The main content container Tag, or None if not found.
     """
     # Look for article first, then main, then fall back to the whole body
-    return soup.find("article") or soup.find("main") or soup.body
+    article = soup.find("article")
+    if isinstance(article, Tag):
+        return article
+
+    main = soup.find("main")
+    if isinstance(main, Tag):
+        return main
+
+    body = soup.body
+    if isinstance(body, Tag):
+        return body
+
+    return None
 
 
 def _extract_text_elements(container: Tag) -> List[str]:
@@ -196,8 +208,11 @@ def _extract_image_descriptions(container: Tag) -> List[str]:
     descriptions = []
 
     for img in container.find_all("img"):
+        if not isinstance(img, Tag):
+            continue
+
         alt = img.get("alt")
-        if alt and alt.strip():
+        if alt and isinstance(alt, str) and alt.strip():
             descriptions.append(f"[Image: {alt}]")
 
     return descriptions
@@ -215,8 +230,11 @@ def _extract_table_captions(container: Tag) -> List[str]:
     captions = []
 
     for table in container.find_all("table"):
+        if not isinstance(table, Tag):
+            continue
+
         caption = table.find("caption")
-        if caption and caption.get_text(strip=True):
+        if isinstance(caption, Tag) and caption.get_text(strip=True):
             captions.append(f"[Table: {caption.get_text(strip=True)}]")
         else:
             captions.append("[Table present]")
