@@ -139,8 +139,17 @@ class UserFeed(Feed):
 
         media_url = reverse("article-media", kwargs={"audio_uuid": item.audio_uuid})
 
-        # Get domain from settings or use request.get_host() as fallback
-        if hasattr(settings, "SITE_URL"):
+        # Use RSS_EXTERNAL_HOSTNAME if available
+        if (
+            hasattr(settings, "RSS_EXTERNAL_HOSTNAME")
+            and settings.RSS_EXTERNAL_HOSTNAME
+        ):
+            domain = settings.RSS_EXTERNAL_HOSTNAME
+            protocol = "https"  # Assume HTTPS for external hostnames
+            return f"{protocol}://{domain}{media_url}"
+
+        # Otherwise use SITE_URL if available
+        elif hasattr(settings, "SITE_URL"):
             return f"{settings.SITE_URL.rstrip('/')}{media_url}"
 
         # Fallback to request.get_host() if available
@@ -195,8 +204,17 @@ class UserFeed(Feed):
 
         media_url = reverse("article-media", kwargs={"audio_uuid": item.audio_uuid})
 
-        # Get domain from settings or use request.get_host() as fallback
-        if hasattr(settings, "SITE_URL"):
+        # Use RSS_EXTERNAL_HOSTNAME if available
+        if (
+            hasattr(settings, "RSS_EXTERNAL_HOSTNAME")
+            and settings.RSS_EXTERNAL_HOSTNAME
+        ):
+            domain = settings.RSS_EXTERNAL_HOSTNAME
+            protocol = "https"  # Assume HTTPS for external hostnames
+            return f"{protocol}://{domain}{media_url}"
+
+        # Otherwise use SITE_URL if available
+        elif hasattr(settings, "SITE_URL"):
             return f"{settings.SITE_URL.rstrip('/')}{media_url}"
 
         # Fallback to request.get_host() if available

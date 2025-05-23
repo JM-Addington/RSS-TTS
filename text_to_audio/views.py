@@ -117,49 +117,108 @@ class ArticleMediaView(LoginRequiredMixin, View):
         if not article.audio_uuid:
             return None
 
-        # Only look for UUID-based filenames
-        path = os.path.join(
-            settings.BASE_DIR,
-            "articles",
-            str(article.feed.user_id),
-            str(article.feed.id),
-            f"article_{article.audio_uuid}.mp3",
-        )
+        # Try multiple locations for the audio file
+        possible_paths = [
+            # Check in ARTICLE_STORAGE_DIR (BASE_DIR/articles)
+            os.path.join(
+                getattr(
+                    settings,
+                    "ARTICLE_STORAGE_DIR",
+                    os.path.join(settings.BASE_DIR, "articles"),
+                ),
+                str(article.feed.user.id),
+                str(article.feed.id),
+                f"article_{article.audio_uuid}.mp3",
+            ),
+            # Check in MEDIA_ROOT/articles
+            os.path.join(
+                settings.MEDIA_ROOT,
+                "articles",
+                str(article.feed.user.id),
+                str(article.feed.id),
+                f"article_{article.audio_uuid}.mp3",
+            ),
+        ]
 
-        if os.path.exists(path):
-            relative_path = os.path.relpath(path, settings.BASE_DIR)
-            article.audio_file_path = relative_path
-            article.status = Article.COMPLETED
-            article.save()
-            return path
+        for path in possible_paths:
+            if os.path.exists(path):
+                # Store relative to MEDIA_ROOT for consistency with tasks.py
+                try:
+                    relative_path = os.path.relpath(path, settings.MEDIA_ROOT)
+                    article.audio_file_path = relative_path
+                    article.status = Article.COMPLETED
+                    article.save(update_fields=["audio_file_path", "status"])
+                    return path
+                except ValueError:
+                    # If path is not relative to MEDIA_ROOT, store as absolute path
+                    article.audio_file_path = path
+                    article.status = Article.COMPLETED
+                    article.save(update_fields=["audio_file_path", "status"])
+                    return path
 
         return None
 
     def _resolve_path(self, article):
         """Resolve the audio file path based on different storage strategies."""
+        # Try multiple path resolution strategies
+        possible_paths = []
+
+        # Path 1: Check if it's a Docker path
         if article.audio_file_path.startswith("/app/"):
             # Docker path correction
             path_suffix = article.audio_file_path.replace("/app/media/", "").replace(
                 "/app/", ""
             )
-            file_path = os.path.join(settings.BASE_DIR, path_suffix)
-        elif not os.path.isabs(article.audio_file_path):
-            # Relative path
-            file_path = os.path.join(settings.BASE_DIR, article.audio_file_path)
-        else:
-            # Absolute path
-            file_path = article.audio_file_path
+            possible_paths.append(os.path.join(settings.BASE_DIR, path_suffix))
 
-        # Check if file exists
-        if os.path.exists(file_path):
-            return file_path
+        # Path 2: If it's a relative path, try with MEDIA_ROOT first
+        if not os.path.isabs(article.audio_file_path):
+            path = os.path.join(settings.MEDIA_ROOT, article.audio_file_path)
+            possible_paths.append(path)
 
-        # Try fallback with just the filename
-        filename = article.audio_file_path.split("/")[-1]
-        fallback_path = os.path.join(settings.BASE_DIR, "articles", filename)
-        if os.path.exists(fallback_path):
-            return fallback_path
+        # Path 3: Try with BASE_DIR (for backwards compatibility)
+        if not os.path.isabs(article.audio_file_path):
+            possible_paths.append(
+                os.path.join(settings.BASE_DIR, article.audio_file_path)
+            )
 
+        # Path 4: If it's an absolute path, use it directly
+        if os.path.isabs(article.audio_file_path):
+            possible_paths.append(article.audio_file_path)
+
+        # Path 5: Try with ARTICLE_STORAGE_DIR
+        article_storage_dir = getattr(
+            settings, "ARTICLE_STORAGE_DIR", os.path.join(settings.BASE_DIR, "articles")
+        )
+        if article.audio_uuid:
+            # Construct a path using the UUID
+            user_id = article.feed.user.id
+            feed_id = article.feed.id
+            possible_paths.append(
+                os.path.join(
+                    article_storage_dir,
+                    str(user_id),
+                    str(feed_id),
+                    f"article_{article.audio_uuid}.mp3",
+                )
+            )
+            # Also try in MEDIA_ROOT
+            possible_paths.append(
+                os.path.join(
+                    settings.MEDIA_ROOT,
+                    "articles",
+                    str(user_id),
+                    str(feed_id),
+                    f"article_{article.audio_uuid}.mp3",
+                )
+            )
+
+        # Check all possible paths
+        for path in possible_paths:
+            if os.path.exists(path):
+                return path
+
+        # If we get here, we couldn't find the file
         return None
 
     def _find_audio_file(self, article):
@@ -194,7 +253,20 @@ class ArticleMediaView(LoginRequiredMixin, View):
 
         file_path = self._find_audio_file(article)
         if not file_path:
-            return HttpResponseNotFound("Audio file not found")
+            # Add debug information to help diagnose issues
+            if settings.DEBUG:
+                error_msg = (
+                    f"Audio file not found. Details:\n"
+                    f"- UUID: {article.audio_uuid}\n"
+                    f"- Stored path: {article.audio_file_path}\n"
+                    f"- Feed User: {article.feed.user}\n"
+                    f"- Feed ID: {article.feed.id}\n"
+                    f"- MEDIA_ROOT: {settings.MEDIA_ROOT}\n"
+                    f"- BASE_DIR: {settings.BASE_DIR}"
+                )
+                return HttpResponseNotFound(error_msg)
+            else:
+                return HttpResponseNotFound("Audio file not found")
 
         # Serve the file
         response = FileResponse(open(file_path, "rb"))
