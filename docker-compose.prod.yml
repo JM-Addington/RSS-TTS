@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   web:
     build: .
@@ -10,8 +8,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - sqlite-data:/app/data
-      - redis-data:/data/redis
+      - ./data/sqlite-data:/app/data
+      - ./data/redis-data:/data/redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
       interval: 30s
@@ -26,8 +24,8 @@ services:
     environment:
       CELERY_BROKER_URL: redis://localhost:6379/0
     volumes:
-      - sqlite-data:/app/data
-      - redis-data:/data/redis
+      - ./data/sqlite-data:/app/data
+      - ./data/redis-data:/data/redis
     healthcheck:
       test: ["CMD", "celery", "-A", "rss_tts", "inspect", "ping"]
       interval: 30s
@@ -37,7 +35,3 @@ services:
 
     ports:
       - "6379:6379"
-
-volumes:
-  sqlite-data:
-  redis-data:
