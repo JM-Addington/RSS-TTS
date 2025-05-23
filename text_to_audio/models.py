@@ -112,9 +112,9 @@ class Article(models.Model):
         if self.source_url:
             return str(self.source_url)
 
-        # Use audio_uuid if available, otherwise fall back to article_id
-        if self.audio_uuid:
-            return reverse("article-media", kwargs={"audio_uuid": self.audio_uuid})
+        # All articles must have audio_uuid for media access
+        if not self.audio_uuid:
+            # This shouldn't happen in normal operation
+            raise ValueError("Article has no audio_uuid set")
 
-        # Legacy fallback
-        return reverse("article-media-legacy", kwargs={"article_id": self.pk})
+        return reverse("article-media", kwargs={"audio_uuid": self.audio_uuid})
