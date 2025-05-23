@@ -205,6 +205,20 @@ def process_article(self, article_id: int) -> str:
                     f"Failed to extract content from URL {article.source_url}: "
                     f"{error_msg}"
                 )
+
+                # Store the user-friendly error message in the database
+                article.status = Article.FAILED
+                article.error_message = error_msg
+                article.save(update_fields=["status", "error_message"])
+
+                # Don't retry if it's a "permanent" error like 404/403
+                if error and any(code in error for code in ["404", "403"]):
+                    logger.info(
+                        f"Not retrying permanent error for Article ID: {article_id}"
+                    )
+                    return f"Failed to process Article {article_id}: {error_msg}"
+
+                # Otherwise, let the normal retry mechanism handle it
                 raise ValueError(f"Failed to extract content from URL: {error_msg}")
 
             # Update the article with extracted text

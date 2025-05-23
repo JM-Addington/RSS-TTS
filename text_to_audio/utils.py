@@ -5,6 +5,7 @@ URL content extraction and text processing.
 """
 
 import logging
+import time
 from typing import List, Optional, Tuple
 
 import requests
@@ -14,25 +15,113 @@ from bs4 import BeautifulSoup, Tag
 logger = logging.getLogger(__name__)
 
 
-def fetch_url_content(url: str, timeout: int = 10) -> Tuple[bool, str, Optional[str]]:
-    """Fetch HTML content from a URL.
+def extract_title_from_html(html: str) -> str:
+    """Extract the title from HTML content.
+
+    Args:
+        html: The HTML content to extract the title from.
+
+    Returns:
+        The extracted title, or an empty string if no title found.
+    """
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        title_tag = soup.find("title")
+        if title_tag and title_tag.string:
+            return str(title_tag.string.strip())
+        return ""
+    except Exception as e:
+        logger.error(f"Error extracting title: {str(e)}")
+        return ""
+
+
+def fetch_url_content(
+    url: str, timeout: int = 10, max_retries: int = 5
+) -> Tuple[bool, str, Optional[str]]:
+    """Fetch HTML content from a URL with retry mechanism.
 
     Args:
         url: The URL to fetch content from.
         timeout: Request timeout in seconds.
+        max_retries: Maximum number of retry attempts for recoverable errors.
 
     Returns:
         Tuple of (success, content, error_message).
         If successful, error_message will be None.
     """
-    try:
-        response = requests.get(url, timeout=timeout)
-        response.raise_for_status()
-        return True, response.text, None
-    except requests.RequestException as e:
-        error_message = f"Error fetching URL {url}: {str(e)}"
-        logger.error(error_message)
-        return False, "", error_message
+    retry_count = 0
+    last_error = None
+
+    while retry_count < max_retries:
+        try:
+            logger.info(
+                f"Fetching URL: {url} (Attempt {retry_count + 1}/{max_retries})"
+            )
+            response = requests.get(url, timeout=timeout)
+
+            # Handle common HTTP error status codes
+            if response.status_code == 404:
+                return (
+                    False,
+                    "",
+                    f"404 Not Found: The requested page '{url}' could not be found.",
+                )
+            elif response.status_code == 403:
+                return (
+                    False,
+                    "",
+                    f"403 Forbidden: Access to '{url}' is forbidden. "
+                    f"The site may require authentication or block automated access.",
+                )
+            elif response.status_code == 500:
+                # This is a server error - we might retry this one
+                last_error = (
+                    f"500 Server Error: The server at '{url}' encountered an error."
+                )
+                retry_count += 1
+                logger.warning(
+                    f"Attempt {retry_count}/{max_retries}: Server error for {url}: "
+                    f"{last_error}"
+                )
+                time.sleep(2**retry_count)  # Exponential backoff
+                continue
+            elif response.status_code != 200:
+                return (
+                    False,
+                    "",
+                    f"HTTP Error {response.status_code}: Unable to access '{url}'.",
+                )
+
+            # Success - return the content
+            return True, response.text, None
+
+        except requests.Timeout:
+            last_error = f"Connection timed out after {timeout} seconds."
+            retry_count += 1
+            logger.warning(f"Attempt {retry_count}/{max_retries}: Timeout for {url}")
+            if retry_count < max_retries:
+                time.sleep(2**retry_count)  # Exponential backoff
+
+        except requests.ConnectionError:
+            last_error = (
+                f"Connection Error: Unable to connect to '{url}'. "
+                f"The site may be down or the URL may be invalid."
+            )
+            retry_count += 1
+            logger.warning(
+                f"Attempt {retry_count}/{max_retries}: Connection error for {url}"
+            )
+            if retry_count < max_retries:
+                time.sleep(2**retry_count)  # Exponential backoff
+
+        except requests.RequestException as e:
+            error_message = f"Error fetching URL {url}: {str(e)}"
+            logger.error(error_message)
+            return False, "", error_message
+
+    # If we've exhausted our retries
+    logger.error(f"Max retries ({max_retries}) exceeded for URL {url}: {last_error}")
+    return False, "", f"Failed after {max_retries} attempts: {last_error}"
 
 
 def _find_main_container(soup: BeautifulSoup) -> Optional[Tag]:
@@ -161,7 +250,7 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
         Tuple of (success, extracted_text, error_message).
         If successful, error_message will be None.
     """
-    # Fetch the HTML content
+    # Fetch the HTML content with retry mechanism
     success, html, error = fetch_url_content(url)
     if not success:
         return False, "", error
