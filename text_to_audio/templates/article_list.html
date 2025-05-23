@@ -60,7 +60,30 @@
                                 <span class="text-muted">Processing...</span>
                             {% elif article.status == 'FAILED' %}
                                 <div>
-                                    <span class="text-danger">Error: {{ article.error_message|truncatechars:50 }}</span>
+                                    <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#errorDetails{{ article.id }}" aria-expanded="false">
+                                        Show Error Details
+                                    </button>
+                                    <div class="collapse mt-2" id="errorDetails{{ article.id }}">
+                                        <div class="card card-body bg-light">
+                                            {% if "404" in article.error_message %}
+                                                <div class="alert alert-warning mb-0">
+                                                    <strong>404 Not Found:</strong> The page could not be found. Please check if the URL is correct.
+                                                </div>
+                                            {% elif "403" in article.error_message %}
+                                                <div class="alert alert-warning mb-0">
+                                                    <strong>403 Forbidden:</strong> Access to this page is restricted. It may require login credentials or not allow automated access.
+                                                </div>
+                                            {% elif "500" in article.error_message %}
+                                                <div class="alert alert-warning mb-0">
+                                                    <strong>500 Server Error:</strong> The website's server encountered an error. You may try again later.
+                                                </div>
+                                            {% else %}
+                                                <div class="alert alert-danger mb-0">
+                                                    {{ article.error_message }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
                             {% endif %}
                         </td>

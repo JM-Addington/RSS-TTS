@@ -19,6 +19,9 @@ class ArticleSubmissionForm(forms.ModelForm):
         model = Article
         fields = ["title", "source_url", "text_content"]
         widgets = {
+            "title": forms.TextInput(
+                attrs={"placeholder": "Optional if URL is provided"}
+            ),
             "text_content": forms.Textarea(
                 attrs={
                     "rows": 8,
