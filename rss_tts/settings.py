@@ -141,3 +141,4 @@ LOGOUT_REDIRECT_URL = "home"
 
 # RSS Feed Settings
 PODCAST_IMAGE_URL = os.environ.get("PODCAST_IMAGE_URL", "")
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
