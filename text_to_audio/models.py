@@ -100,3 +100,15 @@ class Article(models.Model):
     def __str__(self) -> str:
         """Return a string representation of the article."""
         return str(self.title)
+
+    def get_absolute_url(self) -> str:
+        """Return the URL for this article.
+
+        Returns:
+            The source URL if available, otherwise the URL to the audio file.
+        """
+        from django.urls import reverse
+
+        if self.source_url:
+            return str(self.source_url)
+        return reverse("article-media", kwargs={"article_id": self.pk})
