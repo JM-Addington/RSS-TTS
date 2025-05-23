@@ -90,7 +90,14 @@ class UserFeed(Feed):
 
     def link(self, obj: FeedModel) -> str:
         """Get the feed link."""
-        return reverse("feed", kwargs={"token": obj.token})
+        feed_url = reverse("feed", kwargs={"token": obj.token})
+
+        # Use SITE_URL from settings if available
+        if hasattr(settings, "SITE_URL"):
+            return f"{settings.SITE_URL.rstrip('/')}{feed_url}"
+
+        # Otherwise, the framework will use the current request's domain
+        return feed_url
 
     def description(self, obj: FeedModel) -> str:
         """Get the feed description."""
@@ -126,16 +133,20 @@ class UserFeed(Feed):
 
     def item_enclosure_url(self, item: Article) -> str:
         """Get the enclosure URL for a feed item (MP3 file)."""
-        if not hasattr(self, "request"):
-            # Fallback when request is not available (like in tests)
-            return reverse("article-media", kwargs={"article_id": item.pk})
-
         media_url = reverse("article-media", kwargs={"article_id": item.pk})
 
-        # Construct full URL with domain
-        domain = self.request.get_host()
-        protocol = "https" if self.request.is_secure() else "http"
-        return f"{protocol}://{domain}{media_url}"
+        # Get domain from settings or use request.get_host() as fallback
+        if hasattr(settings, "SITE_URL"):
+            return f"{settings.SITE_URL.rstrip('/')}{media_url}"
+
+        # Fallback to request.get_host() if available
+        if hasattr(self, "request"):
+            domain = self.request.get_host()
+            protocol = "https" if self.request.is_secure() else "http"
+            return f"{protocol}://{domain}{media_url}"
+
+        # Last resort fallback
+        return media_url
 
     def item_enclosure_length(self, item: Article) -> int:
         """Get the size of the MP3 file."""
@@ -174,11 +185,17 @@ class UserFeed(Feed):
             return str(item.source_url)
 
         # If no source URL, return the media URL
-        if not hasattr(self, "request"):
-            # Fallback when request is not available (like in tests)
-            return reverse("article-media", kwargs={"article_id": item.pk})
-
         media_url = reverse("article-media", kwargs={"article_id": item.pk})
-        domain = self.request.get_host()
-        protocol = "https" if self.request.is_secure() else "http"
-        return f"{protocol}://{domain}{media_url}"
+
+        # Get domain from settings or use request.get_host() as fallback
+        if hasattr(settings, "SITE_URL"):
+            return f"{settings.SITE_URL.rstrip('/')}{media_url}"
+
+        # Fallback to request.get_host() if available
+        if hasattr(self, "request"):
+            domain = self.request.get_host()
+            protocol = "https" if self.request.is_secure() else "http"
+            return f"{protocol}://{domain}{media_url}"
+
+        # Last resort fallback
+        return media_url
