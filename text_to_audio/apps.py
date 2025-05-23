@@ -1,3 +1,8 @@
+"""Django app configuration for the text_to_audio application.
+
+Defines the app configuration including app name and database field settings.
+"""
+
 from django.apps import AppConfig
 
 

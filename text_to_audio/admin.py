@@ -1,3 +1,9 @@
+"""Admin configuration for the text_to_audio app.
+
+Defines admin interfaces for Feed and Article models with appropriate
+display fields, filters, and search capabilities.
+"""
+
 from django.contrib import admin
 
 from .models import Article, Feed
