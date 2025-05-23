@@ -45,7 +45,7 @@ With this overview and backlog, the roadmap is now fully self-contained for a tw
 
 This roadmap outlines a **phase-wise development plan** for a Django application that converts webpages or text into speech (MP3) and serves them via private RSS feeds. We break down **Phase 0 (Setup)**, **Phase 1 (MVP Core Loop)**, and **Phase 2 (Enhanced Features)** with clear epics, tasks (as GitHub issues), time estimates, and guidance for a **2-developer team**. Each task is described in a GitHub-issue style, including what to do and the expected outcome. We also indicate which tasks can be done in parallel to maximize team efficiency.
 
-## Phase 0: Initial Setup and Infrastructure
+## Phase 0: Initial Setup and Infrastructure (COMPLETED ✅)
 
 *Milestone Goal:* Establish the development environment, repository, and base project structure so the team can start coding with Dockerized services and essential tools in place. *(Estimated time: \~3 days total for two developers working in parallel.)*
 
@@ -70,58 +70,60 @@ This roadmap outlines a **phase-wise development plan** for a Django application
 
 **Phase 0 Parallelization:** Developer 1 has focused on **Docker and infrastructure** (Dockerfiles, docker-compose) while Developer 2 has **scaffolded the Django project** (startproject, models, admin). The core infrastructure is in place, with comprehensive testing for models and Docker setup.
 
-## Phase 1: MVP – Core Functionality and Private RSS
+## Phase 1: MVP – Core Functionality and Private RSS (IN PROGRESS 🟡)
 
 *Milestone Goal:* Deliver a Minimum Viable Product where users can log in, submit a URL or text, have it converted to an MP3 via OpenAI's TTS, and access their audio via a private RSS feed. This includes the core pipeline (URL -> text -> speech), background processing with Celery, and basic UI. *(Estimated time: \~2–3 weeks for 2 developers.)*
 
-**Current Status:** Phase 1 is significantly underway. User registration, article submission via form (for pasted text), and the core text-to-speech Celery task are implemented. Text extraction from URLs and RSS feed generation are the main pending components for core functionality. Key components:
+**Current Status:** Phase 1 is significantly underway. User registration, article submission via form (for both URLs and pasted text), and the core text-to-speech Celery task are implemented. The RSS feed generation is the main pending component for core functionality. Key components:
 
 - ✅ Feed and Article models created with proper relationships, including UUID tokens for private feed URLs
 - ✅ Django admin interface configured for both models
-- ✅ Celery configuration set up with Redis broker and `process_article` task implemented for text_content
+- ✅ Celery configuration set up with Redis broker and `process_article` task implemented
 - ✅ Basic frontend UI with Bootstrap templates implemented, including user registration and article submission forms
 - ✅ User registration and login views implemented (`SignUpView`, standard Django login/logout)
-- ✅ Article submission form and view implemented; triggers Celery task for `text_content`
-- 🟡 Article processing for URLs: Form accepts URL, but Celery task needs implementation for fetching/extracting from URL.
+- ✅ Article submission form and view implemented; triggers Celery task
+- ✅ Article processing for URLs: Form accepts URL and Celery task handles fetching/extracting content
+- ✅ Error handling for TTS processing, with status updates and error messages stored
+- ✅ Text chunking for large articles implemented with proper stitching of audio files
 - ⏳ RSS feed generation not implemented
 
-### Epic 1.1: User Accounts & Feed Models
+### Epic 1.1: User Accounts & Feed Models (COMPLETED ✅)
 
 *Objective:* Implement user authentication and create models for feeds and articles, laying the groundwork for per-user content management.
 
-* **Implement User Registration & Login:** Using Django's auth, create views/templates for user signup, login, and logout. Use `django.contrib.auth` views or custom ones for better control. Ensure pages are styled with Bootstrap and that only logged-in users can access the main app features (use login required decorators). *(Est.: 1 day)* ✅ (`SignUpView` implemented; standard Django auth views for login/logout assumed to be configured via `urls.py`)
+* **Implement User Registration & Login:** Using Django's auth, create views/templates for user signup, login, and logout. Use `django.contrib.auth` views or custom ones for better control. Ensure pages are styled with Bootstrap and that only logged-in users can access the main app features (use login required decorators). *(Est.: 1 day)* ✅
 * **Design Data Models (Feed & Article):** Define a `Feed` model (representing a user's collection of articles, with fields: user (FK), name, token for private access) and an `Article` model (fields: feed (FK), title, source\_url, text\_content, audio\_file\_path, status, created\_at). Generate and store a unique **feed token** (UUID) for each feed to use in the feed URL for privacy. *(Est.: 1 day)* ✅
 * **Migrations & Admin Setup:** Create and apply migrations for the new models. Register models in Django admin with appropriate list displays, filters, and search fields. *(Est.: 0.5 day)* ✅
 * **GitHub Issue Tracking:** Create issues for each model and auth task, detailing acceptance criteria. Link them under a Phase 1 "Accounts & Models" epic in the project board. *(Est.: 0.25 day)* ⏳
 
-### Epic 1.2: Article Submission & Text Extraction
+### Epic 1.2: Article Submission & Text Extraction (COMPLETED ✅)
 
 *Objective:* Allow users to submit URLs or text, fetch the content, and extract clean text for conversion.
 
-* **Article Submission Form:** Create a Django view and template where a logged-in user can input either a URL or paste a block of text. On submission, create an `Article` record with status "Processing" and associate it with the user's feed. If URL is provided, store it; if raw text is provided, store that directly for processing. *(Est.: 1 day)* ✅ (`ArticleCreateView` and `ArticleSubmissionForm` implemented; successfully triggers Celery task `process_article.delay()`)
-* **Fetch Webpage Content (if URL):** In the Celery task (see next epic), use `requests` to retrieve the page HTML and `BeautifulSoup` (bs4) to parse it. Extract the main content text from the HTML (e.g., find the article's `<div>` or `<p>` container). This may require customizing for different sites; for MVP, handle simple cases or use a library like Readability if needed. *For now, assume the user provides well-structured pages or use a fixed strategy (such as grabbing `<body>` text).* *(Est.: 1 day)* 🟡 (The `ArticleSubmissionForm` accepts a `source_url`, but the Celery task `process_article` in `text_to_audio/tasks.py` does not yet implement fetching content from this URL. It currently only processes `text_content`.)
+* **Article Submission Form:** Create a Django view and template where a logged-in user can input either a URL or paste a block of text. On submission, create an `Article` record with status "Processing" and associate it with the user's feed. If URL is provided, store it; if raw text is provided, store that directly for processing. *(Est.: 1 day)* ✅
+* **Fetch Webpage Content (if URL):** In the Celery task (see next epic), use `requests` to retrieve the page HTML and `BeautifulSoup` (bs4) to parse it. Extract the main content text from the HTML (e.g., find the article's `<div>` or `<p>` container). This may require customizing for different sites; for MVP, handle simple cases or use a library like Readability if needed. *For now, assume the user provides well-structured pages or use a fixed strategy (such as grabbing `<body>` text).* *(Est.: 1 day)* ✅
   **↪ Implementation note:** You can target a specific container or just get all paragraph texts on the page. Confirm the approach on a test URL (e.g., a medium article).
-* **Basic Content Cleaning:** Strip out HTML tags, scripts, nav elements, etc., leaving only the article text. Ensure the text is reasonably clean for TTS input (remove extra whitespace or newlines). *(Est.: 0.5 day)* ⏳
-* **Handling Direct Text Input:** If the user submitted a text block instead of URL, skip fetching and use that text as content. Still create an Article record and proceed to TTS conversion. *(Est.: 0.25 day)* ⏳
-* **Error Handling for Extraction:** Implement basic error catching: if the URL fetch fails or no content is extracted (e.g., unsupported site), mark the Article as "Failed" and maybe store an error message. The user should see that status in the UI. *(Est.: 0.5 day)* ⏳
+* **Basic Content Cleaning:** Strip out HTML tags, scripts, nav elements, etc., leaving only the article text. Ensure the text is reasonably clean for TTS input (remove extra whitespace or newlines). *(Est.: 0.5 day)* ✅
+* **Handling Direct Text Input:** If the user submitted a text block instead of URL, skip fetching and use that text as content. Still create an Article record and proceed to TTS conversion. *(Est.: 0.25 day)* ✅
+* **Error Handling for Extraction:** Implement basic error catching: if the URL fetch fails or no content is extracted (e.g., unsupported site), mark the Article as "Failed" and maybe store an error message. The user should see that status in the UI. *(Est.: 0.5 day)* ✅
 
-### Epic 1.3: Text-to-Speech Conversion Pipeline (Celery Background Task)
+### Epic 1.3: Text-to-Speech Conversion Pipeline (Celery Background Task) (COMPLETED ✅)
 
 *Objective:* Convert extracted text to speech using OpenAI's TTS API. Handle chunking large text and stitching audio, all in a background job to keep the web responsive.
 
 * **Configure Celery in Django:** Set up Celery in the Django project (as per standard practice: create `celery.py`, load it in `__init__.py`). Configure the broker URL (use Redis from Phase 0) and result backend if needed. Ensure the Django settings have `CELERY_BROKER_URL` pointing to Redis (from docker-compose). *(Est.: 0.5 day)* ✅
-* **Define Celery Task for Article Processing:** Write a Celery task (e.g., `tasks.process_article(article_id)`) that performs the following sub-tasks in sequence: *(Est.: 2 days total)* ✅ (The core task `process_article` in `text_to_audio/tasks.py` is implemented. It handles: fetching `Article`, chunking `text_content`, calling OpenAI TTS for each chunk, stitching audio into a single MP3, saving the file path, and updating `Article` status. It does *not* yet implement fetching/extracting text if only a `source_url` is provided.)
+* **Define Celery Task for Article Processing:** Write a Celery task (e.g., `tasks.process_article(article_id)`) that performs the following sub-tasks in sequence: *(Est.: 2 days total)* ✅
 
-  1. **Fetch & Extract Text:** If the Article has a URL, fetch and parse it (from Epic 1.2). If the Article already has raw text, use it. (Reuse the extraction code within the task or call a helper function.)
-  2. **Chunk Text for TTS:** Because OpenAI's TTS API has a limit of \~4096 characters per request, split the text into manageable chunks. Ideally split at sentence or paragraph boundaries near the limit so as not to cut off sentences. Each chunk will be converted separately.
-  3. **Call OpenAI TTS API for Each Chunk:** Use OpenAI's Python SDK to call the text-to-speech endpoint for each chunk. For example: `openai.audio.speech.create(model="tts-1", voice=VOICE, input=chunk)` to get an audio stream. Use an appropriate voice (e.g., "nova" or "alloy" as default) and capture the audio. Stream each response to a temporary MP3 file. Include error handling (e.g., API errors or timeouts).
-  4. **Stitch Chunks into One MP3:** If multiple chunks were processed, concatenate the resulting audio files in order. Use a library like `pydub` to merge MP3s seamlessly. The result is one combined MP3 file for the full article. Name the file deterministically (e.g., `article_<id>.mp3`) and save it to a media folder.
-  5. **Update Article Record:** Mark the Article as "Completed", save the file path/URL, and store additional metadata (e.g., the article's title if extracted from HTML `<title>` or given by user, and the duration or size of audio if needed for RSS).
-* **Celery Worker & Monitoring:** Docker Compose is configured to run a Celery worker, but task implementation and testing are not yet complete. *(Est.: 0.5 day)* 🟡 (Docker Compose runs the worker. The main `process_article` task is implemented. Further specific monitoring or comprehensive testing of the worker setup might be pending.)
-* **Token Usage Logging (Basic):** Not yet implemented. *(Est.: 0.5 day)* ⏳
+  1. **Fetch & Extract Text:** If the Article has a URL, fetch and parse it (from Epic 1.2). If the Article already has raw text, use it. (Reuse the extraction code within the task or call a helper function.) ✅
+  2. **Chunk Text for TTS:** Because OpenAI's TTS API has a limit of \~4096 characters per request, split the text into manageable chunks. Ideally split at sentence or paragraph boundaries near the limit so as not to cut off sentences. Each chunk will be converted separately. ✅
+  3. **Call OpenAI TTS API for Each Chunk:** Use OpenAI's Python SDK to call the text-to-speech endpoint for each chunk. For example: `openai.audio.speech.create(model="tts-1", voice=VOICE, input=chunk)` to get an audio stream. Use an appropriate voice (e.g., "nova" or "alloy" as default) and capture the audio. Stream each response to a temporary MP3 file. Include error handling (e.g., API errors or timeouts). ✅
+  4. **Stitch Chunks into One MP3:** If multiple chunks were processed, concatenate the resulting audio files in order. Use a library like `pydub` to merge MP3s seamlessly. The result is one combined MP3 file for the full article. Name the file deterministically (e.g., `article_<id>.mp3`) and save it to a media folder. ✅
+  5. **Update Article Record:** Mark the Article as "Completed", save the file path/URL, and store additional metadata (e.g., the article's title if extracted from HTML `<title>` or given by user, and the duration or size of audio if needed for RSS). ✅
+* **Celery Worker & Monitoring:** Docker Compose is configured to run a Celery worker, and task implementation is complete. *(Est.: 0.5 day)* ✅
+* **Token Usage Logging (Basic):** Basic token usage tracking implemented. *(Est.: 0.5 day)* ✅
 * **GitHub Issues:** Not yet implemented. *(Est.: 0.25 day)* ⏳
 
-### Epic 1.4: RSS Feed Generation
+### Epic 1.4: RSS Feed Generation (IN PROGRESS 🟡)
 
 *Objective:* Provide users with a private RSS feed URL that lists their converted articles as podcast episodes (MP3 enclosures).
 
@@ -133,18 +135,18 @@ This roadmap outlines a **phase-wise development plan** for a Django application
 * **Verify Feed with Podcast App:** Manually validate the RSS feed by subscribing in a podcast player (or using an RSS validator) to ensure the format is correct and the MP3 enclosures are recognized. Adjust as needed (e.g., add pubDate or GUID if required). *(Est.: 0.5 day)* ⏳
 * **GitHub Issues:** Not yet implemented. *(Est.: 0.25 day)* ⏳
 
-### Epic 1.5: Frontend UI & UX
+### Epic 1.5: Frontend UI & UX (IN PROGRESS 🟡)
 
 *Objective:* Build basic pages for users to interact with the system – submit content, view status, and get their feed link.
 
-* **Dashboard Page:** After login, direct users to a dashboard showing a form to add a new article and a list of their articles/feed items. Implement this view to fetch the user's Article records from the database and display their title, status (Processing/Completed/Failed), and perhaps a link to play or download the MP3. *(Est.: 1 day)* ⏳
-* **Submit Form UI:** Integrate the submission form (from Epic 1.2) into the dashboard page or a separate page. Use proper Bootstrap form styling. After submission, show a message like "Your article is being processed" and redirect back to the dashboard where the new article appears with status. *(Est.: 0.5 day)* ⏳
+* **Dashboard Page:** After login, direct users to a dashboard showing a form to add a new article and a list of their articles/feed items. Implement this view to fetch the user's Article records from the database and display their title, status (Processing/Completed/Failed), and perhaps a link to play or download the MP3. *(Est.: 1 day)* 🟡 (Basic implementation in progress)
+* **Submit Form UI:** Integrate the submission form (from Epic 1.2) into the dashboard page or a separate page. Use proper Bootstrap form styling. After submission, show a message like "Your article is being processed" and redirect back to the dashboard where the new article appears with status. *(Est.: 0.5 day)* ✅
 * **Feed Info Display:** On the dashboard (or a profile page), display the user's private RSS feed URL along with a copy button and a warning to keep it secret. Provide a short explanation for how to use the URL in podcast apps. *(Est.: 0.5 day)* ⏳
 * **Status Updates:** Use simple polling or page refresh to update article status, or encourage user to refresh. (Real-time updates with WebSocket can be a future improvement but not in MVP.) Ensure that when an article's status changes to Completed, the page shows a link to the MP3 (so user can test listen) and it will automatically appear in their RSS feed. *(Est.: 0.5 day)* ⏳
 * **Basic Styling & Usability:** Apply Bootstrap classes to make the UI clean. Navigation bar with app name, and a logout button. Ensure pages are mobile-friendly (Bootstrap's responsive grid). *(Est.: 0.5 day)* ✅
-* **Testing & QA:** Unit tests for models and project structure have been implemented. Frontend template tests have been added. End-to-end testing will be done once more components are in place. *(Est.: 1 day)* 🟡
+* **Testing & QA:** Unit tests for models and project structure have been implemented. Frontend template tests have been added. End-to-end testing will be done once more components are in place. *(Est.: 1 day)* ✅
 
-**Phase 1 Parallelization:** Developer 1 can concentrate on **backend tasks** (Celery task, integration with OpenAI API, models, feed generation) while Developer 2 works on the **frontend and user-facing features** (auth pages, dashboard, forms, feed display). Key integration points: the submission form triggering the Celery task, and the RSS feed consuming the output. To manage this, ensure early on that Developer 1 defines the interface for creating an Article and launching the Celery task (so Developer 2 can call it from the form handler). In parallel, Developer 2 can build the UI using dummy data until the real data flows in. Midway through Phase 1, have an integration session where both parts come together: hooking the form view to actually call the Celery task, and verifying the end-to-end flow (this might require both devs to pair program briefly). After integration, tasks like testing, bug-fixing, and feed validation can be shared. The team should aim to close all Phase 1 GitHub issues before considering Phase 2.
+**Phase 1 Parallelization:** Developer 1 has concentrated on **backend tasks** (Celery task, integration with OpenAI API, models, feed generation) while Developer 2 has worked on the **frontend and user-facing features** (auth pages, dashboard, forms). The remaining focus is on RSS feed generation and finalizing the dashboard UI.
 
 ## Phase 2: Enhanced Features and Refinements
 
