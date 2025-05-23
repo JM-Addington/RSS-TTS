@@ -18,6 +18,9 @@ services:
     depends_on:
       - redis
       - worker
+    networks:
+      - rsstts
+      - caddy
 
   worker:
     build: .
@@ -35,6 +38,8 @@ services:
       start_period: 20s
     depends_on:
       - redis
+    networks:
+      - rsstts
 
   redis:
     image: redis:7
@@ -42,11 +47,16 @@ services:
     volumes:
       - ./redis.conf:/usr/local/etc/redis/redis.conf
       - ./data/redis-data:/data
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
+    networks:
+      - rsstts
+
+networks:
+  rsstts:
+  caddy:
+    external: true
