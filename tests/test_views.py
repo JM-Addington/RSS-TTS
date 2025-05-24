@@ -93,3 +93,177 @@ class RegenerateArticleViewTest(TestCase):
 
         # Make sure no new article was created
         self.assertEqual(Article.objects.filter(feed=other_feed).count(), 1)
+
+
+class ArticleDeleteViewTests(TestCase):
+    """Tests for the ArticleDeleteView."""
+
+    def setUp(self):
+        """Set up test data."""
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="testuser", password="testpassword", email="test@example.com"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
+        self.article = Article.objects.create(
+            feed=self.feed, title="Test Article to Delete"
+        )
+        self.client.login(username="testuser", password="testpassword")
+
+        # Ensure MEDIA_ROOT is set up for tests (Django's TestCase does this)
+        # If not, we might need to override settings
+        from django.conf import settings
+
+        self.settings = settings
+
+    def _create_dummy_audio_file(self, article):
+        """Helper function to create a dummy audio file for an article."""
+        if not article.audio_uuid:
+            # If audio_uuid is not set, the view might not look for this specific path
+            # For robust testing, ensure audio_uuid is set before calling this
+            return None
+
+        # Path structure: MEDIA_ROOT/articles/user_id/feed_id/article_audio_uuid.mp3
+        file_path = os.path.join(
+            self.settings.MEDIA_ROOT,
+            "articles",
+            str(article.feed.user.id),
+            str(article.feed.id),
+            f"article_{article.audio_uuid}.mp3",
+        )
+
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, "w") as f:
+            f.write("dummy audio content")  # Create an empty or dummy file
+        
+        # For one of the deletion paths, ArticleDeleteView checks article.audio_file_path
+        # To make this helper more robust for testing that path, we can set it here.
+        # This assumes the file is stored relative to MEDIA_ROOT.
+        article.audio_file_path = os.path.relpath(file_path, self.settings.MEDIA_ROOT)
+        article.save()
+        return file_path
+
+    def test_article_delete_confirmation_page_get(self):
+        """Test GET request to the article delete confirmation page."""
+        response = self.client.get(
+            reverse(
+                "article-delete",
+                kwargs={"feed_id": self.feed.pk, "article_id": self.article.pk},
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.article.title)
+        self.assertTemplateUsed(response, "text_to_audio/article_confirm_delete.html")
+
+    def test_article_delete_post_success(self):
+        """Test POST request to delete an article successfully, including its audio file."""
+        self.article.audio_uuid = uuid.uuid4()
+        self.article.save()
+
+        dummy_file_path = self._create_dummy_audio_file(self.article)
+        self.assertTrue(
+            os.path.exists(dummy_file_path), "Dummy audio file was not created."
+        )
+
+        response = self.client.post(
+            reverse(
+                "article-delete",
+                kwargs={"feed_id": self.feed.pk, "article_id": self.article.pk},
+            )
+        )
+
+        self.assertFalse(
+            Article.objects.filter(pk=self.article.pk).exists(),
+            "Article was not deleted from the database.",
+        )
+        self.assertFalse(
+            os.path.exists(dummy_file_path),
+            "Dummy audio file was not deleted from the filesystem.",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(
+            response, reverse("feed-articles", kwargs={"feed_id": self.feed.pk})
+        )
+
+    def test_article_delete_post_file_already_missing(self):
+        """Test POST request to delete an article when its audio file is already missing."""
+        self.article.audio_uuid = uuid.uuid4()
+        # Set a path that we know won't exist
+        self.article.audio_file_path = "some/very/unlikely/path/to/missing_audio.mp3"
+        self.article.save()
+
+        # Ensure the dummy file does not exist at this path
+        non_existent_path = os.path.join(self.settings.MEDIA_ROOT, self.article.audio_file_path)
+        self.assertFalse(os.path.exists(non_existent_path))
+
+        response = self.client.post(
+            reverse(
+                "article-delete",
+                kwargs={"feed_id": self.feed.pk, "article_id": self.article.pk},
+            )
+        )
+
+        self.assertFalse(
+            Article.objects.filter(pk=self.article.pk).exists(),
+            "Article was not deleted from the database.",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(
+            response, reverse("feed-articles", kwargs={"feed_id": self.feed.pk})
+        )
+        # Main check is that no error occurred during deletion due to missing file
+
+    def test_article_delete_unauthorized(self):
+        """Test that a user cannot delete another user's article."""
+        user2 = User.objects.create_user(
+            username="user2", password="password2", email="user2@example.com"
+        )
+        # Article belongs to self.user, but self.client is logged in as self.user
+        # We need to log in as user2
+        self.client.logout()
+        self.client.login(username="user2", password="password2")
+
+        response = self.client.post(
+            reverse(
+                "article-delete",
+                kwargs={"feed_id": self.feed.pk, "article_id": self.article.pk},
+            )
+        )
+
+        self.assertTrue(
+            Article.objects.filter(pk=self.article.pk).exists(),
+            "Article was deleted by an unauthorized user.",
+        )
+        self.assertEqual(
+            response.status_code,
+            404, # As per get_queryset filtering
+            "Unauthorized delete attempt did not return 404.",
+        )
+
+    def test_article_delete_non_existent(self):
+        """Test deleting a non-existent article returns 404."""
+        non_existent_article_id = self.article.pk + 999  # An ID that likely won't exist
+        
+        # Try GET request
+        response_get = self.client.get(
+            reverse(
+                "article-delete",
+                kwargs={
+                    "feed_id": self.feed.pk,
+                    "article_id": non_existent_article_id,
+                },
+            )
+        )
+        self.assertEqual(response_get.status_code, 404)
+
+        # Try POST request
+        response_post = self.client.post(
+            reverse(
+                "article-delete",
+                kwargs={
+                    "feed_id": self.feed.pk,
+                    "article_id": non_existent_article_id,
+                },
+            )
+        )
+        self.assertEqual(response_post.status_code, 404)
