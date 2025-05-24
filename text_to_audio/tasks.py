@@ -279,11 +279,49 @@ def process_article(self, article_id: int) -> str:
             raise ValueError("No audio files were generated from chunks.")
 
         # Stitch audio files
+        # Define ID3 tags and export parameters
+        feed_name = "My Podcast"
+        if article.feed and article.feed.name:
+            feed_name = article.feed.name
+        # Handle case where feed.name is explicitly None
+        elif (
+            hasattr(article, "feed")
+            and hasattr(article.feed, "name")
+            and article.feed.name is None
+        ):
+            feed_name = "My Podcast"
+
+        tags_dict = {
+            "title": article.title if article.title else "Untitled Article",
+            "artist": feed_name,
+            "album": feed_name,
+        }
+        export_parameters = ["-id3v2_version", "3", "-write_id3v1", "1"]
+
+        final_audio_path = article_media_dir / f"article_{article.audio_uuid}.mp3"
+
         if len(temp_audio_files) == 1:
-            final_audio_path_temp = temp_audio_files[0]
-            final_audio_path = article_media_dir / f"article_{article.audio_uuid}.mp3"
-            final_audio_path_temp.rename(final_audio_path)
-            logger.info(f"Single audio chunk moved to {final_audio_path}")
+            temp_single_audio_path = temp_audio_files[0]
+            try:
+                audio_segment = AudioSegment.from_mp3(temp_single_audio_path)
+                audio_segment = audio_segment.set_frame_rate(44100)
+                audio_segment.export(
+                    final_audio_path,
+                    format="mp3",
+                    bitrate="128k",
+                    tags=tags_dict,
+                    parameters=export_parameters,
+                )
+                logger.info(
+                    f"Processed single audio chunk and exported to {final_audio_path}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Error processing single audio chunk {temp_single_audio_path}: {e}"
+                )
+                fname = temp_single_audio_path.name
+                error_msg = f"Failed to process single audio chunk {fname}"
+                raise ValueError(f"{error_msg}: {e}") from e
         else:
             combined_audio = AudioSegment.empty()
             for temp_file in temp_audio_files:
@@ -292,17 +330,28 @@ def process_article(self, article_id: int) -> str:
                     combined_audio += segment
                 except Exception as e:  # pydub can raise various errors
                     logger.error(
-                        f"Pydub error: chunk {temp_file} article {article_id}: {e}"
+                        f"Pydub error processing chunk {temp_file} "
+                        f"for article {article_id}: {e}"
                     )
-                    raise ValueError(
-                        f"Failed to process audio chunk {temp_file.name}: {e}"
-                    ) from e
+                    error_msg = f"Failed to process audio chunk {temp_file.name}"
+                    raise ValueError(f"{error_msg}: {e}") from e
 
-            final_audio_path = article_media_dir / f"article_{article.audio_uuid}.mp3"
-            combined_audio.export(final_audio_path, format="mp3")
-            logger.info(
-                f"Combined {len(temp_audio_files)} audio chunks into {final_audio_path}"
-            )
+            if combined_audio:
+                combined_audio = combined_audio.set_frame_rate(44100)
+                combined_audio.export(
+                    final_audio_path,
+                    format="mp3",
+                    bitrate="128k",
+                    tags=tags_dict,
+                    parameters=export_parameters,
+                )
+                chunks_count = len(temp_audio_files)
+                logger.info(
+                    f"Combined {chunks_count} audio chunks "
+                    f"and exported to {final_audio_path}"
+                )
+            else:
+                raise ValueError("Combined audio is empty, cannot export.")
 
         article.audio_file_path = str(final_audio_path.relative_to(media_root))
         article.status = Article.COMPLETED
