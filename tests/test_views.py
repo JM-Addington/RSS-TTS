@@ -178,7 +178,8 @@ class ArticleDeleteViewTests(TestCase):
             "Article was not deleted from the database.",
         )
         msg_file_not_deleted = "Dummy audio file was not deleted from the filesystem."
-        self.assertFalse(os.path.exists(dummy_file_path), msg_file_not_deleted)
+        file_exists = os.path.exists(dummy_file_path)
+        self.assertFalse(file_exists, msg_file_not_deleted)
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(
             response, reverse("feed-articles", kwargs={"feed_id": self.feed.pk})
