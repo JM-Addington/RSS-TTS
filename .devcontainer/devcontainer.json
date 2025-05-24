@@ -1,17 +1,19 @@
 {
   "name": "RSS-TTS Development",
-  "dockerComposeFile": "../docker-compose.yml",
-  "service": "web",
-  "runServices": ["web", "worker"],
+  "dockerComposeFile": ".devcontainer/docker-compose.yml",
+  "service": "app",
   "workspaceFolder": "/app",
-  "forwardPorts": [8000],
+  "forwardPorts": [8000, 8084],
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
         "batisteo.vscode-django",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens",
+        "streetsidesoftware.code-spell-checker",
+        "njpwerner.autodocstring"
       ],
       "settings": {
         "python.linting.enabled": true,
@@ -21,12 +23,26 @@
         "editor.codeActionsOnSave": {
           "source.organizeImports": true
         },
-        "python.linting.lintOnSave": true
+        "python.linting.lintOnSave": true,
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": true,
+        "python.testing.nosetestsEnabled": false,
+        "python.testing.pytestArgs": [
+          "tests"
+        ],
+        "python.testing.unittestArgs": [
+          "-v",
+          "-s",
+          "./tests",
+          "-p",
+          "test_*.py"
+        ]
       }
     }
   },
-  "postCreateCommand": "pip install -r requirements.txt && pip install -r requirements-test.txt",
+  "postCreateCommand": "./.devcontainer/post-create.sh",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:1": {}
-  }
+  },
+  "remoteUser": "vscode"
 }
