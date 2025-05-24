@@ -12,3 +12,4 @@ testoutput.log
 articles/**/*.mp3
 dump.rdb
 tts demo/
+data/*

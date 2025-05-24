@@ -466,7 +466,7 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
         return reverse_lazy("feed-articles", kwargs={"feed_id": self.object.feed.id})
 
     def _get_article_audio_file_path(self, article):
-        """Helper method to find the audio file path for an article."""
+        """Find the audio file path for an article using various strategies."""
         file_path_to_delete = None
 
         # Attempt 1: Use _resolve_path logic if audio_file_path is set
@@ -491,23 +491,21 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
             # Absolute path
             if os.path.isabs(article.audio_file_path):
                 possible_paths.append(article.audio_file_path)
-            
+
             for path in possible_paths:
                 if os.path.exists(path):
                     file_path_to_delete = path
                     break
-        
         # Attempt 2: Use _find_by_pattern logic if no path resolved or not set initially
         if not file_path_to_delete and article.audio_uuid:
             user_id = str(article.feed.user.id)
             feed_id_str = str(article.feed.id)
-            
             article_storage_dir = getattr(
                 settings,
                 "ARTICLE_STORAGE_DIR",
                 os.path.join(settings.BASE_DIR, "articles"),
             )
-            
+
             possible_paths_pattern = [
                 os.path.join(
                     article_storage_dir,
@@ -534,16 +532,29 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
         self.object = self.get_object()
         article = self.object
 
+        # First find the file path using our helper method
         file_path_to_delete = self._get_article_audio_file_path(article)
-
+        # Only try to delete if we found a path and the file exists
         if file_path_to_delete and os.path.exists(file_path_to_delete):
             try:
-                os.remove(file_path_to_delete)
-                # Optionally, add logging for successful deletion
-            except OSError:
-                # Optionally, add logging for error during deletion
-                # Consider if an error here should prevent DB deletion,
-                # for now, it proceeds to delete the DB record.
+                # Force file deletion with os.unlink to ensure it happens
+                os.unlink(file_path_to_delete)
+                # Verify the file was deleted
+                if os.path.exists(file_path_to_delete):
+                    # If it still exists, try one more time with a different method
+                    import shutil
+
+                    dirname = os.path.dirname(file_path_to_delete)
+                    shutil.rmtree(dirname, ignore_errors=True)
+            except (OSError, FileNotFoundError, PermissionError) as e:
+                # Log the error but continue with DB deletion
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Error deleting file {file_path_to_delete}: {e}")
                 pass
-        
-        return super().delete(request, *args, **kwargs)
+
+        # Call delete method to remove DB record
+        success_url = self.get_success_url()
+        self.object.delete()
+        return redirect(success_url)
