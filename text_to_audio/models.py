@@ -118,3 +118,40 @@ class Article(models.Model):
             raise ValueError("Article has no audio_uuid set")
 
         return reverse("article-media", kwargs={"audio_uuid": self.audio_uuid})
+
+
+class OpenAIUsageStats(models.Model):
+    """Model to track OpenAI API usage statistics."""
+
+    user: models.ForeignKey = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=False,
+        blank=False,
+        help_text="The user who made the API request.",
+    )
+    article: models.ForeignKey = models.ForeignKey(
+        "Article",  # Use string to avoid import issues if Article is defined later
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="The article associated with this usage, if any.",
+    )
+    tokens_used: models.IntegerField = models.IntegerField(
+        null=False, help_text="Number of tokens used in the request."
+    )
+    processing_time_ms: models.IntegerField = models.IntegerField(
+        null=False, help_text="Processing time for the request in milliseconds."
+    )
+    word_count: models.IntegerField = models.IntegerField(
+        null=False, help_text="Word count of the text processed."
+    )
+    request_timestamp: models.DateTimeField = models.DateTimeField(
+        auto_now_add=True,
+        null=False,
+        help_text="Timestamp of when the usage was recorded.",
+    )
+
+    def __str__(self) -> str:
+        """Return a string representation of the usage stat."""
+        return f"Usage for {self.user.username} at {self.request_timestamp:%Y-%m-%d %H:%M:%S}"

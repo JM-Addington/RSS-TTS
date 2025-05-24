@@ -74,3 +74,14 @@ We use GitHub Actions for CI to:
 - Validate all user inputs
 - Use Django's security features (CSRF protection, XSS prevention)
 - Follow OWASP security guidelines for web applications
+
+## OpenAI API Usage and Cost Tracking
+
+To monitor costs and usage patterns associated with OpenAI API calls, it is crucial to log relevant statistics for every interaction with the API.
+
+Specifically, for services like Text-to-Speech (TTS) or other token-based services:
+- **Token Usage**: Always attempt to capture the number of tokens consumed by the request. This information is often available in the API response (e.g., in a `usage` object or specific headers). If the exact token count is not available, log this fact or use a clearly documented estimation method.
+- **Processing Time**: Record the processing time for the API call. This can be the time reported by OpenAI (if available in the response) or measured client-side.
+- **Associated Data**: Link the usage data to relevant entities, such as the user making the request and any specific content being processed (e.g., an `Article` ID).
+
+The `OpenAIUsageStats` model has been created for this purpose and should be used to store these details. Consistent logging will help in analyzing costs, identifying performance bottlenecks, and understanding API consumption patterns.

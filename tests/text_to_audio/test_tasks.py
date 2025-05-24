@@ -17,7 +17,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
-from text_to_audio.models import Article, Feed
+from text_to_audio.models import Article, Feed, OpenAIUsageStats
 from text_to_audio.tasks import _chunk_text, process_article
 
 User = get_user_model()
@@ -238,6 +238,8 @@ class ProcessArticleTests(TestCase):
         mock_speech_create = mock_openai_instance.audio.speech.create
 
         mock_tts_response = MagicMock()
+        # Simulate token usage from OpenAI client response
+        mock_tts_response.usage = MagicMock(total_tokens=123) 
         mock_tts_response.stream_to_file.side_effect = (
             self.create_dummy_file_side_effect
         )
@@ -299,6 +301,17 @@ class ProcessArticleTests(TestCase):
         mock_speech_create.assert_called_once()
         mock_tts_response.stream_to_file.assert_called_once()
 
+        # Verify OpenAIUsageStats creation
+        self.assertEqual(OpenAIUsageStats.objects.count(), 1)
+        stat = OpenAIUsageStats.objects.first()
+        self.assertEqual(stat.user, self.article.feed.user)
+        self.assertEqual(stat.article, self.article)
+        self.assertEqual(stat.tokens_used, 123) # From mock_tts_response.usage.total_tokens
+        self.assertTrue(stat.processing_time_ms >= 0)
+        # self.article.text_content = "This is the test content for our article. It has sentences." (11 words)
+        self.assertEqual(stat.word_count, 11)
+
+
     def test_process_article_success_multiple_chunks(self, MockOpenAIClient):
         """Test processing an article with multiple text chunks."""
         # Test that our path works for combining multiple audio files
@@ -327,10 +340,14 @@ class ProcessArticleTests(TestCase):
         mock_speech_create = mock_openai_instance.audio.speech.create
 
         mock_tts_response = MagicMock()
+        # Simulate token usage for each chunk
+        mock_tts_response.usage = MagicMock(total_tokens=50) # Assume 50 tokens per chunk for simplicity
         mock_tts_response.stream_to_file.side_effect = (
             self.create_dummy_file_side_effect
         )
         mock_speech_create.return_value = mock_tts_response
+        
+        chunks_data = ["Chunk 1 content.", "Second chunk here."] # 3 words, 3 words
 
         # Create a patch to force return of multiple chunks and to mock audio processing
         with patch("text_to_audio.tasks._chunk_text") as mock_chunk_text, patch(
@@ -340,7 +357,7 @@ class ProcessArticleTests(TestCase):
         ):  # Prevent file rename attempts
 
             # Return 2 chunks to force multi-chunk processing
-            mock_chunk_text.return_value = (True, ["Chunk 1", "Chunk 2"])
+            mock_chunk_text.return_value = (True, chunks_data)
 
             # Run the function
             result = process_article(self.article.id)
@@ -351,13 +368,125 @@ class ProcessArticleTests(TestCase):
             self.assertIsNotNone(self.article.audio_file_path)
 
             # Verify the correct number of API calls were made
-            self.assertEqual(mock_speech_create.call_count, 2)
-            self.assertEqual(mock_tts_response.stream_to_file.call_count, 2)
+            self.assertEqual(mock_speech_create.call_count, len(chunks_data))
+            self.assertEqual(mock_tts_response.stream_to_file.call_count, len(chunks_data))
+
+            # Verify OpenAIUsageStats creation
+            self.assertEqual(OpenAIUsageStats.objects.count(), len(chunks_data))
+            stats_records = OpenAIUsageStats.objects.order_by('id')
+            for i, stat_record in enumerate(stats_records):
+                self.assertEqual(stat_record.user, self.article.feed.user)
+                self.assertEqual(stat_record.article, self.article)
+                self.assertEqual(stat_record.tokens_used, 50) # From mock
+                self.assertTrue(stat_record.processing_time_ms >= 0)
+                self.assertEqual(stat_record.word_count, len(chunks_data[i].split()))
+
 
             # Verify the success message
             self.assertEqual(
                 result, f"Article {self.article.id} processed successfully."
             )
+
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    @patch("text_to_audio.tasks.OpenAIUsageStats.objects.create")
+    def test_process_article_stat_saving_error(
+        self, mock_stats_create, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+    ):
+        """Test that article processing succeeds even if OpenAIUsageStats saving fails."""
+        mock_stats_create.side_effect = Exception("DB error saving stats")
+
+        mock_openai_instance = MockOpenAIClient.return_value
+        mock_speech_create = mock_openai_instance.audio.speech.create
+        mock_tts_response = MagicMock()
+        mock_tts_response.usage = MagicMock(total_tokens=100)
+        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_speech_create.return_value = mock_tts_response
+        
+        mock_audio_segment = MagicMock()
+        mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+        def export_side_effect(*args, **kwargs):
+            path_arg = args[0] if args else kwargs.get("out_f")
+            if path_arg: self.create_dummy_file_side_effect(path_arg)
+            return None
+        mock_audio_segment.export.side_effect = export_side_effect
+        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_empty.return_value = MagicMock()
+
+        with self.assertLogs('text_to_audio.tasks', level='ERROR') as log_watcher:
+            result = process_article(self.article.id)
+        
+        self.article.refresh_from_db()
+        self.assertEqual(result, f"Article {self.article.id} processed successfully.")
+        self.assertEqual(self.article.status, Article.COMPLETED) # Main task completes
+        self.assertIsNotNone(self.article.audio_file_path)
+        self.assertEqual(OpenAIUsageStats.objects.count(), 0) # Stats saving failed
+
+        self.assertTrue(any("Failed to save OpenAIUsageStats" in message for message in log_watcher.output))
+        self.assertTrue(any("DB error saving stats" in message for message in log_watcher.output))
+
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    def test_process_article_token_extraction_from_headers(
+        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+    ):
+        """Test token extraction from response headers."""
+        mock_openai_instance = MockOpenAIClient.return_value
+        mock_speech_create = mock_openai_instance.audio.speech.create
+        mock_tts_response = MagicMock()
+        # No .usage attribute, but provide headers
+        mock_tts_response.headers = {'x-openai-tokens-used': '150'} 
+        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_speech_create.return_value = mock_tts_response
+
+        mock_audio_segment = MagicMock()
+        mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+        def export_side_effect(*args, **kwargs):
+            path_arg = args[0] if args else kwargs.get("out_f")
+            if path_arg: self.create_dummy_file_side_effect(path_arg)
+            return None
+        mock_audio_segment.export.side_effect = export_side_effect
+        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_empty.return_value = MagicMock()
+
+        process_article(self.article.id)
+        self.assertEqual(OpenAIUsageStats.objects.count(), 1)
+        stat = OpenAIUsageStats.objects.first()
+        self.assertEqual(stat.tokens_used, 150)
+
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    def test_process_article_token_extraction_fallback(
+        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+    ):
+        """Test token extraction fallback to 0 when no token info is present."""
+        mock_openai_instance = MockOpenAIClient.return_value
+        mock_speech_create = mock_openai_instance.audio.speech.create
+        mock_tts_response = MagicMock()
+        # No .usage and no relevant headers
+        mock_tts_response.headers = {'some-other-header': 'some-value'} 
+        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_speech_create.return_value = mock_tts_response
+
+        mock_audio_segment = MagicMock()
+        mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+        def export_side_effect(*args, **kwargs):
+            path_arg = args[0] if args else kwargs.get("out_f")
+            if path_arg: self.create_dummy_file_side_effect(path_arg)
+            return None
+        mock_audio_segment.export.side_effect = export_side_effect
+        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_empty.return_value = MagicMock()
+
+        with self.assertLogs('text_to_audio.tasks', level='WARNING') as log_watcher:
+            process_article(self.article.id)
+        
+        self.assertEqual(OpenAIUsageStats.objects.count(), 1)
+        stat = OpenAIUsageStats.objects.first()
+        self.assertEqual(stat.tokens_used, 0) # Fallback value
+
+        self.assertTrue(any("OpenAI token usage not found" in message for message in log_watcher.output))
+
 
     def test_process_article_openai_api_error_with_retry(self, MockOpenAIClient):
         """Test handling of OpenAI API errors with proper retry logic."""

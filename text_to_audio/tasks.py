@@ -8,6 +8,7 @@ import logging
 import os
 import traceback
 import uuid
+import time # Added for timing API calls
 from pathlib import Path
 
 import openai
@@ -15,7 +16,7 @@ from celery import shared_task  # type: ignore
 from django.conf import settings
 from pydub import AudioSegment  # type: ignore
 
-from .models import Article
+from .models import Article, OpenAIUsageStats # Added OpenAIUsageStats
 from .utils import process_url_to_text
 
 # Configure logging
@@ -257,14 +258,63 @@ def process_article(self, article_id: int) -> str:
             )
 
             try:
+                start_time = time.monotonic()
                 response = client.audio.speech.create(
                     model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
                     voice=getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
                     input=chunk,
                 )
                 response.stream_to_file(temp_file_path)
+                end_time = time.monotonic()
+                processing_time_ms = int((end_time - start_time) * 1000)
+
                 temp_audio_files.append(temp_file_path)
                 logger.debug(f"Saved audio chunk to {temp_file_path}")
+
+                # Record OpenAI usage stats
+                tokens_used = 0 # Default to 0
+                try:
+                    # Attempt to get token usage from response object or headers
+                    if hasattr(response, 'usage') and response.usage and hasattr(response.usage, 'total_tokens'):
+                        tokens_used = response.usage.total_tokens
+                    elif hasattr(response, 'headers'):
+                        tokens_header = response.headers.get('x-openai-tokens-used') or \
+                                        response.headers.get('openai-tokens-used') # Check common header names
+                        if tokens_header:
+                            tokens_used = int(tokens_header)
+                        else:
+                            logger.warning(
+                                f"OpenAI token usage not found in response headers for article {article_id}, chunk {i+1}. "
+                                f"Headers found: {list(response.headers.keys()) if hasattr(response, 'headers') else 'No headers attribute'}."
+                                " Defaulting tokens_used to 0."
+                            )
+                    else:
+                        logger.warning(
+                            f"OpenAI token usage not found in response object or headers for article {article_id}, chunk {i+1}. "
+                            "Response object does not have 'usage' or 'headers' attribute. Defaulting tokens_used to 0."
+                        )
+                except Exception as usage_exc:
+                    logger.error(f"Error extracting token usage for article {article_id}, chunk {i+1}: {usage_exc}. Defaulting to 0.")
+                    tokens_used = 0
+
+
+                word_count = len(chunk.split())
+                user = article.feed.user
+
+                try:
+                    OpenAIUsageStats.objects.create(
+                        user=user,
+                        article=article,
+                        tokens_used=tokens_used,
+                        processing_time_ms=processing_time_ms,
+                        word_count=word_count,
+                    )
+                    logger.info(f"OpenAI usage stats recorded for article {article_id}, chunk {i+1}")
+                except Exception as stats_exc:
+                    logger.error(
+                        f"Failed to save OpenAIUsageStats for article {article_id}, chunk {i+1}: {stats_exc}"
+                    )
+
             except openai.APIError as e:
                 logger.error(
                     f"OpenAI API error on chunk {i+1} for article {article_id}: {e}"
