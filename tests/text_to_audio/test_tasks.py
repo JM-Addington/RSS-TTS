@@ -394,6 +394,7 @@ class ProcessArticleTests(TestCase):
 
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
+    @patch("django.db.transaction.atomic", lambda inner_func=None: inner_func)
     def test_process_article_stat_saving_error(
         self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
     ):
