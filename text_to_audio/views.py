@@ -63,18 +63,13 @@ class ArticleMediaView(LoginRequiredMixin, View):
 
         # Try multiple locations for the audio file
         possible_paths = [
-            # Check in ARTICLE_STORAGE_DIR (BASE_DIR/articles)
+            # Check in MEDIA_ROOT/articles with new simplified structure
             os.path.join(
-                getattr(
-                    settings,
-                    "ARTICLE_STORAGE_DIR",
-                    os.path.join(settings.BASE_DIR, "articles"),
-                ),
-                str(article.feed.user.id),
-                str(article.feed.id),
-                f"article_{article.audio_uuid}.mp3",
+                settings.MEDIA_ROOT,
+                "articles",
+                f"{article.audio_uuid}.mp3",
             ),
-            # Check in MEDIA_ROOT/articles
+            # Legacy paths for backwards compatibility
             os.path.join(
                 settings.MEDIA_ROOT,
                 "articles",
@@ -130,27 +125,23 @@ class ArticleMediaView(LoginRequiredMixin, View):
         if os.path.isabs(article.audio_file_path):
             possible_paths.append(article.audio_file_path)
 
-        # Path 5: Try with ARTICLE_STORAGE_DIR
-        article_storage_dir = getattr(
-            settings, "ARTICLE_STORAGE_DIR", os.path.join(settings.BASE_DIR, "articles")
-        )
+        # Path 5: Try simplified structure
         if article.audio_uuid:
-            # Construct a path using the UUID
+            # New simplified path
+            possible_paths.append(
+                os.path.join(
+                    settings.MEDIA_ROOT,
+                    "articles",
+                    f"{article.audio_uuid}.mp3",
+                )
+            )
+            # Legacy paths for backwards compatibility
             user_id = (
                 str(article.feed.user_id)
                 if hasattr(article.feed, "user_id")
                 else "unknown"
             )
             feed_id = str(article.feed.id) if hasattr(article.feed, "id") else "unknown"
-            possible_paths.append(
-                os.path.join(
-                    article_storage_dir,
-                    str(user_id),
-                    str(feed_id),
-                    f"article_{article.audio_uuid}.mp3",
-                )
-            )
-            # Also try in MEDIA_ROOT
             possible_paths.append(
                 os.path.join(
                     settings.MEDIA_ROOT,
