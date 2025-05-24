@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Feed{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h2 class="card-title text-danger">Delete Feed</h2>
+
+                    <div class="alert alert-warning" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <strong>Warning:</strong> This action cannot be undone.
+                    </div>
+
+                    <p>Are you sure you want to delete the feed "<strong>{{ object.name }}</strong>"?</p>
+
+                    <p>This will also delete:</p>
+                    <ul>
+                        <li>{{ object.articles.count }} article{{ object.articles.count|pluralize }} in this feed</li>
+                        <li>All associated audio files</li>
+                        <li>The RSS feed URL will no longer be accessible</li>
+                    </ul>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Yes, Delete Feed
+                            </button>
+                            <a href="{% url 'feed-articles' object.pk %}" class="btn btn-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

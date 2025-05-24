@@ -8,10 +8,7 @@
       <ul class="navbar-nav ms-auto">
         {% if user.is_authenticated %}
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'article-list' %}">My Articles</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'article-submit' %}">Submit</a>
+          <a class="nav-link" href="{% url 'feed-list' %}">My Feeds</a>
         </li>
         <li class="nav-item">
           <form method="post" action="{% url 'logout' %}">
