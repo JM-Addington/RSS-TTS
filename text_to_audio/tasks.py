@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 
 def _save_openai_usage_stats(
-    self,
     user,
     article,
     article_id,
@@ -45,18 +44,23 @@ def _save_openai_usage_stats(
         word_count: Number of words in the chunk
     """
     try:
+        from django.db import transaction
+
         from .models import OpenAIUsageStats
 
-        OpenAIUsageStats.objects.create(
-            user=user,
-            article=article,
-            tokens_used=tokens_used,
-            processing_time_ms=processing_time_ms,
-            word_count=word_count,
-        )
-        logger.info(
-            f"OpenAI usage stats recorded for article {article_id}, chunk {chunk_index}"
-        )
+        # Use transaction.atomic to ensure DB operations are isolated
+        with transaction.atomic():
+            OpenAIUsageStats.objects.create(
+                user=user,
+                article=article,
+                tokens_used=tokens_used,
+                processing_time_ms=processing_time_ms,
+                word_count=word_count,
+            )
+            logger.info(
+                f"OpenAI usage stats recorded for article {article_id}, "
+                f"chunk {chunk_index}"
+            )
     except Exception as stats_exc:
         logger.error(
             f"Failed to save OpenAIUsageStats for article {article_id}, "
@@ -319,14 +323,27 @@ def process_article(self, article_id: int) -> str:
                     if hasattr(response, "usage") and hasattr(
                         response.usage, "total_tokens"
                     ):
-                        tokens_used = response.usage.total_tokens
+                        try:
+                            tokens_used = int(response.usage.total_tokens)
+                        except (ValueError, TypeError):
+                            logger.warning(
+                                f"Invalid token value in response.usage.total_tokens "
+                                f"for article {article_id}, chunk {i+1}"
+                            )
+                            tokens_used = 0
                     elif hasattr(response, "headers"):
                         # Try standard header names
                         headers = ["x-openai-tokens-used", "openai-tokens-used"]
                         for header_name in headers:
                             if header_name in response.headers:
-                                tokens_used = int(response.headers[header_name])
-                                break
+                                try:
+                                    tokens_used = int(response.headers[header_name])
+                                    break
+                                except (ValueError, TypeError):
+                                    logger.warning(
+                                        f"Invalid token value in header {header_name} "
+                                        f"for article {article_id}, chunk {i+1}"
+                                    )
                         # Log if we couldn't find token info in headers
                         if tokens_used == 0:
                             logger.warning(
@@ -350,8 +367,8 @@ def process_article(self, article_id: int) -> str:
                 # the main audio processing flow
                 word_count = len(chunk.split())
                 user = article.feed.user
-                # Create stats record in a separate try/except to isolate DB errors
-                self._save_openai_usage_stats(
+                # Create stats record in a separate function to isolate DB errors
+                _save_openai_usage_stats(
                     user=user,
                     article=article,
                     article_id=article_id,
