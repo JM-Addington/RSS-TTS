@@ -7,14 +7,14 @@ import uuid
 from importlib import util
 
 from django.conf import settings
-from django.contrib.auth import get_user_model # type: ignore
+from django.contrib.auth import get_user_model  # type: ignore
 from django.db import models
 from django.test import TestCase
 
 # Import models needed for tests
-from text_to_audio.models import Feed, Article, OpenAIUsageStats
+from text_to_audio.models import Article, Feed, OpenAIUsageStats
 
-User = get_user_model() # type: ignore
+User = get_user_model()  # type: ignore
 
 
 class TestModels(TestCase):
@@ -140,7 +140,8 @@ class OpenAIUsageStatsModelTests(TestCase):
 
     def setUp(self):
         """Set up test data."""
-        self.user = User.objects.create_user(
+        # Type ignore - Django's get_user_model() doesn't expose create_user
+        self.user = User.objects.create_user(  # type: ignore
             username="statsuser", email="stats@example.com", password="testpass123"
         )
         self.feed = Feed.objects.create(user=self.user, name="Stats Feed")
@@ -165,19 +166,35 @@ class OpenAIUsageStatsModelTests(TestCase):
         self.assertTrue(hasattr(OpenAIUsageStats, "request_timestamp"))
 
         # Check field types
-        self.assertIsInstance(OpenAIUsageStats._meta.get_field("user"), models.ForeignKey)
-        self.assertIsInstance(OpenAIUsageStats._meta.get_field("article"), models.ForeignKey)
-        self.assertIsInstance(OpenAIUsageStats._meta.get_field("tokens_used"), models.IntegerField)
-        self.assertIsInstance(OpenAIUsageStats._meta.get_field("processing_time_ms"), models.IntegerField)
-        self.assertIsInstance(OpenAIUsageStats._meta.get_field("word_count"), models.IntegerField)
-        self.assertIsInstance(OpenAIUsageStats._meta.get_field("request_timestamp"), models.DateTimeField)
+        self.assertIsInstance(
+            OpenAIUsageStats._meta.get_field("user"), models.ForeignKey
+        )
+        self.assertIsInstance(
+            OpenAIUsageStats._meta.get_field("article"), models.ForeignKey
+        )
+        self.assertIsInstance(
+            OpenAIUsageStats._meta.get_field("tokens_used"), models.IntegerField
+        )
+        self.assertIsInstance(
+            OpenAIUsageStats._meta.get_field("processing_time_ms"), models.IntegerField
+        )
+        self.assertIsInstance(
+            OpenAIUsageStats._meta.get_field("word_count"), models.IntegerField
+        )
+        self.assertIsInstance(
+            OpenAIUsageStats._meta.get_field("request_timestamp"), models.DateTimeField
+        )
 
         # Check field attributes
         self.assertEqual(OpenAIUsageStats._meta.get_field("user").related_model, User)
-        self.assertEqual(OpenAIUsageStats._meta.get_field("article").related_model, Article)
-        self.assertTrue(OpenAIUsageStats._meta.get_field("article").null) # Check if article can be null
-        self.assertTrue(OpenAIUsageStats._meta.get_field("request_timestamp").auto_now_add)
-
+        self.assertEqual(
+            OpenAIUsageStats._meta.get_field("article").related_model, Article
+        )
+        # Check if article can be null
+        self.assertTrue(OpenAIUsageStats._meta.get_field("article").null)
+        self.assertTrue(
+            OpenAIUsageStats._meta.get_field("request_timestamp").auto_now_add
+        )
 
     def test_create_stats_with_article(self):
         """Test creating an OpenAIUsageStats instance with an article."""
@@ -220,19 +237,23 @@ class OpenAIUsageStatsModelTests(TestCase):
             processing_time_ms=500,
             word_count=50,
         )
-        expected_str = f"Usage for {self.user.username} at {stats.request_timestamp:%Y-%m-%d %H:%M:%S}"
+        # Format timestamp for comparison with __str__ output
+        timestamp_fmt = stats.request_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        expected_str = f"Usage for {self.user.username} at {timestamp_fmt}"
         self.assertEqual(str(stats), expected_str)
 
     def test_str_method_no_article(self):
         """Test the __str__ method when article is None (should be same)."""
         stats = OpenAIUsageStats.objects.create(
             user=self.user,
-            article=None, # No article
+            article=None,  # No article
             tokens_used=150,
             processing_time_ms=550,
             word_count=55,
         )
-        expected_str = f"Usage for {self.user.username} at {stats.request_timestamp:%Y-%m-%d %H:%M:%S}"
+        # Format timestamp for comparison with __str__ output
+        timestamp_fmt = stats.request_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        expected_str = f"Usage for {self.user.username} at {timestamp_fmt}"
         self.assertEqual(str(stats), expected_str)
 
 
