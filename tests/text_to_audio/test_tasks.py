@@ -246,9 +246,15 @@ class ProcessArticleTests(TestCase):
         mock_audio_segment = MagicMock()
         mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
         # Use a proper side effect function for export that creates the file
-        def export_side_effect(**kwargs):
-            path_arg = kwargs.get("out_f") or kwargs.get("0")  # Handle either positional or keyword arg
-            self.create_dummy_file_side_effect(path_arg)
+        def export_side_effect(*args, **kwargs):
+            # Handle the different ways pydub.export might be called
+            if args:
+                path_arg = args[0]  # First positional argument
+            else:
+                path_arg = kwargs.get("out_f")  # Keyword argument
+            
+            if path_arg:
+                self.create_dummy_file_side_effect(path_arg)
             return None
             
         mock_audio_segment.export.side_effect = export_side_effect
