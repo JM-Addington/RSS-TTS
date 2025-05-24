@@ -33,3 +33,7 @@ You should:
 - Ensure that the code is well-documented and includes tests
 - Ensure that all automated tests run and pass
 - Comment "/review" as the last time, and review the automated comments afterwards (takes 2-3 minutes)
+
+## Committing
+
+Always run pre-commit before committing. If the hooks are set up correctly, they will run automatically but your commit may fail depending on the errors.
