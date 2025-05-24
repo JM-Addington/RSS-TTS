@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # Caddy web server for serving static files and reverse proxy
   caddy:

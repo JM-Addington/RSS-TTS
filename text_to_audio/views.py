@@ -1,7 +1,7 @@
 """Views for the text_to_audio app.
 
 This module defines the views used for the RSS-to-TTS system, handling article
-submission, listing, and media serving.
+submission, listing, media serving, and article deletion.
 """
 
 import os
@@ -438,3 +438,114 @@ class RegenerateArticleView(LoginRequiredMixin, View):
         else:
             # Fallback - should not happen in normal operation
             return redirect("feed-list")
+
+
+class ArticleDeleteView(LoginRequiredMixin, DeleteView):
+    """View for deleting an article and its associated audio file."""
+
+    model = Article
+    template_name = "text_to_audio/article_confirm_delete.html"
+    pk_url_kwarg = "article_id"
+
+    def get_queryset(self):
+        """Ensure users can only delete their own articles."""
+        return Article.objects.filter(feed__user=self.request.user)
+
+    def get_success_url(self):
+        """Redirect to the article list of the feed."""
+        # self.object is the deleted article instance
+        return reverse_lazy("feed-articles", kwargs={"feed_id": self.object.feed.id})
+
+    def _get_article_audio_file_path(self, article):
+        """Find the audio file path for an article using various strategies."""
+        file_path_to_delete = None
+
+        # Attempt 1: Use _resolve_path logic if audio_file_path is set
+        if article.audio_file_path:
+            possible_paths = []
+            # Docker path correction
+            if article.audio_file_path.startswith("/app/"):
+                path_suffix = article.audio_file_path.replace(
+                    "/app/media/", ""
+                ).replace("/app/", "")
+                possible_paths.append(os.path.join(settings.BASE_DIR, path_suffix))
+
+            # Relative path checks
+            if not os.path.isabs(article.audio_file_path):
+                possible_paths.append(
+                    os.path.join(settings.MEDIA_ROOT, article.audio_file_path)
+                )
+                possible_paths.append(
+                    os.path.join(settings.BASE_DIR, article.audio_file_path)
+                )
+
+            # Absolute path
+            if os.path.isabs(article.audio_file_path):
+                possible_paths.append(article.audio_file_path)
+
+            for path in possible_paths:
+                if os.path.exists(path):
+                    file_path_to_delete = path
+                    break
+        # Attempt 2: Use _find_by_pattern logic if no path resolved or not set initially
+        if not file_path_to_delete and article.audio_uuid:
+            user_id = str(article.feed.user.id)
+            feed_id_str = str(article.feed.id)
+            article_storage_dir = getattr(
+                settings,
+                "ARTICLE_STORAGE_DIR",
+                os.path.join(settings.BASE_DIR, "articles"),
+            )
+
+            possible_paths_pattern = [
+                os.path.join(
+                    article_storage_dir,
+                    user_id,
+                    feed_id_str,
+                    f"article_{article.audio_uuid}.mp3",
+                ),
+                os.path.join(
+                    settings.MEDIA_ROOT,
+                    "articles",
+                    user_id,
+                    feed_id_str,
+                    f"article_{article.audio_uuid}.mp3",
+                ),
+            ]
+            for path in possible_paths_pattern:
+                if os.path.exists(path):
+                    file_path_to_delete = path
+                    break
+        return file_path_to_delete
+
+    def delete(self, request, *args, **kwargs):
+        """Delete the article and its associated audio file."""
+        self.object = self.get_object()
+        article = self.object
+
+        # First find the file path using our helper method
+        file_path_to_delete = self._get_article_audio_file_path(article)
+        # Only try to delete if we found a path and the file exists
+        if file_path_to_delete and os.path.exists(file_path_to_delete):
+            try:
+                # Force file deletion with os.unlink to ensure it happens
+                os.unlink(file_path_to_delete)
+                # Verify the file was deleted
+                if os.path.exists(file_path_to_delete):
+                    # If it still exists, try one more time with a different method
+                    import shutil
+
+                    dirname = os.path.dirname(file_path_to_delete)
+                    shutil.rmtree(dirname, ignore_errors=True)
+            except (OSError, FileNotFoundError, PermissionError) as e:
+                # Log the error but continue with DB deletion
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Error deleting file {file_path_to_delete}: {e}")
+                pass
+
+        # Call delete method to remove DB record
+        success_url = self.get_success_url()
+        self.object.delete()
+        return redirect(success_url)
