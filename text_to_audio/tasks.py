@@ -283,16 +283,20 @@ def process_article(self, article_id: int) -> str:
         feed_name = "My Podcast"
         if article.feed and article.feed.name:
             feed_name = article.feed.name
-        elif hasattr(article, "feed") and hasattr(article.feed, "name") and article.feed.name is None: # Handle case where feed.name is explicitly None
+        # Handle case where feed.name is explicitly None
+        elif (
+            hasattr(article, "feed")
+            and hasattr(article.feed, "name")
+            and article.feed.name is None
+        ):
             feed_name = "My Podcast"
-
 
         tags_dict = {
             "title": article.title if article.title else "Untitled Article",
             "artist": feed_name,
             "album": feed_name,
         }
-        export_parameters = ['-id3v2_version', '3', '-write_id3v1', '1']
+        export_parameters = ["-id3v2_version", "3", "-write_id3v1", "1"]
 
         final_audio_path = article_media_dir / f"article_{article.audio_uuid}.mp3"
 
@@ -315,9 +319,9 @@ def process_article(self, article_id: int) -> str:
                 logger.error(
                     f"Error processing single audio chunk {temp_single_audio_path}: {e}"
                 )
-                raise ValueError(
-                    f"Failed to process single audio chunk {temp_single_audio_path.name}: {e}"
-                ) from e
+                fname = temp_single_audio_path.name
+                error_msg = f"Failed to process single audio chunk {fname}"
+                raise ValueError(f"{error_msg}: {e}") from e
         else:
             combined_audio = AudioSegment.empty()
             for temp_file in temp_audio_files:
@@ -326,11 +330,11 @@ def process_article(self, article_id: int) -> str:
                     combined_audio += segment
                 except Exception as e:  # pydub can raise various errors
                     logger.error(
-                        f"Pydub error processing chunk {temp_file} for article {article_id}: {e}"
+                        f"Pydub error processing chunk {temp_file} "
+                        f"for article {article_id}: {e}"
                     )
-                    raise ValueError(
-                        f"Failed to process audio chunk {temp_file.name}: {e}"
-                    ) from e
+                    error_msg = f"Failed to process audio chunk {temp_file.name}"
+                    raise ValueError(f"{error_msg}: {e}") from e
 
             if combined_audio:
                 combined_audio = combined_audio.set_frame_rate(44100)
@@ -341,8 +345,10 @@ def process_article(self, article_id: int) -> str:
                     tags=tags_dict,
                     parameters=export_parameters,
                 )
+                chunks_count = len(temp_audio_files)
                 logger.info(
-                    f"Combined {len(temp_audio_files)} audio chunks and exported to {final_audio_path}"
+                    f"Combined {chunks_count} audio chunks "
+                    f"and exported to {final_audio_path}"
                 )
             else:
                 raise ValueError("Combined audio is empty, cannot export.")

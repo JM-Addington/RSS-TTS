@@ -84,7 +84,8 @@ class TestArticleSubmission(TestCase):
     def test_get_form_authenticated(self):
         """Test that authenticated users can access the article submission form."""
         self.client.login(username="tester", password="pass123")
-        response = self.client.get("/articles/submit/")
+        # URL should be feed-specific now
+        response = self.client.get(f"/feeds/{self.feed.pk}/add/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "article_form.html")
 
@@ -92,7 +93,7 @@ class TestArticleSubmission(TestCase):
         """Test that submitting the article form creates a new article."""
         self.client.login(username="tester", password="pass123")
         response = self.client.post(
-            "/articles/submit/",
+            f"/feeds/{self.feed.pk}/add/",
             {"title": "Test", "text_content": "Hello"},
         )
         self.assertEqual(response.status_code, 302)

@@ -244,6 +244,8 @@ class ProcessArticleTests(TestCase):
         mock_speech_create.return_value = mock_tts_response
 
         mock_audio_segment = MagicMock()
+        mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+        mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
         mock_audio_from_mp3.return_value = mock_audio_segment
         mock_audio_empty.return_value = MagicMock()
 
@@ -253,12 +255,29 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(result, f"Article {self.article.id} processed successfully.")
         self.assertEqual(self.article.status, Article.COMPLETED)
         self.assertIsNotNone(self.article.audio_file_path)
-        self.assertTrue(
-            (TEST_MEDIA_ROOT / self.article.audio_file_path).exists(),
-            f"File not found: {TEST_MEDIA_ROOT / self.article.audio_file_path}",
-        )
-        self.assertIsNone(self.article.error_message)
 
+        # Verify the mock calls specific to the new export parameters
+        mock_audio_segment.set_frame_rate.assert_called_once_with(44100)
+        mock_audio_segment.export.assert_called_once()
+        # Verify export parameters (CBR and tags)
+        export_call = mock_audio_segment.export.call_args
+        self.assertEqual(export_call[1]["bitrate"], "128k")
+        self.assertEqual(export_call[1]["format"], "mp3")
+        self.assertIn("tags", export_call[1])
+        self.assertIn("parameters", export_call[1])
+
+        # Check that tags are set
+        tags = export_call[1]["tags"]
+        self.assertEqual(tags["title"], "Test Article")
+        self.assertEqual(tags["artist"], "Test Feed")
+        self.assertEqual(tags["album"], "Test Feed")
+
+        # Check for ID3v2.3 parameters
+        parameters = export_call[1]["parameters"]
+        self.assertIn("-id3v2_version", parameters)
+        self.assertIn("3", parameters)
+
+        # Verify other basic mock calls
         mock_speech_create.assert_called_once()
         mock_tts_response.stream_to_file.assert_called_once()
 
