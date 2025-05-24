@@ -4,6 +4,28 @@ Work as independently as possible, this project is 100% AI driven.
 
 Remember to use TDD.
 
+## Architectural Decisions
+
+### Media File Serving with Caddy (2025-05-24)
+
+We use Caddy as a reverse proxy to serve MP3 files directly instead of Django for the following reasons:
+
+1. **Apple Podcasts Requirement**: Apple Podcasts requires byte-range request support for streaming MP3 files. When Apple Podcasts requests part of a file, the server must return HTTP 206 (Partial Content), not HTTP 200.
+
+2. **Automatic Byte-Range Support**: Caddy handles byte-range requests automatically without any custom code, while Django's FileResponse doesn't properly support this out of the box.
+
+3. **Better Performance**: Static file serving through a web server like Caddy is significantly more performant than serving through Django/Python.
+
+4. **Cleaner Architecture**: Separation of concerns - Caddy handles static files, Django handles application logic.
+
+5. **Automatic HTTPS**: In production, Caddy provides automatic SSL/TLS certificate management.
+
+The implementation:
+- MP3 files are saved to `./media/articles/{uuid}.mp3` by the Celery worker
+- Caddy serves these files at `/audio/{uuid}/` with proper byte-range support
+- Django continues to handle authentication and generates the RSS feeds
+- Files are shared between containers via a bind mount for easy filesystem access
+
 ## Documentation
 
 You should always read these other files in the repo:

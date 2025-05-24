@@ -48,7 +48,7 @@ Key environment variables:
 
 ### Docker Development
 
-We use Docker Compose for local development to ensure consistency across environments:
+We use Docker Compose for local development to ensure consistency across environments. The application uses Caddy as a reverse proxy to serve static MP3 files with proper byte-range support (required by Apple Podcasts) and to proxy other requests to Django.
 
 ```bash
 # Build and start all services
@@ -66,6 +66,26 @@ cp .env.example .env
 # Edit .env with production settings
 docker-compose -f docker-compose.prod.yml up -d
 ```
+
+#### Architecture
+
+The application consists of the following services:
+- **Caddy**: Web server that handles:
+  - Static MP3 file serving with automatic byte-range support at `/audio/<uuid>/`
+  - Reverse proxy for all other requests to Django
+  - Automatic HTTPS in production
+- **Web**: Django application server
+- **Worker**: Celery worker for processing audio conversion tasks
+- **Redis**: Message broker for Celery
+
+#### Media Files
+
+MP3 files are stored in the `./media/articles/` directory and served directly by Caddy for optimal performance. The files are:
+- Saved by the worker as `./media/articles/{uuid}.mp3`
+- Accessible via HTTP at `/audio/{uuid}/`
+- Shared between containers via a bind mount
+
+To use Docker volumes instead of bind mounts for media files, uncomment the relevant sections in the docker-compose files.
 
 Redis runs inside the worker container. Its data lives in `/data/redis` which is
 mapped to the named volume `redis-data`. If you want to persist Redis data on
