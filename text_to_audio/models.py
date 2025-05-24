@@ -154,4 +154,9 @@ class OpenAIUsageStats(models.Model):
 
     def __str__(self) -> str:
         """Return a string representation of the usage stat."""
-        return f"Usage for {self.user.username} at {self.request_timestamp:%Y-%m-%d %H:%M:%S}"
+        timestamp_fmt = ""  # Default empty string
+        if self.request_timestamp:
+            timestamp_fmt = self.request_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        # Use getattr to safely access username attribute - for better type checking
+        username = getattr(self.user, "username", "unknown")
+        return f"Usage for {username} at {timestamp_fmt}"

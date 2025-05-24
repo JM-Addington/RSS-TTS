@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import logging
 import os
+import time  # Added for timing API calls
 import traceback
 import uuid
-import time # Added for timing API calls
 from pathlib import Path
 
 import openai
@@ -16,11 +16,52 @@ from celery import shared_task  # type: ignore
 from django.conf import settings
 from pydub import AudioSegment  # type: ignore
 
-from .models import Article, OpenAIUsageStats # Added OpenAIUsageStats
+from .models import Article  # Import OpenAIUsageStats in helper method
 from .utils import process_url_to_text
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def _save_openai_usage_stats(
+    self,
+    user,
+    article,
+    article_id,
+    chunk_index,
+    tokens_used,
+    processing_time_ms,
+    word_count,
+):
+    """Save OpenAI usage statistics in a separate function to isolate errors.
+
+    Args:
+        user: The user who made the request
+        article: The article being processed
+        article_id: The ID of the article
+        chunk_index: The index of the text chunk being processed
+        tokens_used: Number of tokens used
+        processing_time_ms: Processing time in milliseconds
+        word_count: Number of words in the chunk
+    """
+    try:
+        from .models import OpenAIUsageStats
+
+        OpenAIUsageStats.objects.create(
+            user=user,
+            article=article,
+            tokens_used=tokens_used,
+            processing_time_ms=processing_time_ms,
+            word_count=word_count,
+        )
+        logger.info(
+            f"OpenAI usage stats recorded for article {article_id}, chunk {chunk_index}"
+        )
+    except Exception as stats_exc:
+        logger.error(
+            f"Failed to save OpenAIUsageStats for article {article_id}, "
+            f"chunk {chunk_index}: {stats_exc}"
+        )
 
 
 def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
@@ -272,52 +313,57 @@ def process_article(self, article_id: int) -> str:
                 logger.debug(f"Saved audio chunk to {temp_file_path}")
 
                 # Record OpenAI usage stats
-                tokens_used = 0 # Default to 0
+                tokens_used = 0  # Default to 0
                 try:
-                    # Attempt to get token usage from response object or headers
-                    if hasattr(response, 'usage') and response.usage and hasattr(response.usage, 'total_tokens'):
+                    # Extract token usage from response with clear fallbacks
+                    if hasattr(response, "usage") and hasattr(
+                        response.usage, "total_tokens"
+                    ):
                         tokens_used = response.usage.total_tokens
-                    elif hasattr(response, 'headers'):
-                        tokens_header = response.headers.get('x-openai-tokens-used') or \
-                                        response.headers.get('openai-tokens-used') # Check common header names
-                        if tokens_header:
-                            tokens_used = int(tokens_header)
-                        else:
+                    elif hasattr(response, "headers"):
+                        # Try standard header names
+                        headers = ["x-openai-tokens-used", "openai-tokens-used"]
+                        for header_name in headers:
+                            if header_name in response.headers:
+                                tokens_used = int(response.headers[header_name])
+                                break
+                        # Log if we couldn't find token info in headers
+                        if tokens_used == 0:
                             logger.warning(
-                                f"OpenAI token usage not found in response headers for article {article_id}, chunk {i+1}. "
-                                f"Headers found: {list(response.headers.keys()) if hasattr(response, 'headers') else 'No headers attribute'}."
-                                " Defaulting tokens_used to 0."
+                                f"No token usage found in headers for article "
+                                f"{article_id}, chunk {i+1}. Headers: "
+                                f"{list(response.headers.keys())[:5]}"
                             )
                     else:
                         logger.warning(
-                            f"OpenAI token usage not found in response object or headers for article {article_id}, chunk {i+1}. "
-                            "Response object does not have 'usage' or 'headers' attribute. Defaulting tokens_used to 0."
+                            f"Cannot extract token usage - no usage/headers "
+                            f"for article {article_id}, chunk {i+1}"
                         )
                 except Exception as usage_exc:
-                    logger.error(f"Error extracting token usage for article {article_id}, chunk {i+1}: {usage_exc}. Defaulting to 0.")
+                    logger.error(
+                        f"Error extracting tokens for article {article_id}, "
+                        f"chunk {i+1}: {usage_exc}"
+                    )
                     tokens_used = 0
 
-
+                # Save OpenAI stats separately to isolate DB errors from
+                # the main audio processing flow
                 word_count = len(chunk.split())
                 user = article.feed.user
-
-                try:
-                    OpenAIUsageStats.objects.create(
-                        user=user,
-                        article=article,
-                        tokens_used=tokens_used,
-                        processing_time_ms=processing_time_ms,
-                        word_count=word_count,
-                    )
-                    logger.info(f"OpenAI usage stats recorded for article {article_id}, chunk {i+1}")
-                except Exception as stats_exc:
-                    logger.error(
-                        f"Failed to save OpenAIUsageStats for article {article_id}, chunk {i+1}: {stats_exc}"
-                    )
+                # Create stats record in a separate try/except to isolate DB errors
+                self._save_openai_usage_stats(
+                    user=user,
+                    article=article,
+                    article_id=article_id,
+                    chunk_index=i + 1,
+                    tokens_used=tokens_used,
+                    processing_time_ms=processing_time_ms,
+                    word_count=word_count,
+                )
 
             except openai.APIError as e:
                 logger.error(
-                    f"OpenAI API error on chunk {i+1} for article {article_id}: {e}"
+                    f"OpenAI API error on chunk {i+1} " f"for article {article_id}: {e}"
                 )
                 # Decide if retry at chunk level or fail whole task
                 # Fail task and rely on Celery's retry mechanism
