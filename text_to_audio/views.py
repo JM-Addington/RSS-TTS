@@ -447,3 +447,100 @@ class RegenerateArticleView(LoginRequiredMixin, View):
         else:
             # Fallback - should not happen in normal operation
             return redirect("feed-list")
+
+
+class ArticleDeleteView(LoginRequiredMixin, DeleteView):
+    """View for deleting an article and its associated audio file."""
+
+    model = Article
+    template_name = "text_to_audio/article_confirm_delete.html"
+    pk_url_kwarg = "article_id"
+
+    def get_queryset(self):
+        """Ensure users can only delete their own articles."""
+        return Article.objects.filter(feed__user=self.request.user)
+
+    def get_success_url(self):
+        """Redirect to the article list of the feed."""
+        # self.object is the deleted article instance
+        return reverse_lazy("feed-articles", kwargs={"feed_id": self.object.feed.id})
+
+    def delete(self, request, *args, **kwargs):
+        """Delete the article and its associated audio file."""
+        self.object = self.get_object()
+        article = self.object
+
+        file_path_to_delete = None
+
+        # Adapted file finding logic from ArticleMediaView
+        # Attempt 1: Use _resolve_path logic if audio_file_path is set
+        if article.audio_file_path:
+            possible_paths = []
+            # Docker path correction
+            if article.audio_file_path.startswith("/app/"):
+                path_suffix = article.audio_file_path.replace(
+                    "/app/media/", ""
+                ).replace("/app/", "")
+                possible_paths.append(os.path.join(settings.BASE_DIR, path_suffix))
+
+            # Relative path checks
+            if not os.path.isabs(article.audio_file_path):
+                possible_paths.append(
+                    os.path.join(settings.MEDIA_ROOT, article.audio_file_path)
+                )
+                possible_paths.append(
+                    os.path.join(settings.BASE_DIR, article.audio_file_path)
+                )
+
+            # Absolute path
+            if os.path.isabs(article.audio_file_path):
+                possible_paths.append(article.audio_file_path)
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    file_path_to_delete = path
+                    break
+        
+        # Attempt 2: Use _find_by_pattern logic if no path resolved or not set initially
+        if not file_path_to_delete and article.audio_uuid:
+            user_id = str(article.feed.user.id)
+            feed_id_str = str(article.feed.id)
+            
+            article_storage_dir = getattr(
+                settings,
+                "ARTICLE_STORAGE_DIR",
+                os.path.join(settings.BASE_DIR, "articles"),
+            )
+            
+            possible_paths_pattern = [
+                os.path.join(
+                    article_storage_dir,
+                    user_id,
+                    feed_id_str,
+                    f"article_{article.audio_uuid}.mp3",
+                ),
+                os.path.join(
+                    settings.MEDIA_ROOT,
+                    "articles",
+                    user_id,
+                    feed_id_str,
+                    f"article_{article.audio_uuid}.mp3",
+                ),
+            ]
+            for path in possible_paths_pattern:
+                if os.path.exists(path):
+                    file_path_to_delete = path
+                    break
+
+        # Delete the file if found
+        if file_path_to_delete and os.path.exists(file_path_to_delete):
+            try:
+                os.remove(file_path_to_delete)
+                # Optionally, add logging for successful deletion
+            except OSError:
+                # Optionally, add logging for error during deletion
+                # Consider if an error here should prevent DB deletion,
+                # for now, it proceeds to delete the DB record.
+                pass
+        
+        return super().delete(request, *args, **kwargs)

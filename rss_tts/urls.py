@@ -9,6 +9,7 @@ from django.urls import path
 from text_to_audio.feeds import UserFeed
 from text_to_audio.views import (
     ArticleCreateView,
+    ArticleDeleteView,
     ArticleListView,
     ArticleMediaView,
     FeedArticleCreateView,
@@ -47,6 +48,11 @@ urlpatterns = [
         "feeds/<int:feed_id>/add/",
         FeedArticleCreateView.as_view(),
         name="feed-article-create",
+    ),
+    path(
+        "feeds/<int:feed_id>/articles/<int:article_id>/delete/",
+        ArticleDeleteView.as_view(),
+        name="article-delete",
     ),
     path("feeds/<int:feed_id>/edit/", FeedUpdateView.as_view(), name="feed-update"),
     path("feeds/<int:feed_id>/delete/", FeedDeleteView.as_view(), name="feed-delete"),
