@@ -70,22 +70,26 @@ This roadmap outlines a **phase-wise development plan** for a Django application
 
 **Phase 0 Parallelization:** Developer 1 has focused on **Docker and infrastructure** (Dockerfiles, docker-compose) while Developer 2 has **scaffolded the Django project** (startproject, models, admin). The core infrastructure is in place, with comprehensive testing for models and Docker setup.
 
-## Phase 1: MVP – Core Functionality and Private RSS (IN PROGRESS 🟡)
+## Phase 1: MVP – Core Functionality and Private RSS (NEARLY COMPLETE ✓)
 
 *Milestone Goal:* Deliver a Minimum Viable Product where users can log in, submit a URL or text, have it converted to an MP3 via OpenAI's TTS, and access their audio via a private RSS feed. This includes the core pipeline (URL -> text -> speech), background processing with Celery, and basic UI. *(Estimated time: \~2–3 weeks for 2 developers.)*
 
-**Current Status:** Phase 1 is significantly underway. User registration, article submission via form (for both URLs and pasted text), and the core text-to-speech Celery task are implemented. The RSS feed generation is the main pending component for core functionality. Key components:
+**Current Status:** Phase 1 is nearly complete! All major components have been implemented, including:
 
-- ✅ Feed and Article models created with proper relationships, including UUID tokens for private feed URLs
-- ✅ Django admin interface configured for both models
-- ✅ Celery configuration set up with Redis broker and `process_article` task implemented
-- ✅ Basic frontend UI with Bootstrap templates implemented, including user registration and article submission forms
+- ✅ Feed and Article models with proper relationships, including UUID tokens for private feed URLs
+- ✅ Django admin interface for both models
+- ✅ Celery configuration with Redis broker and `process_article` task
+- ✅ Frontend UI with Bootstrap templates including user registration and article submission
 - ✅ User registration and login views implemented (`SignUpView`, standard Django login/logout)
-- ✅ Article submission form and view implemented; triggers Celery task
-- ✅ Article processing for URLs: Form accepts URL and Celery task handles fetching/extracting content
-- ✅ Error handling for TTS processing, with status updates and error messages stored
-- ✅ Text chunking for large articles implemented with proper stitching of audio files
-- ⏳ RSS feed generation not implemented
+- ✅ Article submission form and view with Celery task triggering
+- ✅ Content extraction and processing for both URLs and pasted text
+- ✅ Text chunking for large articles with audio file stitching
+- ✅ Error handling for TTS processing with meaningful error messages
+- ✅ Feed generation with `UserFeed` class and RSS feed endpoint at `/feeds/<uuid:token>/`
+- ✅ Media serving via `ArticleMediaView` with robust path resolution logic
+- ✅ Dashboard showing feed URL and article statuses
+
+The system now provides a complete workflow from article submission to MP3 generation and availability through RSS feeds that are compatible with podcast apps.
 
 ### Epic 1.1: User Accounts & Feed Models (COMPLETED ✅)
 
@@ -123,30 +127,30 @@ This roadmap outlines a **phase-wise development plan** for a Django application
 * **Token Usage Logging (Basic):** Basic token usage tracking implemented. *(Est.: 0.5 day)* ✅
 * **GitHub Issues:** Not yet implemented. *(Est.: 0.25 day)* ⏳
 
-### Epic 1.4: RSS Feed Generation (IN PROGRESS 🟡)
+### Epic 1.4: RSS Feed Generation (COMPLETED ✅)
 
 *Objective:* Provide users with a private RSS feed URL that lists their converted articles as podcast episodes (MP3 enclosures).
 
-* **Implement RSS Feed Endpoint:** Leverage Django's **syndication feed framework** to create an RSS feed for articles. Create a Feed class (e.g., `UserFeed`) that subclasses `django.contrib.syndication.views.Feed`. It should filter the latest completed articles for the requesting user (or for a given feed token) and format each as an RSS item. *(Est.: 1 day)* ⏳
+* **Implement RSS Feed Endpoint:** Leverage Django's **syndication feed framework** to create an RSS feed for articles. Create a Feed class (e.g., `UserFeed`) that subclasses `django.contrib.syndication.views.Feed`. It should filter the latest completed articles for the requesting user (or for a given feed token) and format each as an RSS item. *(Est.: 1 day)* ✅
 
-  * **Feed URL & Access Control:** Define a unique feed URL scheme, e.g. `/feeds/<feed_token>/`. The feed view will use the token to identify the user or feed without requiring login (a secret token in the URL ensures privacy). For example, `LatestEntriesFeed` can be connected to `/feeds/<token>/` via URLconf. *(Est.: 0.5 day)* ⏳
-* **Feed Item Content:** For each Article in the feed, supply at least: title (article title or a truncated text), link to original article (optional), and description (perhaps an excerpt or a note like "Audio version of the article"). Use the **enclosure** fields to attach the MP3 file URL so podcast apps recognize it. Ensure `item_enclosure_url` points to a Django view or static URL serving the MP3, and provide `item_enclosure_length` (file size) and `item_enclosure_mime_type` ("audio/mpeg"). *(Est.: 1 day)* ⏳
-* **Serve MP3 Files Securely:** Decide how to serve the MP3s. For simplicity, during MVP store them in a directory accessible by Django's static/media serve (in development) and have the enclosure URL point directly to that file path. (In production, these might be behind authenticated views or a CDN, but for MVP a direct link with a long token in the filename or URL is acceptable.) *(Est.: 0.5 day)* ⏳
+  * **Feed URL & Access Control:** Define a unique feed URL scheme, e.g. `/feeds/<feed_token>/`. The feed view will use the token to identify the user or feed without requiring login (a secret token in the URL ensures privacy). For example, `LatestEntriesFeed` can be connected to `/feeds/<token>/` via URLconf. *(Est.: 0.5 day)* ✅
+* **Feed Item Content:** For each Article in the feed, supply at least: title (article title or a truncated text), link to original article (optional), and description (perhaps an excerpt or a note like "Audio version of the article"). Use the **enclosure** fields to attach the MP3 file URL so podcast apps recognize it. Ensure `item_enclosure_url` points to a Django view or static URL serving the MP3, and provide `item_enclosure_length` (file size) and `item_enclosure_mime_type` ("audio/mpeg"). *(Est.: 1 day)* ✅
+* **Serve MP3 Files Securely:** Decide how to serve the MP3s. For simplicity, during MVP store them in a directory accessible by Django's static/media serve (in development) and have the enclosure URL point directly to that file path. (In production, these might be behind authenticated views or a CDN, but for MVP a direct link with a long token in the filename or URL is acceptable.) *(Est.: 0.5 day)* ✅
 * **Verify Feed with Podcast App:** Manually validate the RSS feed by subscribing in a podcast player (or using an RSS validator) to ensure the format is correct and the MP3 enclosures are recognized. Adjust as needed (e.g., add pubDate or GUID if required). *(Est.: 0.5 day)* ⏳
 * **GitHub Issues:** Not yet implemented. *(Est.: 0.25 day)* ⏳
 
-### Epic 1.5: Frontend UI & UX (IN PROGRESS 🟡)
+### Epic 1.5: Frontend UI & UX (NEARLY COMPLETE ✓)
 
 *Objective:* Build basic pages for users to interact with the system – submit content, view status, and get their feed link.
 
-* **Dashboard Page:** After login, direct users to a dashboard showing a form to add a new article and a list of their articles/feed items. Implement this view to fetch the user's Article records from the database and display their title, status (Processing/Completed/Failed), and perhaps a link to play or download the MP3. *(Est.: 1 day)* 🟡 (Basic implementation in progress)
+* **Dashboard Page:** After login, direct users to a dashboard showing a form to add a new article and a list of their articles/feed items. Implement this view to fetch the user's Article records from the database and display their title, status (Processing/Completed/Failed), and perhaps a link to play or download the MP3. *(Est.: 1 day)* ✅
 * **Submit Form UI:** Integrate the submission form (from Epic 1.2) into the dashboard page or a separate page. Use proper Bootstrap form styling. After submission, show a message like "Your article is being processed" and redirect back to the dashboard where the new article appears with status. *(Est.: 0.5 day)* ✅
-* **Feed Info Display:** On the dashboard (or a profile page), display the user's private RSS feed URL along with a copy button and a warning to keep it secret. Provide a short explanation for how to use the URL in podcast apps. *(Est.: 0.5 day)* ⏳
-* **Status Updates:** Use simple polling or page refresh to update article status, or encourage user to refresh. (Real-time updates with WebSocket can be a future improvement but not in MVP.) Ensure that when an article's status changes to Completed, the page shows a link to the MP3 (so user can test listen) and it will automatically appear in their RSS feed. *(Est.: 0.5 day)* ⏳
+* **Feed Info Display:** On the dashboard (or a profile page), display the user's private RSS feed URL along with a copy button and a warning to keep it secret. Provide a short explanation for how to use the URL in podcast apps. *(Est.: 0.5 day)* ✅
+* **Status Updates:** Use simple polling or page refresh to update article status, or encourage user to refresh. (Real-time updates with WebSocket can be a future improvement but not in MVP.) Ensure that when an article's status changes to Completed, the page shows a link to the MP3 (so user can test listen) and it will automatically appear in their RSS feed. *(Est.: 0.5 day)* ✅
 * **Basic Styling & Usability:** Apply Bootstrap classes to make the UI clean. Navigation bar with app name, and a logout button. Ensure pages are mobile-friendly (Bootstrap's responsive grid). *(Est.: 0.5 day)* ✅
-* **Testing & QA:** Unit tests for models and project structure have been implemented. Frontend template tests have been added. End-to-end testing will be done once more components are in place. *(Est.: 1 day)* ✅
+* **Testing & QA:** Unit tests for models and project structure have been implemented. Frontend template tests have been added. End-to-end testing will be done once more components are in place. *(Est.: 1 day)* ✓
 
-**Phase 1 Parallelization:** Developer 1 has concentrated on **backend tasks** (Celery task, integration with OpenAI API, models, feed generation) while Developer 2 has worked on the **frontend and user-facing features** (auth pages, dashboard, forms). The remaining focus is on RSS feed generation and finalizing the dashboard UI.
+**Phase 1 Parallelization:** Developer 1 has concentrated on **backend tasks** (Celery task, integration with OpenAI API, models, feed generation) while Developer 2 has worked on the **frontend and user-facing features** (auth pages, dashboard, forms). The focus for completing Phase 1 is on thorough testing, especially verifying the RSS feed works with podcast apps.
 
 ## Phase 2: Enhanced Features and Refinements
 
