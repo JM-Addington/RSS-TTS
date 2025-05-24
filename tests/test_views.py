@@ -154,9 +154,8 @@ class ArticleDeleteViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.article.title)
-        self.assertTemplateUsed(
-            response, "text_to_audio/article_confirm_delete.html"
-        )
+        template_name = "text_to_audio/article_confirm_delete.html"
+        self.assertTemplateUsed(response, template_name)
 
     def test_article_delete_post_success(self):
         """Test POST request to delete an article successfully, including its audio file."""
@@ -178,10 +177,8 @@ class ArticleDeleteViewTests(TestCase):
             Article.objects.filter(pk=self.article.pk).exists(),
             "Article was not deleted from the database.",
         )
-        self.assertFalse(
-            os.path.exists(dummy_file_path),
-            "Dummy audio file was not deleted from the filesystem.",
-        )
+        msg_file_not_deleted = "Dummy audio file was not deleted from the filesystem."
+        self.assertFalse(os.path.exists(dummy_file_path), msg_file_not_deleted)
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(
             response, reverse("feed-articles", kwargs={"feed_id": self.feed.pk})
