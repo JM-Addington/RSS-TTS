@@ -154,7 +154,9 @@ class ArticleDeleteViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.article.title)
-        self.assertTemplateUsed(response, "text_to_audio/article_confirm_delete.html")
+        self.assertTemplateUsed(
+            response, "text_to_audio/article_confirm_delete.html"
+        )
 
     def test_article_delete_post_success(self):
         """Test POST request to delete an article successfully, including its audio file."""
@@ -162,9 +164,8 @@ class ArticleDeleteViewTests(TestCase):
         self.article.save()
 
         dummy_file_path = self._create_dummy_audio_file(self.article)
-        self.assertTrue(
-            os.path.exists(dummy_file_path), "Dummy audio file was not created."
-        )
+        msg = "Dummy audio file was not created."
+        self.assertTrue(os.path.exists(dummy_file_path), msg)
 
         response = self.client.post(
             reverse(
@@ -194,7 +195,9 @@ class ArticleDeleteViewTests(TestCase):
         self.article.save()
 
         # Ensure the dummy file does not exist at this path
-        non_existent_path = os.path.join(self.settings.MEDIA_ROOT, self.article.audio_file_path)
+        non_existent_path = os.path.join(
+            self.settings.MEDIA_ROOT, self.article.audio_file_path
+        )
         self.assertFalse(os.path.exists(non_existent_path))
 
         response = self.client.post(
@@ -222,7 +225,7 @@ class ArticleDeleteViewTests(TestCase):
         # Article belongs to self.user, but self.client is logged in as self.user
         # We need to log in as user2
         self.client.logout()
-        self.client.login(username="user2", password="password2")
+        self.client.login(username=user2.username, password="password2")
 
         response = self.client.post(
             reverse(

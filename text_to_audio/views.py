@@ -465,14 +465,10 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
         # self.object is the deleted article instance
         return reverse_lazy("feed-articles", kwargs={"feed_id": self.object.feed.id})
 
-    def delete(self, request, *args, **kwargs):
-        """Delete the article and its associated audio file."""
-        self.object = self.get_object()
-        article = self.object
-
+    def _get_article_audio_file_path(self, article):
+        """Helper method to find the audio file path for an article."""
         file_path_to_delete = None
 
-        # Adapted file finding logic from ArticleMediaView
         # Attempt 1: Use _resolve_path logic if audio_file_path is set
         if article.audio_file_path:
             possible_paths = []
@@ -531,8 +527,15 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
                 if os.path.exists(path):
                     file_path_to_delete = path
                     break
+        return file_path_to_delete
 
-        # Delete the file if found
+    def delete(self, request, *args, **kwargs):
+        """Delete the article and its associated audio file."""
+        self.object = self.get_object()
+        article = self.object
+
+        file_path_to_delete = self._get_article_audio_file_path(article)
+
         if file_path_to_delete and os.path.exists(file_path_to_delete):
             try:
                 os.remove(file_path_to_delete)
