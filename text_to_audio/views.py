@@ -5,6 +5,7 @@ submission, listing, and media serving.
 """
 
 import os
+import uuid
 
 from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
@@ -335,7 +336,7 @@ class FeedArticleListView(LoginRequiredMixin, ListView):
         """Return only articles for the specified feed."""
         feed_id = self.kwargs.get("feed_id")
         return Article.objects.filter(
-            feed__id=feed_id, feed__user=self.request.user
+            feed__pk=feed_id, feed__user=self.request.user
         ).order_by("-created_at")
 
     def get_context_data(self, **kwargs):
@@ -344,7 +345,7 @@ class FeedArticleListView(LoginRequiredMixin, ListView):
 
         # Get the feed
         feed_id = self.kwargs.get("feed_id")
-        feed = get_object_or_404(Feed, id=feed_id, user=self.request.user)
+        feed = get_object_or_404(Feed, pk=feed_id, user=self.request.user)
         context["feed"] = feed
 
         # Generate RSS URL for this specific feed
@@ -369,7 +370,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
     def dispatch(self, request, *args, **kwargs):
         """Verify the feed exists and belongs to the user."""
         self.feed = get_object_or_404(
-            Feed, id=self.kwargs.get("feed_id"), user=request.user
+            Feed, pk=self.kwargs.get("feed_id"), user=request.user
         )
         return super().dispatch(request, *args, **kwargs)
 
@@ -397,7 +398,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 article.title = title or f"Article from {article.source_url}"
 
         article.save()
-        process_article.delay(article.id)
+        process_article.delay(article.pk)
         return super().form_valid(form)
 
     def get_success_url(self):
@@ -409,3 +410,40 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context["feed"] = self.feed
         return context
+
+
+class RegenerateArticleView(LoginRequiredMixin, View):
+    """View for regenerating an article's audio file."""
+
+    def post(self, request, article_id):
+        """Handle POST requests to regenerate an article.
+
+        Creates a new article based on the existing one and queues it for processing.
+        """
+        # Get the original article
+        original_article = get_object_or_404(
+            Article, pk=article_id, feed__user=request.user
+        )
+
+        # Create a new article with the same content
+        new_article = Article(
+            feed=original_article.feed,
+            title=original_article.title,
+            source_url=original_article.source_url,
+            text_content=original_article.text_content,
+            audio_uuid=uuid.uuid4(),  # Generate a new UUID
+            status=Article.PROCESSING,
+        )
+        new_article.save()
+
+        # Queue the new article for processing
+        process_article.delay(new_article.pk)
+
+        # Get the feed ID
+        # Using getattr to work around mypy limitations with Django models
+        feed_id = getattr(original_article.feed, "pk", None)
+        if feed_id is not None:
+            return redirect("feed-articles", feed_id=feed_id)
+        else:
+            # Fallback - should not happen in normal operation
+            return redirect("feed-list")
