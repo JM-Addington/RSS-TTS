@@ -96,6 +96,15 @@ class Article(models.Model):
     created_at: models.DateTimeField = models.DateTimeField(
         auto_now_add=True, help_text="When the article was created."
     )
+    updated_at: models.DateTimeField = models.DateTimeField(
+        auto_now=True, help_text="When the article was last updated."
+    )
+    celery_task_id: models.CharField = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Celery task ID for audio generation.",
+    )
 
     def __str__(self) -> str:
         """Return a string representation of the article."""

@@ -13,8 +13,11 @@ from pathlib import Path
 import openai
 from celery import shared_task  # type: ignore
 from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
 from pydub import AudioSegment  # type: ignore
 
+from rss_tts.celery import app # For task revocation
 from .models import Article
 from .utils import process_url_to_text
 
@@ -177,7 +180,7 @@ def process_article(self, article_id: int) -> str:
         return f"Article {article_id} not found."
 
     article.status = Article.PROCESSING
-    article.save(update_fields=["status"])
+    article.save(update_fields=["status", "updated_at"])
 
     logger.info(f"Starting processing for Article ID: {article_id}")
     temp_audio_files: list[Path] = []
@@ -403,3 +406,59 @@ def process_article(self, article_id: int) -> str:
                     logger.debug(f"Cleaned up temporary file: {temp_file}")
                 except OSError as e:
                     logger.error(f"Error deleting temporary file {temp_file}: {e}")
+
+
+@shared_task
+def check_stale_articles():
+    """Check for articles stuck in PROCESSING and mark them as FAILED."""
+    try:
+        timeout_seconds = settings.ARTICLE_PROCESSING_TIMEOUT_SECONDS
+    except AttributeError:
+        # Fallback if the setting is not defined, though it should be.
+        logger.warning(
+            "ARTICLE_PROCESSING_TIMEOUT_SECONDS not set in Django settings. "
+            "Defaulting to 3600 seconds (1 hour)."
+        )
+        timeout_seconds = 3600
+
+    timeout_delta = timedelta(seconds=timeout_seconds)
+    cutoff_time = timezone.now() - timeout_delta
+
+    stale_articles = Article.objects.filter(
+        status=Article.PROCESSING, updated_at__lt=cutoff_time
+    )
+
+    if stale_articles.exists():
+        logger.info(f"Found {stale_articles.count()} stale articles to mark as FAILED.")
+        for article in stale_articles:
+            task_id = article.celery_task_id
+            article.status = Article.FAILED
+            article.error_message = (
+                f"Processing timed out after {timeout_seconds} seconds "
+                f"since last update at {article.updated_at.strftime('%Y-%m-%d %H:%M:%S %Z')}."
+            )
+            article.celery_task_id = None  # Clear the old task ID
+
+            try:
+                article.save()
+                logger.info(
+                    f"Marked article {article.pk} (URL: {article.source_url or 'N/A'}) "
+                    f"as FAILED due to timeout. Last update was at {article.updated_at}."
+                )
+
+                if task_id:
+                    try:
+                        app.control.revoke(task_id, terminate=True)
+                        logger.info(
+                            f"Attempted to revoke Celery task {task_id} for timed-out article {article.pk}."
+                        )
+                    except Exception as revoke_exc:
+                        logger.error(
+                            f"Error attempting to revoke Celery task {task_id} for article {article.pk}: {revoke_exc}"
+                        )
+            except Exception as e:
+                logger.error(
+                    f"Error updating stale article {article.pk} to FAILED: {e}"
+                )
+    else:
+        logger.info("No stale articles found.")

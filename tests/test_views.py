@@ -275,3 +275,95 @@ class ArticleDeleteViewTests(TestCase):
             )
         )
         self.assertEqual(response_post.status_code, 404)
+
+
+class TestArticleCeleryTaskID(TestCase):
+    """Tests for celery_task_id being saved in Article views."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="celerytestuser", password="password", email="celery@example.com"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Celery Test Feed")
+        self.client.login(username="celerytestuser", password="password")
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_celery_task_id_saved_on_create(self, mock_process_article_delay):
+        """Test that celery_task_id is saved when an article is created."""
+        mock_task = mock.Mock()
+        mock_task.id = "test_task_id_create_123"
+        mock_process_article_delay.return_value = mock_task
+
+        create_url = reverse("feed-article-create", kwargs={"feed_id": self.feed.pk})
+        post_data = {
+            "text_content": "This is a new article for testing celery task ID.",
+            "title": "Celery Task Create Test"
+        }
+
+        # Get initial timestamp to compare against
+        before_post_time = timezone.now()
+
+        response = self.client.post(create_url, post_data)
+
+        self.assertEqual(response.status_code, 302) # Should redirect on success
+        
+        new_article = Article.objects.filter(feed=self.feed).order_by("-created_at").first()
+        
+        self.assertIsNotNone(new_article)
+        self.assertEqual(new_article.title, "Celery Task Create Test")
+        self.assertEqual(new_article.celery_task_id, "test_task_id_create_123")
+        
+        # Check updated_at is recent
+        self.assertIsNotNone(new_article.updated_at)
+        self.assertTrue(new_article.updated_at > before_post_time)
+        
+        # Check that updated_at is very close to created_at for a new article
+        # (especially after the second save for celery_task_id)
+        time_difference = new_article.updated_at - new_article.created_at
+        self.assertTrue(time_difference.total_seconds() < 5) # Assuming saves are quick
+
+        mock_process_article_delay.assert_called_once_with(new_article.pk)
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_celery_task_id_saved_on_regenerate(self, mock_process_article_delay):
+        """Test that celery_task_id is saved when an article is regenerated."""
+        mock_task = mock.Mock()
+        mock_task.id = "test_task_id_regenerate_456"
+        mock_process_article_delay.return_value = mock_task
+
+        original_article = Article.objects.create(
+            feed=self.feed,
+            title="Original Article for Regeneration",
+            text_content="Some original content.",
+            status=Article.COMPLETED, # Needs to be in a non-processing state
+            audio_uuid=uuid.uuid4()
+        )
+
+        regenerate_url = reverse("article-regenerate", kwargs={"article_id": original_article.pk})
+        
+        before_post_time = timezone.now()
+
+        response = self.client.post(regenerate_url)
+
+        self.assertEqual(response.status_code, 302) # Redirects to feed articles
+
+        # The regenerated article is the newest one for this feed
+        regenerated_article = Article.objects.filter(feed=self.feed).order_by("-created_at").first()
+
+        self.assertIsNotNone(regenerated_article)
+        self.assertNotEqual(regenerated_article.pk, original_article.pk) # Ensure it's a new article
+        self.assertEqual(regenerated_article.title, original_article.title)
+        self.assertEqual(regenerated_article.celery_task_id, "test_task_id_regenerate_456")
+        self.assertEqual(regenerated_article.status, Article.PROCESSING) # Should be processing initially
+
+        self.assertIsNotNone(regenerated_article.updated_at)
+        self.assertTrue(regenerated_article.updated_at > before_post_time)
+        
+        time_difference = regenerated_article.updated_at - regenerated_article.created_at
+        self.assertTrue(time_difference.total_seconds() < 5)
+
+        mock_process_article_delay.assert_called_once_with(regenerated_article.pk)
+
+# Need to import timezone for the new tests
+from django.utils import timezone

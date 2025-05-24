@@ -389,7 +389,9 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 article.title = title or f"Article from {article.source_url}"
 
         article.save()
-        process_article.delay(article.pk)
+        task = process_article.delay(article.pk)
+        article.celery_task_id = task.id
+        article.save()  # Save again to store the task ID and update `updated_at`
         return super().form_valid(form)
 
     def get_success_url(self):
@@ -428,7 +430,9 @@ class RegenerateArticleView(LoginRequiredMixin, View):
         new_article.save()
 
         # Queue the new article for processing
-        process_article.delay(new_article.pk)
+        task = process_article.delay(new_article.pk)
+        new_article.celery_task_id = task.id
+        new_article.save()  # Save again to store the task ID and update `updated_at`
 
         # Get the feed ID
         # Using getattr to work around mypy limitations with Django models
