@@ -3,10 +3,12 @@
 # mypy: disable-error-code="attr-defined"
 
 import os
+from unittest import mock
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
+from django.urls import reverse
 
 from text_to_audio.models import Article, Feed
 
@@ -85,18 +87,22 @@ class TestArticleSubmission(TestCase):
         """Test that authenticated users can access the article submission form."""
         self.client.login(username="tester", password="pass123")
         response = self.client.get("/articles/submit/")
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "article_form.html")
+        expected_url = reverse("feed-article-create", kwargs={"feed_id": self.feed.pk})
+        self.assertRedirects(response, expected_url)
 
     def test_post_creates_article(self):
         """Test that submitting the article form creates a new article."""
         self.client.login(username="tester", password="pass123")
-        response = self.client.post(
-            "/articles/submit/",
-            {"title": "Test", "text_content": "Hello"},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(Article.objects.filter(title="Test").exists())
+        with mock.patch("text_to_audio.views.process_article.delay") as mock_delay:
+            response = self.client.post(
+                reverse("feed-article-create", kwargs={"feed_id": self.feed.pk}),
+                {"title": "Test", "text_content": "Hello"},
+            )
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(
+                Article.objects.filter(title="Test", feed=self.feed).exists()
+            )
+            mock_delay.assert_called_once()
 
 
 class TestLogoutView(TestCase):
