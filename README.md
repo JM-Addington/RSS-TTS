@@ -142,6 +142,20 @@ pip install -r requirements-test.txt
 python -m unittest discover -s tests
 ```
 
+### Running Tests Without Audio Dependencies
+
+If you encounter issues with audio dependencies (pydub/audioop), you can use our test scripts with mocked audio dependencies:
+
+```bash
+# Run a specific test file
+python run_single_test.py tests/test_models.py
+
+# Run all tests with mocked audio dependencies
+python run_all_tests_with_mock.py
+```
+
+For more details on testing approach, see [TESTING.md](TESTING.md).
+
 ## Continuous Integration
 
 We use GitHub Actions for continuous integration. On each push to `main` or `dev/main`, and for pull requests to these branches, the CI will:

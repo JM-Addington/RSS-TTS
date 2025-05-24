@@ -192,8 +192,12 @@ class ArticleMediaView(LoginRequiredMixin, View):
         )
         if article.audio_uuid:
             # Construct a path using the UUID
-            user_id = article.feed.user.id
-            feed_id = article.feed.id
+            user_id = (
+                str(article.feed.user_id)
+                if hasattr(article.feed, "user_id")
+                else "unknown"
+            )
+            feed_id = str(article.feed.id) if hasattr(article.feed, "id") else "unknown"
             possible_paths.append(
                 os.path.join(
                     article_storage_dir,
@@ -255,12 +259,22 @@ class ArticleMediaView(LoginRequiredMixin, View):
         if not file_path:
             # Add debug information to help diagnose issues
             if settings.DEBUG:
+                # Get user_id and feed_id for debugging
+                feed_id = (
+                    str(article.feed.id) if hasattr(article.feed, "id") else "unknown"
+                )
+                user_id = (
+                    str(article.feed.user_id)
+                    if hasattr(article.feed, "user_id")
+                    else "unknown"
+                )
+
                 error_msg = (
                     f"Audio file not found. Details:\n"
                     f"- UUID: {article.audio_uuid}\n"
                     f"- Stored path: {article.audio_file_path}\n"
-                    f"- Feed User: {article.feed.user}\n"
-                    f"- Feed ID: {article.feed.id}\n"
+                    f"- Feed User ID: {user_id}\n"
+                    f"- Feed ID: {feed_id}\n"
                     f"- MEDIA_ROOT: {settings.MEDIA_ROOT}\n"
                     f"- BASE_DIR: {settings.BASE_DIR}"
                 )
