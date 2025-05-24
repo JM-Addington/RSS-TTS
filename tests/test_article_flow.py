@@ -6,8 +6,9 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
+from django.urls import reverse
 
-from text_to_audio.models import Article
+from text_to_audio.models import Article, Feed
 
 
 class TestArticleSubmissionFlow(TestCase):
@@ -19,17 +20,19 @@ class TestArticleSubmissionFlow(TestCase):
         self.user = get_user_model().objects.create_user(
             username="flowtester", password="pass123"
         )
+        self.feed = Feed.objects.create(user=self.user, name="Default")
 
     def test_submission_triggers_processing_task(self):
         """Test that article submission triggers the processing task."""
         self.client.login(username="flowtester", password="pass123")
         with patch("text_to_audio.views.process_article.delay") as mock_delay:
             response = self.client.post(
-                "/articles/submit/",
+                reverse("feed-article-create", kwargs={"feed_id": self.feed.pk}),
                 {"title": "Flow Test", "text_content": "Sample"},
             )
             self.assertEqual(response.status_code, 302)
             article = Article.objects.get(title="Flow Test")
+            self.assertEqual(article.feed, self.feed)
             self.assertEqual(article.status, Article.PROCESSING)
             mock_delay.assert_called_once_with(article.id)
 
