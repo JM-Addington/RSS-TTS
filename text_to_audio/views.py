@@ -9,8 +9,8 @@ import os
 from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import FileResponse, HttpResponseNotFound
-from django.shortcuts import get_object_or_404
+from django.http import FileResponse, HttpResponseNotAllowed, HttpResponseNotFound
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, ListView, TemplateView
@@ -290,6 +290,47 @@ class ArticleMediaView(LoginRequiredMixin, View):
         response["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
 
         return response
+
+
+class ArticleRegenerateView(LoginRequiredMixin, View):
+    """View for regenerating an article's audio file."""
+
+    def post(self, request, pk):
+        """Handle POST request to regenerate an article.
+
+        Creates a new article with the same content as the original,
+        deletes the original, and queues the new article for processing.
+        """
+        # Get the original article, ensuring it belongs to the current user
+        original_article = get_object_or_404(Article, pk=pk, feed__user=request.user)
+
+        # Store the original article's data
+        feed = original_article.feed
+        title = original_article.title
+        source_url = original_article.source_url
+        text_content = original_article.text_content
+
+        # Delete the original article (this will cascade delete any audio files)
+        original_article.delete()
+
+        # Create a new article with the same content
+        new_article = Article.objects.create(
+            feed=feed,
+            title=title,
+            source_url=source_url,
+            text_content=text_content,
+            status=Article.PROCESSING,
+        )
+
+        # Queue the new article for processing
+        process_article.delay(new_article.pk)
+
+        # Redirect back to the article list
+        return redirect("article-list")
+
+    def get(self, request, pk):
+        """Handle GET request - not allowed for regeneration."""
+        return HttpResponseNotAllowed(["POST"])
 
 
 class SignUpView(CreateView):

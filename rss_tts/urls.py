@@ -11,6 +11,7 @@ from text_to_audio.views import (
     ArticleCreateView,
     ArticleListView,
     ArticleMediaView,
+    ArticleRegenerateView,
     HomeView,
     SignUpView,
 )
@@ -22,6 +23,11 @@ urlpatterns = [
     path("accounts/signup/", SignUpView.as_view(), name="signup"),
     path("articles/", ArticleListView.as_view(), name="article-list"),
     path("articles/submit/", ArticleCreateView.as_view(), name="article-submit"),
+    path(
+        "articles/<int:pk>/regenerate/",
+        ArticleRegenerateView.as_view(),
+        name="article-regenerate",
+    ),
     path(
         "audio/<uuid:audio_uuid>/",
         ArticleMediaView.as_view(),
