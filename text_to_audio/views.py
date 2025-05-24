@@ -1,7 +1,7 @@
 """Views for the text_to_audio app.
 
 This module defines the views used for the RSS-to-TTS system, handling article
-submission, listing, and media serving.
+submission, listing, media serving, and article deletion.
 """
 
 import os
