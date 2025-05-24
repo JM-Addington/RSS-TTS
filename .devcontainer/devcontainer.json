@@ -3,6 +3,7 @@
   "dockerComposeFile": ".devcontainer/docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/app",
+  "runServices": ["app", "caddy"],
   "forwardPorts": [8000, 8084],
   "customizations": {
     "vscode": {
