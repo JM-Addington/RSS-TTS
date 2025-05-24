@@ -1,14 +1,31 @@
 version: "3.9"
 
 services:
+  # Caddy web server for serving static files and reverse proxy
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "8084:80"  # Changed from 8084:8000 to serve through Caddy
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./media:/media  # Bind mount for serving MP3 files
+      # For Docker volume instead of bind mount, uncomment the following:
+      # - media-data:/media
+    depends_on:
+      - web
+    networks:
+      - rsstts
+
   web:
     build: .
     command: /app/start-web.sh python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
       - sqlite-data:/app/data
-    ports:
-      - "8084:8000"
+      - ./media:/app/media  # Bind mount for saving MP3 files
+      # For Docker volume instead of bind mount, uncomment the following:
+      # - media-data:/app/media
+    # Port mapping removed - now accessed through Caddy
     env_file:
       - .env
     environment:
@@ -27,6 +44,9 @@ services:
     volumes:
       - .:/app
       - sqlite-data:/app/data
+      - ./media:/app/media  # Bind mount for saving MP3 files
+      # For Docker volume instead of bind mount, uncomment the following:
+      # - media-data:/app/media
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
@@ -57,6 +77,8 @@ services:
 volumes:
   sqlite-data:
   redis-data:
+  # Uncomment to use Docker volume instead of bind mount for media files:
+  # media-data:
 
 networks:
   rsstts:

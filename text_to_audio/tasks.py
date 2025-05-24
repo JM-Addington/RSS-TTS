@@ -186,9 +186,7 @@ def process_article(self, article_id: int) -> str:
     try:
         # Ensure media directory exists
         media_root = Path(settings.MEDIA_ROOT)
-        article_media_dir = (
-            media_root / "articles" / str(article.feed.user_id) / str(article.feed.id)
-        )
+        article_media_dir = media_root / "articles"
         article_media_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate a UUID for the article audio file if not already set
@@ -298,7 +296,9 @@ def process_article(self, article_id: int) -> str:
         }
         export_parameters = ["-id3v2_version", "3", "-write_id3v1", "1"]
 
-        final_audio_path = article_media_dir / f"article_{article.audio_uuid}.mp3"
+        # Save files directly as UUID.mp3 (without "article_" prefix)
+        # to match Caddy's rewrite rule
+        final_audio_path = article_media_dir / f"{article.audio_uuid}.mp3"
 
         if len(temp_audio_files) == 1:
             temp_single_audio_path = temp_audio_files[0]

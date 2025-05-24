@@ -1,14 +1,35 @@
 services:
+  # Caddy web server for serving static files and reverse proxy
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./media:/media  # Bind mount for serving MP3 files
+      - caddy-data:/data  # Caddy's data directory for certificates
+      - caddy-config:/config  # Caddy's config directory
+      # For Docker volume instead of bind mount for media, uncomment:
+      # - media-data:/media
+    depends_on:
+      - web
+    networks:
+      - rsstts
+      - caddy
+
   web:
     build: .
     command: /app/start-web.sh gunicorn rss_tts.wsgi:application --bind 0.0.0.0:8000
     env_file: .env
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
-    ports:
-      - "8000:8000"
+    # Port mapping removed - now accessed through Caddy
     volumes:
       - ./data/sqlite-data:/app/data
+      - ./media:/app/media  # Bind mount for saving MP3 files
+      # For Docker volume instead of bind mount, uncomment:
+      # - media-data:/app/media
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
       interval: 30s
@@ -20,7 +41,6 @@ services:
       - worker
     networks:
       - rsstts
-      - caddy
 
   worker:
     build: .
@@ -30,6 +50,9 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
     volumes:
       - ./data/sqlite-data:/app/data
+      - ./media:/app/media  # Bind mount for saving MP3 files
+      # For Docker volume instead of bind mount, uncomment:
+      # - media-data:/app/media
     healthcheck:
       test: ["CMD", "celery", "-A", "rss_tts", "inspect", "ping"]
       interval: 30s
@@ -55,6 +78,12 @@ services:
       start_period: 20s
     networks:
       - rsstts
+
+volumes:
+  caddy-data:
+  caddy-config:
+  # Uncomment to use Docker volume instead of bind mount for media files:
+  # media-data:
 
 networks:
   rsstts:
