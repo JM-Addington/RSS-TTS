@@ -12,7 +12,6 @@ testoutput.log
 articles/**/*.mp3
 dump.rdb
 tts demo/
-
 # Test scripts
 test_byte_range.sh
 data/

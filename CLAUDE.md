@@ -59,3 +59,7 @@ You should:
 ## Committing
 
 Always run pre-commit before committing. If the hooks are set up correctly, they will run automatically but your commit may fail depending on the errors.
+
+## Testing
+
+All tests must be run inside docker. The local environment does NOT have all of the dependencies installed and the tests WILL fail.
