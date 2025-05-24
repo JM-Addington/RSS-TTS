@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{% if form.instance.pk %}Edit Feed{% else %}Create New Feed{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">{% if form.instance.pk %}Edit Feed{% else %}Create New Feed{% endif %}</h2>
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger" role="alert">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">Feed Name</label>
+                            <input type="text"
+                                   class="form-control{% if form.name.errors %} is-invalid{% endif %}"
+                                   id="{{ form.name.id_for_label }}"
+                                   name="{{ form.name.name }}"
+                                   value="{{ form.name.value|default_if_none:'' }}"
+                                   placeholder="e.g., Business News, Kids Stories, Tech Articles"
+                                   required>
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.name.errors }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Choose a descriptive name to help you organize your feeds.</div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                {% if form.instance.pk %}
+                                    <i class="bi bi-save"></i> Save Changes
+                                {% else %}
+                                    <i class="bi bi-plus-circle"></i> Create Feed
+                                {% endif %}
+                            </button>
+                            <a href="{% if form.instance.pk %}{% url 'feed-articles' form.instance.pk %}{% else %}{% url 'feed-list' %}{% endif %}" class="btn btn-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

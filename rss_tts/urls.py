@@ -11,6 +11,12 @@ from text_to_audio.views import (
     ArticleCreateView,
     ArticleListView,
     ArticleMediaView,
+    FeedArticleCreateView,
+    FeedArticleListView,
+    FeedCreateView,
+    FeedDeleteView,
+    FeedListView,
+    FeedUpdateView,
     HomeView,
     SignUpView,
 )
@@ -27,6 +33,18 @@ urlpatterns = [
         ArticleMediaView.as_view(),
         name="article-media",
     ),
+    # Feed management URLs
+    path("feeds/", FeedListView.as_view(), name="feed-list"),
+    path("feeds/new/", FeedCreateView.as_view(), name="feed-create"),
+    path("feeds/<int:feed_id>/", FeedArticleListView.as_view(), name="feed-articles"),
+    path(
+        "feeds/<int:feed_id>/add/",
+        FeedArticleCreateView.as_view(),
+        name="feed-article-create",
+    ),
+    path("feeds/<int:feed_id>/edit/", FeedUpdateView.as_view(), name="feed-update"),
+    path("feeds/<int:feed_id>/delete/", FeedDeleteView.as_view(), name="feed-delete"),
+    # RSS feed URL (must come after management URLs to avoid conflicts)
     path("feeds/<uuid:token>/", UserFeed(), name="feed"),
     path("", HomeView.as_view(), name="home"),
 ]

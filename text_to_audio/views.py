@@ -10,10 +10,16 @@ from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import FileResponse, HttpResponseNotFound
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, ListView, TemplateView
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
 from .forms import ArticleSubmissionForm
 from .models import Article, Feed
@@ -28,85 +34,22 @@ class HomeView(TemplateView):
 
 
 class ArticleCreateView(LoginRequiredMixin, CreateView):
-    """View for submitting new articles."""
+    """View for submitting new articles (redirects to feed-based system)."""
 
-    form_class = ArticleSubmissionForm
-    template_name = "article_form.html"
-    success_url = reverse_lazy("article-list")
-
-    def form_valid(self, form):
-        """Process the form and create the article.
-
-        Creates a default feed for the user if none exists, saves the article
-        to the database, and schedules the article for processing.
-        If no title is provided but a URL is, extracts title from the page.
-        Validates URL accessibility before submission.
-        """
-        feed, _ = Feed.objects.get_or_create(user=self.request.user, name="Default")
-        article = form.save(commit=False)
-        article.feed = feed
-
-        # If URL is provided, validate it first
-        if article.source_url:
-            success, html, error = fetch_url_content(article.source_url)
-            if not success:
-                # Add the error to the form for user-friendly display
-                form.add_error("source_url", error)
-                return self.form_invalid(form)
-
-            # If no title provided but URL is valid, try to extract title
-            if not article.title:
-                # Try to extract title from HTML
-                title = extract_title_from_html(html)
-
-                # If no title found, use first 100 chars of content
-                if not title:
-                    success, content, _ = extract_article_text(html)
-                    if success and content:
-                        title = content[:100] + ("..." if len(content) > 100 else "")
-
-                article.title = title or f"Article from {article.source_url}"
-
-        article.save()
-        process_article.delay(article.id)
-        return super().form_valid(form)
+    def get(self, request, *args, **kwargs):
+        """Redirect to feed list for new feed-based system."""
+        # Get or create default feed
+        feed, _ = Feed.objects.get_or_create(user=request.user, name="Default")
+        # Redirect to the feed-specific article creation
+        return redirect("feed-article-create", feed_id=feed.pk)
 
 
-class ArticleListView(LoginRequiredMixin, ListView):
-    """View for listing a user's articles."""
+class ArticleListView(LoginRequiredMixin, View):
+    """View for listing all user's articles (redirects to feed list)."""
 
-    model = Article
-    template_name = "article_list.html"
-    context_object_name = "articles"
-
-    def get_queryset(self):
-        """Return only the user's articles."""
-        user = self.request.user
-        return Article.objects.filter(feed__user=user).order_by("-created_at")
-
-    def get_context_data(self, **kwargs):
-        """Add feed URL to context."""
-        context = super().get_context_data(**kwargs)
-
-        # Get the user's default feed
-        feed = Feed.objects.filter(user=self.request.user).first()
-
-        if feed:
-            feed_path = reverse("feed", kwargs={"token": feed.token})
-
-            # Use SITE_URL from settings if available
-            if hasattr(settings, "SITE_URL"):
-                feed_url = f"{settings.SITE_URL.rstrip('/')}{feed_path}"
-            else:
-                # Fallback to request host
-                request = self.request
-                domain = request.get_host()
-                protocol = "https" if request.is_secure() else "http"
-                feed_url = f"{protocol}://{domain}{feed_path}"
-
-            context["feed_url"] = feed_url
-
-        return context
+    def get(self, request, *args, **kwargs):
+        """Redirect to feed list for new feed-based system."""
+        return redirect("feed-list")
 
 
 class ArticleMediaView(LoginRequiredMixin, View):
@@ -298,3 +241,171 @@ class SignUpView(CreateView):
     form_class = UserCreationForm
     template_name = "registration/signup.html"
     success_url = reverse_lazy("login")
+
+
+class FeedListView(LoginRequiredMixin, ListView):
+    """View for listing a user's feeds."""
+
+    model = Feed
+    template_name = "feed_list.html"
+    context_object_name = "feeds"
+
+    def get_queryset(self):
+        """Return only the user's feeds."""
+        return Feed.objects.filter(user=self.request.user).order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        """Add feed URLs and article counts to context."""
+        context = super().get_context_data(**kwargs)
+
+        # Add article count and RSS URL for each feed
+        for feed in context["feeds"]:
+            feed.article_count = feed.articles.count()
+
+            # Generate RSS URL
+            feed_path = reverse("feed", kwargs={"token": feed.token})
+            if hasattr(settings, "SITE_URL"):
+                feed.rss_url = f"{settings.SITE_URL.rstrip('/')}{feed_path}"
+            else:
+                request = self.request
+                domain = request.get_host()
+                protocol = "https" if request.is_secure() else "http"
+                feed.rss_url = f"{protocol}://{domain}{feed_path}"
+
+        return context
+
+
+class FeedCreateView(LoginRequiredMixin, CreateView):
+    """View for creating a new feed."""
+
+    model = Feed
+    fields = ["name"]
+    template_name = "feed_form.html"
+
+    def form_valid(self, form):
+        """Set the user before saving."""
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        """Redirect to the new feed's article list."""
+        # Use assert to help mypy understand self.object is not None
+        assert self.object is not None
+        return reverse_lazy("feed-articles", kwargs={"feed_id": self.object.pk})
+
+
+class FeedUpdateView(LoginRequiredMixin, UpdateView):
+    """View for updating a feed."""
+
+    model = Feed
+    fields = ["name"]
+    template_name = "feed_form.html"
+    pk_url_kwarg = "feed_id"
+
+    def get_queryset(self):
+        """Ensure users can only edit their own feeds."""
+        return Feed.objects.filter(user=self.request.user)
+
+    def get_success_url(self):
+        """Redirect to the feed's article list."""
+        return reverse_lazy("feed-articles", kwargs={"feed_id": self.object.pk})
+
+
+class FeedDeleteView(LoginRequiredMixin, DeleteView):
+    """View for deleting a feed."""
+
+    model = Feed
+    template_name = "feed_confirm_delete.html"
+    success_url = reverse_lazy("feed-list")
+    pk_url_kwarg = "feed_id"
+
+    def get_queryset(self):
+        """Ensure users can only delete their own feeds."""
+        return Feed.objects.filter(user=self.request.user)
+
+
+class FeedArticleListView(LoginRequiredMixin, ListView):
+    """View for listing articles in a specific feed."""
+
+    model = Article
+    template_name = "article_list.html"
+    context_object_name = "articles"
+
+    def get_queryset(self):
+        """Return only articles for the specified feed."""
+        feed_id = self.kwargs.get("feed_id")
+        return Article.objects.filter(
+            feed__id=feed_id, feed__user=self.request.user
+        ).order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        """Add feed information to context."""
+        context = super().get_context_data(**kwargs)
+
+        # Get the feed
+        feed_id = self.kwargs.get("feed_id")
+        feed = get_object_or_404(Feed, id=feed_id, user=self.request.user)
+        context["feed"] = feed
+
+        # Generate RSS URL for this specific feed
+        feed_path = reverse("feed", kwargs={"token": feed.token})
+        if hasattr(settings, "SITE_URL"):
+            context["feed_url"] = f"{settings.SITE_URL.rstrip('/')}{feed_path}"
+        else:
+            request = self.request
+            domain = request.get_host()
+            protocol = "https" if request.is_secure() else "http"
+            context["feed_url"] = f"{protocol}://{domain}{feed_path}"
+
+        return context
+
+
+class FeedArticleCreateView(LoginRequiredMixin, CreateView):
+    """View for submitting new articles to a specific feed."""
+
+    form_class = ArticleSubmissionForm
+    template_name = "article_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        """Verify the feed exists and belongs to the user."""
+        self.feed = get_object_or_404(
+            Feed, id=self.kwargs.get("feed_id"), user=request.user
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Process the form and create the article for the specific feed."""
+        article = form.save(commit=False)
+        article.feed = self.feed
+
+        # If URL is provided, validate it first
+        if article.source_url:
+            success, html, error = fetch_url_content(article.source_url)
+            if not success:
+                form.add_error("source_url", error)
+                return self.form_invalid(form)
+
+            # If no title provided but URL is valid, try to extract title
+            if not article.title:
+                title = extract_title_from_html(html)
+
+                if not title:
+                    success, content, _ = extract_article_text(html)
+                    if success and content:
+                        title = content[:100] + ("..." if len(content) > 100 else "")
+
+                article.title = title or f"Article from {article.source_url}"
+
+        article.save()
+        process_article.delay(article.id)
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        """Redirect back to the feed's article list."""
+        return reverse_lazy("feed-articles", kwargs={"feed_id": self.feed.pk})
+
+    def get_context_data(self, **kwargs):
+        """Add feed to context."""
+        context = super().get_context_data(**kwargs)
+        context["feed"] = self.feed
+        return context
