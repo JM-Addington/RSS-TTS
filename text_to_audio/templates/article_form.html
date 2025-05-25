@@ -64,6 +64,13 @@
             <div class="form-text">Or paste/enter text content directly</div>
           </div>
 
+          <div class="mb-3">
+            <label for="{{ form.voice.id_for_label }}" class="form-label">Voice</label>
+            {{ form.voice.errors }}
+            {{ form.voice|add_class:"form-select" }}
+            <div class="form-text">Select the voice for text-to-speech conversion</div>
+          </div>
+
           <div class="d-grid">
             <button type="submit" class="btn btn-primary">Convert to Audio</button>
           </div>
