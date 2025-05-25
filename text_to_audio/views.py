@@ -25,6 +25,7 @@ from django.views.generic import (
 )
 
 from .forms import (
+    ArticleDetailForm,
     ArticleSubmissionForm,
     ArticleVoiceForm,
     UserVoicePreferenceForm,
@@ -482,6 +483,42 @@ class RegenerateArticleView(LoginRequiredMixin, View):
         else:
             # Fallback - should not happen in normal operation
             return redirect("feed-list")
+
+
+class ArticleDetailView(LoginRequiredMixin, View):
+    """View to display and edit details of a generated article."""
+
+    template_name = "text_to_audio/article_detail.html"
+
+    def get(self, request, article_id):
+        """Render the detail form with the article's data."""
+        article = get_object_or_404(Article, pk=article_id, feed__user=request.user)
+        form = ArticleDetailForm(instance=article)
+        return render(request, self.template_name, {"form": form, "article": article})
+
+    def post(self, request, article_id):
+        """Create a new article based on submitted data."""
+        original = get_object_or_404(Article, pk=article_id, feed__user=request.user)
+        form = ArticleDetailForm(request.POST)
+        if form.is_valid():
+            new_article = Article(
+                feed=original.feed,
+                title=form.cleaned_data["title"],
+                source_url=original.source_url,
+                text_content=form.cleaned_data["text_content"],
+                summary=form.cleaned_data.get("summary"),
+                voice_id=form.cleaned_data.get("voice_id") or None,
+                speed=float(form.cleaned_data.get("speed")) if form.cleaned_data.get("speed") else None,
+                audio_uuid=uuid.uuid4(),
+                status=Article.PROCESSING,
+            )
+            new_article.save()
+            task = process_article.delay(new_article.pk)
+            new_article.celery_task_id = task.id
+            new_article.save(update_fields=["celery_task_id", "updated_at"])
+            return redirect("feed-articles", feed_id=original.feed.pk)
+
+        return render(request, self.template_name, {"form": form, "article": original})
 
 
 class ArticleDeleteView(LoginRequiredMixin, DeleteView):

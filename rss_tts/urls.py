@@ -20,6 +20,7 @@ from text_to_audio.views import (
     FeedListView,
     FeedUpdateView,
     HomeView,
+    ArticleDetailView,
     RegenerateArticleView,
     SignUpView,
     article_voice_settings,
@@ -41,6 +42,11 @@ urlpatterns = [
         "articles/<int:article_id>/regenerate/",
         RegenerateArticleView.as_view(),
         name="article-regenerate",
+    ),
+    path(
+        "articles/<int:article_id>/detail/",
+        ArticleDetailView.as_view(),
+        name="article-detail",
     ),
     path(
         "audio/<uuid:audio_uuid>/",
