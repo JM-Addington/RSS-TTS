@@ -20,7 +20,12 @@ from pydub import AudioSegment  # type: ignore
 
 from rss_tts.celery import app as celery_app  # For task revocation
 
-from .models import Article  # Import OpenAIUsageStats in helper method
+import feedparser
+
+from .models import (
+    Article,
+    FollowedFeed,
+)  # Import OpenAIUsageStats in helper method
 from .services.content_analysis import ContentAnalysisService
 from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService
@@ -659,3 +664,142 @@ def check_stale_articles():
         logger.debug("No stale articles found.")
 
     return f"Checked for stale articles older than {timeout_seconds} seconds."
+
+
+@shared_task
+def poll_followed_feeds():
+    """
+    Polls all active FollowedFeed instances for new articles and creates Article objects.
+    """
+    logger.info("Starting polling of followed feeds.")
+
+    active_feeds = FollowedFeed.objects.filter(is_active=True)
+    if not active_feeds:
+        logger.info("No active feeds to poll.")
+        return "No active feeds to poll."
+
+    for followed_feed in active_feeds:
+        logger.info(f"Polling feed: {followed_feed.url} for user {followed_feed.user.username}")
+        try:
+            parsed_feed = feedparser.parse(followed_feed.url)
+        except Exception as e:
+            logger.error(f"Error parsing feed {followed_feed.url}: {e}")
+            continue  # Skip to the next feed
+
+        if parsed_feed.bozo:
+            logger.warning(
+                f"Feed {followed_feed.url} may be ill-formed. Bozo bit set with reason: {parsed_feed.bozo_exception}"
+            )
+            # Continue processing despite potential issues, feedparser often handles them.
+
+        if not parsed_feed.entries:
+            logger.info(f"No entries found in feed: {followed_feed.url}")
+            followed_feed.last_checked = timezone.now()
+            followed_feed.save(update_fields=["last_checked"])
+            continue
+
+        # Determine the GUID of the last processed entry
+        last_processed_guid = followed_feed.last_guid
+        new_entries_to_process = []
+
+        if last_processed_guid:
+            entry_guids = [entry.get("id", entry.get("link")) for entry in parsed_feed.entries]
+            try:
+                last_processed_index = entry_guids.index(last_processed_guid)
+                # Process entries newer than the last processed one
+                new_entries_to_process = parsed_feed.entries[:last_processed_index]
+                logger.info(f"Found last processed GUID {last_processed_guid}. Processing {len(new_entries_to_process)} new entries.")
+            except ValueError:
+                # Last GUID not found, likely means old entries were removed from feed
+                logger.warning(
+                    f"Last processed GUID {last_processed_guid} not found in current feed {followed_feed.url}. "
+                    f"Processing all entries (up to a limit if implemented)."
+                )
+                # As a safety, process all entries or a recent subset (e.g., last 10)
+                # For now, processing all if GUID not found, assuming they are new or feed changed.
+                new_entries_to_process = parsed_feed.entries # Or parsed_feed.entries[:10]
+        else:
+            # No last_guid, process all entries (or a reasonable limit)
+            logger.info(f"No last_guid for {followed_feed.url}. Processing all entries.")
+            new_entries_to_process = parsed_feed.entries # Or parsed_feed.entries[:10]
+
+        # Reverse to process oldest new entry first, so last_guid is the newest
+        new_entries_to_process.reverse() 
+        
+        latest_entry_guid_for_this_poll = None
+
+        for entry in new_entries_to_process:
+            entry_guid = entry.get("id", entry.get("link"))
+            if not entry_guid:
+                logger.warning(f"Skipping entry with no GUID or link in feed {followed_feed.url}")
+                continue
+
+            title = entry.get("title", "Untitled Article")
+            link = entry.get("link")
+
+            text_content = None
+            # Try to get full content if available
+            if "content" in entry and entry.content:
+                # content can be a list of content objects
+                text_content = entry.content[0].value
+            elif "summary_detail" in entry and entry.summary_detail and entry.summary_detail.type == "text/html":
+                text_content = entry.summary_detail.value
+            elif "summary" in entry:
+                text_content = entry.summary
+            
+            # If content is still None and link is available, fetch from URL
+            if not text_content and link:
+                logger.info(f"No direct content for '{title}'. Fetching from URL: {link}")
+                try:
+                    success, extracted_text, error_msg = process_url_to_text(link)
+                    if success and extracted_text:
+                        text_content = extracted_text
+                        logger.info(f"Successfully extracted content for '{title}' from {link}")
+                    else:
+                        logger.error(f"Failed to extract content for '{title}' from {link}: {error_msg}")
+                        # Optionally skip this entry or create it without text_content if allowed
+                        continue # Skip this entry
+                except Exception as url_proc_exc:
+                    logger.error(f"Exception during process_url_to_text for {link}: {url_proc_exc}")
+                    continue # Skip this entry
+            elif not text_content and not link:
+                 logger.warning(f"Skipping entry '{title}' as it has no content and no link.")
+                 continue
+
+
+            if not text_content:
+                logger.warning(f"Skipping entry '{title}' from {followed_feed.url} due to missing text content after all attempts.")
+                continue
+
+            try:
+                new_article = Article.objects.create(
+                    feed=followed_feed.destination_feed,
+                    title=title,
+                    source_url=link,
+                    text_content=text_content,
+                    status=Article.PROCESSING, # Assuming PROCESSING status kicks off TTS
+                    # Other fields like voice can be set to defaults or user preferences later
+                )
+                logger.info(f"Created new Article: {new_article.id} - '{new_article.title}' from feed {followed_feed.url}")
+                
+                # Enqueue for TTS processing
+                process_article.delay(new_article.id)
+                logger.info(f"Enqueued process_article task for Article ID: {new_article.id}")
+
+                latest_entry_guid_for_this_poll = entry_guid
+
+            except Exception as article_create_exc:
+                logger.error(f"Error creating Article for entry '{title}' from {followed_feed.url}: {article_create_exc}")
+                # Potentially log traceback for debugging
+                # continue to next entry
+
+        if latest_entry_guid_for_this_poll:
+            followed_feed.last_guid = latest_entry_guid_for_this_poll
+            logger.info(f"Updated last_guid for {followed_feed.url} to {latest_entry_guid_for_this_poll}")
+
+        followed_feed.last_checked = timezone.now()
+        followed_feed.save(update_fields=["last_guid", "last_checked"])
+        logger.info(f"Finished polling feed: {followed_feed.url}")
+
+    logger.info("Completed polling of followed feeds.")
+    return "Polling of followed feeds completed."

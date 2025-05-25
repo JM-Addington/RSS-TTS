@@ -12,6 +12,27 @@ This project converts web articles and text into audio files using Django and Dj
 For more details, see [PROJECT_PLAN.md](PROJECT_PLAN.md).
 Each user manages one or more **Feeds**. A feed groups a user's converted articles and is accessed via a unique token-based URL, e.g. `/feeds/<feed_token>/`. The token is generated using UUID4 when the feed is created so the RSS feed remains private.
 
+## Features
+
+### Core Functionality
+- **Text-to-Speech Conversion**: Convert provided text content into audio files.
+- **URL to Audio**: Submit a URL, and the system will attempt to extract the main article content and convert it to audio.
+- **Personalized RSS Feeds**: Each user has one or more private RSS feeds where their generated audio articles appear, suitable for use in podcast players.
+- **Voice Customization**: Users can select different voices and speaking speeds for their audio articles, and save presets for quick use.
+
+### RSS Feed Following
+This feature allows users to subscribe to external RSS or Atom feeds (like news sites or blogs) and have new articles automatically processed and added to one of their internal podcast feeds.
+
+- **How it Works**: You provide the URL of an external RSS/Atom feed. The system will periodically check this feed for new articles.
+- **Accessing the Feature**: Look for the "Followed Feeds" link in the navigation bar after logging in.
+- **Adding a Followed Feed**:
+    1. Go to the "Followed Feeds" page.
+    2. Click "Add New Followed Feed".
+    3. Enter the URL of the external RSS/Atom feed you want to follow.
+    4. Select one of your existing internal podcast feeds as the destination where new audio articles will appear.
+    5. New articles from the followed feed will be automatically fetched, converted to audio, and added to your chosen destination feed.
+- **Processing**: The system checks for new articles from your followed feeds periodically (e.g., every 30 minutes). When new articles are found, they are automatically converted to audio and will appear in the destination feed you selected.
+
 ## Setup
 
 ### Local Development
