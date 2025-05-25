@@ -94,6 +94,10 @@ class TestArticleSubmission(TestCase):
         """Test that submitting the article form creates a new article."""
         self.client.login(username="tester", password="pass123")
         with mock.patch("text_to_audio.views.process_article.delay") as mock_delay:
+            # Configure mock to return a task with an ID
+            mock_task = mock.MagicMock()
+            mock_task.id = "mock-task-id-frontend"
+            mock_delay.return_value = mock_task
             response = self.client.post(
                 reverse("feed-article-create", kwargs={"feed_id": self.feed.pk}),
                 {"title": "Test", "text_content": "Hello"},
@@ -102,6 +106,9 @@ class TestArticleSubmission(TestCase):
             self.assertTrue(
                 Article.objects.filter(title="Test", feed=self.feed).exists()
             )
+            # Verify task ID was saved to the article
+            article = Article.objects.get(title="Test", feed=self.feed)
+            self.assertEqual(article.celery_task_id, "mock-task-id-frontend")
             mock_delay.assert_called_once()
 
 
