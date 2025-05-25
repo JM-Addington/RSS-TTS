@@ -14,11 +14,19 @@ from .services.voice_configuration import VoiceConfigurationService
 class ArticleSubmissionForm(forms.ModelForm):
     """Form for users to submit new articles."""
 
+    voice_id = forms.ChoiceField(
+        required=False, help_text="Voice for this specific article."
+    )
+
+    speed = forms.ChoiceField(
+        required=False, help_text="Speed for this specific article."
+    )
+
     class Meta:
         """Meta options for the ArticleSubmissionForm."""
 
         model = Article
-        fields = ["title", "source_url", "text_content"]
+        fields = ["title", "source_url", "text_content", "voice_id", "speed"]
         widgets = {
             "title": forms.TextInput(
                 attrs={"placeholder": "Optional if URL is provided"}
@@ -33,6 +41,23 @@ class ArticleSubmissionForm(forms.ModelForm):
                 attrs={"placeholder": "https://example.com/article (optional)"}
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the form with dynamic choices for voice and speed."""
+        super().__init__(*args, **kwargs)
+        voice_service = VoiceConfigurationService()
+
+        voice_choices = [
+            ("", "Auto (detect from tone)")
+        ] + voice_service.get_available_voices()
+        speed_choices = [
+            ("", "Auto (detect from tone)")
+        ] + voice_service.get_available_speeds()
+
+        if "voice_id" in self.fields:
+            self.fields["voice_id"].choices = voice_choices
+        if "speed" in self.fields:
+            self.fields["speed"].choices = speed_choices
 
     def clean(self):
         """Validate that either source_url or text_content is provided."""
