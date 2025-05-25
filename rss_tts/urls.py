@@ -7,24 +7,16 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from text_to_audio.feeds import UserFeed
-from text_to_audio.views import (
-    ArticleCreateView,
-    ArticleDeleteView,
-    ArticleListView,
-    ArticleMediaView,
-    FeedArticleCreateView,
-    FeedArticleListView,
-    FeedArticleStatusView,
-    FeedCreateView,
-    FeedDeleteView,
-    FeedListView,
-    FeedUpdateView,
-    HomeView,
-    RegenerateArticleView,
-    SignUpView,
-    voice_preferences,
-    article_voice_settings,
-)
+from text_to_audio.views import (ArticleCreateView, ArticleDeleteView,
+                                 ArticleDetailView, ArticleListView,
+                                 ArticleMediaView, FeedArticleCreateView,
+                                 FeedArticleListView, FeedArticleStatusView,
+                                 FeedCreateView, FeedDeleteView, FeedListView,
+                                 FeedUpdateView, HomeView,
+                                 RegenerateArticleView, SignUpView,
+                                 article_voice_settings, voice_preferences,
+                                 voice_preset_create, voice_preset_delete,
+                                 voice_preset_edit, voice_preset_list)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -37,6 +29,11 @@ urlpatterns = [
         "articles/<int:article_id>/regenerate/",
         RegenerateArticleView.as_view(),
         name="article-regenerate",
+    ),
+    path(
+        "articles/<int:article_id>/detail/",
+        ArticleDetailView.as_view(),
+        name="article-detail",
     ),
     path(
         "audio/<uuid:audio_uuid>/",
@@ -68,7 +65,24 @@ urlpatterns = [
     path("feeds/<uuid:token>/", UserFeed(), name="feed"),
     # Voice preference URLs
     path("preferences/voice/", voice_preferences, name="voice_preferences"),
-    path("articles/<int:article_id>/voice/", article_voice_settings, name="article_voice_settings"),
+    path(
+        "articles/<int:article_id>/voice/",
+        article_voice_settings,
+        name="article_voice_settings",
+    ),
+    # Voice preset URLs
+    path("presets/voice/", voice_preset_list, name="voice_preset_list"),
+    path("presets/voice/new/", voice_preset_create, name="voice_preset_create"),
+    path(
+        "presets/voice/<int:preset_id>/edit/",
+        voice_preset_edit,
+        name="voice_preset_edit",
+    ),
+    path(
+        "presets/voice/<int:preset_id>/delete/",
+        voice_preset_delete,
+        name="voice_preset_delete",
+    ),
     path("", HomeView.as_view(), name="home"),
 ]
 
