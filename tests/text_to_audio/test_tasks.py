@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-
 # Transaction import is used by decorator
 from django.test import TestCase, override_settings
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
