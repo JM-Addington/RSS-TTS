@@ -210,6 +210,24 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
     return perfect_split, chunks
 
 
+def _generate_summary(text: str) -> str:
+    """Generate a summary of the text using OpenAI's o4-mini model."""
+    try:
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        prompt = "Summarize the following article in 100 words or less:\n\n" + text
+        response = client.chat.completions.create(
+            model=getattr(settings, "OPENAI_SUMMARY_MODEL", "o4-mini"),
+            messages=[{"role": "user", "content": prompt}],
+        )
+        summary = ""
+        if hasattr(response, "choices") and response.choices:
+            summary = str(response.choices[0].message.content).strip()
+        return summary
+    except Exception as exc:  # pragma: no cover - fallback path
+        logger.error(f"Summary generation failed: {exc}")
+        return ""
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def process_article(self, article_id: int) -> str:
     """Process an article's text_content to generate an MP3 audio file.
@@ -280,6 +298,11 @@ def process_article(self, article_id: int) -> str:
 
         if not article.text_content:
             raise ValueError("Article text_content is empty.")
+
+        # Generate summary before converting to audio
+        summary = _generate_summary(article.text_content)
+        article.summary = summary
+        article.save(update_fields=["summary"])
 
         # Get text chunks with default max_length of 4000
         success, text_chunks = _chunk_text(article.text_content)

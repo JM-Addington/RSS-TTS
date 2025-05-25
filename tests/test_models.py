@@ -75,6 +75,7 @@ class TestModels(TestCase):
             self.assertTrue(hasattr(Article, "title"))
             self.assertTrue(hasattr(Article, "source_url"))
             self.assertTrue(hasattr(Article, "text_content"))
+            self.assertTrue(hasattr(Article, "summary"))
             self.assertTrue(hasattr(Article, "audio_file_path"))
             self.assertTrue(hasattr(Article, "status"))
             self.assertTrue(hasattr(Article, "created_at"))
@@ -88,6 +89,7 @@ class TestModels(TestCase):
             self.assertIsInstance(
                 Article._meta.get_field("text_content"), models.TextField
             )
+            self.assertIsInstance(Article._meta.get_field("summary"), models.TextField)
             self.assertIsInstance(
                 Article._meta.get_field("audio_file_path"), models.CharField
             )
@@ -101,6 +103,7 @@ class TestModels(TestCase):
             self.assertEqual(Article._meta.get_field("title").max_length, 255)
             self.assertEqual(Article._meta.get_field("audio_file_path").max_length, 255)
             self.assertTrue(Article._meta.get_field("created_at").auto_now_add)
+            self.assertTrue(Article._meta.get_field("summary").blank)
 
             # Check status choices
             self.assertTrue(hasattr(Article, "STATUS_CHOICES"))

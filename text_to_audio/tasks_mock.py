@@ -190,6 +190,13 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
     return perfect_split, chunks
 
 
+def _generate_summary(text: str) -> str:
+    """Return a simple first-sentence summary for tests."""
+    if not text:
+        return ""
+    return text.split(".")[0].strip()
+
+
 # flake8: noqa: C901
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def process_article(self, article_id: int) -> str:
@@ -266,6 +273,10 @@ def process_article(self, article_id: int) -> str:
 
         if not article.text_content:
             raise ValueError("Article text_content is empty.")
+
+        summary = _generate_summary(article.text_content)
+        article.summary = summary
+        article.save(update_fields=["summary"])
 
         # Get text chunks with default max_length of 4000
         success, text_chunks = _chunk_text(article.text_content)

@@ -121,7 +121,8 @@ class UserFeed(Feed):
 
     def item_description(self, item: Article) -> str:
         """Get the description for a feed item."""
-        # Include a link to the original article if available
+        if item.summary:
+            return str(item.summary)
         if item.source_url:
             return f"Audio version of <a href='{item.source_url}'>{item.title}</a>"
         return "Audio version of article"

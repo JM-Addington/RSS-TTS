@@ -315,6 +315,44 @@ class ProcessArticleTests(TestCase):
             # Check word count (sample text has 11 words)
             self.assertEqual(stats_obj.word_count, 11)
 
+    @patch("text_to_audio.tasks._generate_summary", return_value="Test summary")
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    def test_process_article_saves_summary(
+        self,
+        mock_audio_empty,
+        mock_audio_from_mp3,
+        mock_generate_summary,
+        MockOpenAIClient,
+    ):
+        """Test that process_article stores the generated summary."""
+        mock_openai_instance = MockOpenAIClient.return_value
+        mock_speech_create = mock_openai_instance.audio.speech.create
+
+        mock_tts_response = MagicMock()
+        mock_tts_response.usage = MagicMock(total_tokens=10)
+        mock_tts_response.stream_to_file.side_effect = (
+            self.create_dummy_file_side_effect
+        )
+        mock_speech_create.return_value = mock_tts_response
+
+        mock_audio_segment = MagicMock()
+        mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+
+        def export_side_effect(*args, **kwargs):
+            path_arg = args[0] if args else kwargs.get("out_f")
+            if path_arg:
+                self.create_dummy_file_side_effect(path_arg)
+            return None
+
+        mock_audio_segment.export.side_effect = export_side_effect
+        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_empty.return_value = MagicMock()
+
+        process_article(self.article.id)
+        self.article.refresh_from_db()
+        self.assertEqual(self.article.summary, "Test summary")
+
     def test_process_article_success_multiple_chunks(self, MockOpenAIClient):
         """Test processing an article with multiple text chunks."""
         # Test that our path works for combining multiple audio files
