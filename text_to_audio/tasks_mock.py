@@ -267,8 +267,13 @@ def process_article(self, article_id: int) -> str:
         if not article.text_content:
             raise ValueError("Article text_content is empty.")
 
+        # Prepend article title to text content for audio
+        text_for_audio = article.text_content
+        if article.title:
+            text_for_audio = f"{article.title}.\n\n{article.text_content}"
+
         # Get text chunks with default max_length of 4000
-        success, text_chunks = _chunk_text(article.text_content)
+        success, text_chunks = _chunk_text(text_for_audio)
         if not text_chunks:
             raise ValueError("No text chunks generated from text_content.")
 
@@ -320,6 +325,24 @@ def process_article(self, article_id: int) -> str:
 
         if not temp_audio_files:
             raise ValueError("No audio files were generated from chunks.")
+
+        # Generate a mock summary for testing
+        try:
+            if not article.summary and text_chunks:
+                logger.info(f"Generating mock summary for Article ID: {article_id}")
+                # Create a simple mock summary for testing
+                mock_summary = (
+                    f"This is a mock summary of '{article.title}' for testing purposes."
+                )
+                article.summary = mock_summary
+                article.save(update_fields=["summary"])
+                logger.info(f"Mock summary generated for Article ID: {article_id}")
+        except Exception as summary_exc:
+            # Log but don't fail the whole process
+            logger.error(
+                f"Error generating mock summary for Article ID {article_id}: {summary_exc}"
+            )
+            logger.debug(traceback.format_exc())
 
         # Stitch audio files
         if len(temp_audio_files) == 1:
