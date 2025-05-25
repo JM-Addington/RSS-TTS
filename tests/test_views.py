@@ -281,3 +281,62 @@ class ArticleDeleteViewTests(TestCase):
             )
         )
         self.assertEqual(response_post.status_code, 404)
+
+
+class ArticleDetailViewTests(TestCase):
+    """Tests for the ArticleDetailView."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="detailuser", password="password", email="d@example.com"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Detail Feed")
+        self.article = Article.objects.create(
+            feed=self.feed,
+            title="Original",
+            text_content="hello",
+            summary="sum",
+            voice_id="alloy",
+            speed=1.0,
+            status=Article.COMPLETED,
+            audio_uuid=uuid.uuid4(),
+        )
+        self.client.login(username="detailuser", password="password")
+
+    def test_get_detail_view(self):
+        """Detail page renders with article information."""
+        response = self.client.get(
+            reverse("article-detail", kwargs={"article_id": self.article.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Original")
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_post_creates_new_article(self, mock_delay):
+        mock_task = mock.MagicMock()
+        mock_task.id = "task-id"
+        mock_delay.return_value = mock_task
+
+        data = {
+            "title": "New",
+            "text_content": "new text",
+            "summary": "new sum",
+            "voice_id": "echo",
+            "speed": "1.1",
+        }
+        response = self.client.post(
+            reverse("article-detail", kwargs={"article_id": self.article.pk}),
+            data,
+        )
+
+        self.assertRedirects(
+            response, reverse("feed-articles", kwargs={"feed_id": self.feed.pk})
+        )
+        new_article = Article.objects.exclude(pk=self.article.pk).first()
+        self.assertEqual(new_article.title, "New")
+        self.assertEqual(new_article.text_content, "new text")
+        self.assertEqual(new_article.summary, "new sum")
+        self.assertEqual(new_article.voice_id, "echo")
+        self.assertEqual(new_article.speed, 1.1)
+        mock_delay.assert_called_once_with(new_article.pk)
