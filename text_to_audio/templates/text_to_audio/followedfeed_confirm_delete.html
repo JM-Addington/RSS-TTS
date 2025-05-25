@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm Delete Followed Feed{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-danger text-white">
+                    <h2 class="mb-0">Confirm Deletion</h2>
+                </div>
+                <div class="card-body">
+                    <p>Are you sure you want to delete the followed feed for <strong>{{ object.url }}</strong>?</p>
+                    <p>This action cannot be undone.</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger">Yes, Delete</button>
+                            <a href="{% url 'followedfeed-list' %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

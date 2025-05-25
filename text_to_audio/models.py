@@ -145,6 +145,14 @@ class Article(models.Model):
     text_content: models.TextField = models.TextField(
         null=False, blank=True, help_text="The text content of the article."
     )
+    voice: models.CharField = models.CharField(
+        max_length=20,
+        choices=VOICE_CHOICES,
+        default=VOICE_ALLOY,
+        null=False,
+        blank=False,
+        help_text="The voice to use for text-to-speech conversion.",
+    )
     audio_file_path: models.CharField = models.CharField(
         max_length=255, blank=True, help_text="Path to the audio file."
     )
