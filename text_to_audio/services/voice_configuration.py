@@ -88,12 +88,17 @@ class VoiceConfigurationService:
             List of tuples: [(voice_id, display_name), ...]
         """
         return [
-            ("alloy", "Alloy (Neutral)"),
-            ("echo", "Echo (Narrative)"),
-            ("fable", "Fable (Expressive)"),
-            ("onyx", "Onyx (Authoritative)"),
-            ("nova", "Nova (Friendly)"),
-            ("shimmer", "Shimmer (Energetic)"),
+            ("alloy", "Alloy"),
+            ("ash", "Ash"),
+            ("ballad", "Ballad"),
+            ("coral", "Coral"),
+            ("echo", "Echo"),
+            ("fable", "Fable"),
+            ("onyx", "Onyx"),
+            ("nova", "Nova"),
+            ("sage", "Sage"),
+            ("shimmer", "Shimmer"),
+            ("verse", "Verse"),
         ]
 
     def get_available_speeds(self):
@@ -129,6 +134,9 @@ class VoiceConfigurationService:
 
         presets = UserVoicePreset.objects.filter(user=user).order_by("name")
         return [
-            (preset.id, f"{preset.name} ({preset.voice_id}, {preset.speed}x)")
+            (
+                preset.id,  # type: ignore[attr-defined]
+                f"{preset.name} ({preset.voice_id}, {preset.speed}x)",
+            )
             for preset in presets
         ]
