@@ -121,10 +121,20 @@ class UserFeed(Feed):
 
     def item_description(self, item: Article) -> str:
         """Get the description for a feed item."""
+        # Start with a basic description
+        description = "Audio version of article"
+
         # Include a link to the original article if available
         if item.source_url:
-            return f"Audio version of <a href='{item.source_url}'>{item.title}</a>"
-        return "Audio version of article"
+            description = (
+                f"Audio version of <a href='{item.source_url}'>{item.title}</a>"
+            )
+
+        # Add the summary if available
+        if item.summary:
+            description = f"{description}<br><br>{item.summary}"
+
+        return description
 
     def get_feed(self, obj, request):
         """Store the request for use in item_enclosure_url."""

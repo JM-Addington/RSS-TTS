@@ -285,8 +285,13 @@ def process_article(self, article_id: int) -> str:
         if not article.text_content:
             raise ValueError("Article text_content is empty.")
 
+        # Prepend article title to text content for audio
+        text_for_audio = article.text_content
+        if article.title:
+            text_for_audio = f"{article.title}.\n\n{article.text_content}"
+
         # Get text chunks with default max_length of 4000
-        success, text_chunks = _chunk_text(article.text_content)
+        success, text_chunks = _chunk_text(text_for_audio)
         if not text_chunks:
             raise ValueError("No text chunks generated from text_content.")
 
@@ -395,6 +400,52 @@ def process_article(self, article_id: int) -> str:
 
         # Stitch audio files
         # Define ID3 tags and export parameters
+        # Generate a summary for the article using OpenAI
+        try:
+            if not article.summary and text_chunks:
+                logger.info(f"Generating summary for Article ID: {article_id}")
+                # Use the first chunk (or the whole text if it's small) for summary
+                text_for_summary = text_chunks[0]
+                # Limit to 2000 chars to avoid token limits
+                if len(text_for_summary) > 2000:
+                    text_for_summary = text_for_summary[:2000]
+
+                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                response = client.chat.completions.create(
+                    model=getattr(settings, "OPENAI_SUMMARY_MODEL", "o4-mini"),
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "Summarize articles concisely.",
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Create a 2-3 sentence summary of this article "
+                                f"titled '{article.title}':\n\n{text_for_summary}"
+                            ),
+                        },
+                    ],
+                    max_tokens=150,
+                    temperature=0.3,
+                )
+
+                if response.choices and response.choices[0].message:
+                    article.summary = response.choices[0].message.content.strip()
+                    article.save(update_fields=["summary"])
+                    logger.info(f"Summary generated for Article ID: {article_id}")
+                else:
+                    logger.warning(
+                        f"Failed to generate summary for Article ID: {article_id}"
+                    )
+        except Exception as summary_exc:
+            # Log but don't fail the whole process if summary generation fails
+            logger.error(
+                f"Error generating summary for Article ID {article_id}: {summary_exc}"
+            )
+            logger.debug(traceback.format_exc())
+            # Continue with audio generation
+
         feed_name = "My Podcast"
         if article.feed and article.feed.name:
             feed_name = article.feed.name

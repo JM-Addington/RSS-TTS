@@ -92,6 +92,10 @@
                         </td>
                         <td>
                             {% if article.status == 'COMPLETED' %}
+                                <audio controls preload="none" class="mb-2 w-100" style="max-width: 300px;">
+                                    <source src="{% url 'article-media' article.audio_uuid %}" type="audio/mpeg">
+                                    Your browser does not support the audio element.
+                                </audio>
                                 <div class="btn-group btn-group-sm">
                                     <a href="{% url 'article-media' article.audio_uuid %}" class="btn btn-primary btn-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">

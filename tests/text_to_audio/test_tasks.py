@@ -312,8 +312,8 @@ class ProcessArticleTests(TestCase):
             # From mock_tts_response.usage.total_tokens
             self.assertEqual(stats_obj.tokens_used, 123)
             self.assertTrue(stats_obj.processing_time_ms >= 0)
-            # Check word count (sample text has 11 words)
-            self.assertEqual(stats_obj.word_count, 11)
+            # Check word count (title + text has 13 words)
+            self.assertEqual(stats_obj.word_count, 13)
 
     def test_process_article_success_multiple_chunks(self, MockOpenAIClient):
         """Test processing an article with multiple text chunks."""
@@ -705,6 +705,58 @@ class ProcessArticleTests(TestCase):
                     mock_os_remove.assert_called()
 
     @patch("django.db.transaction.atomic", lambda inner_func=None: inner_func)
+    def test_process_article_passes_title_to_chunk_text(self, MockOpenAIClient):
+        """Test that the article title is prepended to the text before chunking."""
+        # Set up the article with a title and content
+        self.article.title = "Test Title for Audio"
+        self.article.text_content = "This is the test content."
+        self.article.save()
+
+        # Patch _chunk_text to verify its input
+        with patch("text_to_audio.tasks._chunk_text") as mock_chunk_text, patch(
+            "text_to_audio.tasks.process_article.retry"
+        ), patch("text_to_audio.tasks._save_openai_usage_stats"):
+
+            # Configure mocks to allow execution to proceed to _chunk_text
+            mock_chunk_text.return_value = (True, ["Combined text chunk"])
+            mock_openai_instance = MockOpenAIClient.return_value
+            mock_speech_create = mock_openai_instance.audio.speech.create
+            mock_tts_response = MagicMock()
+            mock_tts_response.stream_to_file.side_effect = (
+                self.create_dummy_file_side_effect
+            )
+            mock_speech_create.return_value = mock_tts_response
+
+            # Set up additional mocks for AudioSegment
+            with patch(
+                "text_to_audio.tasks.AudioSegment.from_mp3"
+            ) as mock_audio_from_mp3, patch("text_to_audio.tasks.AudioSegment.empty"):
+
+                mock_audio_segment = MagicMock()
+                mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+                mock_audio_segment.export.side_effect = (
+                    self.create_dummy_file_side_effect
+                )
+                mock_audio_from_mp3.return_value = mock_audio_segment
+
+                # Call the function
+                process_article(self.article.id)
+
+                # Verify _chunk_text was called with the combined title + content
+                mock_chunk_text.assert_called_once()
+                args, _ = mock_chunk_text.call_args
+                chunked_text = args[0]
+
+                # Check that the text passed to _chunk_text includes the title
+                self.assertIn(self.article.title, chunked_text)
+                self.assertIn(self.article.text_content, chunked_text)
+
+                # Check the format - title, followed by newlines, followed by content
+                expected_format = (
+                    f"{self.article.title}.\n\n{self.article.text_content}"
+                )
+                self.assertEqual(chunked_text, expected_format)
+
     def test_temp_files_cleaned_up_on_failure(self, MockOpenAIClient):
         """Test temporary files cleanup when processing fails."""
         # Use a smaller text content to make the test faster

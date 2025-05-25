@@ -244,7 +244,7 @@ class FeedListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         """Return only the user's feeds."""
-        return Feed.objects.filter(user=self.request.user).order_by("-created_at")
+        return Feed.objects.filter(user=self.request.user).order_by("id")
 
     def get_context_data(self, **kwargs):
         """Add feed URLs and article counts to context."""

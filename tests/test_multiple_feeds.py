@@ -180,3 +180,32 @@ class MultipleFeedsTestCase(TestCase):
             response.headers.get("Location", "").find("/add/") >= 0,
             "URL should contain '/add/'",
         )
+
+    def test_feed_list_order_and_add_article_button(self):
+        """Test that feeds are ordered by ID and have Add Article buttons."""
+        # Create feeds in reverse order to verify ordering
+        feed2 = Feed.objects.create(user=self.user, name="Feed 2")
+        feed1 = Feed.objects.create(user=self.user, name="Feed 1")
+        feed3 = Feed.objects.create(user=self.user, name="Feed 3")
+
+        # Test feed list view
+        response = self.client.get(reverse("feed-list"))
+        self.assertEqual(response.status_code, 200)
+
+        # Check for Add Article buttons for each feed
+        for feed in [feed1, feed2, feed3]:
+            self.assertContains(
+                response,
+                f'href="{reverse("feed-article-create", kwargs={"feed_id": feed.pk})}"',
+            )
+            self.assertContains(response, "Add Article")
+
+        # Verify order by checking the sequence of feeds in the response content
+        content = response.content.decode()
+        pos_feed1 = content.find(f'"{feed1.name}"')
+        pos_feed2 = content.find(f'"{feed2.name}"')
+        pos_feed3 = content.find(f'"{feed3.name}"')
+
+        # Check for ascending order by ID
+        self.assertLess(pos_feed1, pos_feed2)
+        self.assertLess(pos_feed2, pos_feed3)

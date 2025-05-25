@@ -73,6 +73,9 @@ class Article(models.Model):
     text_content: models.TextField = models.TextField(
         null=False, blank=True, help_text="The text content of the article."
     )
+    summary: models.TextField = models.TextField(
+        null=True, blank=True, help_text="AI-generated summary of the article content."
+    )
     audio_file_path: models.CharField = models.CharField(
         max_length=255, blank=True, help_text="Path to the audio file."
     )

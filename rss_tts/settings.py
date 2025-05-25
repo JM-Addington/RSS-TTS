@@ -138,7 +138,7 @@ ARTICLE_STORAGE_DIR = os.path.join(BASE_DIR, "articles")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-LOGIN_REDIRECT_URL = "home"
+LOGIN_REDIRECT_URL = "feed-list"
 LOGIN_URL = "login"
 LOGOUT_REDIRECT_URL = "home"
 
