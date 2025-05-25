@@ -1,4 +1,5 @@
 # Generated manually on 2025-05-25 to fix migration conflicts
+"""Empty migration resolving dependency conflicts."""
 
 from django.db import migrations
 
