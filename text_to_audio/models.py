@@ -65,6 +65,64 @@ class Feed(models.Model):
         return str(self.name)
 
 
+class FollowedFeed(models.Model):
+    """Represents an RSS feed a user follows and ingests into a feed."""
+
+    user: models.ForeignKey = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="followed_feeds",
+        help_text="The user who is following this feed.",
+    )
+    url: models.URLField = models.URLField(
+        max_length=2000, help_text="The URL of the RSS feed to follow."
+    )
+    destination_feed: models.ForeignKey = models.ForeignKey(
+        Feed,
+        on_delete=models.CASCADE,
+        related_name="source_feeds",
+        help_text=(
+            "The destination feed where articles from this followed feed will "
+            "be added."
+        ),
+    )
+    last_guid: models.CharField = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text=(
+            "The GUID of the last article processed from this feed. "
+            "Used to avoid duplicates."
+        ),
+    )
+    last_checked: models.DateTimeField = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When this feed was last checked for new articles.",
+    )
+    is_active: models.BooleanField = models.BooleanField(
+        default=True,
+        help_text=(
+            "Whether this followed feed is currently active and should "
+            "be checked for updates."
+        ),
+    )
+    created_at: models.DateTimeField = models.DateTimeField(
+        auto_now_add=True, help_text="When this followed feed was created."
+    )
+    updated_at: models.DateTimeField = models.DateTimeField(
+        auto_now=True, help_text="When this followed feed was last updated."
+    )
+
+    def __str__(self) -> str:
+        """Return a string representation of the followed feed."""
+        return f"{self.url} (for {self.user.username})"  # type: ignore[attr-defined]
+
+    class Meta:  # noqa: D106
+        unique_together = ["user", "url", "destination_feed"]
+        ordering = ["-created_at"]
+
+
 class UserVoicePreset(models.Model):
     """Model for storing user-defined voice presets."""
 
@@ -146,17 +204,27 @@ class Article(models.Model):
     VOICE_ALLOY = "alloy"
     VOICE_ECHO = "echo"
     VOICE_FABLE = "fable"
+    VOICE_ASH = "ash"
+    VOICE_BALLAD = "ballad"
+    VOICE_CORAL = "coral"
     VOICE_ONYX = "onyx"
     VOICE_NOVA = "nova"
+    VOICE_SAGE = "sage"
     VOICE_SHIMMER = "shimmer"
+    VOICE_VERSE = "verse"
 
     VOICE_CHOICES = [
         (VOICE_ALLOY, "Alloy"),
+        (VOICE_ASH, "Ash"),
+        (VOICE_BALLAD, "Ballad"),
+        (VOICE_CORAL, "Coral"),
         (VOICE_ECHO, "Echo"),
         (VOICE_FABLE, "Fable"),
         (VOICE_ONYX, "Onyx"),
         (VOICE_NOVA, "Nova"),
+        (VOICE_SAGE, "Sage"),
         (VOICE_SHIMMER, "Shimmer"),
+        (VOICE_VERSE, "Verse"),
     ]
 
     feed: models.ForeignKey = models.ForeignKey(
@@ -257,7 +325,10 @@ class Article(models.Model):
     multi_voice_data: JSONField = JSONField(
         null=True,
         blank=True,
-        help_text="Stores structured data for multi-voice audio, including voice definitions and text segments.",
+        help_text=(
+            "Stores structured data for multi-voice audio, including voice "
+            "definitions and text segments."
+        ),
     )
     voice_parameters: JSONField = JSONField(
         null=True,

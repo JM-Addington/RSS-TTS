@@ -103,12 +103,17 @@ class VoiceConfigurationService:
             List of tuples: [(voice_id, display_name), ...]
         """
         return [
-            ("alloy", "Alloy (Neutral)"),
-            ("echo", "Echo (Narrative)"),
-            ("fable", "Fable (Expressive)"),
-            ("onyx", "Onyx (Authoritative)"),
-            ("nova", "Nova (Friendly)"),
-            ("shimmer", "Shimmer (Energetic)"),
+            ("alloy", "Alloy"),
+            ("ash", "Ash"),
+            ("ballad", "Ballad"),
+            ("coral", "Coral"),
+            ("echo", "Echo"),
+            ("fable", "Fable"),
+            ("onyx", "Onyx"),
+            ("nova", "Nova"),
+            ("sage", "Sage"),
+            ("shimmer", "Shimmer"),
+            ("verse", "Verse"),
         ]
 
     def get_available_speeds(self):
