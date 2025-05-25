@@ -32,6 +32,13 @@ class Feed(models.Model):
         blank=False,
         help_text="Unique token for accessing the feed.",
     )
+    default_voice_preset: models.ForeignKey = models.ForeignKey(
+        "UserVoicePreset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Voice preset to use for new articles in this feed by default.",
+    )
     created_at: models.DateTimeField = models.DateTimeField(
         auto_now_add=True, help_text="When the feed was created."
     )
@@ -39,55 +46,6 @@ class Feed(models.Model):
     def __str__(self) -> str:
         """Return a string representation of the feed."""
         return str(self.name)
-
-
-class FollowedFeed(models.Model):
-    """Represents an RSS feed that a user follows and ingests into a destination feed."""
-
-    user: models.ForeignKey = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="followed_feeds",
-        help_text="The user who is following this feed.",
-    )
-    url: models.URLField = models.URLField(
-        max_length=2000, help_text="The URL of the RSS feed to follow."
-    )
-    destination_feed: models.ForeignKey = models.ForeignKey(
-        Feed,
-        on_delete=models.CASCADE,
-        related_name="source_feeds",
-        help_text="The destination feed where articles from this followed feed will be added.",
-    )
-    last_guid: models.CharField = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text="The GUID of the last article processed from this feed. Used to avoid duplicates.",
-    )
-    last_checked: models.DateTimeField = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When this feed was last checked for new articles.",
-    )
-    is_active: models.BooleanField = models.BooleanField(
-        default=True,
-        help_text="Whether this followed feed is currently active and should be checked for updates.",
-    )
-    created_at: models.DateTimeField = models.DateTimeField(
-        auto_now_add=True, help_text="When this followed feed was created."
-    )
-    updated_at: models.DateTimeField = models.DateTimeField(
-        auto_now=True, help_text="When this followed feed was last updated."
-    )
-
-    def __str__(self) -> str:
-        """Return a string representation of the followed feed."""
-        return f"{self.url} (for {self.user.username})"
-
-    class Meta:
-        unique_together = ["user", "url", "destination_feed"]
-        ordering = ["-created_at"]
 
 
 class UserVoicePreset(models.Model):
@@ -107,6 +65,16 @@ class UserVoicePreset(models.Model):
     )
     speed: models.FloatField = models.FloatField(
         default=1.0, help_text="Speed for this preset."
+    )
+    prompt: models.TextField = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional prompt describing the desired speaking style.",
+    )
+    sample_input: models.TextField = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional sample text used when designing the voice.",
     )
     description: models.TextField = models.TextField(
         blank=True, help_text="Optional description of this preset."
