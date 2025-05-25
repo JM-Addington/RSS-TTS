@@ -1,9 +1,9 @@
-"""Add voice preset fields and fix voice column.
+"""Add voice preset fields and ensure proper column existence.
 
 This migration:
-1. Adds feed default_voice_preset field
-2. Adds preset prompt and sample_input fields
-3. Ensures voice column exists for backwards compatibility
+1. Ensures the article.voice column exists (if not already added)
+2. Adds feed.default_voice_preset field if not already added
+3. Adds preset prompt and sample_input fields if not already added
 """
 
 import django.db.models.deletion
@@ -11,10 +11,10 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-    """Migration for voice presets and voice column fix."""
+    """Migration to add voice preset fields."""
 
     dependencies = [
-        ("text_to_audio", "0012_fix_migration_conflicts"),
+        ("text_to_audio", "0014_fix_migration_tree"),
     ]
 
     operations = [
