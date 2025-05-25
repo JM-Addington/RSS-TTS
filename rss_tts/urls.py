@@ -22,6 +22,12 @@ from text_to_audio.views import (
     HomeView,
     RegenerateArticleView,
     SignUpView,
+    article_voice_settings,
+    voice_preferences,
+    voice_preset_create,
+    voice_preset_delete,
+    voice_preset_edit,
+    voice_preset_list,
 )
 
 urlpatterns = [
@@ -64,6 +70,26 @@ urlpatterns = [
     path("feeds/<int:feed_id>/delete/", FeedDeleteView.as_view(), name="feed-delete"),
     # RSS feed URL (must come after management URLs to avoid conflicts)
     path("feeds/<uuid:token>/", UserFeed(), name="feed"),
+    # Voice preference URLs
+    path("preferences/voice/", voice_preferences, name="voice_preferences"),
+    path(
+        "articles/<int:article_id>/voice/",
+        article_voice_settings,
+        name="article_voice_settings",
+    ),
+    # Voice preset URLs
+    path("presets/voice/", voice_preset_list, name="voice_preset_list"),
+    path("presets/voice/new/", voice_preset_create, name="voice_preset_create"),
+    path(
+        "presets/voice/<int:preset_id>/edit/",
+        voice_preset_edit,
+        name="voice_preset_edit",
+    ),
+    path(
+        "presets/voice/<int:preset_id>/delete/",
+        voice_preset_delete,
+        name="voice_preset_delete",
+    ),
     path("", HomeView.as_view(), name="home"),
 ]
 

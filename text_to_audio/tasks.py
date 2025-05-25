@@ -21,6 +21,9 @@ from pydub import AudioSegment  # type: ignore
 from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
+from .services.content_analysis import ContentAnalysisService
+from .services.user_preferences import UserPreferencesService
+from .services.voice_configuration import VoiceConfigurationService
 from .utils import process_url_to_text
 
 # Configure logging
@@ -313,10 +316,13 @@ def process_article(self, article_id: int) -> str:
 
             try:
                 start_time = time.monotonic()
+                # Use article-specific voice and speed if available
                 response = client.audio.speech.create(
                     model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
-                    voice=article.voice,  # Use the article's voice setting
+                    voice=article.voice_id
+                    or getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
                     input=chunk,
+                    speed=article.speed or 1.0,  # Apply speed if set
                 )
                 response.stream_to_file(temp_file_path)
                 end_time = time.monotonic()
@@ -328,18 +334,30 @@ def process_article(self, article_id: int) -> str:
                 # Record OpenAI usage stats
                 tokens_used = 0  # Default to 0
                 try:
-                    # Extract token usage from response with clear fallbacks
+                    # For TTS API calls, we can estimate tokens based on character count
+                    # OpenAI TTS token calculation is roughly 1 token per 4 characters
+                    # This is an estimation as OpenAI doesn't provide usage data for TTS
+                    tokens_used = len(chunk) // 4
+
+                    # Log the estimation approach
+                    logger.info(
+                        f"Using estimated token count for TTS: {tokens_used} tokens "
+                        f"for article {article_id}, chunk {i+1} ({len(chunk)} chars)"
+                    )
+
+                    # Rest of the code is kept for compatibility with other API calls
+                    # that might have usage information in the future
                     if hasattr(response, "usage") and hasattr(
                         response.usage, "total_tokens"
                     ):
                         try:
                             tokens_used = int(response.usage.total_tokens)
+                            logger.info(f"Using actual token count: {tokens_used}")
                         except (ValueError, TypeError):
                             logger.warning(
                                 f"Invalid token value in response.usage.total_tokens "
                                 f"for article {article_id}, chunk {i+1}"
                             )
-                            tokens_used = 0
                     elif hasattr(response, "headers"):
                         # Try standard header names
                         headers = ["x-openai-tokens-used", "openai-tokens-used"]
@@ -347,30 +365,23 @@ def process_article(self, article_id: int) -> str:
                             if header_name in response.headers:
                                 try:
                                     tokens_used = int(response.headers[header_name])
+                                    logger.info(
+                                        f"Using token count from header: {tokens_used}"
+                                    )
                                     break
                                 except (ValueError, TypeError):
                                     logger.warning(
                                         f"Invalid token value in header {header_name} "
                                         f"for article {article_id}, chunk {i+1}"
                                     )
-                        # Log if we couldn't find token info in headers
-                        if tokens_used == 0:
-                            logger.warning(
-                                f"No token usage found in headers for article "
-                                f"{article_id}, chunk {i+1}. Headers: "
-                                f"{list(response.headers.keys())[:5]}"
-                            )
-                    else:
-                        logger.warning(
-                            f"Cannot extract token usage - no usage/headers "
-                            f"for article {article_id}, chunk {i+1}"
-                        )
                 except Exception as usage_exc:
                     logger.error(
                         f"Error extracting tokens for article {article_id}, "
                         f"chunk {i+1}: {usage_exc}"
                     )
-                    tokens_used = 0
+                    # Fallback to character-based estimation
+                    tokens_used = len(chunk) // 4
+                    logger.info(f"Using fallback token estimation: {tokens_used}")
 
                 # Save OpenAI stats separately to isolate DB errors from
                 # the main audio processing flow
@@ -398,58 +409,55 @@ def process_article(self, article_id: int) -> str:
         if not temp_audio_files:
             raise ValueError("No audio files were generated from chunks.")
 
-        # Generate a summary for the article using OpenAI
+        # Analyze content to get tone, summary, and voice recommendation
         try:
-            if not article.summary and text_chunks:
-                logger.info(f"Generating summary for Article ID: {article_id}")
-                # Use the first chunk (or the whole text if it's small) for summary
-                text_for_summary = text_chunks[0]
-                # Limit to 2000 chars to avoid token limits
-                if len(text_for_summary) > 2000:
-                    text_for_summary = text_for_summary[:2000]
+            if article.text_content:
+                logger.info(f"Analyzing content for Article ID: {article_id}")
 
-                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-                # Add type annotation for the response to help mypy
-                summary_response: openai.types.chat.ChatCompletion = (
-                    client.chat.completions.create(
-                        model=getattr(settings, "OPENAI_SUMMARY_MODEL", "o4-mini"),
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": "Summarize articles concisely.",
-                            },
-                            {
-                                "role": "user",
-                                "content": (
-                                    f"Create a 2-3 sentence summary of this article "
-                                    f"titled '{article.title}':\n\n{text_for_summary}"
-                                ),
-                            },
-                        ],
-                        max_tokens=150,
-                        temperature=0.3,
-                    )
+                # Initialize services
+                content_service = ContentAnalysisService()
+                voice_service = VoiceConfigurationService()
+                pref_service = UserPreferencesService()
+
+                # Use a sample of the text for analysis
+                analysis_text = article.text_content
+                if len(analysis_text) > 2000:
+                    analysis_text = analysis_text[:2000]
+
+                # Analyze content
+                analysis_result = content_service.analyze_content(
+                    analysis_text, title=article.title
                 )
 
-                # Fixed the type error by properly accessing the message content
-                if summary_response.choices and len(summary_response.choices) > 0:
-                    summary_content = summary_response.choices[0].message.content
-                    if summary_content:
-                        article.summary = summary_content.strip()
-                        article.save(update_fields=["summary"])
-                        logger.info(f"Summary generated for Article ID: {article_id}")
-                    else:
-                        logger.warning(
-                            f"Empty summary response for Article ID: {article_id}"
-                        )
-                else:
-                    logger.warning(
-                        f"Failed to generate summary for Article ID: {article_id}"
-                    )
-        except Exception as summary_exc:
-            # Log but don't fail the whole process if summary generation fails
+                # Save results to article
+                article.detected_tone = analysis_result["tone"]
+                if not article.summary:  # Only update summary if it's not already set
+                    article.summary = analysis_result["summary"]
+
+                # Get voice configuration
+                user_preferences = pref_service.get_user_preferences(article.feed.user)
+                article_preferences = pref_service.get_article_preferences(article)
+
+                voice_config = voice_service.get_voice_config(
+                    detected_tone=analysis_result["tone"],
+                    user_preferences=user_preferences,
+                    article_preferences=article_preferences,
+                    voice_recommendation=analysis_result["voice_recommendation"],
+                )
+
+                # Save final voice config to article
+                article.voice_id = voice_config["voice"]
+                article.speed = voice_config["speed"]
+
+                # Save all updates
+                article.save(
+                    update_fields=["detected_tone", "summary", "voice_id", "speed"]
+                )
+                logger.info(f"Content analysis completed for Article ID: {article_id}")
+        except Exception as analysis_exc:
+            # Log but don't fail the whole process if analysis fails
             logger.error(
-                f"Error generating summary for Article ID {article_id}: {summary_exc}"
+                f"Error analyzing content for Article ID {article_id}: {analysis_exc}"
             )
             logger.debug(traceback.format_exc())
             # Continue with audio generation

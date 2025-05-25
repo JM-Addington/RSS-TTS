@@ -8,10 +8,12 @@ import os
 import uuid
 
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import FileResponse, HttpResponseNotFound, JsonResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import (
@@ -22,8 +24,15 @@ from django.views.generic import (
     UpdateView,
 )
 
-from .forms import ArticleSubmissionForm
-from .models import Article, Feed
+from .forms import (
+    ArticleSubmissionForm,
+    ArticleVoiceForm,
+    UserVoicePreferenceForm,
+    VoicePresetForm,
+)
+from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
+from .services.user_preferences import UserPreferencesService
+from .services.voice_configuration import VoiceConfigurationService
 from .tasks import process_article
 from .utils import extract_article_text, extract_title_from_html, fetch_url_content
 
@@ -365,10 +374,32 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
         )
         return super().dispatch(request, *args, **kwargs)
 
+    def get_form_kwargs(self):
+        """Add user to form kwargs for preset access."""
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         """Process the form and create the article for the specific feed."""
         article = form.save(commit=False)
         article.feed = self.feed
+
+        # Handle voice preset if selected
+        preset_id = form.cleaned_data.get("voice_preset")
+        if preset_id:
+            pref_service = UserPreferencesService()
+            article = pref_service.save_article_preferences(
+                article=article, voice_preset=preset_id
+            )
+        else:
+            # Save direct voice and speed values if not using preset
+            voice_id = form.cleaned_data.get("voice_id")
+            speed = form.cleaned_data.get("speed")
+            if voice_id:
+                article.voice_id = voice_id
+            if speed:
+                article.speed = float(speed)
 
         # If URL is provided, validate it first
         if article.source_url:
@@ -428,6 +459,12 @@ class RegenerateArticleView(LoginRequiredMixin, View):
             voice=original_article.voice,  # Preserve voice setting
             audio_uuid=uuid.uuid4(),  # Generate a new UUID
             status=Article.PROCESSING,
+            # Copy voice settings
+            voice_id=original_article.voice_id,
+            speed=original_article.speed,
+            voice_preset=original_article.voice_preset,
+            detected_tone=original_article.detected_tone,
+            summary=original_article.summary,
         )
         new_article.save()
 
@@ -576,3 +613,187 @@ class FeedArticleStatusView(LoginRequiredMixin, View):
         ]
 
         return JsonResponse({"articles": data})
+
+
+@login_required
+def voice_preferences(request):
+    """View for managing user voice preferences."""
+    # Get or create profile
+    profile, created = UserVoiceProfile.objects.get_or_create(user=request.user)
+
+    # Get user presets
+    pref_service = UserPreferencesService()
+    presets = pref_service.get_user_presets(request.user)
+
+    if request.method == "POST":
+        form = UserVoicePreferenceForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Voice preferences updated successfully.")
+            return redirect("voice_preferences")
+    else:
+        form = UserVoicePreferenceForm(instance=profile)
+
+    return render(
+        request,
+        "text_to_audio/voice_preferences.html",
+        {
+            "form": form,
+            "presets": presets,
+        },
+    )
+
+
+@login_required
+def voice_preset_list(request):
+    """View for listing user's voice presets."""
+    # Get user presets
+    pref_service = UserPreferencesService()
+    presets = pref_service.get_user_presets(request.user)
+
+    return render(
+        request,
+        "text_to_audio/voice_preset_list.html",
+        {
+            "presets": presets,
+        },
+    )
+
+
+@login_required
+def voice_preset_create(request):
+    """View for creating a new voice preset."""
+    if request.method == "POST":
+        form = VoicePresetForm(request.POST)
+        if form.is_valid():
+            # Create preset
+            pref_service = UserPreferencesService()
+            preset = pref_service.create_voice_preset(
+                user=request.user,
+                name=form.cleaned_data["name"],
+                voice_id=form.cleaned_data["voice_id"],
+                speed=form.cleaned_data["speed"],
+                description=form.cleaned_data["description"],
+            )
+
+            messages.success(
+                request, f'Voice preset "{preset.name}" created successfully.'
+            )
+            return redirect("voice_preset_list")
+    else:
+        form = VoicePresetForm()
+
+    return render(
+        request,
+        "text_to_audio/voice_preset_form.html",
+        {
+            "form": form,
+            "is_create": True,
+        },
+    )
+
+
+@login_required
+def voice_preset_edit(request, preset_id):
+    """View for editing a voice preset."""
+    # Get the preset
+    preset = get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
+
+    if request.method == "POST":
+        form = VoicePresetForm(request.POST, instance=preset)
+        if form.is_valid():
+            # Update preset
+            form.save()
+            messages.success(
+                request, f'Voice preset "{preset.name}" updated successfully.'
+            )
+            return redirect("voice_preset_list")
+    else:
+        form = VoicePresetForm(instance=preset)
+
+    return render(
+        request,
+        "text_to_audio/voice_preset_form.html",
+        {
+            "form": form,
+            "preset": preset,
+            "is_create": False,
+        },
+    )
+
+
+@login_required
+def voice_preset_delete(request, preset_id):
+    """View for deleting a voice preset."""
+    # Get the preset
+    preset = get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
+
+    if request.method == "POST":
+        # Delete preset
+        pref_service = UserPreferencesService()
+        pref_service.delete_voice_preset(preset_id)
+        messages.success(request, f'Voice preset "{preset.name}" deleted successfully.')
+        return redirect("voice_preset_list")
+
+    return render(
+        request,
+        "text_to_audio/voice_preset_confirm_delete.html",
+        {
+            "preset": preset,
+        },
+    )
+
+
+@login_required
+def article_voice_settings(request, article_id):
+    """View for managing article-specific voice settings."""
+    article = get_object_or_404(Article, id=article_id, feed__user=request.user)
+
+    if request.method == "POST":
+        form = ArticleVoiceForm(request.POST, user=request.user)
+        if form.is_valid():
+            voice = form.cleaned_data.get("voice_id")
+            speed = form.cleaned_data.get("speed")
+            preset_id = form.cleaned_data.get("voice_preset")
+
+            # Save preferences
+            preferences = UserPreferencesService()
+
+            if preset_id:
+                # If preset selected, apply it
+                preferences.save_article_preferences(
+                    article=article, voice_preset=preset_id
+                )
+            else:
+                # Otherwise save individual voice/speed settings
+                preferences.save_article_preferences(
+                    article=article,
+                    voice=voice if voice else None,
+                    speed=float(speed) if speed else None,
+                )
+
+            messages.success(request, "Article voice settings updated.")
+            # Access the primary key in a type-safe way
+            feed_id = (
+                article.feed.pk
+                if hasattr(article.feed, "pk")
+                else getattr(article.feed, "id", None)
+            )
+            if feed_id is None:
+                # Fallback to a default view if we can't get the feed ID
+                return redirect("feed-list")
+            return redirect("feed-articles", feed_id=feed_id)
+    else:
+        # Pre-fill form with current settings
+        initial_data = {
+            "voice_id": article.voice_id or "",
+            "speed": article.speed or "",
+            "voice_preset": article.voice_preset.id if article.voice_preset else "",
+        }
+        form = ArticleVoiceForm(initial=initial_data, user=request.user)
+
+    return render(
+        request,
+        "text_to_audio/article_voice_settings.html",
+        {"form": form, "article": article},
+    )
