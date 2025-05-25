@@ -19,7 +19,7 @@ services:
     command: /app/start-web.sh python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
-      - sqlite-data:/app/data
+      - ../data/sqlite-data/:/data
       - ./media:/app/media  # Bind mount for saving MP3 files
       # For Docker volume instead of bind mount, uncomment the following:
       # - media-data:/app/media
@@ -30,6 +30,7 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
       CELERY_BROKER_URL: redis://redis:6379/0
+      SQLITE_DATA_DIR: /data/db.sqlite3
     depends_on:
       - worker
       - redis
@@ -41,7 +42,7 @@ services:
     command: celery -A rss_tts worker --loglevel=info
     volumes:
       - .:/app
-      - sqlite-data:/app/data
+      - ../data/sqlite-data/:/data
       - ./media:/app/media  # Bind mount for saving MP3 files
       # For Docker volume instead of bind mount, uncomment the following:
       # - media-data:/app/media
@@ -49,6 +50,7 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
       CELERY_BROKER_URL: redis://redis:6379/0
+      SQLITE_DATA_DIR: /data/db.sqlite3
     env_file:
       - .env
     depends_on:
@@ -61,7 +63,7 @@ services:
     command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
       - .:/app
-      - redis-data:/data
+      - ../data/redis:/data
       - ./redis.conf:/usr/local/etc/redis/redis.conf
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -71,12 +73,6 @@ services:
       start_period: 20s
     networks:
       - rsstts
-
-volumes:
-  sqlite-data:
-  redis-data:
-  # Uncomment to use Docker volume instead of bind mount for media files:
-  # media-data:
 
 networks:
   rsstts:
