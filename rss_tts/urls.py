@@ -12,6 +12,7 @@ from text_to_audio.views import (
     ArticleDeleteView,
     ArticleListView,
     ArticleMediaView,
+    ArticlePlayView,
     FeedArticleCreateView,
     FeedArticleListView,
     FeedArticleStatusView,
@@ -42,6 +43,11 @@ urlpatterns = [
         "audio/<uuid:audio_uuid>/",
         ArticleMediaView.as_view(),
         name="article-media",
+    ),
+    path(
+        "audio/<uuid:audio_uuid>/play/",
+        ArticlePlayView.as_view(),
+        name="article-play",
     ),
     # Feed management URLs
     path("feeds/", FeedListView.as_view(), name="feed-list"),

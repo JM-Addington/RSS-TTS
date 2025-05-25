@@ -230,6 +230,29 @@ class ArticleMediaView(LoginRequiredMixin, View):
         return response
 
 
+class ArticlePlayView(LoginRequiredMixin, View):
+    """Display an in-app player for an article's audio."""
+
+    def get(self, request, audio_uuid):
+        """Render a simple player page for the article."""
+        article = get_object_or_404(
+            Article,
+            audio_uuid=audio_uuid,
+            feed__user=request.user,
+            status=Article.COMPLETED,
+        )
+
+        if not article.audio_file_path:
+            return HttpResponseNotFound("Audio file not available")
+
+        audio_url = reverse("article-media", kwargs={"audio_uuid": article.audio_uuid})
+        return render(
+            request,
+            "article_play.html",
+            {"article": article, "audio_url": audio_url},
+        )
+
+
 class SignUpView(CreateView):
     """View for registering a new user."""
 

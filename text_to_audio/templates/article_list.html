@@ -93,6 +93,12 @@
                         <td>
                             {% if article.status == 'COMPLETED' %}
                                 <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'article-play' article.audio_uuid %}" class="btn btn-success btn-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-circle" viewBox="0 0 16 16">
+                                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM6.271 5.055a.5.5 0 0 0-.771.424v5.042a.5.5 0 0 0 .771.424l4.58-2.521a.5.5 0 0 0 0-.848L6.27 5.055z"/>
+                                        </svg>
+                                        Play
+                                    </a>
                                     <a href="{% url 'article-media' article.audio_uuid %}" class="btn btn-primary btn-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
                                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
