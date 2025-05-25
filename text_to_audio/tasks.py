@@ -409,24 +409,26 @@ def process_article(self, article_id: int) -> str:
                     text_for_summary = text_for_summary[:2000]
 
                 client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-                # Add type annotation for the response to help mypy, using a different variable name
-                summary_response: openai.types.chat.ChatCompletion = client.chat.completions.create(
-                    model=getattr(settings, "OPENAI_SUMMARY_MODEL", "o4-mini"),
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "Summarize articles concisely.",
-                        },
-                        {
-                            "role": "user",
-                            "content": (
-                                f"Create a 2-3 sentence summary of this article "
-                                f"titled '{article.title}':\n\n{text_for_summary}"
-                            ),
-                        },
-                    ],
-                    max_tokens=150,
-                    temperature=0.3,
+                # Add type annotation for the response to help mypy
+                summary_response: openai.types.chat.ChatCompletion = (
+                    client.chat.completions.create(
+                        model=getattr(settings, "OPENAI_SUMMARY_MODEL", "o4-mini"),
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": "Summarize articles concisely.",
+                            },
+                            {
+                                "role": "user",
+                                "content": (
+                                    f"Create a 2-3 sentence summary of this article "
+                                    f"titled '{article.title}':\n\n{text_for_summary}"
+                                ),
+                            },
+                        ],
+                        max_tokens=150,
+                        temperature=0.3,
+                    )
                 )
 
                 # Fixed the type error by properly accessing the message content
