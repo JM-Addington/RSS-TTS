@@ -315,7 +315,7 @@ def process_article(self, article_id: int) -> str:
                 start_time = time.monotonic()
                 response = client.audio.speech.create(
                     model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
-                    voice=getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
+                    voice=article.voice,  # Use the article's voice setting
                     input=chunk,
                 )
                 response.stream_to_file(temp_file_path)
