@@ -125,9 +125,21 @@ class UserPreferencesService:
 
         return UserVoicePreset.objects.filter(user=user).order_by("name")
 
-    def create_voice_preset(self, user, name, voice_id, speed, description=""):
+    def create_voice_preset(
+        self,
+        user,
+        name,
+        voice_id,
+        speed,
+        description="",
+        affect=None,
+        tone=None,
+        pacing=None,
+        pitch_variation=None,
+        speaking_style=None,
+    ):
         """
-        Create a new voice preset for a user.
+        Create a new voice preset for a user with enhanced parameters.
 
         Args:
             user: Django User object
@@ -135,6 +147,11 @@ class UserPreferencesService:
             voice_id: Voice ID for the preset
             speed: Speed for the preset
             description: Optional description
+            affect: Optional emotional affect
+            tone: Optional tone descriptor
+            pacing: Optional pacing style
+            pitch_variation: Optional pitch variation
+            speaking_style: Optional speaking style description
 
         Returns:
             Created UserVoicePreset object
@@ -147,15 +164,30 @@ class UserPreferencesService:
             voice_id=voice_id,
             speed=float(speed),
             description=description,
+            affect=affect,
+            tone=tone,
+            pacing=pacing,
+            pitch_variation=pitch_variation,
+            speaking_style=speaking_style,
         )
 
         return preset
 
     def update_voice_preset(
-        self, preset_id, name=None, voice_id=None, speed=None, description=None
+        self,
+        preset_id,
+        name=None,
+        voice_id=None,
+        speed=None,
+        description=None,
+        affect=None,
+        tone=None,
+        pacing=None,
+        pitch_variation=None,
+        speaking_style=None,
     ):
         """
-        Update an existing voice preset.
+        Update an existing voice preset with enhanced parameters.
 
         Args:
             preset_id: ID of the preset to update
@@ -163,6 +195,11 @@ class UserPreferencesService:
             voice_id: New voice ID for the preset
             speed: New speed for the preset
             description: New description for the preset
+            affect: New emotional affect
+            tone: New tone descriptor
+            pacing: New pacing style
+            pitch_variation: New pitch variation
+            speaking_style: New speaking style description
 
         Returns:
             Updated UserVoicePreset object or None if not found
@@ -183,6 +220,21 @@ class UserPreferencesService:
 
             if description is not None:
                 preset.description = description
+
+            if affect is not None:
+                preset.affect = affect
+
+            if tone is not None:
+                preset.tone = tone
+
+            if pacing is not None:
+                preset.pacing = pacing
+
+            if pitch_variation is not None:
+                preset.pitch_variation = pitch_variation
+
+            if speaking_style is not None:
+                preset.speaking_style = speaking_style
 
             preset.save()
             return preset
@@ -209,3 +261,64 @@ class UserPreferencesService:
 
         except UserVoicePreset.DoesNotExist:
             return False
+
+    def get_feed_voice_mode(self, feed):
+        """
+        Get the voice mode for a feed.
+
+        Args:
+            feed: Feed object
+
+        Returns:
+            String voice mode ("single_default", "single_custom", or "auto")
+        """
+        if not hasattr(feed, "voice_mode"):
+            return "single_default"  # Default if not set
+
+        return feed.voice_mode
+
+    def save_feed_voice_mode(self, feed, voice_mode, default_voice_preset=None):
+        """
+        Save voice mode preferences for a feed.
+
+        Args:
+            feed: Feed object
+            voice_mode: Voice mode to save ("single_default", "single_custom", or "auto")
+            default_voice_preset: Optional UserVoicePreset object or ID for
+                single_custom mode
+
+        Returns:
+            Updated Feed object
+        """
+        from text_to_audio.models import Feed, UserVoicePreset
+
+        # Validate voice mode
+        valid_modes = [
+            Feed.VOICE_MODE_SINGLE_DEFAULT,
+            Feed.VOICE_MODE_SINGLE_CUSTOM,
+            Feed.VOICE_MODE_AUTO,
+        ]
+        if voice_mode not in valid_modes:
+            voice_mode = Feed.VOICE_MODE_SINGLE_DEFAULT
+
+        feed.voice_mode = voice_mode
+
+        # Handle voice preset if in single_custom mode
+        if (
+            voice_mode == Feed.VOICE_MODE_SINGLE_CUSTOM
+            and default_voice_preset is not None
+        ):
+            if isinstance(default_voice_preset, int) or isinstance(
+                default_voice_preset, str
+            ):
+                try:
+                    preset = UserVoicePreset.objects.get(id=default_voice_preset)
+                    feed.default_voice_preset = preset
+                except (UserVoicePreset.DoesNotExist, ValueError):
+                    # If preset doesn't exist, ignore it
+                    pass
+            else:
+                feed.default_voice_preset = default_voice_preset
+
+        feed.save()
+        return feed

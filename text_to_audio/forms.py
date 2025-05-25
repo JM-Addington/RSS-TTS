@@ -7,7 +7,7 @@ RSS-TTS system.
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import Article, UserVoicePreset, UserVoiceProfile, FollowedFeed, Feed
+from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
 from .services.voice_configuration import VoiceConfigurationService
 
 
@@ -227,7 +227,14 @@ class VoicePresetForm(forms.ModelForm):
         """Meta options for the VoicePresetForm."""
 
         model = UserVoicePreset
-        fields = ["name", "voice_id", "speed", "description"]
+        fields = [
+            "name",
+            "voice_id",
+            "speed",
+            "prompt",
+            "sample_input",
+            "description",
+        ]
 
     def __init__(self, *args, **kwargs):
         """Initialize the form with dynamic choices for voice and speed."""
@@ -260,34 +267,30 @@ class VoicePresetForm(forms.ModelForm):
             }
         )
 
+        self.fields["prompt"].widget = forms.Textarea(
+            attrs={"rows": 3, "placeholder": "Style prompt (optional)"}
+        )
+        self.fields["sample_input"].widget = forms.Textarea(
+            attrs={"rows": 3, "placeholder": "Sample text used for design (optional)"}
+        )
 
-class FollowedFeedForm(forms.ModelForm):
-    """Form for creating and editing followed feeds."""
+
+class FeedForm(forms.ModelForm):
+    """Form for creating and editing feeds with default voice preset."""
+
+    default_voice_preset = forms.ModelChoiceField(
+        queryset=UserVoicePreset.objects.none(),
+        required=False,
+        help_text="Preset applied to new articles in this feed by default.",
+    )
 
     class Meta:
-        model = FollowedFeed
-        fields = ["url", "destination_feed", "is_active"]
-        widgets = {
-            "url": forms.URLInput(attrs={"placeholder": "https://example.com/rss_feed"}),
-            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-        }
-        labels = {
-            "url": "RSS Feed URL",
-            "destination_feed": "Import to Feed",
-            "is_active": "Active (poll for new articles)",
-        }
+        model = Feed
+        fields = ["name", "default_voice_preset"]
 
-    def __init__(self, *args, **kwargs):
-        user = kwargs.pop("user", None)
+    def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if user:
-            self.fields["destination_feed"].queryset = Feed.objects.filter(user=user)
-        
-        # Ensure destination_feed is not empty if there are no feeds for the user
-        if not self.fields["destination_feed"].queryset.exists():
-            self.fields["destination_feed"].widget.attrs['disabled'] = True
-            self.fields["destination_feed"].help_text = (
-                "You don't have any feeds yet. Please create a feed first."
+        if user and user.is_authenticated:
+            self.fields["default_voice_preset"].queryset = (
+                UserVoicePreset.objects.filter(user=user).order_by("name")
             )
-        else:
-             self.fields["destination_feed"].empty_label = None # Remove the default "---------"

@@ -1,0 +1,190 @@
+"""Service for generating detailed voice parameters for text-to-speech."""
+
+import logging
+
+from text_to_audio.services.content_analysis import ContentAnalysisService
+from text_to_audio.services.genre_classification import GenreClassificationService
+from text_to_audio.services.voice_genre_templates import VoiceGenreTemplateService
+
+logger = logging.getLogger(__name__)
+
+
+class VoiceParameterGenerationService:
+    """Service for generating detailed voice parameters for text-to-speech."""
+
+    def __init__(self, openai_api_key=None):
+        """Initialize with optional API key override and required services."""
+        self.openai_api_key = openai_api_key
+        self.genre_service = GenreClassificationService(openai_api_key=openai_api_key)
+        self.content_service = ContentAnalysisService(openai_api_key=openai_api_key)
+        self.template_service = VoiceGenreTemplateService()
+        self._client = None
+
+    @property
+    def client(self):
+        """Lazily initialize OpenAI client."""
+        if self._client is None:
+            import openai
+            from django.conf import settings
+
+            self._client = openai.OpenAI(
+                api_key=self.openai_api_key or settings.OPENAI_API_KEY
+            )
+        return self._client
+
+    def generate_voice_parameters(self, article):
+        """
+        Generate comprehensive voice parameters for an article.
+
+        This method integrates genre classification, content analysis, and
+        template-based parameter generation to create detailed voice
+        configuration for optimal TTS performance.
+
+        Args:
+            article: Article object with text_content and title
+
+        Returns:
+            Dict with comprehensive voice parameters
+        """
+        # Step 1: Classify the genre
+        genre_result = self.genre_service.classify_genre(
+            article.text_content, title=article.title
+        )
+        genre = genre_result["genre"]
+        voice_suggestions = genre_result.get("voice_suggestions", {})
+
+        # Step 2: Get template for the genre
+        template = self.template_service.get_template_by_genre(genre)
+
+        # Step 3: Perform content analysis to get multi-voice configuration
+        content_analysis = self.content_service.analyze_content(
+            article.text_content, title=article.title
+        )
+
+        # Step 4: Combine all inputs to generate final voice parameters
+        voice_parameters = self._generate_parameters(
+            genre=genre,
+            template=template,
+            voice_suggestions=voice_suggestions,
+            content_analysis=content_analysis,
+        )
+
+        # Step 5: Save the parameters to the article
+        article.detected_genre = genre
+        article.voice_parameters = voice_parameters
+
+        # Set the primary voice from the parameters
+        if "voice_id" in voice_parameters:
+            article.voice_id = voice_parameters["voice_id"]
+
+        # Set the speed from the parameters
+        if "speed" in voice_parameters:
+            article.speed = voice_parameters["speed"]
+
+        # Return the complete parameters
+        return voice_parameters
+
+    def _generate_parameters(
+        self, genre, template, voice_suggestions, content_analysis
+    ):
+        """
+        Generate final voice parameters by combining all inputs.
+
+        Args:
+            genre: Detected content genre
+            template: Genre-based template parameters
+            voice_suggestions: LLM-suggested voice parameters
+            content_analysis: Result from content analysis
+
+        Returns:
+            Dict with comprehensive voice parameters
+        """
+        # Start with base parameters from the genre template
+        parameters = {}
+        if template:
+            parameters.update(template)
+
+        # Use the first voice from content analysis as the default narrator
+        if (
+            content_analysis
+            and "voices" in content_analysis
+            and content_analysis["voices"]
+        ):
+            narrator = content_analysis["voices"][0]
+
+            # Extract voice_id and speed from content analysis
+            if "tts_model" in narrator:
+                parameters["voice_id"] = narrator["tts_model"]
+            if "tts_speed" in narrator:
+                parameters["speed"] = narrator["tts_speed"]
+            if "tone" in narrator:
+                parameters["tone"] = narrator["tone"]
+
+        # Apply LLM suggestions for voice parameters
+        if voice_suggestions:
+            for key, value in voice_suggestions.items():
+                if (
+                    key not in parameters or value
+                ):  # Only override if not set or not empty
+                    parameters[key] = value
+
+        # Store the complete multi-voice configuration if available
+        if content_analysis:
+            parameters["multi_voice_config"] = {
+                "voices": content_analysis.get("voices", []),
+                "audio_segments": content_analysis.get("audio_segments", []),
+            }
+
+        # Validate voice_id and speed (required parameters)
+        if "voice_id" not in parameters:
+            parameters["voice_id"] = "alloy"  # Default voice
+
+        if "speed" not in parameters:
+            parameters["speed"] = 1.0  # Default speed
+
+        # Ensure speed is within allowed range
+        parameters["speed"] = max(0.75, min(1.5, float(parameters["speed"])))
+
+        return parameters
+
+    def generate_enhanced_prompt(self, voice_parameters):
+        """
+        Generate an enhanced TTS prompt based on voice parameters.
+
+        Args:
+            voice_parameters: Dict with voice parameters
+
+        Returns:
+            String prompt for TTS system
+        """
+        # Extract key parameters
+        affect = voice_parameters.get("affect", "")
+        tone = voice_parameters.get("tone", "")
+        pacing = voice_parameters.get("pacing", "")
+        pitch_variation = voice_parameters.get("pitch_variation", "")
+        speaking_style = voice_parameters.get("speaking_style", "")
+
+        # Build the prompt
+        prompt_parts = []
+
+        if affect:
+            prompt_parts.append(f"Speak with a {affect} affect.")
+
+        if tone:
+            prompt_parts.append(f"Use a {tone} tone.")
+
+        if pacing:
+            prompt_parts.append(f"Maintain a {pacing} pace.")
+
+        if pitch_variation:
+            prompt_parts.append(f"Use {pitch_variation} pitch variation.")
+
+        if speaking_style:
+            prompt_parts.append(f"{speaking_style}")
+
+        # Combine all parts
+        if prompt_parts:
+            return " ".join(prompt_parts)
+
+        # Fallback to a generic prompt
+        return "Speak in a clear, engaging manner."

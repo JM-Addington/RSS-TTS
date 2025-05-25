@@ -20,8 +20,4 @@ app.conf.beat_schedule = {
         "task": "text_to_audio.tasks.check_stale_articles",
         "schedule": 900.0,  # 15 minutes in seconds
     },
-    "poll-feeds-every-30-minutes": {
-        "task": "text_to_audio.tasks.poll_followed_feeds",
-        "schedule": 1800.0,  # 30 minutes * 60 seconds
-    },
 }

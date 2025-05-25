@@ -1,0 +1,104 @@
+"""Add FollowedFeed model to allow users to subscribe to external RSS feeds.
+
+This migration creates the FollowedFeed model which allows users to follow
+external RSS feeds and have articles automatically imported into their feeds.
+"""
+
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+    """Migration to add the FollowedFeed model."""
+
+    dependencies = [
+        ("text_to_audio", "0014_fix_migration_tree"),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name="FollowedFeed",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "url",
+                    models.URLField(
+                        help_text="The URL of the RSS feed to follow.", max_length=2000
+                    ),
+                ),
+                (
+                    "last_guid",
+                    models.CharField(
+                        blank=True,
+                        help_text="The GUID of the last article processed from this feed. "
+                        "Used to avoid duplicates.",
+                        max_length=255,
+                        null=True,
+                    ),
+                ),
+                (
+                    "last_checked",
+                    models.DateTimeField(
+                        blank=True,
+                        help_text="When this feed was last checked for new articles.",
+                        null=True,
+                    ),
+                ),
+                (
+                    "is_active",
+                    models.BooleanField(
+                        default=True,
+                        help_text="Whether this followed feed is currently active and "
+                        "should be checked for updates.",
+                    ),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        auto_now_add=True,
+                        help_text="When this followed feed was created.",
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True,
+                        help_text="When this followed feed was last updated.",
+                    ),
+                ),
+                (
+                    "destination_feed",
+                    models.ForeignKey(
+                        help_text="The destination feed where articles from this followed "
+                        "feed will be added.",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="source_feeds",
+                        to="text_to_audio.feed",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        help_text="The user who is following this feed.",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="followed_feeds",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+            ],
+            options={
+                "ordering": ["-created_at"],
+                "unique_together": {("user", "url", "destination_feed")},
+            },
+        ),
+    ]
