@@ -53,7 +53,7 @@
         <div class="table-responsive">
             <table class="table table-striped">
                 <thead>
-                    <tr>
+                    <tr id="article-row-{{ article.id }}">
                         <th>Title</th>
                         <th>Source</th>
                         <th>Date Added</th>
@@ -64,7 +64,7 @@
                 <tbody>
                     {% for article in articles %}
                     <tr>
-                        <td>
+                        <td class="status-cell" data-article-id="{{ article.id }}" data-status="{{ article.status }}">
                             {{ article.title }}
                             {% if article.source_url %}
                                 <span class="badge bg-info text-dark">URL Import</span>
@@ -219,5 +219,29 @@ function copyFeedUrl() {
         copyButton.classList.add("btn-outline-secondary");
     }, 2000);
 }
+{% if feed %}
+const articleStatusUrl = "{% url 'feed-article-status' feed.id %}";
+const initialStatuses = {};
+document.querySelectorAll('.status-cell').forEach(cell => {
+    initialStatuses[cell.dataset.articleId] = cell.dataset.status;
+});
+function checkArticleUpdates() {
+    fetch(articleStatusUrl)
+        .then(res => res.json())
+        .then(data => {
+            let changed = false;
+            data.articles.forEach(a => {
+                if (initialStatuses[a.id] && initialStatuses[a.id] !== a.status) {
+                    changed = true;
+                }
+            });
+            if (changed) {
+                location.reload();
+            }
+        })
+        .catch(err => console.error('Status polling error', err));
+}
+setInterval(checkArticleUpdates, 10000);
+{% endif %}
 </script>
 {% endblock %}
