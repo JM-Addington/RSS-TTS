@@ -8,10 +8,10 @@ import os
 import uuid
 
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
 from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -24,10 +24,10 @@ from django.views.generic import (
     UpdateView,
 )
 
-from .forms import ArticleSubmissionForm, UserVoicePreferenceForm, ArticleVoiceForm
+from .forms import ArticleSubmissionForm, ArticleVoiceForm, UserVoicePreferenceForm
 from .models import Article, Feed, UserVoiceProfile
-from .tasks import process_article
 from .services.user_preferences import UserPreferencesService
+from .tasks import process_article
 from .utils import extract_article_text, extract_title_from_html, fetch_url_content
 
 
@@ -583,57 +583,67 @@ class FeedArticleStatusView(LoginRequiredMixin, View):
 @login_required
 def voice_preferences(request):
     """View for managing user voice preferences."""
-    pref_service = UserPreferencesService()
-    
     # Get or create profile
-    profile, created = UserVoiceProfile.objects.get_or_create(
-        user=request.user
-    )
-    
-    if request.method == 'POST':
+    profile, created = UserVoiceProfile.objects.get_or_create(user=request.user)
+
+    if request.method == "POST":
         form = UserVoicePreferenceForm(request.POST, instance=profile)
         if form.is_valid():
             form.save()
             messages.success(request, "Voice preferences updated successfully.")
-            return redirect('voice_preferences')
+            return redirect("voice_preferences")
     else:
         form = UserVoicePreferenceForm(instance=profile)
-    
-    return render(request, 'text_to_audio/voice_preferences.html', {
-        'form': form,
-    })
+
+    return render(
+        request,
+        "text_to_audio/voice_preferences.html",
+        {
+            "form": form,
+        },
+    )
 
 
 @login_required
 def article_voice_settings(request, article_id):
     """View for managing article-specific voice settings."""
     article = get_object_or_404(Article, id=article_id, feed__user=request.user)
-    pref_service = UserPreferencesService()
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = ArticleVoiceForm(request.POST)
         if form.is_valid():
-            voice = form.cleaned_data.get('voice_id')
-            speed = form.cleaned_data.get('speed')
-            
+            voice = form.cleaned_data.get("voice_id")
+            speed = form.cleaned_data.get("speed")
+
             # Save preferences
-            pref_service.save_article_preferences(
+            preferences = UserPreferencesService()
+            preferences.save_article_preferences(
                 article=article,
                 voice=voice if voice else None,
-                speed=float(speed) if speed else None
+                speed=float(speed) if speed else None,
             )
-            
+
             messages.success(request, "Article voice settings updated.")
-            return redirect('feed-articles', feed_id=article.feed.id)
+            # Access the primary key in a type-safe way
+            feed_id = (
+                article.feed.pk
+                if hasattr(article.feed, "pk")
+                else getattr(article.feed, "id", None)
+            )
+            if feed_id is None:
+                # Fallback to a default view if we can't get the feed ID
+                return redirect("feed-list")
+            return redirect("feed-articles", feed_id=feed_id)
     else:
         # Pre-fill form with current settings
         initial_data = {
-            'voice_id': article.voice_id or '',
-            'speed': article.speed or ''
+            "voice_id": article.voice_id or "",
+            "speed": article.speed or "",
         }
         form = ArticleVoiceForm(initial=initial_data)
-    
-    return render(request, 'text_to_audio/article_voice_settings.html', {
-        'form': form,
-        'article': article
-    })
+
+    return render(
+        request,
+        "text_to_audio/article_voice_settings.html",
+        {"form": form, "article": article},
+    )
