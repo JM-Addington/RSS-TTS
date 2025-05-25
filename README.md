@@ -78,6 +78,10 @@ The application consists of the following services:
 - **Worker**: Celery worker for processing audio conversion tasks
 - **Redis**: Message broker for Celery
 
+Both the **web** and **worker** services invoke `/app/start-web.sh` which runs
+`python manage.py migrate` before launching. This ensures database migrations
+are automatically applied whenever new Docker images are deployed.
+
 #### Media Files
 
 MP3 files are stored in the `./media/articles/` directory and served directly by Caddy for optimal performance. The files are:
