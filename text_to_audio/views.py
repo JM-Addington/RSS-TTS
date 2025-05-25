@@ -9,6 +9,7 @@ import uuid
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -34,7 +35,6 @@ from .forms import (
 )
 from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
 from .services.user_preferences import UserPreferencesService
-from .services.voice_configuration import VoiceConfigurationService
 from .tasks import process_article
 from .utils import extract_article_text, extract_title_from_html, fetch_url_content
 
@@ -245,6 +245,24 @@ class SignUpView(CreateView):
     template_name = "registration/signup.html"
     success_url = reverse_lazy("login")
 
+    def dispatch(self, request, *args, **kwargs):
+        """Disable signups after the first user is created."""
+        User = get_user_model()
+        if User.objects.exists():
+            return redirect("login")
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Make the first user a superadmin."""
+        response = super().form_valid(form)
+        User = get_user_model()
+        if User.objects.count() == 1:
+            assert self.object is not None
+            self.object.is_superuser = True
+            self.object.is_staff = True
+            self.object.save(update_fields=["is_superuser", "is_staff"])
+        return response
+
 
 class FeedListView(LoginRequiredMixin, ListView):
     """View for listing a user's feeds."""
@@ -286,6 +304,7 @@ class FeedCreateView(LoginRequiredMixin, CreateView):
     template_name = "feed_form.html"
 
     def get_form_kwargs(self):
+        """Inject the request user into the form kwargs."""
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
         return kwargs
@@ -311,6 +330,7 @@ class FeedUpdateView(LoginRequiredMixin, UpdateView):
     pk_url_kwarg = "feed_id"
 
     def get_form_kwargs(self):
+        """Inject the request user into the form kwargs."""
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
         return kwargs

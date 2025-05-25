@@ -14,6 +14,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("text_to_audio", "0012_fix_migration_conflicts"),
+        ("text_to_audio", "0014_add_voice_genre_templates"),
         ("text_to_audio", "0015_add_voice_fields"),
         ("text_to_audio", "0016_followedfeed"),
     ]
