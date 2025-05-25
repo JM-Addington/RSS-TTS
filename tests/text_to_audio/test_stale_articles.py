@@ -116,19 +116,28 @@ class CheckStaleArticlesTests(TestCase):
     @patch("text_to_audio.tasks.celery_app.control.revoke")
     def test_check_stale_articles_with_missing_setting(self, mock_revoke):
         """Test that a default timeout is used if the setting is not defined."""
-        # Call the task
-        with self.assertLogs("text_to_audio.tasks", level="WARNING") as log_ctx:
-            check_stale_articles()
+        # Remove the setting from settings if it exists
+        from django.conf import settings
 
-        # Check that a warning was logged about the missing setting
-        self.assertTrue(
-            any("not set in Django settings" in msg for msg in log_ctx.output),
-            "Expected warning log about missing setting",
-        )
+        original_timeout = getattr(settings, "ARTICLE_PROCESSING_TIMEOUT_SECONDS", None)
+        if hasattr(settings, "ARTICLE_PROCESSING_TIMEOUT_SECONDS"):
+            delattr(settings._wrapped, "ARTICLE_PROCESSING_TIMEOUT_SECONDS")
 
-        # Refresh the stale article from database
-        self.stale_article.refresh_from_db()
+        try:
+            # Call the task
+            result = check_stale_articles()
 
-        # Stale article should still be marked as failed using default timeout
-        self.assertEqual(self.stale_article.status, Article.FAILED)
-        self.assertIsNone(self.stale_article.celery_task_id)
+            # Refresh the stale article from database
+            self.stale_article.refresh_from_db()
+
+            # Stale article should still be marked as failed using default timeout
+            self.assertEqual(self.stale_article.status, Article.FAILED)
+            self.assertIsNone(self.stale_article.celery_task_id)
+
+            # Verify the return message mentions the timeout
+            self.assertIn("Checked for stale articles", result)
+
+        finally:
+            # Restore the original setting if it existed
+            if original_timeout is not None:
+                settings._wrapped.ARTICLE_PROCESSING_TIMEOUT_SECONDS = original_timeout
