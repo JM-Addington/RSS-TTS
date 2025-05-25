@@ -51,6 +51,26 @@ class MultipleFeedsTestCase(TestCase):
         self.assertContains(response, feed1.token)
         self.assertContains(response, feed2.token)
 
+    def test_feed_list_order_and_add_article_button(self):
+        """Feeds should be ordered by ID and expose an add article link."""
+        feed1 = Feed.objects.create(user=self.user, name="First")
+        feed2 = Feed.objects.create(user=self.user, name="Second")
+
+        response = self.client.get(reverse("feed-list"))
+        self.assertEqual(response.status_code, 200)
+
+        feeds = list(response.context["feeds"])
+        self.assertEqual([feed1, feed2], feeds)
+
+        self.assertContains(
+            response,
+            reverse("feed-article-create", kwargs={"feed_id": feed1.pk}),
+        )
+        self.assertContains(
+            response,
+            reverse("feed-article-create", kwargs={"feed_id": feed2.pk}),
+        )
+
     def test_feed_specific_article_list(self):
         """Test that article lists are feed-specific."""
         # Create two feeds
