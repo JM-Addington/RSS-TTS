@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
-from django.urls import reverse
 
 from text_to_audio.models import Article, Feed
 
@@ -27,7 +26,7 @@ class TestArticleSubmissionFlow(TestCase):
         self.client.login(username="flowtester", password="pass123")
         with patch("text_to_audio.views.process_article.delay") as mock_delay:
             response = self.client.post(
-                reverse("feed-article-create", kwargs={"feed_id": self.feed.pk}),
+                f"/feeds/{self.feed.pk}/add/",
                 {"title": "Flow Test", "text_content": "Sample"},
             )
             self.assertEqual(response.status_code, 302)
