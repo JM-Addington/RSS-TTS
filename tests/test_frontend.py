@@ -212,3 +212,30 @@ class TestSignUpView(TestCase):
         self.assertIn("/accounts/login/", response["Location"])
         User = get_user_model()
         self.assertTrue(User.objects.filter(username="newuser").exists())
+
+
+class TestFeedArticleAutoUpdate(TestCase):
+    """Tests for automatic feed updates via JavaScript polling."""
+
+    def setUp(self):
+        """Create user, feed and sample article."""
+        self.client = Client()
+        self.user = get_user_model().objects.create_user(
+            username="autoupdate", password="pass123"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Default")
+        Article.objects.create(
+            feed=self.feed,
+            title="Update Test",
+            text_content="sample",
+            status=Article.PROCESSING,
+        )
+
+    def test_article_list_contains_update_script(self):
+        """Verify update script and data attributes are in the HTML."""
+        self.client.login(username="autoupdate", password="pass123")
+        response = self.client.get(f"/feeds/{self.feed.pk}/")
+        self.assertContains(response, "updateArticleStatus")
+        self.assertContains(response, "data-article-id")
+        self.assertContains(response, "status-badge")
+        self.assertContains(response, "action-cell")
