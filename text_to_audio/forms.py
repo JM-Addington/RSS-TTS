@@ -188,6 +188,38 @@ class ArticleVoiceForm(forms.Form):
         return cleaned_data
 
 
+class ArticleDetailForm(forms.ModelForm):
+    """Form for editing article details when regenerating."""
+
+    class Meta:
+        model = Article
+        fields = ["title", "text_content", "summary", "voice_id", "speed"]
+        widgets = {
+            "text_content": forms.Textarea(attrs={"rows": 8}),
+            "summary": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        voice_service = VoiceConfigurationService()
+        voice_choices = [
+            ("", "Auto (detect from tone)")
+        ] + voice_service.get_available_voices()
+        speed_choices = [
+            ("", "Auto (detect from tone)")
+        ] + voice_service.get_available_speeds()
+        self.fields["voice_id"] = forms.ChoiceField(
+            choices=voice_choices,
+            required=False,
+            help_text="Voice for this article.",
+        )
+        self.fields["speed"] = forms.ChoiceField(
+            choices=speed_choices,
+            required=False,
+            help_text="Speed for this article.",
+        )
+
+
 class VoicePresetForm(forms.ModelForm):
     """Form for creating and editing voice presets."""
 
