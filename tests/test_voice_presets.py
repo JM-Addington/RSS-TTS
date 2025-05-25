@@ -1,8 +1,9 @@
 """Tests for voice presets functionality."""
 
+from unittest.mock import patch
+
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
-from unittest.mock import patch
 from django.urls import reverse
 
 from text_to_audio.models import Article, Feed, UserVoicePreset
@@ -89,7 +90,9 @@ class UserPreferencesServiceTest(TestCase):
         self.assertEqual(preset.speed, 0.9)
 
         # Verify it exists in database
-        saved_preset = UserVoicePreset.objects.get(id=preset.id)
+        saved_preset = UserVoicePreset.objects.get(
+            id=preset.id
+        )  # type: ignore[attr-defined]
         self.assertEqual(saved_preset.name, "Service Test Preset")
 
     def test_update_preset(self):
@@ -101,7 +104,7 @@ class UserPreferencesServiceTest(TestCase):
 
         # Update via service
         updated = self.service.update_voice_preset(
-            preset_id=preset.id,
+            preset_id=preset.id,  # type: ignore[attr-defined]
             name="Updated Name",
             voice_id="echo",
             speed=1.3,
@@ -128,7 +131,9 @@ class UserPreferencesServiceTest(TestCase):
         count_before = UserVoicePreset.objects.count()
 
         # Delete via service
-        result = self.service.delete_voice_preset(preset.id)
+        result = self.service.delete_voice_preset(
+            preset.id  # type: ignore[attr-defined]
+        )
 
         # Check result
         self.assertTrue(result)
@@ -137,7 +142,7 @@ class UserPreferencesServiceTest(TestCase):
         count_after = UserVoicePreset.objects.count()
         self.assertEqual(count_after, count_before - 1)
         with self.assertRaises(UserVoicePreset.DoesNotExist):
-            UserVoicePreset.objects.get(id=preset.id)
+            UserVoicePreset.objects.get(id=preset.id)  # type: ignore[attr-defined]
 
     def test_apply_preset_to_article(self):
         """Test applying a preset to an article."""
@@ -171,6 +176,24 @@ class VoiceConfigurationServiceTest(TestCase):
             user=self.user, name="Config Test", voice_id="echo", speed=0.8
         )
 
+    def test_get_available_voices(self):
+        """Service returns the full list of available voices."""
+        voices = dict(self.service.get_available_voices())
+        expected = {
+            "alloy",
+            "ash",
+            "ballad",
+            "coral",
+            "echo",
+            "fable",
+            "onyx",
+            "nova",
+            "sage",
+            "shimmer",
+            "verse",
+        }
+        self.assertEqual(set(voices.keys()), expected)
+
     def test_get_user_presets(self):
         """Test getting presets for a user."""
         # Create another preset
@@ -191,7 +214,7 @@ class VoiceConfigurationServiceTest(TestCase):
     def test_voice_config_with_preset(self):
         """Test that presets override other settings."""
         # Basic config without preset
-        config1 = self.service.get_voice_config(
+        self.service.get_voice_config(
             detected_tone="formal",
             user_preferences={"voice": "alloy", "speed": 1.0},
             article_preferences={"voice": "shimmer", "speed": 1.1},
@@ -282,12 +305,19 @@ class VoicePresetViewsTest(TestCase):
         )
 
         # Get the edit form
-        response = self.client.get(reverse("voice_preset_edit", args=[preset.id]))
+        response = self.client.get(
+            reverse("voice_preset_edit", args=[preset.id])  # type: ignore[attr-defined]
+        )
         self.assertEqual(response.status_code, 200)
 
         # Submit the form
+        preset_id = preset.id  # type: ignore[attr-defined]
+        edit_url = reverse(
+            "voice_preset_edit",
+            args=[preset_id],
+        )
         response = self.client.post(
-            reverse("voice_preset_edit", args=[preset.id]),
+            edit_url,
             {
                 "name": "Updated View Preset",
                 "voice_id": "fable",
@@ -316,18 +346,20 @@ class VoicePresetViewsTest(TestCase):
         )
 
         # Get the delete confirmation
-        response = self.client.get(reverse("voice_preset_delete", args=[preset.id]))
+        delete_id = preset.id  # type: ignore[attr-defined]
+        delete_url = reverse("voice_preset_delete", args=[delete_id])
+        response = self.client.get(delete_url)
         self.assertEqual(response.status_code, 200)
 
         # Submit the form
-        response = self.client.post(reverse("voice_preset_delete", args=[preset.id]))
+        response = self.client.post(delete_url)
 
         # Should redirect to list view
         self.assertRedirects(response, reverse("voice_preset_list"))
 
         # Verify preset was deleted
         with self.assertRaises(UserVoicePreset.DoesNotExist):
-            UserVoicePreset.objects.get(id=preset.id)
+            UserVoicePreset.objects.get(id=preset.id)  # type: ignore[attr-defined]
 
     def test_feed_default_preset_applied(self):
         """Article creation uses feed default preset when none selected."""
@@ -344,7 +376,7 @@ class VoicePresetViewsTest(TestCase):
             mock_task = mock_delay.return_value
             mock_task.id = "task-id"
             response = self.client.post(
-                reverse("feed-article-create", args=[feed.id]),
+                reverse("feed-article-create", args=[feed.pk]),
                 {"title": "A", "text_content": "b"},
             )
             self.assertEqual(response.status_code, 302)
