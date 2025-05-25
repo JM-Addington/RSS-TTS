@@ -146,3 +146,6 @@ LOGOUT_REDIRECT_URL = "home"
 PODCAST_IMAGE_URL = os.environ.get("PODCAST_IMAGE_URL", "")
 RSS_EXTERNAL_HOSTNAME = os.environ.get("RSS_EXTERNAL_HOSTNAME", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
+
+# Article Processing Settings
+ARTICLE_PROCESSING_TIMEOUT_SECONDS = 3600  # 1 hour
