@@ -16,17 +16,27 @@ from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import (CreateView, DeleteView, ListView,
-                                  TemplateView, UpdateView)
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
-from .forms import (ArticleDetailForm, ArticleSubmissionForm, ArticleVoiceForm,
-                    UserVoicePreferenceForm, VoicePresetForm, FollowedFeedForm)
-from .models import Article, Feed, UserVoicePreset, UserVoiceProfile, FollowedFeed
+from .forms import (
+    ArticleDetailForm,
+    ArticleSubmissionForm,
+    ArticleVoiceForm,
+    FeedForm,
+    UserVoicePreferenceForm,
+    VoicePresetForm,
+)
+from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
 from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService
 from .tasks import process_article
-from .utils import (extract_article_text, extract_title_from_html,
-                    fetch_url_content)
+from .utils import extract_article_text, extract_title_from_html, fetch_url_content
 
 
 class HomeView(TemplateView):
@@ -272,8 +282,13 @@ class FeedCreateView(LoginRequiredMixin, CreateView):
     """View for creating a new feed."""
 
     model = Feed
-    fields = ["name"]
+    form_class = FeedForm
     template_name = "feed_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def form_valid(self, form):
         """Set the user before saving."""
@@ -291,9 +306,14 @@ class FeedUpdateView(LoginRequiredMixin, UpdateView):
     """View for updating a feed."""
 
     model = Feed
-    fields = ["name"]
+    form_class = FeedForm
     template_name = "feed_form.html"
     pk_url_kwarg = "feed_id"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def get_queryset(self):
         """Ensure users can only edit their own feeds."""
@@ -370,6 +390,10 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
         """Add user to form kwargs for preset access."""
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
+        if self.feed.default_voice_preset:
+            kwargs.setdefault("initial", {})[
+                "voice_preset"
+            ] = self.feed.default_voice_preset.id
         return kwargs
 
     def form_valid(self, form):
@@ -380,12 +404,19 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
         # Handle voice preset if selected
         preset_id = form.cleaned_data.get("voice_preset")
         if preset_id:
-            pref_service = UserPreferencesService()
-            article = pref_service.save_article_preferences(
-                article=article, voice_preset=preset_id
-            )
+            try:
+                preset = UserVoicePreset.objects.get(id=preset_id)
+                article.voice_preset = preset
+                article.voice_id = preset.voice_id
+                article.speed = preset.speed
+            except UserVoicePreset.DoesNotExist:
+                pass
+        elif self.feed.default_voice_preset:
+            preset = self.feed.default_voice_preset
+            article.voice_preset = preset
+            article.voice_id = preset.voice_id
+            article.speed = preset.speed
         else:
-            # Save direct voice and speed values if not using preset
             voice_id = form.cleaned_data.get("voice_id")
             speed = form.cleaned_data.get("speed")
             if voice_id:
@@ -448,7 +479,6 @@ class RegenerateArticleView(LoginRequiredMixin, View):
             title=original_article.title,
             source_url=original_article.source_url,
             text_content=original_article.text_content,
-            voice=original_article.voice,  # Preserve voice setting
             audio_uuid=uuid.uuid4(),  # Generate a new UUID
             status=Article.PROCESSING,
             # Copy voice settings
@@ -829,72 +859,3 @@ def article_voice_settings(request, article_id):
         "text_to_audio/article_voice_settings.html",
         {"form": form, "article": article},
     )
-
-
-# Followed Feed Views
-class FollowedFeedListView(LoginRequiredMixin, ListView):
-    model = FollowedFeed
-    template_name = "text_to_audio/followedfeed_list.html"
-    context_object_name = "followed_feeds"
-
-    def get_queryset(self):
-        return FollowedFeed.objects.filter(user=self.request.user).order_by("-created_at")
-
-
-class FollowedFeedCreateView(LoginRequiredMixin, CreateView):
-    model = FollowedFeed
-    form_class = FollowedFeedForm
-    template_name = "text_to_audio/followedfeed_form.html"
-    success_url = reverse_lazy("followedfeed-list")
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
-    def form_valid(self, form):
-        form.instance.user = self.request.user
-        messages.success(request, f"Followed feed '{form.instance.url}' created successfully.")
-        return super().form_valid(form)
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_create"] = True
-        return context
-
-
-class FollowedFeedUpdateView(LoginRequiredMixin, UpdateView):
-    model = FollowedFeed
-    form_class = FollowedFeedForm
-    template_name = "text_to_audio/followedfeed_form.html"
-    success_url = reverse_lazy("followedfeed-list")
-
-    def get_queryset(self):
-        return FollowedFeed.objects.filter(user=self.request.user)
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
-    def form_valid(self, form):
-        messages.success(request, f"Followed feed '{form.instance.url}' updated successfully.")
-        return super().form_valid(form)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_create"] = False
-        return context
-
-
-class FollowedFeedDeleteView(LoginRequiredMixin, DeleteView):
-    model = FollowedFeed
-    template_name = "text_to_audio/followedfeed_confirm_delete.html"
-    success_url = reverse_lazy("followedfeed-list")
-
-    def get_queryset(self):
-        return FollowedFeed.objects.filter(user=self.request.user)
-
-    def form_valid(self, form):
-        messages.success(request, f"Followed feed '{self.object.url}' deleted successfully.")
-        return super().form_valid(form)

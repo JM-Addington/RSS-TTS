@@ -36,6 +36,12 @@
                             <div class="form-text">Choose a descriptive name to help you organize your feeds.</div>
                         </div>
 
+                        <div class="mb-3">
+                            <label for="{{ form.default_voice_preset.id_for_label }}" class="form-label">Default Voice Preset</label>
+                            {{ form.default_voice_preset|add_class:"form-select" }}
+                            <div class="form-text">Used when submitting articles without selecting a preset.</div>
+                        </div>
+
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">
                                 {% if form.instance.pk %}
