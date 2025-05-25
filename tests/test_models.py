@@ -78,6 +78,8 @@ class TestModels(TestCase):
             self.assertTrue(hasattr(Article, "audio_file_path"))
             self.assertTrue(hasattr(Article, "status"))
             self.assertTrue(hasattr(Article, "created_at"))
+            self.assertTrue(hasattr(Article, "updated_at"))
+            self.assertTrue(hasattr(Article, "celery_task_id"))
 
             # Check field types
             self.assertIsInstance(Article._meta.get_field("feed"), models.ForeignKey)
@@ -95,12 +97,20 @@ class TestModels(TestCase):
             self.assertIsInstance(
                 Article._meta.get_field("created_at"), models.DateTimeField
             )
+            self.assertIsInstance(
+                Article._meta.get_field("updated_at"), models.DateTimeField
+            )
+            self.assertIsInstance(
+                Article._meta.get_field("celery_task_id"), models.CharField
+            )
 
             # Check field attributes
             self.assertEqual(Article._meta.get_field("feed").related_model, Feed)
             self.assertEqual(Article._meta.get_field("title").max_length, 255)
             self.assertEqual(Article._meta.get_field("audio_file_path").max_length, 255)
+            self.assertEqual(Article._meta.get_field("celery_task_id").max_length, 255)
             self.assertTrue(Article._meta.get_field("created_at").auto_now_add)
+            self.assertTrue(Article._meta.get_field("updated_at").auto_now)
 
             # Check status choices
             self.assertTrue(hasattr(Article, "STATUS_CHOICES"))
@@ -131,6 +141,7 @@ class TestModels(TestCase):
             text_content="Test content",
             audio_file_path="",
             status=Article.PROCESSING,
+            celery_task_id=None,
         )
         self.assertEqual(str(article), "Test Article")
 
@@ -150,6 +161,7 @@ class OpenAIUsageStatsModelTests(TestCase):
             title="Stats Article",
             text_content="Some text for stats.",
             status=Article.PROCESSING,
+            celery_task_id=None,
         )
         # OpenAIUsageStats is already imported at the top level
 
