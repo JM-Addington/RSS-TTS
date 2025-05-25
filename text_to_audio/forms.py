@@ -7,7 +7,7 @@ RSS-TTS system.
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import Article, UserVoicePreset, UserVoiceProfile
+from .models import Article, UserVoicePreset, UserVoiceProfile, FollowedFeed, Feed
 from .services.voice_configuration import VoiceConfigurationService
 
 
@@ -259,3 +259,35 @@ class VoicePresetForm(forms.ModelForm):
                 "placeholder": "Optional description of this voice preset.",
             }
         )
+
+
+class FollowedFeedForm(forms.ModelForm):
+    """Form for creating and editing followed feeds."""
+
+    class Meta:
+        model = FollowedFeed
+        fields = ["url", "destination_feed", "is_active"]
+        widgets = {
+            "url": forms.URLInput(attrs={"placeholder": "https://example.com/rss_feed"}),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+        labels = {
+            "url": "RSS Feed URL",
+            "destination_feed": "Import to Feed",
+            "is_active": "Active (poll for new articles)",
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        if user:
+            self.fields["destination_feed"].queryset = Feed.objects.filter(user=user)
+        
+        # Ensure destination_feed is not empty if there are no feeds for the user
+        if not self.fields["destination_feed"].queryset.exists():
+            self.fields["destination_feed"].widget.attrs['disabled'] = True
+            self.fields["destination_feed"].help_text = (
+                "You don't have any feeds yet. Please create a feed first."
+            )
+        else:
+             self.fields["destination_feed"].empty_label = None # Remove the default "---------"

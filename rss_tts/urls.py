@@ -12,7 +12,9 @@ from text_to_audio.views import (ArticleCreateView, ArticleDeleteView,
                                  ArticleMediaView, FeedArticleCreateView,
                                  FeedArticleListView, FeedArticleStatusView,
                                  FeedCreateView, FeedDeleteView, FeedListView,
-                                 FeedUpdateView, HomeView,
+                                 FeedUpdateView, FollowedFeedCreateView,
+                                 FollowedFeedDeleteView, FollowedFeedListView,
+                                 FollowedFeedUpdateView, HomeView,
                                  RegenerateArticleView, SignUpView,
                                  article_voice_settings, voice_preferences,
                                  voice_preset_create, voice_preset_delete,
@@ -84,6 +86,25 @@ urlpatterns = [
         name="voice_preset_delete",
     ),
     path("", HomeView.as_view(), name="home"),
+    # Followed Feed URLs
+    path(
+        "followed-feeds/", FollowedFeedListView.as_view(), name="followedfeed-list"
+    ),
+    path(
+        "followed-feeds/add/",
+        FollowedFeedCreateView.as_view(),
+        name="followedfeed-create",
+    ),
+    path(
+        "followed-feeds/<int:pk>/edit/",
+        FollowedFeedUpdateView.as_view(),
+        name="followedfeed-edit",
+    ),
+    path(
+        "followed-feeds/<int:pk>/delete/",
+        FollowedFeedDeleteView.as_view(),
+        name="followedfeed-delete",
+    ),
 ]
 
 # Serve media files in development
