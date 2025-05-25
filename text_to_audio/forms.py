@@ -51,50 +51,65 @@ class ArticleSubmissionForm(forms.ModelForm):
 
 class UserVoicePreferenceForm(forms.ModelForm):
     """Form for user voice preferences."""
-    
+
     class Meta:
         """Meta options for the UserVoicePreferenceForm."""
-        
+
         model = UserVoiceProfile
-        fields = ['preferred_voice', 'preferred_speed']
-        
+        fields = ["preferred_voice", "preferred_speed"]
+
     def __init__(self, *args, **kwargs):
         """Initialize the form with dynamic choices for voice and speed."""
         super().__init__(*args, **kwargs)
         voice_service = VoiceConfigurationService()
-        
-        # Add choices for voice and speed
-        self.fields['preferred_voice'] = forms.ChoiceField(
-            choices=[('', 'Auto (detect from tone)')] + voice_service.get_available_voices(),
+
+        # Replace the fields with ChoiceFields
+        voice_choices = [
+            ("", "Auto (detect from tone)")
+        ] + voice_service.get_available_voices()
+        speed_choices = [
+            ("", "Auto (detect from tone)")
+        ] + voice_service.get_available_speeds()
+
+        self.fields["preferred_voice"] = forms.ChoiceField(
+            choices=voice_choices,
             required=False,
-            help_text="Your preferred voice for all articles."
+            help_text="Your preferred voice for all articles.",
         )
-        
-        self.fields['preferred_speed'] = forms.ChoiceField(
-            choices=[('', 'Auto (detect from tone)')] + voice_service.get_available_speeds(),
+
+        self.fields["preferred_speed"] = forms.ChoiceField(
+            choices=speed_choices,
             required=False,
-            help_text="Your preferred speaking speed for all articles."
+            help_text="Your preferred speaking speed for all articles.",
         )
 
 
 class ArticleVoiceForm(forms.Form):
     """Form for article-specific voice settings."""
-    
+
     voice_id = forms.ChoiceField(
-        required=False,
-        help_text="Voice for this specific article."
+        required=False, help_text="Voice for this specific article."
     )
-    
+
     speed = forms.ChoiceField(
-        required=False,
-        help_text="Speed for this specific article."
+        required=False, help_text="Speed for this specific article."
     )
-    
+
     def __init__(self, *args, **kwargs):
         """Initialize the form with dynamic choices for voice and speed."""
         super().__init__(*args, **kwargs)
         voice_service = VoiceConfigurationService()
-        
-        # Add choices for voice and speed
-        self.fields['voice_id'].choices = [('', 'Auto (detect from tone)')] + voice_service.get_available_voices()
-        self.fields['speed'].choices = [('', 'Auto (detect from tone)')] + voice_service.get_available_speeds()
+
+        # Set choices for voice and speed fields
+        voice_choices = [
+            ("", "Auto (detect from tone)")
+        ] + voice_service.get_available_voices()
+        speed_choices = [
+            ("", "Auto (detect from tone)")
+        ] + voice_service.get_available_speeds()
+
+        # Need to check if field exists and has a choices attribute before setting
+        if "voice_id" in self.fields and hasattr(self.fields["voice_id"], "choices"):
+            self.fields["voice_id"].choices = voice_choices
+        if "speed" in self.fields and hasattr(self.fields["speed"], "choices"):
+            self.fields["speed"].choices = speed_choices
