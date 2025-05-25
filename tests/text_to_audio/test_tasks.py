@@ -312,8 +312,47 @@ class ProcessArticleTests(TestCase):
             # From mock_tts_response.usage.total_tokens
             self.assertEqual(stats_obj.tokens_used, 123)
             self.assertTrue(stats_obj.processing_time_ms >= 0)
-            # Check word count (sample text has 11 words)
-            self.assertEqual(stats_obj.word_count, 11)
+            # Check word count now includes the title (13 words total)
+            self.assertEqual(stats_obj.word_count, 13)
+
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    def test_process_article_passes_title_to_chunk_text(
+        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+    ):
+        """Ensure the article title is included in the text sent for chunking."""
+        mock_openai_instance = MockOpenAIClient.return_value
+        mock_speech_create = mock_openai_instance.audio.speech.create
+
+        mock_tts_response = MagicMock()
+        mock_tts_response.usage = MagicMock(total_tokens=10)
+        mock_tts_response.stream_to_file.side_effect = (
+            self.create_dummy_file_side_effect
+        )
+        mock_speech_create.return_value = mock_tts_response
+
+        mock_audio_segment = MagicMock()
+        mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+
+        def export_side_effect(*args, **kwargs):
+            path_arg = args[0] if args else kwargs.get("out_f")
+            if path_arg:
+                self.create_dummy_file_side_effect(path_arg)
+            return None
+
+        mock_audio_segment.export.side_effect = export_side_effect
+        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_empty.return_value = MagicMock()
+
+        with patch(
+            "text_to_audio.tasks._chunk_text", wraps=_chunk_text
+        ) as mock_chunk_text:
+            process_article(self.article.id)
+
+            mock_chunk_text.assert_called()
+            passed_text = mock_chunk_text.call_args[0][0]
+            expected = f"{self.article.title}\n\n{self.article.text_content}"
+            self.assertEqual(passed_text, expected)
 
     def test_process_article_success_multiple_chunks(self, MockOpenAIClient):
         """Test processing an article with multiple text chunks."""

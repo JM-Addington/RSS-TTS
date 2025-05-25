@@ -267,8 +267,12 @@ def process_article(self, article_id: int) -> str:
         if not article.text_content:
             raise ValueError("Article text_content is empty.")
 
+        text_for_audio = article.text_content
+        if article.title:
+            text_for_audio = f"{article.title}\n\n{article.text_content}"
+
         # Get text chunks with default max_length of 4000
-        success, text_chunks = _chunk_text(article.text_content)
+        success, text_chunks = _chunk_text(text_for_audio)
         if not text_chunks:
             raise ValueError("No text chunks generated from text_content.")
 
