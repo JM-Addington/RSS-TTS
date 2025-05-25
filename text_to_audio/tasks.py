@@ -409,7 +409,8 @@ def process_article(self, article_id: int) -> str:
                     text_for_summary = text_for_summary[:2000]
 
                 client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-                response = client.chat.completions.create(
+                # Add type annotation for the response to help mypy
+                response: openai.types.chat.ChatCompletion = client.chat.completions.create(
                     model=getattr(settings, "OPENAI_SUMMARY_MODEL", "o4-mini"),
                     messages=[
                         {
