@@ -10,8 +10,16 @@
         <li class="nav-item">
           <a class="nav-link" href="{% url 'feed-list' %}">My Feeds</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'voice_preferences' %}">Voice Settings</a>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="voiceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Voice Settings
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="voiceDropdown">
+            <li><a class="dropdown-item" href="{% url 'voice_preferences' %}">Default Voice</a></li>
+            <li><a class="dropdown-item" href="{% url 'voice_preset_list' %}">Voice Presets</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'voice_preset_create' %}">Create New Preset</a></li>
+          </ul>
         </li>
         <li class="nav-item">
           <form method="post" action="{% url 'logout' %}">
