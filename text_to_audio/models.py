@@ -90,6 +90,23 @@ class Article(models.Model):
         (FAILED, "Failed"),
     ]
 
+    # Available voice options for TTS
+    VOICE_ALLOY = "alloy"
+    VOICE_ECHO = "echo"
+    VOICE_FABLE = "fable"
+    VOICE_ONYX = "onyx"
+    VOICE_NOVA = "nova"
+    VOICE_SHIMMER = "shimmer"
+
+    VOICE_CHOICES = [
+        (VOICE_ALLOY, "Alloy"),
+        (VOICE_ECHO, "Echo"),
+        (VOICE_FABLE, "Fable"),
+        (VOICE_ONYX, "Onyx"),
+        (VOICE_NOVA, "Nova"),
+        (VOICE_SHIMMER, "Shimmer"),
+    ]
+
     feed: models.ForeignKey = models.ForeignKey(
         Feed,
         on_delete=models.CASCADE,
@@ -109,6 +126,14 @@ class Article(models.Model):
     )
     text_content: models.TextField = models.TextField(
         null=False, blank=True, help_text="The text content of the article."
+    )
+    voice: models.CharField = models.CharField(
+        max_length=20,
+        choices=VOICE_CHOICES,
+        default=VOICE_ALLOY,
+        null=False,
+        blank=False,
+        help_text="The voice to use for text-to-speech conversion.",
     )
     audio_file_path: models.CharField = models.CharField(
         max_length=255, blank=True, help_text="Path to the audio file."

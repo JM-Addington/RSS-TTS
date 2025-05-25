@@ -22,8 +22,8 @@ from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
 from .services.content_analysis import ContentAnalysisService
-from .services.voice_configuration import VoiceConfigurationService
 from .services.user_preferences import UserPreferencesService
+from .services.voice_configuration import VoiceConfigurationService
 from .utils import process_url_to_text
 
 # Configure logging
@@ -319,7 +319,8 @@ def process_article(self, article_id: int) -> str:
                 # Use article-specific voice and speed if available
                 response = client.audio.speech.create(
                     model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
-                    voice=article.voice_id or getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
+                    voice=article.voice_id
+                    or getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
                     input=chunk,
                     speed=article.speed or 1.0,  # Apply speed if set
                 )
@@ -412,45 +413,46 @@ def process_article(self, article_id: int) -> str:
         try:
             if article.text_content:
                 logger.info(f"Analyzing content for Article ID: {article_id}")
-                
+
                 # Initialize services
                 content_service = ContentAnalysisService()
                 voice_service = VoiceConfigurationService()
                 pref_service = UserPreferencesService()
-                
+
                 # Use a sample of the text for analysis
                 analysis_text = article.text_content
                 if len(analysis_text) > 2000:
                     analysis_text = analysis_text[:2000]
-                    
+
                 # Analyze content
                 analysis_result = content_service.analyze_content(
-                    analysis_text, 
-                    title=article.title
+                    analysis_text, title=article.title
                 )
-                
+
                 # Save results to article
                 article.detected_tone = analysis_result["tone"]
                 if not article.summary:  # Only update summary if it's not already set
                     article.summary = analysis_result["summary"]
-                
+
                 # Get voice configuration
                 user_preferences = pref_service.get_user_preferences(article.feed.user)
                 article_preferences = pref_service.get_article_preferences(article)
-                
+
                 voice_config = voice_service.get_voice_config(
                     detected_tone=analysis_result["tone"],
                     user_preferences=user_preferences,
                     article_preferences=article_preferences,
-                    voice_recommendation=analysis_result["voice_recommendation"]
+                    voice_recommendation=analysis_result["voice_recommendation"],
                 )
-                
+
                 # Save final voice config to article
                 article.voice_id = voice_config["voice"]
                 article.speed = voice_config["speed"]
-                
+
                 # Save all updates
-                article.save(update_fields=["detected_tone", "summary", "voice_id", "speed"])
+                article.save(
+                    update_fields=["detected_tone", "summary", "voice_id", "speed"]
+                )
                 logger.info(f"Content analysis completed for Article ID: {article_id}")
         except Exception as analysis_exc:
             # Log but don't fail the whole process if analysis fails

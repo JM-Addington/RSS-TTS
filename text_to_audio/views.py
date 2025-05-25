@@ -450,12 +450,13 @@ class RegenerateArticleView(LoginRequiredMixin, View):
             Article, pk=article_id, feed__user=request.user
         )
 
-        # Create a new article with the same content
+        # Create a new article with the same content and voice
         new_article = Article(
             feed=original_article.feed,
             title=original_article.title,
             source_url=original_article.source_url,
             text_content=original_article.text_content,
+            voice=original_article.voice,  # Preserve voice setting
             audio_uuid=uuid.uuid4(),  # Generate a new UUID
             status=Article.PROCESSING,
             # Copy voice settings
