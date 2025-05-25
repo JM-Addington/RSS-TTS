@@ -2,7 +2,7 @@
 
 # mypy: disable-error-code="attr-defined"
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
@@ -25,7 +25,13 @@ class TestArticleSubmissionFlow(TestCase):
     def test_submission_triggers_processing_task(self):
         """Test that article submission triggers the processing task."""
         self.client.login(username="flowtester", password="pass123")
+        task_id = "mock-task-id-12345"
         with patch("text_to_audio.views.process_article.delay") as mock_delay:
+            # Configure the mock to return a task with an ID
+            mock_task = MagicMock()
+            mock_task.id = task_id
+            mock_delay.return_value = mock_task
+
             response = self.client.post(
                 reverse("feed-article-create", kwargs={"feed_id": self.feed.pk}),
                 {"title": "Flow Test", "text_content": "Sample"},
@@ -34,6 +40,7 @@ class TestArticleSubmissionFlow(TestCase):
             article = Article.objects.get(title="Flow Test")
             self.assertEqual(article.feed, self.feed)
             self.assertEqual(article.status, Article.PROCESSING)
+            self.assertEqual(article.celery_task_id, task_id)
             mock_delay.assert_called_once_with(article.id)
 
 
