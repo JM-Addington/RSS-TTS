@@ -14,14 +14,18 @@ from django.http import FileResponse, HttpResponseNotFound
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import (CreateView, DeleteView, ListView,
-                                  TemplateView, UpdateView)
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
 from .forms import ArticleSubmissionForm
 from .models import Article, Feed
 from .tasks import process_article
-from .utils import (extract_article_text, extract_title_from_html,
-                    fetch_url_content)
+from .utils import extract_article_text, extract_title_from_html, fetch_url_content
 
 
 class HomeView(TemplateView):
