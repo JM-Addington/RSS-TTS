@@ -409,8 +409,8 @@ def process_article(self, article_id: int) -> str:
                     text_for_summary = text_for_summary[:2000]
 
                 client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-                # Add type annotation for the response to help mypy
-                response: openai.types.chat.ChatCompletion = client.chat.completions.create(
+                # Add type annotation for the response to help mypy, using a different variable name
+                summary_response: openai.types.chat.ChatCompletion = client.chat.completions.create(
                     model=getattr(settings, "OPENAI_SUMMARY_MODEL", "o4-mini"),
                     messages=[
                         {
@@ -430,8 +430,8 @@ def process_article(self, article_id: int) -> str:
                 )
 
                 # Fixed the type error by properly accessing the message content
-                if response.choices and len(response.choices) > 0:
-                    summary_content = response.choices[0].message.content
+                if summary_response.choices and len(summary_response.choices) > 0:
+                    summary_content = summary_response.choices[0].message.content
                     if summary_content:
                         article.summary = summary_content.strip()
                         article.save(update_fields=["summary"])
