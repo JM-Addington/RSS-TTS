@@ -40,6 +40,43 @@ class Feed(models.Model):
         return str(self.name)
 
 
+class UserVoicePreset(models.Model):
+    """Model for storing user-defined voice presets."""
+
+    user: models.ForeignKey = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="voice_presets",
+        help_text="The user who owns this voice preset.",
+    )
+    name: models.CharField = models.CharField(
+        max_length=100, help_text="Name of the voice preset."
+    )
+    voice_id: models.CharField = models.CharField(
+        max_length=50, help_text="Voice ID for this preset."
+    )
+    speed: models.FloatField = models.FloatField(
+        default=1.0, help_text="Speed for this preset."
+    )
+    description: models.TextField = models.TextField(
+        blank=True, help_text="Optional description of this preset."
+    )
+    created_at: models.DateTimeField = models.DateTimeField(
+        auto_now_add=True, help_text="When the preset was created."
+    )
+    updated_at: models.DateTimeField = models.DateTimeField(
+        auto_now=True, help_text="When the preset was last updated."
+    )
+
+    class Meta:
+        unique_together = ["user", "name"]
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        """Return a string representation of the preset."""
+        return f"{self.name} ({self.voice_id}, {self.speed}x)"
+
+
 class Article(models.Model):
     """Model representing an article that has been converted to audio."""
 
@@ -111,7 +148,7 @@ class Article(models.Model):
         help_text="AI-generated summary of the article content.",
     )
     detected_tone: models.CharField = models.CharField(
-        max_length=50, 
+        max_length=50,
         null=True,
         blank=True,
         help_text="AI-detected tone of the article content.",
@@ -126,6 +163,13 @@ class Article(models.Model):
         null=True,
         blank=True,
         help_text="Speed multiplier for text-to-speech conversion.",
+    )
+    voice_preset: models.ForeignKey = models.ForeignKey(
+        "UserVoicePreset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="User-defined voice preset used for this article.",
     )
 
     def __str__(self) -> str:
@@ -195,32 +239,26 @@ class OpenAIUsageStats(models.Model):
 
 class UserVoiceProfile(models.Model):
     """Model for storing user voice preferences."""
-    
+
     user: models.OneToOneField = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="voice_profile",
-        help_text="The user these voice preferences belong to."
+        help_text="The user these voice preferences belong to.",
     )
     preferred_voice: models.CharField = models.CharField(
-        max_length=50,
-        null=True,
-        blank=True,
-        help_text="User's preferred TTS voice."
+        max_length=50, null=True, blank=True, help_text="User's preferred TTS voice."
     )
     preferred_speed: models.FloatField = models.FloatField(
-        default=1.0,
-        help_text="User's preferred TTS speed multiplier."
+        default=1.0, help_text="User's preferred TTS speed multiplier."
     )
     created_at: models.DateTimeField = models.DateTimeField(
-        auto_now_add=True,
-        help_text="When the profile was created."
+        auto_now_add=True, help_text="When the profile was created."
     )
     updated_at: models.DateTimeField = models.DateTimeField(
-        auto_now=True,
-        help_text="When the profile was last updated."
+        auto_now=True, help_text="When the profile was last updated."
     )
-    
+
     def __str__(self) -> str:
         """Return a string representation of the profile."""
         return f"Voice profile for {self.user.username}"
@@ -228,32 +266,26 @@ class UserVoiceProfile(models.Model):
 
 class VoiceMapping(models.Model):
     """Model for mapping tones to voice settings."""
-    
+
     tone: models.CharField = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Tone category name."
+        max_length=50, unique=True, help_text="Tone category name."
     )
     voice_id: models.CharField = models.CharField(
-        max_length=50,
-        help_text="Voice ID to use for this tone."
+        max_length=50, help_text="Voice ID to use for this tone."
     )
     speed: models.FloatField = models.FloatField(
-        default=1.0,
-        help_text="Speed multiplier to use for this tone."
+        default=1.0, help_text="Speed multiplier to use for this tone."
     )
     description: models.TextField = models.TextField(
-        blank=True,
-        help_text="Description of this tone category."
+        blank=True, help_text="Description of this tone category."
     )
     is_active: models.BooleanField = models.BooleanField(
-        default=True,
-        help_text="Whether this mapping is active."
+        default=True, help_text="Whether this mapping is active."
     )
-    
+
     def __str__(self) -> str:
         """Return a string representation of the mapping."""
         return f"{self.tone} → {self.voice_id} ({self.speed}x)"
-    
+
     class Meta:
-        ordering = ['tone']
+        ordering = ["tone"]

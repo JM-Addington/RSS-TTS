@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if is_create %}Create Voice Preset{% else %}Edit Voice Preset{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>{% if is_create %}Create Voice Preset{% else %}Edit Voice Preset{% endif %}</h1>
+
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+                {{ error }}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="mb-3">
+            <label for="{{ form.name.id_for_label }}" class="form-label">{{ form.name.label }}</label>
+            {{ form.name }}
+            {% if form.name.help_text %}<div class="form-text">{{ form.name.help_text }}</div>{% endif %}
+            {% if form.name.errors %}
+            <div class="text-danger">
+                {% for error in form.name.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label for="{{ form.voice_id.id_for_label }}" class="form-label">{{ form.voice_id.label }}</label>
+            {{ form.voice_id }}
+            {% if form.voice_id.help_text %}<div class="form-text">{{ form.voice_id.help_text }}</div>{% endif %}
+            {% if form.voice_id.errors %}
+            <div class="text-danger">
+                {% for error in form.voice_id.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label for="{{ form.speed.id_for_label }}" class="form-label">{{ form.speed.label }}</label>
+            {{ form.speed }}
+            {% if form.speed.help_text %}<div class="form-text">{{ form.speed.help_text }}</div>{% endif %}
+            {% if form.speed.errors %}
+            <div class="text-danger">
+                {% for error in form.speed.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
+            {{ form.description }}
+            {% if form.description.help_text %}<div class="form-text">{{ form.description.help_text }}</div>{% endif %}
+            {% if form.description.errors %}
+            <div class="text-danger">
+                {% for error in form.description.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mt-4 d-flex">
+            <button type="submit" class="btn btn-primary me-2">
+                {% if is_create %}Create Preset{% else %}Update Preset{% endif %}
+            </button>
+            <a href="{% url 'voice_preset_list' %}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Style form elements */
+    input[type="text"], textarea, select {
+        width: 100%;
+        padding: 0.375rem 0.75rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        color: #212529;
+        background-color: #fff;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+    }
+    textarea {
+        min-height: 100px;
+    }
+</style>
+{% endblock %}

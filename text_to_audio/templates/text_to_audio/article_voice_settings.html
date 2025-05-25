@@ -16,20 +16,20 @@
                             <div class="alert alert-{{ message.tags }}">{{ message }}</div>
                         {% endfor %}
                     {% endif %}
-                    
+
                     <h5 class="card-title">{{ article.title }}</h5>
                     {% if article.detected_tone %}
                         <p class="mb-3"><span class="badge bg-info">Detected Tone: {{ article.detected_tone|title }}</span></p>
                     {% endif %}
-                    
+
                     <p class="card-text mb-4">
-                        Customize voice settings for this specific article. 
+                        Customize voice settings for this specific article.
                         These settings will override your default voice preferences.
                     </p>
 
                     <form method="post">
                         {% csrf_token %}
-                        
+
                         <div class="form-group mb-3">
                             <label for="{{ form.voice_id.id_for_label }}">Voice</label>
                             {{ form.voice_id }}
@@ -40,7 +40,7 @@
                                 <div class="invalid-feedback d-block">{{ form.voice_id.errors }}</div>
                             {% endif %}
                         </div>
-                        
+
                         <div class="form-group mb-3">
                             <label for="{{ form.speed.id_for_label }}">Speed</label>
                             {{ form.speed }}
@@ -51,7 +51,18 @@
                                 <div class="invalid-feedback d-block">{{ form.speed.errors }}</div>
                             {% endif %}
                         </div>
-                        
+
+                        <div class="form-group mb-3">
+                            <label for="{{ form.voice_preset.id_for_label }}">Voice Preset</label>
+                            {{ form.voice_preset }}
+                            {% if form.voice_preset.help_text %}
+                                <small class="form-text text-muted">{{ form.voice_preset.help_text }}</small>
+                            {% endif %}
+                            {% if form.voice_preset.errors %}
+                                <div class="invalid-feedback d-block">{{ form.voice_preset.errors }}</div>
+                            {% endif %}
+                        </div>
+
                         <div class="d-flex justify-content-between">
                             <button type="submit" class="btn btn-primary">Save Settings</button>
                             <a href="{% url 'feed-articles' feed_id=article.feed.id %}" class="btn btn-secondary">Back to Articles</a>
