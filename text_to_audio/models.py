@@ -14,6 +14,17 @@ from django.db.models import JSONField
 class Feed(models.Model):
     """Model representing a user's collection of articles (podcast feed)."""
 
+    # Voice mode choices
+    VOICE_MODE_SINGLE_DEFAULT = "single_default"
+    VOICE_MODE_SINGLE_CUSTOM = "single_custom"
+    VOICE_MODE_AUTO = "auto"
+
+    VOICE_MODE_CHOICES = [
+        (VOICE_MODE_SINGLE_DEFAULT, "Single voice from defaults"),
+        (VOICE_MODE_SINGLE_CUSTOM, "Single voice from custom preset"),
+        (VOICE_MODE_AUTO, "Auto-generated voice"),
+    ]
+
     user: models.ForeignKey = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -38,6 +49,12 @@ class Feed(models.Model):
         null=True,
         blank=True,
         help_text="Voice preset to use for new articles in this feed by default.",
+    )
+    voice_mode: models.CharField = models.CharField(
+        max_length=20,
+        choices=VOICE_MODE_CHOICES,
+        default=VOICE_MODE_SINGLE_DEFAULT,
+        help_text="Voice mode preference for this feed",
     )
     created_at: models.DateTimeField = models.DateTimeField(
         auto_now_add=True, help_text="When the feed was created."
@@ -66,6 +83,22 @@ class UserVoicePreset(models.Model):
     speed: models.FloatField = models.FloatField(
         default=1.0, help_text="Speed for this preset."
     )
+    # Enhanced voice parameters
+    affect: models.CharField = models.CharField(
+        max_length=50, null=True, blank=True, help_text="Emotional affect for the voice"
+    )
+    tone: models.CharField = models.CharField(
+        max_length=100, null=True, blank=True, help_text="Tone descriptor for the voice"
+    )
+    pacing: models.CharField = models.CharField(
+        max_length=50, null=True, blank=True, help_text="Pacing style for the voice"
+    )
+    pitch_variation: models.CharField = models.CharField(
+        max_length=50, null=True, blank=True, help_text="Amount of pitch variation"
+    )
+    speaking_style: models.TextField = models.TextField(
+        null=True, blank=True, help_text="Detailed description of the speaking style"
+    )
     prompt: models.TextField = models.TextField(
         blank=True,
         default="",
@@ -87,6 +120,7 @@ class UserVoicePreset(models.Model):
     )
 
     class Meta:
+        """Metadata options for UserVoicePreset model."""
         unique_together = ["user", "name"]
         ordering = ["name"]
 
@@ -196,6 +230,12 @@ class Article(models.Model):
         blank=True,
         help_text="AI-detected tone of the article content.",
     )
+    detected_genre: models.CharField = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="AI-detected genre of the article content.",
+    )
     voice_id: models.CharField = models.CharField(
         max_length=50,
         null=True,
@@ -218,6 +258,11 @@ class Article(models.Model):
         null=True,
         blank=True,
         help_text="Stores structured data for multi-voice audio, including voice definitions and text segments.",
+    )
+    voice_parameters: JSONField = JSONField(
+        null=True,
+        blank=True,
+        help_text="Detailed voice parameters for text-to-speech conversion.",
     )
 
     def __str__(self) -> str:
@@ -336,4 +381,54 @@ class VoiceMapping(models.Model):
         return f"{self.tone} → {self.voice_id} ({self.speed}x)"
 
     class Meta:
+        """Metadata options for VoiceMapping model."""
         ordering = ["tone"]
+
+
+class VoiceGenreTemplate(models.Model):
+    """Model for storing genre-specific voice templates."""
+
+    genre: models.CharField = models.CharField(
+        max_length=50, unique=True, help_text="Genre category name"
+    )
+    voice_id: models.CharField = models.CharField(
+        max_length=50, help_text="Voice ID to use for this genre"
+    )
+    speed: models.FloatField = models.FloatField(
+        default=1.0, help_text="Speed multiplier to use for this genre"
+    )
+    affect: models.CharField = models.CharField(
+        max_length=50, blank=True, help_text="Emotional affect for the voice"
+    )
+    tone: models.CharField = models.CharField(
+        max_length=100, blank=True, help_text="Tone descriptor for the voice"
+    )
+    pacing: models.CharField = models.CharField(
+        max_length=50, blank=True, help_text="Pacing style for the voice"
+    )
+    pitch_variation: models.CharField = models.CharField(
+        max_length=50, blank=True, help_text="Amount of pitch variation"
+    )
+    speaking_style: models.TextField = models.TextField(
+        blank=True, help_text="Detailed description of the speaking style"
+    )
+    description: models.TextField = models.TextField(
+        blank=True, help_text="Description of this genre category"
+    )
+    is_active: models.BooleanField = models.BooleanField(
+        default=True, help_text="Whether this template is active"
+    )
+    created_at: models.DateTimeField = models.DateTimeField(
+        auto_now_add=True, help_text="When the template was created"
+    )
+    updated_at: models.DateTimeField = models.DateTimeField(
+        auto_now=True, help_text="When the template was last updated"
+    )
+
+    def __str__(self) -> str:
+        """Return a string representation of the template."""
+        return f"{self.genre} genre template ({self.voice_id}, {self.speed}x)"
+
+    class Meta:
+        """Metadata options for VoiceGenreTemplate model."""
+        ordering = ["genre"]
