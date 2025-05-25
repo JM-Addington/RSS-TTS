@@ -155,7 +155,7 @@ class TestLoginView(TestCase):
             {"username": "logintest", "password": "pass123"},
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, "/")  # Default redirect to home
+        self.assertEqual(response.url, "/feeds/")  # Redirect to feed list
         self.assertIn("_auth_user_id", self.client.session)
 
     def test_failed_login(self):
