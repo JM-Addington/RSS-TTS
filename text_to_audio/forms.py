@@ -26,7 +26,7 @@ class ArticleSubmissionForm(forms.ModelForm):
         """Meta options for the ArticleSubmissionForm."""
 
         model = Article
-        fields = ["title", "source_url", "text_content", "voice"]
+        fields = ["title", "source_url", "text_content", "voice_id", "speed"]
         widgets = {
             "title": forms.TextInput(
                 attrs={"placeholder": "Optional if URL is provided"}
