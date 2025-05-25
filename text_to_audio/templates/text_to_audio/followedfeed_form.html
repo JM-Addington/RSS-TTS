@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block title %}{% if is_create %}Add New{% else %}Edit{% endif %} Followed Feed{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h2 class="mb-0">{% if is_create %}Add New{% else %}Edit{% endif %} Followed Feed</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger" role="alert">
+                                {% for error in form.non_field_errors %}
+                                    <p class="mb-0">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.url.id_for_label }}" class="form-label">{{ form.url.label }}</label>
+                            {% render_field form.url class="form-control" %}
+                            {% if form.url.help_text %}
+                                <small class="form-text text-muted">{{ form.url.help_text }}</small>
+                            {% endif %}
+                            {% if form.url.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.url.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.destination_feed.id_for_label }}" class="form-label">{{ form.destination_feed.label }}</label>
+                            {% render_field form.destination_feed class="form-select" %}
+                            {% if form.destination_feed.help_text %}
+                                <small class="form-text text-muted">{{ form.destination_feed.help_text }}</small>
+                            {% endif %}
+                            {% if form.destination_feed.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.destination_feed.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            {% render_field form.is_active class="form-check-input" id=form.is_active.id_for_label %}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                {{ form.is_active.label }}
+                            </label>
+                            {% if form.is_active.help_text %}
+                                <small class="form-text text-muted d-block">{{ form.is_active.help_text }}</small>
+                            {% endif %}
+                            {% if form.is_active.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.is_active.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                {% if is_create %}Add Followed Feed{% else %}Save Changes{% endif %}
+                            </button>
+                            <a href="{% url 'followedfeed-list' %}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
