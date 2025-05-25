@@ -10,7 +10,7 @@ import uuid
 from django.conf import settings
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import FileResponse, HttpResponseNotFound
+from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
@@ -555,3 +555,23 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
         success_url = self.get_success_url()
         self.object.delete()
         return redirect(success_url)
+
+
+class FeedArticleStatusView(LoginRequiredMixin, View):
+    """Return JSON status for articles in a feed."""
+
+    def get(self, request, feed_id):
+        """Handle GET requests for article statuses."""
+        feed = get_object_or_404(Feed, pk=feed_id, user=request.user)
+        articles = Article.objects.filter(feed=feed).order_by("-created_at")
+
+        data = [
+            {
+                "id": article.pk,
+                "status": article.status,
+                "audio_uuid": str(article.audio_uuid) if article.audio_uuid else "",
+            }
+            for article in articles
+        ]
+
+        return JsonResponse({"articles": data})
