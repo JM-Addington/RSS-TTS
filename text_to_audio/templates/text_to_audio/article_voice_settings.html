@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Article Voice Settings{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Voice Settings for Article</h2>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <h5 class="card-title">{{ article.title }}</h5>
+                    {% if article.detected_tone %}
+                        <p class="mb-3"><span class="badge bg-info">Detected Tone: {{ article.detected_tone|title }}</span></p>
+                    {% endif %}
+                    
+                    <p class="card-text mb-4">
+                        Customize voice settings for this specific article. 
+                        These settings will override your default voice preferences.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.voice_id.id_for_label }}">Voice</label>
+                            {{ form.voice_id }}
+                            {% if form.voice_id.help_text %}
+                                <small class="form-text text-muted">{{ form.voice_id.help_text }}</small>
+                            {% endif %}
+                            {% if form.voice_id.errors %}
+                                <div class="invalid-feedback d-block">{{ form.voice_id.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.speed.id_for_label }}">Speed</label>
+                            {{ form.speed }}
+                            {% if form.speed.help_text %}
+                                <small class="form-text text-muted">{{ form.speed.help_text }}</small>
+                            {% endif %}
+                            {% if form.speed.errors %}
+                                <div class="invalid-feedback d-block">{{ form.speed.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">Save Settings</button>
+                            <a href="{% url 'feed-articles' feed_id=article.feed.id %}" class="btn btn-secondary">Back to Articles</a>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer">
+                    <p class="small text-muted mb-0">
+                        To apply new voice settings, you'll need to regenerate the article's audio after saving.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

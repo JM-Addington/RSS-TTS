@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Voice Preferences{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Voice Preferences</h2>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <p class="card-text mb-4">
+                        Customize your default voice settings for all articles. 
+                        These settings will be used unless overridden by article-specific settings.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.preferred_voice.id_for_label }}">Voice</label>
+                            {{ form.preferred_voice }}
+                            {% if form.preferred_voice.help_text %}
+                                <small class="form-text text-muted">{{ form.preferred_voice.help_text }}</small>
+                            {% endif %}
+                            {% if form.preferred_voice.errors %}
+                                <div class="invalid-feedback d-block">{{ form.preferred_voice.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group mb-3">
+                            <label for="{{ form.preferred_speed.id_for_label }}">Speed</label>
+                            {{ form.preferred_speed }}
+                            {% if form.preferred_speed.help_text %}
+                                <small class="form-text text-muted">{{ form.preferred_speed.help_text }}</small>
+                            {% endif %}
+                            {% if form.preferred_speed.errors %}
+                                <div class="invalid-feedback d-block">{{ form.preferred_speed.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">Save Preferences</button>
+                            <a href="{% url 'feed-list' %}" class="btn btn-secondary">Back to Feeds</a>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer">
+                    <p class="small text-muted mb-0">
+                        Voices are provided by OpenAI's text-to-speech API. Each voice has different characteristics 
+                        that work well with different types of content.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

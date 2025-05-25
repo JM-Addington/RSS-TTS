@@ -21,6 +21,9 @@ from pydub import AudioSegment  # type: ignore
 from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
+from .services.content_analysis import ContentAnalysisService
+from .services.voice_configuration import VoiceConfigurationService
+from .services.user_preferences import UserPreferencesService
 from .utils import process_url_to_text
 
 # Configure logging
@@ -313,10 +316,12 @@ def process_article(self, article_id: int) -> str:
 
             try:
                 start_time = time.monotonic()
+                # Use article-specific voice and speed if available
                 response = client.audio.speech.create(
                     model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
-                    voice=getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
+                    voice=article.voice_id or getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
                     input=chunk,
+                    speed=article.speed or 1.0,  # Apply speed if set
                 )
                 response.stream_to_file(temp_file_path)
                 end_time = time.monotonic()
@@ -398,58 +403,54 @@ def process_article(self, article_id: int) -> str:
         if not temp_audio_files:
             raise ValueError("No audio files were generated from chunks.")
 
-        # Generate a summary for the article using OpenAI
+        # Analyze content to get tone, summary, and voice recommendation
         try:
-            if not article.summary and text_chunks:
-                logger.info(f"Generating summary for Article ID: {article_id}")
-                # Use the first chunk (or the whole text if it's small) for summary
-                text_for_summary = text_chunks[0]
-                # Limit to 2000 chars to avoid token limits
-                if len(text_for_summary) > 2000:
-                    text_for_summary = text_for_summary[:2000]
-
-                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-                # Add type annotation for the response to help mypy
-                summary_response: openai.types.chat.ChatCompletion = (
-                    client.chat.completions.create(
-                        model=getattr(settings, "OPENAI_SUMMARY_MODEL", "o4-mini"),
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": "Summarize articles concisely.",
-                            },
-                            {
-                                "role": "user",
-                                "content": (
-                                    f"Create a 2-3 sentence summary of this article "
-                                    f"titled '{article.title}':\n\n{text_for_summary}"
-                                ),
-                            },
-                        ],
-                        max_tokens=150,
-                        temperature=0.3,
-                    )
+            if article.text_content:
+                logger.info(f"Analyzing content for Article ID: {article_id}")
+                
+                # Initialize services
+                content_service = ContentAnalysisService()
+                voice_service = VoiceConfigurationService()
+                pref_service = UserPreferencesService()
+                
+                # Use a sample of the text for analysis
+                analysis_text = article.text_content
+                if len(analysis_text) > 2000:
+                    analysis_text = analysis_text[:2000]
+                    
+                # Analyze content
+                analysis_result = content_service.analyze_content(
+                    analysis_text, 
+                    title=article.title
                 )
-
-                # Fixed the type error by properly accessing the message content
-                if summary_response.choices and len(summary_response.choices) > 0:
-                    summary_content = summary_response.choices[0].message.content
-                    if summary_content:
-                        article.summary = summary_content.strip()
-                        article.save(update_fields=["summary"])
-                        logger.info(f"Summary generated for Article ID: {article_id}")
-                    else:
-                        logger.warning(
-                            f"Empty summary response for Article ID: {article_id}"
-                        )
-                else:
-                    logger.warning(
-                        f"Failed to generate summary for Article ID: {article_id}"
-                    )
-        except Exception as summary_exc:
-            # Log but don't fail the whole process if summary generation fails
+                
+                # Save results to article
+                article.detected_tone = analysis_result["tone"]
+                if not article.summary:  # Only update summary if it's not already set
+                    article.summary = analysis_result["summary"]
+                
+                # Get voice configuration
+                user_preferences = pref_service.get_user_preferences(article.feed.user)
+                article_preferences = pref_service.get_article_preferences(article)
+                
+                voice_config = voice_service.get_voice_config(
+                    detected_tone=analysis_result["tone"],
+                    user_preferences=user_preferences,
+                    article_preferences=article_preferences,
+                    voice_recommendation=analysis_result["voice_recommendation"]
+                )
+                
+                # Save final voice config to article
+                article.voice_id = voice_config["voice"]
+                article.speed = voice_config["speed"]
+                
+                # Save all updates
+                article.save(update_fields=["detected_tone", "summary", "voice_id", "speed"])
+                logger.info(f"Content analysis completed for Article ID: {article_id}")
+        except Exception as analysis_exc:
+            # Log but don't fail the whole process if analysis fails
             logger.error(
-                f"Error generating summary for Article ID {article_id}: {summary_exc}"
+                f"Error analyzing content for Article ID {article_id}: {analysis_exc}"
             )
             logger.debug(traceback.format_exc())
             # Continue with audio generation

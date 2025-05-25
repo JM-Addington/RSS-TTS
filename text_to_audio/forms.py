@@ -7,7 +7,8 @@ RSS-TTS system.
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import Article
+from .models import Article, UserVoiceProfile
+from .services.voice_configuration import VoiceConfigurationService
 
 
 class ArticleSubmissionForm(forms.ModelForm):
@@ -46,3 +47,54 @@ class ArticleSubmissionForm(forms.ModelForm):
             raise ValidationError("You must provide either a URL or text content.")
 
         return cleaned_data
+
+
+class UserVoicePreferenceForm(forms.ModelForm):
+    """Form for user voice preferences."""
+    
+    class Meta:
+        """Meta options for the UserVoicePreferenceForm."""
+        
+        model = UserVoiceProfile
+        fields = ['preferred_voice', 'preferred_speed']
+        
+    def __init__(self, *args, **kwargs):
+        """Initialize the form with dynamic choices for voice and speed."""
+        super().__init__(*args, **kwargs)
+        voice_service = VoiceConfigurationService()
+        
+        # Add choices for voice and speed
+        self.fields['preferred_voice'] = forms.ChoiceField(
+            choices=[('', 'Auto (detect from tone)')] + voice_service.get_available_voices(),
+            required=False,
+            help_text="Your preferred voice for all articles."
+        )
+        
+        self.fields['preferred_speed'] = forms.ChoiceField(
+            choices=[('', 'Auto (detect from tone)')] + voice_service.get_available_speeds(),
+            required=False,
+            help_text="Your preferred speaking speed for all articles."
+        )
+
+
+class ArticleVoiceForm(forms.Form):
+    """Form for article-specific voice settings."""
+    
+    voice_id = forms.ChoiceField(
+        required=False,
+        help_text="Voice for this specific article."
+    )
+    
+    speed = forms.ChoiceField(
+        required=False,
+        help_text="Speed for this specific article."
+    )
+    
+    def __init__(self, *args, **kwargs):
+        """Initialize the form with dynamic choices for voice and speed."""
+        super().__init__(*args, **kwargs)
+        voice_service = VoiceConfigurationService()
+        
+        # Add choices for voice and speed
+        self.fields['voice_id'].choices = [('', 'Auto (detect from tone)')] + voice_service.get_available_voices()
+        self.fields['speed'].choices = [('', 'Auto (detect from tone)')] + voice_service.get_available_speeds()
