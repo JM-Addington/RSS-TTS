@@ -64,8 +64,8 @@
                 </thead>
                 <tbody>
                     {% for article in articles %}
-                    <tr>
-                        <td class="status-cell" data-article-id="{{ article.id }}" data-status="{{ article.status }}">
+                    <tr data-article-id="{{ article.id }}" data-status="{{ article.status }}">
+                        <td class="status-cell">
                             {{ article.title }}
                             {% if article.source_url %}
                                 <span class="badge bg-info text-dark">URL Import</span>
@@ -89,7 +89,7 @@
                             {% endif %}
                         </td>
                         <td>{{ article.created_at|date:"M d, Y" }}</td>
-                        <td>
+                        <td class="status-badge">
                             {% if article.status == 'COMPLETED' %}
                                 <span class="badge bg-success">Completed</span>
                             {% elif article.status == 'PROCESSING' %}
@@ -98,7 +98,7 @@
                                 <span class="badge bg-danger">Failed</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="action-cell">
                             {% if article.status == 'COMPLETED' %}
                                 <div class="btn-group btn-group-sm">
                                     <a href="{% url 'article-detail' article.id %}" class="btn btn-secondary btn-sm">
@@ -239,27 +239,39 @@ function copyFeedUrl() {
 }
 {% if feed %}
 const articleStatusUrl = "{% url 'feed-article-status' feed.id %}";
-const initialStatuses = {};
-document.querySelectorAll('.status-cell').forEach(cell => {
-    initialStatuses[cell.dataset.articleId] = cell.dataset.status;
-});
-function checkArticleUpdates() {
+function updateArticleStatus() {
     fetch(articleStatusUrl)
         .then(res => res.json())
         .then(data => {
-            let changed = false;
             data.articles.forEach(a => {
-                if (initialStatuses[a.id] && initialStatuses[a.id] !== a.status) {
-                    changed = true;
+                const row = document.querySelector(`tr[data-article-id='${a.id}']`);
+                if (!row) return;
+                if (row.dataset.status !== a.status) {
+                    row.dataset.status = a.status;
+                    const statusCell = row.querySelector('.status-badge');
+                    if (statusCell) {
+                        let badgeHtml = '';
+                        if (a.status === 'COMPLETED') {
+                            badgeHtml = '<span class="badge bg-success">Completed</span>';
+                        } else if (a.status === 'PROCESSING') {
+                            badgeHtml = '<span class="badge bg-warning text-dark">Processing</span>';
+                        } else if (a.status === 'FAILED') {
+                            badgeHtml = '<span class="badge bg-danger">Failed</span>';
+                        }
+                        statusCell.innerHTML = badgeHtml;
+                    }
+                    if (a.status === 'COMPLETED') {
+                        const actions = row.querySelector('.action-cell');
+                        if (actions) {
+                            actions.innerHTML = `<a href="/audio/${a.audio_uuid}/" class="btn btn-primary btn-sm">Download MP3</a>`;
+                        }
+                    }
                 }
             });
-            if (changed) {
-                location.reload();
-            }
         })
         .catch(err => console.error('Status polling error', err));
 }
-setInterval(checkArticleUpdates, 10000);
+setInterval(updateArticleStatus, 10000);
 {% endif %}
 </script>
 {% endblock %}
