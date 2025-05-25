@@ -26,7 +26,7 @@ class ArticleSubmissionForm(forms.ModelForm):
         """Meta options for the ArticleSubmissionForm."""
 
         model = Article
-        fields = ["title", "source_url", "text_content"]
+        fields = ["title", "source_url", "text_content", "voice"]
         widgets = {
             "title": forms.TextInput(
                 attrs={"placeholder": "Optional if URL is provided"}
@@ -40,6 +40,7 @@ class ArticleSubmissionForm(forms.ModelForm):
             "source_url": forms.URLInput(
                 attrs={"placeholder": "https://example.com/article (optional)"}
             ),
+            "voice": forms.Select(attrs={"class": "form-select"}),
         }
 
     def __init__(self, *args, **kwargs):

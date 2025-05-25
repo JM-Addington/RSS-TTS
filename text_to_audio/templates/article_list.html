@@ -56,6 +56,7 @@
                     <tr id="article-row-{{ article.id }}">
                         <th>Title</th>
                         <th>Source</th>
+                        <th>Voice</th>
                         <th>Date Added</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -78,6 +79,13 @@
                                 </a>
                             {% else %}
                                 <span class="text-muted">Direct entry</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if article.voice %}
+                                <span class="badge bg-secondary">{{ article.get_voice_display }}</span>
+                            {% else %}
+                                <span class="text-muted">Default</span>
                             {% endif %}
                         </td>
                         <td>{{ article.created_at|date:"M d, Y" }}</td>
