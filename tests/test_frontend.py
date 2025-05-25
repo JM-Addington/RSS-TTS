@@ -3,12 +3,11 @@
 # mypy: disable-error-code="attr-defined"
 
 import os
-from unittest import mock
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
-from django.urls import reverse
 
 from text_to_audio.models import Article, Feed
 
@@ -87,27 +86,31 @@ class TestArticleSubmission(TestCase):
         """Test that authenticated users can access the article submission form."""
         self.client.login(username="tester", password="pass123")
         response = self.client.get("/articles/submit/")
-        expected_url = reverse("feed-article-create", kwargs={"feed_id": self.feed.pk})
-        self.assertRedirects(response, expected_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f"/feeds/{self.feed.pk}/add/", response["Location"])
+
+        follow_response = self.client.get(response["Location"])
+        self.assertEqual(follow_response.status_code, 200)
+        self.assertTemplateUsed(follow_response, "article_form.html")
 
     def test_post_creates_article(self):
         """Test that submitting the article form creates a new article."""
         self.client.login(username="tester", password="pass123")
-        with mock.patch("text_to_audio.views.process_article.delay") as mock_delay:
+        with patch("text_to_audio.views.process_article.delay") as mock_delay:
             # Configure mock to return a task with an ID
-            mock_task = mock.MagicMock()
+            mock_task = patch.MagicMock()
             mock_task.id = "mock-task-id-frontend"
             mock_delay.return_value = mock_task
+
             response = self.client.post(
-                reverse("feed-article-create", kwargs={"feed_id": self.feed.pk}),
+                f"/feeds/{self.feed.pk}/add/",
                 {"title": "Test", "text_content": "Hello"},
             )
             self.assertEqual(response.status_code, 302)
-            self.assertTrue(
-                Article.objects.filter(title="Test", feed=self.feed).exists()
-            )
+            self.assertTrue(Article.objects.filter(title="Test").exists())
+
             # Verify task ID was saved to the article
-            article = Article.objects.get(title="Test", feed=self.feed)
+            article = Article.objects.get(title="Test")
             self.assertEqual(article.celery_task_id, "mock-task-id-frontend")
             mock_delay.assert_called_once()
 

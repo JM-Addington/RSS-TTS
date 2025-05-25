@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
-from django.urls import reverse
 
 from text_to_audio.models import Article, Feed
 
@@ -33,7 +32,7 @@ class TestArticleSubmissionFlow(TestCase):
             mock_delay.return_value = mock_task
 
             response = self.client.post(
-                reverse("feed-article-create", kwargs={"feed_id": self.feed.pk}),
+                f"/feeds/{self.feed.pk}/add/",
                 {"title": "Flow Test", "text_content": "Sample"},
             )
             self.assertEqual(response.status_code, 302)
