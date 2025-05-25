@@ -7,29 +7,16 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from text_to_audio.feeds import UserFeed
-from text_to_audio.views import (
-    ArticleCreateView,
-    ArticleDeleteView,
-    ArticleListView,
-    ArticleMediaView,
-    FeedArticleCreateView,
-    FeedArticleListView,
-    FeedArticleStatusView,
-    FeedCreateView,
-    FeedDeleteView,
-    FeedListView,
-    FeedUpdateView,
-    HomeView,
-    ArticleDetailView,
-    RegenerateArticleView,
-    SignUpView,
-    article_voice_settings,
-    voice_preferences,
-    voice_preset_create,
-    voice_preset_delete,
-    voice_preset_edit,
-    voice_preset_list,
-)
+from text_to_audio.views import (ArticleCreateView, ArticleDeleteView,
+                                 ArticleDetailView, ArticleListView,
+                                 ArticleMediaView, FeedArticleCreateView,
+                                 FeedArticleListView, FeedArticleStatusView,
+                                 FeedCreateView, FeedDeleteView, FeedListView,
+                                 FeedUpdateView, HomeView,
+                                 RegenerateArticleView, SignUpView,
+                                 article_voice_settings, voice_preferences,
+                                 voice_preset_create, voice_preset_delete,
+                                 voice_preset_edit, voice_preset_list)
 
 urlpatterns = [
     path("admin/", admin.site.urls),

@@ -16,26 +16,17 @@ from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import (
-    CreateView,
-    DeleteView,
-    ListView,
-    TemplateView,
-    UpdateView,
-)
+from django.views.generic import (CreateView, DeleteView, ListView,
+                                  TemplateView, UpdateView)
 
-from .forms import (
-    ArticleDetailForm,
-    ArticleSubmissionForm,
-    ArticleVoiceForm,
-    UserVoicePreferenceForm,
-    VoicePresetForm,
-)
+from .forms import (ArticleDetailForm, ArticleSubmissionForm, ArticleVoiceForm,
+                    UserVoicePreferenceForm, VoicePresetForm)
 from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
 from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService
 from .tasks import process_article
-from .utils import extract_article_text, extract_title_from_html, fetch_url_content
+from .utils import (extract_article_text, extract_title_from_html,
+                    fetch_url_content)
 
 
 class HomeView(TemplateView):
@@ -508,7 +499,11 @@ class ArticleDetailView(LoginRequiredMixin, View):
                 text_content=form.cleaned_data["text_content"],
                 summary=form.cleaned_data.get("summary"),
                 voice_id=form.cleaned_data.get("voice_id") or None,
-                speed=float(form.cleaned_data.get("speed")) if form.cleaned_data.get("speed") else None,
+                speed=(
+                    float(form.cleaned_data.get("speed"))
+                    if form.cleaned_data.get("speed")
+                    else None
+                ),
                 audio_uuid=uuid.uuid4(),
                 status=Article.PROCESSING,
             )
