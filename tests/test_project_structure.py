@@ -42,10 +42,12 @@ class TestProjectStructure(unittest.TestCase):
         with open(os.path.join(".devcontainer", "devcontainer.json")) as f:
             data = json.load(f)
 
-        self.assertIn("runServices", data)
-        # Redis should now run inside a service container, so it is not a
-        # separate service in runServices
-        self.assertNotIn("redis", data["runServices"])
+        self.assertIn("features", data)
+        self.assertIn(
+            "ghcr.io/devcontainers/features/docker-in-docker:1",
+            data["features"],
+        )
+        self.assertEqual(data.get("remoteUser"), "vscode")
 
     def test_docker_compose_has_redis_service(self):
         """Ensure docker-compose.yml defines a redis service."""
