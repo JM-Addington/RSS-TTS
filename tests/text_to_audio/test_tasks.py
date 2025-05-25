@@ -312,8 +312,8 @@ class ProcessArticleTests(TestCase):
             # From mock_tts_response.usage.total_tokens
             self.assertEqual(stats_obj.tokens_used, 123)
             self.assertTrue(stats_obj.processing_time_ms >= 0)
-            # Check word count (sample text has 11 words)
-            self.assertEqual(stats_obj.word_count, 11)
+            # Check word count (sample text has 13 words with title)
+            self.assertEqual(stats_obj.word_count, 13)
 
     def test_process_article_success_multiple_chunks(self, MockOpenAIClient):
         """Test processing an article with multiple text chunks."""
