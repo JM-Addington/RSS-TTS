@@ -27,6 +27,7 @@ class VoiceConfigurationService:
         user_preferences=None,
         article_preferences=None,
         voice_recommendation=None,
+        voice_preset=None,
     ):
         """
         Determine the final voice configuration based on tone and preferences.
@@ -36,6 +37,7 @@ class VoiceConfigurationService:
             user_preferences: Dict with user's default preferences
             article_preferences: Dict with article-specific preferences
             voice_recommendation: Dict with AI-recommended voice settings
+            voice_preset: UserVoicePreset object if selected
 
         Returns:
             Dict with final voice config: {"voice": "voice_id", "speed": float}
@@ -58,6 +60,11 @@ class VoiceConfigurationService:
                 base_config["voice"] = user_preferences["voice"]
             if user_preferences.get("speed"):
                 base_config["speed"] = user_preferences["speed"]
+
+        # Apply voice preset if specified (overrides user preferences)
+        if voice_preset:
+            base_config["voice"] = voice_preset.voice_id
+            base_config["speed"] = voice_preset.speed
 
         # Apply article-specific preferences (highest priority)
         if article_preferences:
@@ -103,4 +110,25 @@ class VoiceConfigurationService:
             (1.1, "Slightly Fast (1.1x)"),
             (1.25, "Fast (1.25x)"),
             (1.5, "Very Fast (1.5x)"),
+        ]
+
+    def get_user_presets(self, user):
+        """
+        Get a list of user's custom voice presets.
+
+        Args:
+            user: Django User object
+
+        Returns:
+            List of tuples: [(preset_id, preset_name), ...]
+        """
+        from text_to_audio.models import UserVoicePreset
+
+        if not user or not user.is_authenticated:
+            return []
+
+        presets = UserVoicePreset.objects.filter(user=user).order_by("name")
+        return [
+            (preset.id, f"{preset.name} ({preset.voice_id}, {preset.speed}x)")
+            for preset in presets
         ]

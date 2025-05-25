@@ -64,6 +64,31 @@
             <div class="form-text">Or paste/enter text content directly</div>
           </div>
 
+          <h5 class="mt-4 mb-3">Voice Settings</h5>
+
+          <div class="mb-3">
+            <label for="{{ form.voice_preset.id_for_label }}" class="form-label">Voice Preset</label>
+            {{ form.voice_preset.errors }}
+            {{ form.voice_preset|add_class:"form-control" }}
+            <div class="form-text">Select one of your saved voice presets</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Or set individual voice options:</label>
+            <div class="row">
+              <div class="col-md-6">
+                <label for="{{ form.voice_id.id_for_label }}" class="form-label">Voice</label>
+                {{ form.voice_id.errors }}
+                {{ form.voice_id|add_class:"form-control" }}
+              </div>
+              <div class="col-md-6">
+                <label for="{{ form.speed.id_for_label }}" class="form-label">Speed</label>
+                {{ form.speed.errors }}
+                {{ form.speed|add_class:"form-control" }}
+              </div>
+            </div>
+          </div>
+
           <div class="d-grid">
             <button type="submit" class="btn btn-primary">Convert to Audio</button>
           </div>
