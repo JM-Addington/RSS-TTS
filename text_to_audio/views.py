@@ -20,8 +20,8 @@ from django.views.generic import (CreateView, DeleteView, ListView,
                                   TemplateView, UpdateView)
 
 from .forms import (ArticleDetailForm, ArticleSubmissionForm, ArticleVoiceForm,
-                    UserVoicePreferenceForm, VoicePresetForm)
-from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
+                    UserVoicePreferenceForm, VoicePresetForm, FollowedFeedForm)
+from .models import Article, Feed, UserVoicePreset, UserVoiceProfile, FollowedFeed
 from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService
 from .tasks import process_article
@@ -829,3 +829,72 @@ def article_voice_settings(request, article_id):
         "text_to_audio/article_voice_settings.html",
         {"form": form, "article": article},
     )
+
+
+# Followed Feed Views
+class FollowedFeedListView(LoginRequiredMixin, ListView):
+    model = FollowedFeed
+    template_name = "text_to_audio/followedfeed_list.html"
+    context_object_name = "followed_feeds"
+
+    def get_queryset(self):
+        return FollowedFeed.objects.filter(user=self.request.user).order_by("-created_at")
+
+
+class FollowedFeedCreateView(LoginRequiredMixin, CreateView):
+    model = FollowedFeed
+    form_class = FollowedFeedForm
+    template_name = "text_to_audio/followedfeed_form.html"
+    success_url = reverse_lazy("followedfeed-list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        messages.success(request, f"Followed feed '{form.instance.url}' created successfully.")
+        return super().form_valid(form)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_create"] = True
+        return context
+
+
+class FollowedFeedUpdateView(LoginRequiredMixin, UpdateView):
+    model = FollowedFeed
+    form_class = FollowedFeedForm
+    template_name = "text_to_audio/followedfeed_form.html"
+    success_url = reverse_lazy("followedfeed-list")
+
+    def get_queryset(self):
+        return FollowedFeed.objects.filter(user=self.request.user)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        messages.success(request, f"Followed feed '{form.instance.url}' updated successfully.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_create"] = False
+        return context
+
+
+class FollowedFeedDeleteView(LoginRequiredMixin, DeleteView):
+    model = FollowedFeed
+    template_name = "text_to_audio/followedfeed_confirm_delete.html"
+    success_url = reverse_lazy("followedfeed-list")
+
+    def get_queryset(self):
+        return FollowedFeed.objects.filter(user=self.request.user)
+
+    def form_valid(self, form):
+        messages.success(request, f"Followed feed '{self.object.url}' deleted successfully.")
+        return super().form_valid(form)
