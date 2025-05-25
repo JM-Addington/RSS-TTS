@@ -32,6 +32,13 @@ class Feed(models.Model):
         blank=False,
         help_text="Unique token for accessing the feed.",
     )
+    default_voice_preset: models.ForeignKey = models.ForeignKey(
+        "UserVoicePreset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Voice preset to use for new articles in this feed by default.",
+    )
     created_at: models.DateTimeField = models.DateTimeField(
         auto_now_add=True, help_text="When the feed was created."
     )
@@ -58,6 +65,16 @@ class UserVoicePreset(models.Model):
     )
     speed: models.FloatField = models.FloatField(
         default=1.0, help_text="Speed for this preset."
+    )
+    prompt: models.TextField = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional prompt describing the desired speaking style.",
+    )
+    sample_input: models.TextField = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional sample text used when designing the voice.",
     )
     description: models.TextField = models.TextField(
         blank=True, help_text="Optional description of this preset."
@@ -127,14 +144,6 @@ class Article(models.Model):
     )
     text_content: models.TextField = models.TextField(
         null=False, blank=True, help_text="The text content of the article."
-    )
-    voice: models.CharField = models.CharField(
-        max_length=20,
-        choices=VOICE_CHOICES,
-        default=VOICE_ALLOY,
-        null=False,
-        blank=False,
-        help_text="The voice to use for text-to-speech conversion.",
     )
     audio_file_path: models.CharField = models.CharField(
         max_length=255, blank=True, help_text="Path to the audio file."

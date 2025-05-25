@@ -45,6 +45,7 @@ class TestModels(TestCase):
             self.assertTrue(hasattr(Feed, "name"))
             self.assertTrue(hasattr(Feed, "token"))
             self.assertTrue(hasattr(Feed, "created_at"))
+            self.assertTrue(hasattr(Feed, "default_voice_preset"))
 
             # Check field types
             self.assertIsInstance(Feed._meta.get_field("user"), models.ForeignKey)
@@ -52,6 +53,9 @@ class TestModels(TestCase):
             self.assertIsInstance(Feed._meta.get_field("token"), models.UUIDField)
             self.assertIsInstance(
                 Feed._meta.get_field("created_at"), models.DateTimeField
+            )
+            self.assertIsInstance(
+                Feed._meta.get_field("default_voice_preset"), models.ForeignKey
             )
 
             # Check field attributes
@@ -150,19 +154,32 @@ class TestModels(TestCase):
         feed = Feed.objects.create(user=self.user, name="MultiVoice Feed")
         sample_multi_voice_data = {
             "voices": [
-                {"name": "narrator", "tone": "neutral", "tts_model": "alloy", "tts_speed": 1.0},
-                {"name": "character_ emotive", "tone": "expressive", "tts_model": "nova", "tts_speed": 1.15},
+                {
+                    "name": "narrator",
+                    "tone": "neutral",
+                    "tts_model": "alloy",
+                    "tts_speed": 1.0,
+                },
+                {
+                    "name": "character_ emotive",
+                    "tone": "expressive",
+                    "tts_model": "nova",
+                    "tts_speed": 1.15,
+                },
             ],
             "audio_segments": [
                 {"text": "This is the first segment.", "voice_name": "narrator"},
-                {"text": "And this is the second, more emotive segment!", "voice_name": "character_ emotive"},
+                {
+                    "text": "And this is the second, more emotive segment!",
+                    "voice_name": "character_ emotive",
+                },
             ],
         }
         article = Article.objects.create(
             feed=feed,
             title="Multi-Voice Article",
             text_content="Some text content here.",
-            multi_voice_data=sample_multi_voice_data, # Save the dict directly
+            multi_voice_data=sample_multi_voice_data,  # Save the dict directly
             status=Article.PROCESSING,
         )
         article.save()
@@ -170,8 +187,13 @@ class TestModels(TestCase):
         retrieved_article = Article.objects.get(id=article.id)
         self.assertIsNotNone(retrieved_article.multi_voice_data)
         self.assertIsInstance(retrieved_article.multi_voice_data, dict)
-        self.assertEqual(retrieved_article.multi_voice_data["voices"][0]["name"], "narrator")
-        self.assertEqual(retrieved_article.multi_voice_data["audio_segments"][1]["voice_name"], "character_ emotive")
+        self.assertEqual(
+            retrieved_article.multi_voice_data["voices"][0]["name"], "narrator"
+        )
+        self.assertEqual(
+            retrieved_article.multi_voice_data["audio_segments"][1]["voice_name"],
+            "character_ emotive",
+        )
         self.assertEqual(len(retrieved_article.multi_voice_data["voices"]), 2)
         # Compare the whole structure
         self.assertEqual(retrieved_article.multi_voice_data, sample_multi_voice_data)

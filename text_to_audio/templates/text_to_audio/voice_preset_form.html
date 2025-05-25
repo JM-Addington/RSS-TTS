@@ -53,6 +53,28 @@
         </div>
 
         <div class="mb-3">
+            <label for="{{ form.prompt.id_for_label }}" class="form-label">{{ form.prompt.label }}</label>
+            {{ form.prompt }}
+            {% if form.prompt.help_text %}<div class="form-text">{{ form.prompt.help_text }}</div>{% endif %}
+            {% if form.prompt.errors %}
+            <div class="text-danger">
+                {% for error in form.prompt.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label for="{{ form.sample_input.id_for_label }}" class="form-label">{{ form.sample_input.label }}</label>
+            {{ form.sample_input }}
+            {% if form.sample_input.help_text %}<div class="form-text">{{ form.sample_input.help_text }}</div>{% endif %}
+            {% if form.sample_input.errors %}
+            <div class="text-danger">
+                {% for error in form.sample_input.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
             <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
             {{ form.description }}
             {% if form.description.help_text %}<div class="form-text">{{ form.description.help_text }}</div>{% endif %}
