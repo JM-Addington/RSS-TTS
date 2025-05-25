@@ -281,3 +281,44 @@ class ArticleDeleteViewTests(TestCase):
             )
         )
         self.assertEqual(response_post.status_code, 404)
+
+
+class ArticlePlayViewTest(TestCase):
+    """Tests for the ArticlePlayView."""
+
+    def setUp(self):
+        """Create a user, feed, and completed article for testing."""
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="player", password="pass"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Play Feed")
+        self.article = Article.objects.create(
+            feed=self.feed,
+            title="Playable Article",
+            text_content="content",
+            status=Article.COMPLETED,
+            audio_uuid=uuid.uuid4(),
+            audio_file_path="dummy/path.mp3",
+        )
+        self.client.login(username="player", password="pass")
+
+    def test_article_play_view(self):
+        """Authenticated user can view the in-app player."""
+        response = self.client.get(
+            reverse("article-play", kwargs={"audio_uuid": self.article.audio_uuid})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.article.title)
+        self.assertTemplateUsed(response, "article_play.html")
+
+    def test_article_play_access_control(self):
+        """Users cannot play articles they do not own."""
+        other = User.objects.create_user(username="other", password="pass")
+        self.client.logout()
+        self.client.login(username="other", password="pass")
+
+        response = self.client.get(
+            reverse("article-play", kwargs={"audio_uuid": self.article.audio_uuid})
+        )
+        self.assertEqual(response.status_code, 404)
