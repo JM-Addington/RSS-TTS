@@ -328,18 +328,30 @@ def process_article(self, article_id: int) -> str:
                 # Record OpenAI usage stats
                 tokens_used = 0  # Default to 0
                 try:
-                    # Extract token usage from response with clear fallbacks
+                    # For TTS API calls, we can estimate tokens based on character count
+                    # OpenAI TTS token calculation is roughly 1 token per 4 characters
+                    # This is an estimation as OpenAI doesn't provide usage data for TTS
+                    tokens_used = len(chunk) // 4
+
+                    # Log the estimation approach
+                    logger.info(
+                        f"Using estimated token count for TTS: {tokens_used} tokens "
+                        f"for article {article_id}, chunk {i+1} ({len(chunk)} chars)"
+                    )
+
+                    # Rest of the code is kept for compatibility with other API calls
+                    # that might have usage information in the future
                     if hasattr(response, "usage") and hasattr(
                         response.usage, "total_tokens"
                     ):
                         try:
                             tokens_used = int(response.usage.total_tokens)
+                            logger.info(f"Using actual token count: {tokens_used}")
                         except (ValueError, TypeError):
                             logger.warning(
                                 f"Invalid token value in response.usage.total_tokens "
                                 f"for article {article_id}, chunk {i+1}"
                             )
-                            tokens_used = 0
                     elif hasattr(response, "headers"):
                         # Try standard header names
                         headers = ["x-openai-tokens-used", "openai-tokens-used"]
@@ -347,30 +359,23 @@ def process_article(self, article_id: int) -> str:
                             if header_name in response.headers:
                                 try:
                                     tokens_used = int(response.headers[header_name])
+                                    logger.info(
+                                        f"Using token count from header: {tokens_used}"
+                                    )
                                     break
                                 except (ValueError, TypeError):
                                     logger.warning(
                                         f"Invalid token value in header {header_name} "
                                         f"for article {article_id}, chunk {i+1}"
                                     )
-                        # Log if we couldn't find token info in headers
-                        if tokens_used == 0:
-                            logger.warning(
-                                f"No token usage found in headers for article "
-                                f"{article_id}, chunk {i+1}. Headers: "
-                                f"{list(response.headers.keys())[:5]}"
-                            )
-                    else:
-                        logger.warning(
-                            f"Cannot extract token usage - no usage/headers "
-                            f"for article {article_id}, chunk {i+1}"
-                        )
                 except Exception as usage_exc:
                     logger.error(
                         f"Error extracting tokens for article {article_id}, "
                         f"chunk {i+1}: {usage_exc}"
                     )
-                    tokens_used = 0
+                    # Fallback to character-based estimation
+                    tokens_used = len(chunk) // 4
+                    logger.info(f"Using fallback token estimation: {tokens_used}")
 
                 # Save OpenAI stats separately to isolate DB errors from
                 # the main audio processing flow
