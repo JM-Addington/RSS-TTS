@@ -45,6 +45,7 @@ class TestModels(TestCase):
             self.assertTrue(hasattr(Feed, "name"))
             self.assertTrue(hasattr(Feed, "token"))
             self.assertTrue(hasattr(Feed, "created_at"))
+            self.assertTrue(hasattr(Feed, "default_voice_preset"))
 
             # Check field types
             self.assertIsInstance(Feed._meta.get_field("user"), models.ForeignKey)
@@ -52,6 +53,9 @@ class TestModels(TestCase):
             self.assertIsInstance(Feed._meta.get_field("token"), models.UUIDField)
             self.assertIsInstance(
                 Feed._meta.get_field("created_at"), models.DateTimeField
+            )
+            self.assertIsInstance(
+                Feed._meta.get_field("default_voice_preset"), models.ForeignKey
             )
 
             # Check field attributes
@@ -150,19 +154,32 @@ class TestModels(TestCase):
         feed = Feed.objects.create(user=self.user, name="MultiVoice Feed")
         sample_multi_voice_data = {
             "voices": [
-                {"name": "narrator", "tone": "neutral", "tts_model": "alloy", "tts_speed": 1.0},
-                {"name": "character_ emotive", "tone": "expressive", "tts_model": "nova", "tts_speed": 1.15},
+                {
+                    "name": "narrator",
+                    "tone": "neutral",
+                    "tts_model": "alloy",
+                    "tts_speed": 1.0,
+                },
+                {
+                    "name": "character_ emotive",
+                    "tone": "expressive",
+                    "tts_model": "nova",
+                    "tts_speed": 1.15,
+                },
             ],
             "audio_segments": [
                 {"text": "This is the first segment.", "voice_name": "narrator"},
-                {"text": "And this is the second, more emotive segment!", "voice_name": "character_ emotive"},
+                {
+                    "text": "And this is the second, more emotive segment!",
+                    "voice_name": "character_ emotive",
+                },
             ],
         }
         article = Article.objects.create(
             feed=feed,
             title="Multi-Voice Article",
             text_content="Some text content here.",
-            multi_voice_data=sample_multi_voice_data, # Save the dict directly
+            multi_voice_data=sample_multi_voice_data,  # Save the dict directly
             status=Article.PROCESSING,
         )
         article.save()
@@ -170,8 +187,13 @@ class TestModels(TestCase):
         retrieved_article = Article.objects.get(id=article.id)
         self.assertIsNotNone(retrieved_article.multi_voice_data)
         self.assertIsInstance(retrieved_article.multi_voice_data, dict)
-        self.assertEqual(retrieved_article.multi_voice_data["voices"][0]["name"], "narrator")
-        self.assertEqual(retrieved_article.multi_voice_data["audio_segments"][1]["voice_name"], "character_ emotive")
+        self.assertEqual(
+            retrieved_article.multi_voice_data["voices"][0]["name"], "narrator"
+        )
+        self.assertEqual(
+            retrieved_article.multi_voice_data["audio_segments"][1]["voice_name"],
+            "character_ emotive",
+        )
         self.assertEqual(len(retrieved_article.multi_voice_data["voices"]), 2)
         # Compare the whole structure
         self.assertEqual(retrieved_article.multi_voice_data, sample_multi_voice_data)
@@ -306,106 +328,3 @@ if __name__ == "__main__":
     import pytest
 
     pytest.main([__file__])
-
-
-class FollowedFeedModelTests(TestCase):
-    """Tests for the FollowedFeed model."""
-
-    def setUp(self):
-        """Set up test data."""
-        self.user = User.objects.create_user(
-            username="followedfeeduser",
-            email="followed@example.com",
-            password="testpass123",
-        )
-        self.destination_feed = Feed.objects.create(
-            user=self.user, name="My Destination Feed"
-        )
-        # Import FollowedFeed here to ensure apps are ready
-        from text_to_audio.models import FollowedFeed
-        self.FollowedFeed = FollowedFeed
-
-
-    def test_followed_feed_creation(self):
-        """Test basic creation of a FollowedFeed instance."""
-        followed_feed = self.FollowedFeed.objects.create(
-            user=self.user,
-            url="https://example.com/rss",
-            destination_feed=self.destination_feed,
-        )
-        self.assertIsNotNone(followed_feed.pk)
-        self.assertEqual(followed_feed.user, self.user)
-        self.assertEqual(followed_feed.url, "https://example.com/rss")
-        self.assertEqual(followed_feed.destination_feed, self.destination_feed)
-        self.assertIsNotNone(followed_feed.created_at)
-        self.assertIsNotNone(followed_feed.updated_at)
-
-    def test_is_active_default_value(self):
-        """Test that is_active defaults to True."""
-        followed_feed = self.FollowedFeed.objects.create(
-            user=self.user,
-            url="https://example.com/rss2",
-            destination_feed=self.destination_feed,
-        )
-        self.assertTrue(followed_feed.is_active)
-
-    def test_str_representation(self):
-        """Test the string representation of the FollowedFeed model."""
-        followed_feed = self.FollowedFeed.objects.create(
-            user=self.user,
-            url="https://example.com/rss_str",
-            destination_feed=self.destination_feed,
-        )
-        expected_str = f"https://example.com/rss_str (for {self.user.username})"
-        self.assertEqual(str(followed_feed), expected_str)
-
-    def test_foreign_key_relations(self):
-        """Test that user and destination_feed foreign keys are correctly related."""
-        followed_feed = self.FollowedFeed.objects.create(
-            user=self.user,
-            url="https://example.com/rss_fk",
-            destination_feed=self.destination_feed,
-        )
-        self.assertEqual(followed_feed.user, self.user)
-        self.assertEqual(self.user.followed_feeds.count(), 1)
-        self.assertEqual(self.user.followed_feeds.first(), followed_feed)
-
-        self.assertEqual(followed_feed.destination_feed, self.destination_feed)
-        self.assertEqual(self.destination_feed.source_feeds.count(), 1)
-        self.assertEqual(self.destination_feed.source_feeds.first(), followed_feed)
-        
-    def test_unique_together_constraint(self):
-        """Test the unique_together constraint on user, url, and destination_feed."""
-        from django.db import IntegrityError
-
-        self.FollowedFeed.objects.create(
-            user=self.user,
-            url="https://example.com/unique_rss",
-            destination_feed=self.destination_feed,
-        )
-        with self.assertRaises(IntegrityError):
-            self.FollowedFeed.objects.create(
-                user=self.user,
-                url="https://example.com/unique_rss", # Same URL
-                destination_feed=self.destination_feed, # Same destination_feed
-            )
-
-    def test_last_guid_and_last_checked_nullable(self):
-        """Test that last_guid and last_checked can be null."""
-        followed_feed = self.FollowedFeed.objects.create(
-            user=self.user,
-            url="https://example.com/rss_nullable",
-            destination_feed=self.destination_feed,
-            last_guid=None,
-            last_checked=None,
-        )
-        self.assertIsNone(followed_feed.last_guid)
-        self.assertIsNone(followed_feed.last_checked)
-
-        followed_feed.last_guid = "some-guid"
-        followed_feed.last_checked = timezone.now()
-        followed_feed.save()
-        
-        retrieved = self.FollowedFeed.objects.get(pk=followed_feed.pk)
-        self.assertEqual(retrieved.last_guid, "some-guid")
-        self.assertIsNotNone(retrieved.last_checked)

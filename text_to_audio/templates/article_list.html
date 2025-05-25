@@ -82,11 +82,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if article.voice_id %}
-                                <span class="badge bg-secondary">{{ article.voice_id }}</span>
-                            {% elif article.voice_preset %}
-                                <span class="badge bg-secondary">{{ article.voice_preset.name }}</span>
-                            {% elif article.voice %}
+                            {% if article.voice %}
                                 <span class="badge bg-secondary">{{ article.get_voice_display }}</span>
                             {% else %}
                                 <span class="text-muted">Default</span>
