@@ -7,7 +7,7 @@ RSS-TTS system.
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import Article, UserVoicePreset, UserVoiceProfile
+from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
 from .services.voice_configuration import VoiceConfigurationService
 
 
@@ -227,7 +227,14 @@ class VoicePresetForm(forms.ModelForm):
         """Meta options for the VoicePresetForm."""
 
         model = UserVoicePreset
-        fields = ["name", "voice_id", "speed", "description"]
+        fields = [
+            "name",
+            "voice_id",
+            "speed",
+            "prompt",
+            "sample_input",
+            "description",
+        ]
 
     def __init__(self, *args, **kwargs):
         """Initialize the form with dynamic choices for voice and speed."""
@@ -259,3 +266,31 @@ class VoicePresetForm(forms.ModelForm):
                 "placeholder": "Optional description of this voice preset.",
             }
         )
+
+        self.fields["prompt"].widget = forms.Textarea(
+            attrs={"rows": 3, "placeholder": "Style prompt (optional)"}
+        )
+        self.fields["sample_input"].widget = forms.Textarea(
+            attrs={"rows": 3, "placeholder": "Sample text used for design (optional)"}
+        )
+
+
+class FeedForm(forms.ModelForm):
+    """Form for creating and editing feeds with default voice preset."""
+
+    default_voice_preset = forms.ModelChoiceField(
+        queryset=UserVoicePreset.objects.none(),
+        required=False,
+        help_text="Preset applied to new articles in this feed by default.",
+    )
+
+    class Meta:
+        model = Feed
+        fields = ["name", "default_voice_preset"]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user and user.is_authenticated:
+            self.fields["default_voice_preset"].queryset = (
+                UserVoicePreset.objects.filter(user=user).order_by("name")
+            )

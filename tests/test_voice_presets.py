@@ -2,12 +2,12 @@
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
+from unittest.mock import patch
 from django.urls import reverse
 
 from text_to_audio.models import Article, Feed, UserVoicePreset
 from text_to_audio.services.user_preferences import UserPreferencesService
-from text_to_audio.services.voice_configuration import \
-    VoiceConfigurationService
+from text_to_audio.services.voice_configuration import VoiceConfigurationService
 
 
 class VoicePresetModelTest(TestCase):
@@ -292,6 +292,8 @@ class VoicePresetViewsTest(TestCase):
                 "name": "Updated View Preset",
                 "voice_id": "fable",
                 "speed": 0.8,
+                "prompt": "",
+                "sample_input": "",
                 "description": "Updated via view test",
             },
             follow=True,
@@ -326,3 +328,26 @@ class VoicePresetViewsTest(TestCase):
         # Verify preset was deleted
         with self.assertRaises(UserVoicePreset.DoesNotExist):
             UserVoicePreset.objects.get(id=preset.id)
+
+    def test_feed_default_preset_applied(self):
+        """Article creation uses feed default preset when none selected."""
+        default_preset = UserVoicePreset.objects.create(
+            user=self.user, name="Default", voice_id="nova", speed=1.1
+        )
+        feed = Feed.objects.create(
+            user=self.user,
+            name="Feed With Default",
+            default_voice_preset=default_preset,
+        )
+
+        with patch("text_to_audio.views.process_article.delay") as mock_delay:
+            mock_task = mock_delay.return_value
+            mock_task.id = "task-id"
+            response = self.client.post(
+                reverse("feed-article-create", args=[feed.id]),
+                {"title": "A", "text_content": "b"},
+            )
+            self.assertEqual(response.status_code, 302)
+
+            article = Article.objects.get(title="A")
+            self.assertEqual(article.voice_preset, default_preset)
