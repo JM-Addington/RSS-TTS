@@ -373,6 +373,18 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
         article = form.save(commit=False)
         article.feed = self.feed
 
+        # Save voice settings if provided
+        voice_id = form.cleaned_data.get("voice_id")
+        speed_val = form.cleaned_data.get("speed")
+        article.voice_id = voice_id or None
+        if speed_val:
+            try:
+                article.speed = float(speed_val)
+            except (TypeError, ValueError):
+                article.speed = None
+        else:
+            article.speed = None
+
         # If URL is provided, validate it first
         if article.source_url:
             success, html, error = fetch_url_content(article.source_url)
