@@ -8,6 +8,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.db.models import JSONField
 
 
 class Feed(models.Model):
@@ -126,6 +127,11 @@ class Article(models.Model):
         null=True,
         blank=True,
         help_text="Speed multiplier for text-to-speech conversion.",
+    )
+    multi_voice_data: JSONField = JSONField(
+        null=True,
+        blank=True,
+        help_text="Stores structured data for multi-voice audio, including voice definitions and text segments.",
     )
 
     def __str__(self) -> str:

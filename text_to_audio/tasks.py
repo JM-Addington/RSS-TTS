@@ -233,8 +233,12 @@ def process_article(self, article_id: int) -> str:
     article.save(update_fields=["status"])
 
     logger.info(f"Starting processing for Article ID: {article_id}")
-    temp_audio_files: list[Path] = []
+    generated_audio_files: list[Path] = []  # Holds all generated audio pieces for final stitching
     final_audio_path: Path | None = None
+    
+    # Initialize OpenAI client and user once
+    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+    user = article.feed.user # For _save_openai_usage_stats
 
     try:
         # Ensure media directory exists
@@ -245,7 +249,7 @@ def process_article(self, article_id: int) -> str:
         # Generate a UUID for the article audio file if not already set
         if not article.audio_uuid:
             article.audio_uuid = uuid.uuid4()
-            article.save(update_fields=["audio_uuid"])
+            article.save(update_fields=["audio_uuid"]) # Save immediately if other parts rely on it
 
         # If article has a source_url but no text_content, fetch and extract content
         if article.source_url and not article.text_content:
@@ -285,271 +289,250 @@ def process_article(self, article_id: int) -> str:
                 f"from URL for Article ID: {article_id}"
             )
 
-        if not article.text_content:
+        if not article.text_content: # This check is crucial
+            logger.error(f"Article {article_id} has no text_content after potential URL fetch.")
             raise ValueError("Article text_content is empty.")
 
-        # Prepend article title to text content for audio
-        text_for_audio = article.text_content
-        if article.title:
-            text_for_audio = f"{article.title}.\n\n{article.text_content}"
-
-        # Get text chunks with default max_length of 4000
-        success, text_chunks = _chunk_text(text_for_audio)
-        if not text_chunks:
-            raise ValueError("No text chunks generated from text_content.")
-
-        if not success:
-            logger.warning(f"Article {article_id}: forced word splits required")
-
-        logger.info(f"Generated {len(text_chunks)} chunks for Article ID: {article_id}")
-
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-
-        for i, chunk in enumerate(text_chunks):
-            logger.debug(
-                f"Processing chunk {i+1}/{len(text_chunks)} for Article: {article_id}"
-            )
-            temp_file_path = (
-                article_media_dir
-                / f"temp_article_{article_id}_chunk_{i}_{uuid.uuid4()}.mp3"
-            )
-
+        # Analyze content to get multi-voice data.
+        # This is done before TTS generation.
+        # The result will be stored in article.multi_voice_data.
+        # If this step fails or if the data is invalid, we will fall back to single-voice generation.
+        if article.text_content: # Only proceed if there's text content
             try:
+                logger.info(f"Performing content analysis for Article ID: {article_id} to get multi-voice data.")
+                content_service = ContentAnalysisService()
+                
+                # Use a sample of the text for analysis if it's too long
+                # The full text is used for actual TTS, analysis_text_sample is for the LLM prompt
+                analysis_text_sample = article.text_content[:2000] if len(article.text_content) > 2000 else article.text_content
+                
+                analysis_result_json = content_service.analyze_content(
+                    analysis_text_sample, 
+                    title=article.title
+                )
+                
+                article.multi_voice_data = analysis_result_json
+                # The fields article.summary, article.detected_tone, article.voice_id, article.speed
+                # are no longer directly set from this specific analysis call.
+                # They might be deprecated or populated via a different mechanism if still needed.
+                # For instance, a summary might be part of analysis_result_json or a separate LLM call.
+                # article.voice_id and article.speed are now primarily for fallback.
+                article.save(update_fields=["multi_voice_data"])
+                logger.info(f"Content analysis successful, multi_voice_data updated for Article ID: {article_id}")
+
+            except Exception as analysis_exc:
+                logger.error(f"Content analysis failed for Article ID {article_id}: {analysis_exc}")
+                logger.debug(traceback.format_exc())
+                article.multi_voice_data = None # Ensure it's None on failure
+                article.save(update_fields=["multi_voice_data"])
+                # Do not re-raise here; allow fallback to single voice processing later.
+        else:
+            logger.warning(f"Article ID: {article_id} has no text_content. Skipping content analysis.")
+            article.multi_voice_data = None
+            # No need to save here if it was already None or if text_content was missing from start
+
+        
+        # --- Multi-Voice TTS Generation Attempt ---
+        multi_voice_generation_successful = False
+        if _is_valid_multi_voice_data(article.multi_voice_data):
+            try:
+                logger.info(f"Attempting multi-voice TTS generation for Article ID: {article_id}")
+                voices_map = {v["name"]: v for v in article.multi_voice_data["voices"]}
+                
+                concatenated_multi_voice_text = ""
+                for segment_idx, segment_data in enumerate(article.multi_voice_data["audio_segments"]):
+                    segment_text = segment_data.get("text")
+                    voice_name = segment_data.get("voice_name")
+
+                    if not segment_text or not voice_name:
+                        logger.warning(f"Invalid segment data (segment {segment_idx}) in Article {article_id}: {segment_data}. Skipping.")
+                        continue
+                    
+                    concatenated_multi_voice_text += segment_text # For later validation
+
+                    voice_definition = voices_map.get(voice_name)
+                    if not voice_definition:
+                        logger.error(f"Voice '{voice_name}' not defined in multi_voice_data for Article {article_id}, segment {segment_idx}.")
+                        raise ValueError(f"Voice '{voice_name}' not defined.") # Triggers fallback
+
+                    # Ensure tts_model is actually the OpenAI voice name like "alloy", "echo"
+                    # The prompt asks for "tts_model": "string (e.g., 'alloy', 'onyx')"
+                    # The API client.audio.speech.create takes `voice` parameter for this.
+                    tts_api_voice = voice_definition.get("tts_model") 
+                    if not tts_api_voice:
+                        logger.error(f"Missing 'tts_model' for voice '{voice_name}' in Article {article_id}.")
+                        raise ValueError(f"Missing 'tts_model' for voice '{voice_name}'.")
+
+                    tts_speed = float(voice_definition.get("tts_speed", 1.0))
+                    # Basic validation for speed to prevent API errors
+                    if not (0.25 <= tts_speed <= 4.0):
+                        logger.warning(f"Invalid TTS speed {tts_speed} for voice {voice_name}. Clamping to range [0.25, 4.0].")
+                        tts_speed = max(0.25, min(tts_speed, 4.0))
+
+                    # Chunk the segment's text if necessary
+                    _, segment_text_chunks = _chunk_text(segment_text)
+                    if not segment_text_chunks:
+                        logger.warning(f"Segment {segment_idx} for article {article_id} ('{voice_name}') resulted in no text chunks. Skipping.")
+                        continue
+                    
+                    logger.info(f"Processing segment {segment_idx+1}/{len(article.multi_voice_data['audio_segments'])} ('{voice_name}', {len(segment_text_chunks)} sub-chunks) for Article ID: {article_id}")
+
+                    for chunk_idx, chunk_text in enumerate(segment_text_chunks):
+                        chunk_temp_file_path = article_media_dir / f"temp_article_{article.audio_uuid}_segment_{segment_idx}_chunk_{chunk_idx}_{uuid.uuid4()}.mp3"
+                        start_time = time.monotonic()
+                        
+                        response = client.audio.speech.create(
+                            model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"), # tts-1 or tts-1-hd
+                            voice=tts_api_voice, # This is 'alloy', 'echo', etc.
+                            input=chunk_text,
+                            speed=tts_speed
+                        )
+                        response.stream_to_file(chunk_temp_file_path)
+                        end_time = time.monotonic()
+                        processing_time_ms = int((end_time - start_time) * 1000)
+                        
+                        generated_audio_files.append(chunk_temp_file_path)
+                        word_count = len(chunk_text.split())
+                        # TODO: Improve token counting if possible from response, for now passing 0
+                        _save_openai_usage_stats(user, article, article_id, f"segment_{segment_idx}_chunk_{chunk_idx}", 0, processing_time_ms, word_count)
+                
+                # Validate concatenated text matches original (if possible, or a large portion of it)
+                # This is a basic sanity check for the LLM's segmentation.
+                # The LLM prompt for ContentAnalysisService asks for this:
+                # "Ensure that the concatenation of all `text` fields in `audio_segments` exactly matches the original input text."
+                # However, we use a sample for analysis (first 2000 chars). So we can only validate against that sample.
+                text_sample_for_validation = article.text_content[:2000] if len(article.text_content) > 2000 else article.text_content
+                if not concatenated_multi_voice_text.startswith(text_sample_for_validation.strip()[:len(concatenated_multi_voice_text)-50]): # Allow some minor diff at end
+                     logger.warning(f"Article {article_id}: Concatenated multi-voice text does not closely match the beginning of the original text sample. This might indicate an issue with segmentation from the LLM.")
+                     # Not raising an error here, but logging it. The audio will still be generated.
+
+                if not generated_audio_files: # Check if any audio files were actually created
+                    logger.warning(f"Multi-voice processing attempted for Article ID {article_id}, but no audio files were generated.")
+                    # This will naturally lead to fallback if multi_voice_generation_successful remains False
+                else:
+                    multi_voice_generation_successful = True
+                    logger.info(f"Multi-voice TTS generation successful for Article ID: {article_id}, {len(generated_audio_files)} audio pieces generated.")
+
+            except Exception as mv_exc:
+                logger.error(f"Multi-voice TTS generation failed for Article ID {article_id}: {mv_exc}")
+                logger.debug(traceback.format_exc())
+                # Clean up any partially generated multi-voice files before fallback
+                for temp_file in generated_audio_files:
+                    if temp_file.exists(): os.remove(temp_file)
+                generated_audio_files = [] # Reset for fallback
+                multi_voice_generation_successful = False # Ensure fallback is triggered
+        else:
+            logger.info(f"Skipping multi-voice generation for Article ID: {article_id} due to missing or invalid multi_voice_data.")
+
+        # --- Fallback to Single-Voice Generation ---
+        if not multi_voice_generation_successful:
+            logger.info(f"Falling back to single-voice TTS generation for Article ID: {article_id}")
+            
+            # Ensure any previous (failed multi-voice) temp files are cleared
+            if generated_audio_files: # Should be empty if mv_exc occurred and was handled
+                logger.warning(f"Clearing {len(generated_audio_files)} residual files before fallback.")
+                for temp_file in generated_audio_files:
+                    if temp_file.exists(): os.remove(temp_file)
+                generated_audio_files = []
+
+            text_for_audio = article.text_content 
+            if article.title:
+                text_for_audio = f"{article.title}.\n\n{article.text_content}"
+
+            _, text_chunks = _chunk_text(text_for_audio)
+            if not text_chunks:
+                raise ValueError("No text chunks generated from text_content for single-voice fallback.")
+
+            logger.info(f"Generated {len(text_chunks)} chunks for single-voice fallback (Article ID: {article_id})")
+            
+            fallback_voice = article.voice_id or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
+            fallback_speed = article.speed or 1.0
+            # Note: article.voice_id and article.speed might not be populated if the primary analysis
+            # path only sets multi_voice_data. These fields should ideally be populated by user preferences
+            # or a simpler, separate analysis if multi-voice fails or is not applicable.
+            # For now, this relies on them being potentially set or using global defaults.
+            logger.info(f"Fallback voice: {fallback_voice}, speed: {fallback_speed} for Article ID: {article_id}")
+
+            for i, chunk in enumerate(text_chunks):
+                temp_file_path = article_media_dir / f"temp_article_{article.audio_uuid}_fallback_chunk_{i}_{uuid.uuid4()}.mp3"
                 start_time = time.monotonic()
-                # Use article-specific voice and speed if available
                 response = client.audio.speech.create(
                     model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
-                    voice=article.voice_id or getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
+                    voice=fallback_voice,
                     input=chunk,
-                    speed=article.speed or 1.0,  # Apply speed if set
+                    speed=fallback_speed,
                 )
                 response.stream_to_file(temp_file_path)
                 end_time = time.monotonic()
                 processing_time_ms = int((end_time - start_time) * 1000)
-
-                temp_audio_files.append(temp_file_path)
-                logger.debug(f"Saved audio chunk to {temp_file_path}")
-
-                # Record OpenAI usage stats
-                tokens_used = 0  # Default to 0
-                try:
-                    # Extract token usage from response with clear fallbacks
-                    if hasattr(response, "usage") and hasattr(
-                        response.usage, "total_tokens"
-                    ):
-                        try:
-                            tokens_used = int(response.usage.total_tokens)
-                        except (ValueError, TypeError):
-                            logger.warning(
-                                f"Invalid token value in response.usage.total_tokens "
-                                f"for article {article_id}, chunk {i+1}"
-                            )
-                            tokens_used = 0
-                    elif hasattr(response, "headers"):
-                        # Try standard header names
-                        headers = ["x-openai-tokens-used", "openai-tokens-used"]
-                        for header_name in headers:
-                            if header_name in response.headers:
-                                try:
-                                    tokens_used = int(response.headers[header_name])
-                                    break
-                                except (ValueError, TypeError):
-                                    logger.warning(
-                                        f"Invalid token value in header {header_name} "
-                                        f"for article {article_id}, chunk {i+1}"
-                                    )
-                        # Log if we couldn't find token info in headers
-                        if tokens_used == 0:
-                            logger.warning(
-                                f"No token usage found in headers for article "
-                                f"{article_id}, chunk {i+1}. Headers: "
-                                f"{list(response.headers.keys())[:5]}"
-                            )
-                    else:
-                        logger.warning(
-                            f"Cannot extract token usage - no usage/headers "
-                            f"for article {article_id}, chunk {i+1}"
-                        )
-                except Exception as usage_exc:
-                    logger.error(
-                        f"Error extracting tokens for article {article_id}, "
-                        f"chunk {i+1}: {usage_exc}"
-                    )
-                    tokens_used = 0
-
-                # Save OpenAI stats separately to isolate DB errors from
-                # the main audio processing flow
+                
+                generated_audio_files.append(temp_file_path)
                 word_count = len(chunk.split())
-                user = article.feed.user
-                # Create stats record in a separate function to isolate DB errors
-                _save_openai_usage_stats(
-                    user=user,
-                    article=article,
-                    article_id=article_id,
-                    chunk_index=i + 1,
-                    tokens_used=tokens_used,
-                    processing_time_ms=processing_time_ms,
-                    word_count=word_count,
-                )
+                # TODO: Improve token counting if possible from response
+                _save_openai_usage_stats(user, article, article_id, f"fallback_chunk_{i}", 0, processing_time_ms, word_count)
 
-            except openai.APIError as e:
-                logger.error(
-                    f"OpenAI API error on chunk {i+1} " f"for article {article_id}: {e}"
-                )
-                # Decide if retry at chunk level or fail whole task
-                # Fail task and rely on Celery's retry mechanism
-                raise  # Re-raise to be caught by outer try-except
+            if not generated_audio_files: # Should not happen if text_chunks is not empty
+                raise ValueError("Single-voice fallback processing attempted but no audio files were generated.")
+            logger.info(f"Single-voice fallback TTS generation successful for Article ID: {article_id}, {len(generated_audio_files)} audio pieces generated.")
 
-        if not temp_audio_files:
-            raise ValueError("No audio files were generated from chunks.")
+        # --- Audio Stitching and Finalization (Common for both paths) ---
+        if not generated_audio_files:
+            raise ValueError("No audio files were generated by any TTS process. Cannot proceed.")
 
-        # Analyze content to get tone, summary, and voice recommendation
-        try:
-            if article.text_content:
-                logger.info(f"Analyzing content for Article ID: {article_id}")
-                
-                # Initialize services
-                content_service = ContentAnalysisService()
-                voice_service = VoiceConfigurationService()
-                pref_service = UserPreferencesService()
-                
-                # Use a sample of the text for analysis
-                analysis_text = article.text_content
-                if len(analysis_text) > 2000:
-                    analysis_text = analysis_text[:2000]
-                    
-                # Analyze content
-                analysis_result = content_service.analyze_content(
-                    analysis_text, 
-                    title=article.title
-                )
-                
-                # Save results to article
-                article.detected_tone = analysis_result["tone"]
-                if not article.summary:  # Only update summary if it's not already set
-                    article.summary = analysis_result["summary"]
-                
-                # Get voice configuration
-                user_preferences = pref_service.get_user_preferences(article.feed.user)
-                article_preferences = pref_service.get_article_preferences(article)
-                
-                voice_config = voice_service.get_voice_config(
-                    detected_tone=analysis_result["tone"],
-                    user_preferences=user_preferences,
-                    article_preferences=article_preferences,
-                    voice_recommendation=analysis_result["voice_recommendation"]
-                )
-                
-                # Save final voice config to article
-                article.voice_id = voice_config["voice"]
-                article.speed = voice_config["speed"]
-                
-                # Save all updates
-                article.save(update_fields=["detected_tone", "summary", "voice_id", "speed"])
-                logger.info(f"Content analysis completed for Article ID: {article_id}")
-        except Exception as analysis_exc:
-            # Log but don't fail the whole process if analysis fails
-            logger.error(
-                f"Error analyzing content for Article ID {article_id}: {analysis_exc}"
-            )
-            logger.debug(traceback.format_exc())
-            # Continue with audio generation
-
-        # Stitch audio files
-        # Define ID3 tags and export parameters
-        feed_name = "My Podcast"
+        final_audio_path = article_media_dir / f"{article.audio_uuid}.mp3"
+        
+        feed_name = "My Podcast" # Default
         if article.feed and article.feed.name:
             feed_name = article.feed.name
-        # Handle case where feed.name is explicitly None
-        elif (
-            hasattr(article, "feed")
-            and hasattr(article.feed, "name")
-            and article.feed.name is None
-        ):
-            feed_name = "My Podcast"
-
-        tags_dict = {
-            "title": article.title if article.title else "Untitled Article",
-            "artist": feed_name,
-            "album": feed_name,
-        }
+        
+        tags_dict = {"title": article.title or "Untitled Article", "artist": feed_name, "album": feed_name}
         export_parameters = ["-id3v2_version", "3", "-write_id3v1", "1"]
 
-        # Save files directly as UUID.mp3 (without "article_" prefix)
-        # to match Caddy's rewrite rule
-        final_audio_path = article_media_dir / f"{article.audio_uuid}.mp3"
-
-        if len(temp_audio_files) == 1:
-            temp_single_audio_path = temp_audio_files[0]
-            try:
-                audio_segment = AudioSegment.from_mp3(temp_single_audio_path)
-                audio_segment = audio_segment.set_frame_rate(44100)
-                audio_segment.export(
-                    final_audio_path,
-                    format="mp3",
-                    bitrate="128k",
-                    tags=tags_dict,
-                    parameters=export_parameters,
-                )
-                logger.info(
-                    f"Processed single audio chunk and exported to {final_audio_path}"
-                )
-            except Exception as e:
-                logger.error(
-                    f"Error processing single audio chunk {temp_single_audio_path}: {e}"
-                )
-                fname = temp_single_audio_path.name
-                error_msg = f"Failed to process single audio chunk {fname}"
-                raise ValueError(f"{error_msg}: {e}") from e
+        if len(generated_audio_files) == 1:
+            single_audio_path = generated_audio_files[0]
+            # It's safer to copy/process the file rather than renaming, then clean up.
+            # For single files, we still re-export to apply tags and ensure format.
+            audio_segment = AudioSegment.from_mp3(single_audio_path)
+            audio_segment = audio_segment.set_frame_rate(44100) # Ensure consistent frame rate
+            audio_segment.export(final_audio_path, format="mp3", bitrate="128k", tags=tags_dict, parameters=export_parameters)
+            logger.info(f"Processed single audio file and exported to {final_audio_path}")
         else:
             combined_audio = AudioSegment.empty()
-            for temp_file in temp_audio_files:
+            for temp_file_path_item in generated_audio_files:
                 try:
-                    segment = AudioSegment.from_mp3(temp_file)
-                    combined_audio += segment
-                except Exception as e:  # pydub can raise various errors
-                    logger.error(
-                        f"Pydub error processing chunk {temp_file} "
-                        f"for article {article_id}: {e}"
-                    )
-                    error_msg = f"Failed to process audio chunk {temp_file.name}"
-                    raise ValueError(f"{error_msg}: {e}") from e
-
-            if combined_audio:
-                combined_audio = combined_audio.set_frame_rate(44100)
-                combined_audio.export(
-                    final_audio_path,
-                    format="mp3",
-                    bitrate="128k",
-                    tags=tags_dict,
-                    parameters=export_parameters,
-                )
-                chunks_count = len(temp_audio_files)
-                logger.info(
-                    f"Combined {chunks_count} audio chunks "
-                    f"and exported to {final_audio_path}"
-                )
+                    segment_audio = AudioSegment.from_mp3(temp_file_path_item)
+                    combined_audio += segment_audio
+                except Exception as e: # Catch specific pydub errors if known
+                    logger.error(f"Pydub error processing chunk {temp_file_path_item} for article {article_id}: {e}")
+                    # Decide if this should raise immediately or try to continue with other segments
+                    raise ValueError(f"Failed to process audio chunk {temp_file_path_item.name}: {e}") from e
+            
+            if combined_audio.duration_seconds > 0:
+                combined_audio = combined_audio.set_frame_rate(44100) # Ensure consistent frame rate
+                combined_audio.export(final_audio_path, format="mp3", bitrate="128k", tags=tags_dict, parameters=export_parameters)
+                logger.info(f"Combined {len(generated_audio_files)} audio files and exported to {final_audio_path}")
             else:
-                raise ValueError("Combined audio is empty, cannot export.")
+                # This case should ideally be prevented by checks earlier (e.g., if generated_audio_files is empty)
+                raise ValueError("Combined audio is empty or has zero duration, cannot export.")
 
         article.audio_file_path = str(final_audio_path.relative_to(media_root))
         article.status = Article.COMPLETED
-        article.error_message = None  # Clear any previous error
-        article.save(update_fields=["audio_file_path", "status", "error_message"])
-        logger.info(
-            f"Processed Article ID: {article_id}. Audio at: {article.audio_file_path}"
-        )
+        article.error_message = None # Clear any previous error
+        # Save multi_voice_data again in case it was changed (e.g. by validation/cleaning, though not implemented here)
+        # or to ensure it's persisted if it was valid and used.
+        article.save(update_fields=["audio_file_path", "status", "error_message", "multi_voice_data"]) 
+        logger.info(f"Successfully processed Article ID: {article_id}. Audio at: {article.audio_file_path}")
         return f"Article {article_id} processed successfully."
 
     except Exception as e:
-        logger.error(f"Error processing Article ID {article_id}: {e}")
+        logger.error(f"Unhandled error processing Article ID {article_id}: {e}")
         detailed_error = traceback.format_exc()
         logger.error(detailed_error)
 
         article.status = Article.FAILED
-        # Store a truncated traceback
         article.error_message = f"{type(e).__name__}: {e}\n{detailed_error[:1000]}"
-        article.save(update_fields=["status", "error_message"])
+        # Persist multi_voice_data even on failure, as it might be useful for debugging
+        article.save(update_fields=["status", "error_message", "multi_voice_data"]) 
 
         # Celery retry mechanism
         try:
@@ -574,15 +557,47 @@ def process_article(self, article_id: int) -> str:
         return f"Failed to process Article {article_id}: {e}"
 
     finally:
-        # Clean up temporary chunk files
-        for temp_file in temp_audio_files:
-            if temp_file.exists():
+        # Clean up all temporary audio files collected in generated_audio_files list
+        for temp_file_path_item in generated_audio_files:
+            if temp_file_path_item.exists():
                 try:
-                    os.remove(temp_file)
-                    logger.debug(f"Cleaned up temporary file: {temp_file}")
+                    os.remove(temp_file_path_item)
+                    logger.debug(f"Cleaned up temporary file: {temp_file_path_item}")
                 except OSError as e:
-                    logger.error(f"Error deleting temporary file {temp_file}: {e}")
+                    logger.error(f"Error deleting temporary file {temp_file_path_item}: {e}")
 
+
+def _is_valid_multi_voice_data(data: dict | None) -> bool:
+    """Validate the basic structure of multi_voice_data."""
+    if not isinstance(data, dict):
+        logger.debug("multi_voice_data is not a dict or is None.")
+        return False
+    if "voices" not in data or "audio_segments" not in data:
+        logger.debug("multi_voice_data missing 'voices' or 'audio_segments' keys.")
+        return False
+    if not isinstance(data["voices"], list) or not isinstance(data["audio_segments"], list):
+        logger.debug("'voices' or 'audio_segments' is not a list.")
+        return False
+    if not data["voices"]: # Must have at least one voice defined
+        logger.debug("'voices' list is empty.")
+        return False
+    if not data["audio_segments"]: # Must have at least one segment
+        logger.debug("'audio_segments' list is empty.")
+        return False
+    
+    # Check structure of first voice definition (sample check)
+    first_voice = data["voices"][0]
+    if not all(k in first_voice for k in ["name", "tone", "tts_model", "tts_speed"]):
+        logger.debug("First voice definition in 'voices' list is missing required keys.")
+        return False
+        
+    # Check structure of first audio segment (sample check)
+    first_segment = data["audio_segments"][0]
+    if not all(k in first_segment for k in ["text", "voice_name"]):
+        logger.debug("First audio segment in 'audio_segments' list is missing required keys.")
+        return False
+        
+    return True
 
 @shared_task
 def check_stale_articles():
