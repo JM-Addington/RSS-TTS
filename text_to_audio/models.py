@@ -105,6 +105,11 @@ class Article(models.Model):
         blank=True,
         help_text="ID of the Celery task processing this article.",
     )
+    summary: models.TextField = models.TextField(
+        null=True,
+        blank=True,
+        help_text="AI-generated summary of the article content.",
+    )
 
     def __str__(self) -> str:
         """Return a string representation of the article."""

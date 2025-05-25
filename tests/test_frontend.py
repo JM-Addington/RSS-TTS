@@ -3,7 +3,7 @@
 # mypy: disable-error-code="attr-defined"
 
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -98,7 +98,7 @@ class TestArticleSubmission(TestCase):
         self.client.login(username="tester", password="pass123")
         with patch("text_to_audio.views.process_article.delay") as mock_delay:
             # Configure mock to return a task with an ID
-            mock_task = patch.MagicMock()
+            mock_task = MagicMock()
             mock_task.id = "mock-task-id-frontend"
             mock_delay.return_value = mock_task
 
