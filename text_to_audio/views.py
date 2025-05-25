@@ -14,18 +14,14 @@ from django.http import FileResponse, HttpResponseNotFound
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import (
-    CreateView,
-    DeleteView,
-    ListView,
-    TemplateView,
-    UpdateView,
-)
+from django.views.generic import (CreateView, DeleteView, ListView,
+                                  TemplateView, UpdateView)
 
 from .forms import ArticleSubmissionForm
 from .models import Article, Feed
 from .tasks import process_article
-from .utils import extract_article_text, extract_title_from_html, fetch_url_content
+from .utils import (extract_article_text, extract_title_from_html,
+                    fetch_url_content)
 
 
 class HomeView(TemplateView):
@@ -389,7 +385,10 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 article.title = title or f"Article from {article.source_url}"
 
         article.save()
-        process_article.delay(article.pk)
+        task = process_article.delay(article.pk)
+        article.celery_task_id = task.id
+        # Restrict fields on save
+        article.save(update_fields=["celery_task_id", "updated_at"])
         return super().form_valid(form)
 
     def get_success_url(self):
@@ -428,7 +427,10 @@ class RegenerateArticleView(LoginRequiredMixin, View):
         new_article.save()
 
         # Queue the new article for processing
-        process_article.delay(new_article.pk)
+        task = process_article.delay(new_article.pk)
+        new_article.celery_task_id = task.id
+        # Restrict fields on save
+        new_article.save(update_fields=["celery_task_id", "updated_at"])
 
         # Get the feed ID
         # Using getattr to work around mypy limitations with Django models
