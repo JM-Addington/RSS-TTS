@@ -37,6 +37,11 @@ class RegenerateArticleViewTest(TestCase):
     @mock.patch("text_to_audio.views.process_article.delay")
     def test_regenerate_article(self, mock_process_article):
         """Test regenerating an article creates a new article and queues processing."""
+        # Configure mock to return a task with an ID
+        mock_task = mock.MagicMock()
+        mock_task.id = "mock-task-id-regenerate"
+        mock_process_article.return_value = mock_task
+
         # Get the initial article count
         initial_count = Article.objects.count()
 
@@ -61,6 +66,7 @@ class RegenerateArticleViewTest(TestCase):
         self.assertEqual(new_article.title, self.article.title)
         self.assertEqual(new_article.text_content, self.article.text_content)
         self.assertEqual(new_article.status, Article.PROCESSING)
+        self.assertEqual(new_article.celery_task_id, "mock-task-id-regenerate")
 
         # Check that the new article has a different UUID
         self.assertIsNotNone(new_article.audio_uuid)
