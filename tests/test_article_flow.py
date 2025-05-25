@@ -33,13 +33,20 @@ class TestArticleSubmissionFlow(TestCase):
 
             response = self.client.post(
                 f"/feeds/{self.feed.pk}/add/",
-                {"title": "Flow Test", "text_content": "Sample"},
+                {
+                    "title": "Flow Test",
+                    "text_content": "Sample",
+                    "voice_id": "nova",
+                    "speed": "1.25",
+                },
             )
             self.assertEqual(response.status_code, 302)
             article = Article.objects.get(title="Flow Test")
             self.assertEqual(article.feed, self.feed)
             self.assertEqual(article.status, Article.PROCESSING)
             self.assertEqual(article.celery_task_id, task_id)
+            self.assertEqual(article.voice_id, "nova")
+            self.assertEqual(article.speed, 1.25)
             mock_delay.assert_called_once_with(article.id)
 
 
