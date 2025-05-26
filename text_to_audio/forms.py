@@ -7,7 +7,7 @@ RSS-TTS system.
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
+from .models import Article, Feed, FollowedFeed, UserVoicePreset, UserVoiceProfile
 from .services.voice_configuration import VoiceConfigurationService
 
 
@@ -365,3 +365,46 @@ class FeedForm(forms.ModelForm):
             preset_field.queryset = UserVoicePreset.objects.filter(user=user).order_by(
                 "name"
             )
+
+
+class FollowedFeedForm(forms.ModelForm):
+    """Form for creating and editing followed RSS feeds."""
+
+    class Meta:
+        """Meta options for the FollowedFeedForm."""
+
+        model = FollowedFeed
+        fields = ["url", "destination_feed", "is_active"]
+        widgets = {
+            "url": forms.URLInput(
+                attrs={"placeholder": "https://example.com/rss_feed"}
+            ),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        """Initialize form and limit destination feeds to the current user.
+
+        Disables the form when user has no feeds and displays a helpful message.
+        """
+        super().__init__(*args, **kwargs)
+
+        if user and user.is_authenticated:
+            # Filter destination feeds to only show the user's feeds
+            feeds = Feed.objects.filter(user=user).order_by("name")
+
+            # Get the destination_feed field
+            from typing import cast
+
+            from django import forms
+
+            # Cast to ModelChoiceField to make mypy happy
+            dest_field = cast(forms.ModelChoiceField, self.fields["destination_feed"])
+            dest_field.queryset = feeds
+
+            # If the user has no feeds, disable the field and show a helpful message
+            if feeds.count() == 0:
+                self.fields["destination_feed"].widget.attrs["disabled"] = True
+                self.fields["destination_feed"].help_text = (
+                    "You don't have any feeds yet."
+                )
