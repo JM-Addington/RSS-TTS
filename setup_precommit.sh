@@ -9,6 +9,7 @@ fi
 
 # Install git hooks
 pre-commit install
+pre-commit install --hook-type pre-push
 
 # Update to the latest hooks defined in config
 pre-commit autoupdate

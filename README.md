@@ -134,7 +134,9 @@ We use several tools to maintain code quality:
 - **mypy**: For type checking
 
 Install pre-commit hooks to automatically run these tools. You can run the
-commands manually or execute the provided helper script:
+commands manually or execute the provided helper script. The script now also
+sets up a pre-push hook so Black formatting and mypy checks run before pushing
+changes to GitHub:
 
 ```bash
 ./setup_precommit.sh
