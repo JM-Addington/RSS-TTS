@@ -10,17 +10,13 @@ repos:
     -   id: debug-statements
     -   id: check-merge-conflict
 
--   repo: https://github.com/pre-commit/mirrors-autopep8
-    rev: v2.0.4
-    hooks:
-    -   id: autopep8
-        args: ['--in-place', '--recursive']
 
 -   repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:
     -   id: black
         language_version: python3
+        stages: [pre-commit, pre-push]
 
 -   repo: https://github.com/pycqa/isort
     rev: 6.0.1
@@ -42,3 +38,4 @@ repos:
         additional_dependencies:
             - django-stubs
             - djangorestframework-stubs
+        stages: [pre-commit, pre-push]

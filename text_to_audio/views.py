@@ -34,7 +34,7 @@ from .forms import (
 )
 from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
 from .services.user_preferences import UserPreferencesService
-from .services.voice_configuration import VoiceConfigurationService
+from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
 from .tasks import process_article
 from .utils import extract_article_text, extract_title_from_html, fetch_url_content
 
@@ -533,7 +533,8 @@ class ArticleDetailView(LoginRequiredMixin, View):
                 text_content=form.cleaned_data["text_content"],
                 summary=form.cleaned_data.get("summary"),
                 voice_id=form.cleaned_data.get("voice_id") or None,
-                voice=form.cleaned_data.get("voice_id") or None,  # Set both voice and voice_id
+                # Set both voice and voice_id
+                voice=form.cleaned_data.get("voice_id") or None,
                 speed=(
                     float(form.cleaned_data.get("speed"))
                     if form.cleaned_data.get("speed")

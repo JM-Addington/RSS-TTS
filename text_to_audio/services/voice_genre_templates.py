@@ -1,7 +1,5 @@
 """Service for managing voice genre templates."""
 
-from text_to_audio.models import VoiceGenreTemplate
-
 
 class VoiceGenreTemplateService:
     """Service for managing voice genre templates."""
@@ -110,15 +108,6 @@ class VoiceGenreTemplateService:
         """
         return self.templates.get(genre.lower())
 
-    def get_all_templates(self):
-        """
-        Get all available templates.
-
-        Returns:
-            Dict of genre -> template mappings
-        """
-        return self.templates
-
     def get_available_genres(self):
         """
         Get list of available genres with descriptions.
@@ -130,45 +119,3 @@ class VoiceGenreTemplateService:
             (genre, self.DEFAULT_GENRES.get(genre, ""))
             for genre in self.templates.keys()
         ]
-
-    def create_template_from_genre(self, genre):
-        """
-        Create a VoiceGenreTemplate object from a predefined genre.
-
-        Args:
-            genre: Genre name to use as template
-
-        Returns:
-            Dict with template parameters or None if genre not found
-        """
-        template_params = self.get_template_by_genre(genre)
-        if not template_params:
-            return None
-
-        return template_params
-
-    def load_templates_from_db(self):
-        """
-        Load templates from database and merge with defaults.
-
-        Returns:
-            Dict of genre -> template mappings
-        """
-        db_templates = {}
-
-        for template in VoiceGenreTemplate.objects.filter(is_active=True):
-            db_templates[template.genre] = {
-                "voice_id": template.voice_id,
-                "speed": template.speed,
-                "affect": template.affect,
-                "tone": template.tone,
-                "pacing": template.pacing,
-                "pitch_variation": template.pitch_variation,
-                "speaking_style": template.speaking_style,
-            }
-
-        # Merge with defaults, prioritizing DB templates
-        merged = self.DEFAULT_TEMPLATES.copy()
-        merged.update(db_templates)
-
-        return merged

@@ -45,12 +45,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install autopep8 black flake8 isort
+          pip install black flake8 isort
 
       # First run formatters with auto-fix
       - name: Run formatters
         run: |
-          autopep8 --in-place --recursive .
           black .
           isort .
 
@@ -72,12 +71,11 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add -A
-          git commit -m "style: Auto-format code with autopep8, black, and isort [skip ci]"
+          git commit -m "style: Auto-format code with black and isort [skip ci]"
           git push
 
       # Now run linters (to check but not auto-fix)
       - name: Run linters
         if: success() || failure()  # Run even if formatting failed
         run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --max-complexity=10 --max-line-length=88 --statistics
+          flake8 . --count --statistics

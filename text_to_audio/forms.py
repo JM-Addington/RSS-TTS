@@ -7,7 +7,7 @@ RSS-TTS system.
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
+from .models import Article, Feed, FollowedFeed, UserVoicePreset, UserVoiceProfile
 from .services.voice_configuration import VoiceConfigurationService
 
 
@@ -29,7 +29,9 @@ class ArticleSubmissionForm(forms.ModelForm):
         fields = ["title", "source_url", "text_content", "voice_id", "speed"]
         widgets = {
             "title": forms.TextInput(
-                attrs={"placeholder": "Optional if URL is provided"}
+                attrs={
+                    "placeholder": "Optional (a title will be generated automatically)"
+                }
             ),
             "text_content": forms.Textarea(
                 attrs={
@@ -57,21 +59,27 @@ class ArticleSubmissionForm(forms.ModelForm):
             ("", "Auto (detect from tone)")
         ] + voice_service.get_available_speeds()
 
-        self.fields["voice_id"].choices = voice_choices
-        self.fields["speed"].choices = speed_choices
+        from typing import cast
+
+        voice_field = cast(forms.ChoiceField, self.fields["voice_id"])
+        voice_field.choices = voice_choices
+        speed_field = cast(forms.ChoiceField, self.fields["speed"])
+        speed_field.choices = speed_choices
 
         # Set user presets if user is provided
         preset_choices = [("", "Don't use a preset")]
         if user and user.is_authenticated:
             preset_choices += voice_service.get_user_presets(user)
 
-        self.fields["voice_preset"].choices = preset_choices
+        preset_field = cast(forms.ChoiceField, self.fields["voice_preset"])
+        preset_field.choices = preset_choices
 
     def clean(self):
         """Validate that either source_url or text_content is provided."""
         cleaned_data = super().clean()
         if cleaned_data is None:
             return cleaned_data
+        assert cleaned_data is not None
 
         source_url = cleaned_data.get("source_url", "")
         text_content = cleaned_data.get("text_content", "")
@@ -86,10 +94,23 @@ class ArticleSubmissionForm(forms.ModelForm):
         if voice_preset and (voice_id or speed):
             self.add_error(
                 "voice_preset",
-                "You cannot select both a voice preset and individual voice/speed settings.",
+                (
+                    "You cannot select both a voice preset and "
+                    "individual voice/speed settings."
+                ),
             )
 
         return cleaned_data
+
+    def clean_speed(self) -> float | None:
+        """Convert blank speed values to ``None``."""
+        value = self.cleaned_data.get("speed")
+        if value in ("", None):
+            return None
+        try:
+            return float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            raise ValidationError("Invalid speed value")
 
 
 class UserVoicePreferenceForm(forms.ModelForm):
@@ -126,6 +147,16 @@ class UserVoicePreferenceForm(forms.ModelForm):
             help_text="Your preferred speaking speed for all articles.",
         )
 
+    def clean_preferred_speed(self) -> float | None:
+        """Convert blank speed values to ``None`` and return float."""
+        value = self.cleaned_data.get("preferred_speed")
+        if value in ("", None):
+            return None
+        try:
+            return float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            raise ValidationError("Invalid speed value")
+
 
 class ArticleVoiceForm(forms.Form):
     """Form for article-specific voice settings."""
@@ -156,10 +187,17 @@ class ArticleVoiceForm(forms.Form):
         ] + voice_service.get_available_speeds()
 
         # Need to check if field exists and has a choices attribute before setting
-        if "voice_id" in self.fields and hasattr(self.fields["voice_id"], "choices"):
-            self.fields["voice_id"].choices = voice_choices
-        if "speed" in self.fields and hasattr(self.fields["speed"], "choices"):
-            self.fields["speed"].choices = speed_choices
+        if "voice_id" in self.fields:
+            from typing import cast
+
+            voice_field = cast(forms.ChoiceField, self.fields["voice_id"])
+            voice_field.choices = voice_choices
+
+        if "speed" in self.fields:
+            from typing import cast
+
+            speed_field = cast(forms.ChoiceField, self.fields["speed"])
+            speed_field.choices = speed_choices
 
         # Set user presets if user is provided
         preset_choices = [("", "Don't use a preset")]
@@ -172,8 +210,9 @@ class ArticleVoiceForm(forms.Form):
             self.fields["voice_preset"].choices = preset_choices
 
     def clean(self):
-        """Validate that voice preset and direct voice/speed settings are not both set."""
+        """Validate that preset and direct settings aren't both set."""
         cleaned_data = super().clean()
+        assert cleaned_data is not None
 
         voice_preset = cleaned_data.get("voice_preset")
         voice_id = cleaned_data.get("voice_id")
@@ -182,16 +221,31 @@ class ArticleVoiceForm(forms.Form):
         if voice_preset and (voice_id or speed):
             self.add_error(
                 "voice_preset",
-                "You cannot select both a voice preset and individual voice/speed settings.",
+                (
+                    "You cannot select both a voice preset and "
+                    "individual voice/speed settings."
+                ),
             )
 
         return cleaned_data
+
+    def clean_speed(self) -> float | None:
+        """Convert blank speed values to ``None``."""
+        value = self.cleaned_data.get("speed")
+        if value in ("", None):
+            return None
+        try:
+            return float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            raise ValidationError("Invalid speed value")
 
 
 class ArticleDetailForm(forms.ModelForm):
     """Form for editing article details when regenerating."""
 
     class Meta:
+        """Meta options for the ArticleDetailForm."""
+
         model = Article
         fields = ["title", "text_content", "summary", "voice_id", "speed"]
         widgets = {
@@ -200,6 +254,7 @@ class ArticleDetailForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        """Initialize form with dynamic voice options."""
         super().__init__(*args, **kwargs)
         voice_service = VoiceConfigurationService()
         voice_choices = [
@@ -218,6 +273,16 @@ class ArticleDetailForm(forms.ModelForm):
             required=False,
             help_text="Speed for this article.",
         )
+
+    def clean_speed(self) -> float | None:
+        """Convert blank speed values to ``None``."""
+        value = self.cleaned_data.get("speed")
+        if value in ("", None):
+            return None
+        try:
+            return float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            raise ValidationError("Invalid speed value")
 
 
 class VoicePresetForm(forms.ModelForm):
@@ -285,12 +350,63 @@ class FeedForm(forms.ModelForm):
     )
 
     class Meta:
+        """Meta options for the FeedForm."""
+
         model = Feed
         fields = ["name", "default_voice_preset"]
 
     def __init__(self, *args, user=None, **kwargs):
+        """Initialize form and limit presets to the current user."""
         super().__init__(*args, **kwargs)
         if user and user.is_authenticated:
-            self.fields["default_voice_preset"].queryset = (
-                UserVoicePreset.objects.filter(user=user).order_by("name")
+            from typing import cast
+
+            preset_field = cast(
+                forms.ModelChoiceField, self.fields["default_voice_preset"]
             )
+            preset_field.queryset = UserVoicePreset.objects.filter(user=user).order_by(
+                "name"
+            )
+
+
+class FollowedFeedForm(forms.ModelForm):
+    """Form for creating and editing followed RSS feeds."""
+
+    class Meta:
+        """Meta options for the FollowedFeedForm."""
+
+        model = FollowedFeed
+        fields = ["url", "destination_feed", "is_active"]
+        widgets = {
+            "url": forms.URLInput(
+                attrs={"placeholder": "https://example.com/rss_feed"}
+            ),
+            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        """Initialize form and limit destination feeds to the current user.
+
+        Disables the form when user has no feeds and displays a helpful message.
+        """
+        super().__init__(*args, **kwargs)
+
+        if user and user.is_authenticated:
+            # Filter destination feeds to only show the user's feeds
+            feeds = Feed.objects.filter(user=user).order_by("name")
+
+            # Get the destination_feed field
+            from typing import cast
+
+            from django import forms
+
+            # Cast to ModelChoiceField to make mypy happy
+            dest_field = cast(forms.ModelChoiceField, self.fields["destination_feed"])
+            dest_field.queryset = feeds
+
+            # If the user has no feeds, disable the field and show a helpful message
+            if feeds.count() == 0:
+                self.fields["destination_feed"].widget.attrs["disabled"] = True
+                self.fields["destination_feed"].help_text = (
+                    "You don't have any feeds yet."
+                )
