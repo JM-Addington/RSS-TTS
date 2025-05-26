@@ -408,6 +408,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 preset = UserVoicePreset.objects.get(id=preset_id)
                 article.voice_preset = preset
                 article.voice_id = preset.voice_id
+                article.voice = preset.voice_id  # Set both voice and voice_id fields
                 article.speed = preset.speed
             except UserVoicePreset.DoesNotExist:
                 pass
@@ -415,12 +416,14 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             preset = self.feed.default_voice_preset
             article.voice_preset = preset
             article.voice_id = preset.voice_id
+            article.voice = preset.voice_id  # Set both voice and voice_id fields
             article.speed = preset.speed
         else:
             voice_id = form.cleaned_data.get("voice_id")
             speed = form.cleaned_data.get("speed")
             if voice_id:
                 article.voice_id = voice_id
+                article.voice = voice_id  # Set both voice and voice_id fields
             if speed:
                 article.speed = float(speed)
 
@@ -483,6 +486,7 @@ class RegenerateArticleView(LoginRequiredMixin, View):
             status=Article.PROCESSING,
             # Copy voice settings
             voice_id=original_article.voice_id,
+            voice=original_article.voice_id,  # Set both voice and voice_id fields
             speed=original_article.speed,
             voice_preset=original_article.voice_preset,
             detected_tone=original_article.detected_tone,
@@ -529,6 +533,7 @@ class ArticleDetailView(LoginRequiredMixin, View):
                 text_content=form.cleaned_data["text_content"],
                 summary=form.cleaned_data.get("summary"),
                 voice_id=form.cleaned_data.get("voice_id") or None,
+                voice=form.cleaned_data.get("voice_id") or None,  # Set both voice and voice_id
                 speed=(
                     float(form.cleaned_data.get("speed"))
                     if form.cleaned_data.get("speed")
