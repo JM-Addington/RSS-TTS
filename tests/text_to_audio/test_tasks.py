@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+
 # Transaction import is used by decorator
 from django.test import TestCase, override_settings
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
@@ -728,13 +729,13 @@ class ProcessArticleTests(TestCase):
         ]
 
         # Skip stats creation to avoid transaction issues
-        with patch("text_to_audio.tasks._save_openai_usage_stats"), \
-             patch("text_to_audio.tasks.ContentAnalysisService") as MockContentAnalysisService:
-            
+        with patch("text_to_audio.tasks._save_openai_usage_stats"), patch(
+            "text_to_audio.tasks.ContentAnalysisService"
+        ) as MockContentAnalysisService:
+
             # Mock content analysis to return None, forcing single voice path initially
             mock_analysis_instance = MockContentAnalysisService.return_value
             mock_analysis_instance.analyze_content.return_value = None
-
 
             # Mock os.remove to verify calls and patch _chunk_text for 2 chunks
             with patch("text_to_audio.tasks.os.remove") as mock_os_remove, patch(
@@ -768,24 +769,37 @@ class ProcessArticleTests(TestCase):
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_successful_multi_voice(
-        self, mock_audio_empty, mock_audio_from_mp3, MockContentAnalysisService, MockOpenAIClient
+        self,
+        mock_audio_empty,
+        mock_audio_from_mp3,
+        MockContentAnalysisService,
+        MockOpenAIClient,
     ):
         """Test successful multi-voice processing."""
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_tts_response.stream_to_file.side_effect = (
+            self.create_dummy_file_side_effect
+        )
         mock_speech_create.return_value = mock_tts_response
 
         mock_audio_segment = MagicMock()
         mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
-        mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect # Simulate file creation
+        mock_audio_segment.export.side_effect = (
+            self.create_dummy_file_side_effect
+        )  # Simulate file creation
         mock_audio_from_mp3.return_value = mock_audio_segment
-        mock_audio_empty.return_value = MagicMock() # For combining segments
+        mock_audio_empty.return_value = MagicMock()  # For combining segments
 
         valid_multi_voice_data = {
             "voices": [
-                {"name": "narrator", "tone": "neutral", "tts_model": "alloy", "tts_speed": 1.0},
+                {
+                    "name": "narrator",
+                    "tone": "neutral",
+                    "tts_model": "alloy",
+                    "tts_speed": 1.0,
+                },
                 {"name": "hero", "tone": "bold", "tts_model": "onyx", "tts_speed": 1.1},
             ],
             "audio_segments": [
@@ -793,15 +807,17 @@ class ProcessArticleTests(TestCase):
                 {"text": "I am the hero!", "voice_name": "hero"},
             ],
         }
-        
+
         # Mock ContentAnalysisService to set multi_voice_data
         # Or, ensure _is_valid_multi_voice_data will use this if we set it directly
         self.article.multi_voice_data = valid_multi_voice_data
         self.article.save()
 
-        # Mock _is_valid_multi_voice_data to return True to ensure multi-voice path is taken
-        with patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=True), \
-             patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
+        # Mock _is_valid_multi_voice_data to return True
+        # to ensure multi-voice path is taken
+        with patch(
+            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=True
+        ), patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
             result = process_article(self.article.id)
 
         self.article.refresh_from_db()
@@ -813,47 +829,54 @@ class ProcessArticleTests(TestCase):
         calls = mock_speech_create.call_args_list
         # First call for narrator
         self.assertEqual(calls[0][1]["input"], "Chapter one.")
-        self.assertEqual(calls[0][1]["voice"], "alloy") # tts_model from "narrator"
+        self.assertEqual(calls[0][1]["voice"], "alloy")  # tts_model from "narrator"
         self.assertEqual(calls[0][1]["speed"], 1.0)
         # Second call for hero
         self.assertEqual(calls[1][1]["input"], "I am the hero!")
-        self.assertEqual(calls[1][1]["voice"], "onyx") # tts_model from "hero"
+        self.assertEqual(calls[1][1]["voice"], "onyx")  # tts_model from "hero"
         self.assertEqual(calls[1][1]["speed"], 1.1)
-        
-        mock_audio_segment.export.assert_called_once() # Assuming combined export
-        self.assertEqual(mock_save_stats.call_count, 2)
 
+        mock_audio_segment.export.assert_called_once()  # Assuming combined export
+        self.assertEqual(mock_save_stats.call_count, 2)
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_fallback_to_single_voice(
-        self, mock_audio_empty, mock_audio_from_mp3, MockContentAnalysisService, MockOpenAIClient
+        self,
+        mock_audio_empty,
+        mock_audio_from_mp3,
+        MockContentAnalysisService,
+        MockOpenAIClient,
     ):
         """Test fallback to single-voice processing when multi_voice_data is invalid."""
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_tts_response.stream_to_file.side_effect = (
+            self.create_dummy_file_side_effect
+        )
         mock_speech_create.return_value = mock_tts_response
 
         mock_audio_segment = MagicMock()
         mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+        mock_audio_segment.duration_seconds = 1
         mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
         mock_audio_from_mp3.return_value = mock_audio_segment
         mock_audio_empty.return_value = MagicMock()
 
         # Set invalid multi_voice_data
-        self.article.multi_voice_data = {"error": "this is not valid"} 
-        self.article.text_content = "This is fallback content. It is short." # 7 words
+        self.article.multi_voice_data = {"error": "this is not valid"}
+        self.article.text_content = "This is fallback content. It is short."  # 7 words
         # Set article level voice_id and speed for fallback
-        self.article.voice_id = "echo" # Fallback voice
-        self.article.speed = 0.9 # Fallback speed
+        self.article.voice_id = "echo"  # Fallback voice
+        self.article.speed = 0.9  # Fallback speed
         self.article.save()
 
         # Mock _is_valid_multi_voice_data to return False to ensure fallback path
-        with patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=False), \
-             patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
+        with patch(
+            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=False
+        ), patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
             result = process_article(self.article.id)
 
         self.article.refresh_from_db()
@@ -862,42 +885,66 @@ class ProcessArticleTests(TestCase):
 
         # _chunk_text on "Test Article.\n\nThis is fallback content. It is short."
         # is likely 1 chunk.
-        expected_chunks = 1 
+        expected_chunks = 1
         self.assertEqual(mock_speech_create.call_count, expected_chunks)
-        
+
         # Verify fallback voice and speed were used
         call_args = mock_speech_create.call_args_list[0][1]
-        self.assertEqual(call_args["voice"], "echo") 
+        self.assertEqual(call_args["voice"], "echo")
         self.assertEqual(call_args["speed"], 0.9)
         self.assertEqual(mock_save_stats.call_count, expected_chunks)
-
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_multi_voice_segment_chunking(
-        self, mock_audio_empty, mock_audio_from_mp3, MockContentAnalysisService, MockOpenAIClient
+        self,
+        mock_audio_empty,
+        mock_audio_from_mp3,
+        MockContentAnalysisService,
+        MockOpenAIClient,
     ):
         """Test that a long segment in multi-voice data is correctly chunked."""
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_tts_response.stream_to_file.side_effect = (
+            self.create_dummy_file_side_effect
+        )
         mock_speech_create.return_value = mock_tts_response
 
         mock_audio_segment = MagicMock()
         mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+        mock_audio_segment.duration_seconds = 1
         mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
         mock_audio_from_mp3.return_value = mock_audio_segment
-        mock_audio_empty.return_value = MagicMock()
 
-        long_segment_text = "This is a very long segment. " * 300 # Approx 7*300 = 2100 chars
+        combined_audio_mock = MagicMock()
+        type(combined_audio_mock).duration_seconds = PropertyMock(return_value=1)
+        combined_audio_mock.__iadd__.return_value = combined_audio_mock
+        combined_audio_mock.set_frame_rate.return_value = combined_audio_mock
+        combined_audio_mock.export.return_value = None
+        mock_audio_empty.return_value = combined_audio_mock
+
+        long_segment_text = (
+            "This is a very long segment. " * 300
+        )  # Approx 7*300 = 2100 chars
         short_segment_text = "This is short."
 
         multi_voice_data_with_long_segment = {
             "voices": [
-                {"name": "long_talker", "tone": "verbose", "tts_model": "fable", "tts_speed": 1.0},
-                {"name": "short_talker", "tone": "concise", "tts_model": "shimmer", "tts_speed": 0.8},
+                {
+                    "name": "long_talker",
+                    "tone": "verbose",
+                    "tts_model": "fable",
+                    "tts_speed": 1.0,
+                },
+                {
+                    "name": "short_talker",
+                    "tone": "concise",
+                    "tts_model": "shimmer",
+                    "tts_speed": 0.8,
+                },
             ],
             "audio_segments": [
                 {"text": long_segment_text, "voice_name": "long_talker"},
@@ -905,67 +952,162 @@ class ProcessArticleTests(TestCase):
             ],
         }
         self.article.multi_voice_data = multi_voice_data_with_long_segment
-        self.article.text_content = long_segment_text + short_segment_text # For analysis sample if it ran
+        self.article.text_content = (
+            long_segment_text + short_segment_text
+        )  # For analysis sample if it ran
         self.article.save()
-        
-        # We need to know how many chunks _chunk_text will make for long_segment_text
-        # Assuming default max_length for _chunk_text is 4000. Our long_segment_text is ~2100.
-        # So, it should be 1 chunk based on length. Let's make it longer to force chunking.
-        # Let's assume max_length is small for testing chunking within a segment.
-        # The _chunk_text in tasks.py has max_length=4000.
-        # So we need to make long_segment_text > 4000 to test chunking.
-        long_segment_text_actually_long = "This is an extremely long segment designed to test chunking. " * 250 # > 4000 chars
-        
-        multi_voice_data_with_long_segment["audio_segments"][0]["text"] = long_segment_text_actually_long
+
+        # Determine how many chunks _chunk_text will make for long_segment_text.
+        # Default max_length is 4000 and our long_segment_text is ~2100.
+        # It should be 1 chunk based on length. Make it longer to force chunking.
+        # Assume max_length is small for testing chunking within a segment.
+        # The _chunk_text in tasks.py has max_length=4000, so make
+        # long_segment_text > 4000 to test chunking.
+        long_segment_text_actually_long = (
+            "This is an extremely long segment designed to test chunking. " * 250
+        )  # > 4000 chars
+
+        multi_voice_data_with_long_segment["audio_segments"][0][  # type: ignore[index]
+            "text"
+        ] = long_segment_text_actually_long
         self.article.multi_voice_data = multi_voice_data_with_long_segment
         self.article.save()
 
         # Let's spy on _chunk_text to verify its calls
-        with patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=True), \
-             patch("text_to_audio.tasks._chunk_text") as mock_internal_chunk_text, \
-             patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
-            
+        with patch(
+            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=True
+        ), patch("text_to_audio.tasks._chunk_text"), patch(
+            "text_to_audio.tasks._save_openai_usage_stats"
+        ) as mock_save_stats:
+
             # Make _chunk_text behave normally for the first call (long segment)
             # and return 1 chunk for the second call (short segment)
-            # The first segment (long_segment_text_actually_long) will be chunked by the actual _chunk_text
-            # The second segment (short_segment_text) will also be chunked by the actual _chunk_text
-            
+            # The first segment (long_segment_text_actually_long) will be
+            # chunked by the actual _chunk_text.
+            # The second segment (short_segment_text) will also be chunked
+            # by the actual _chunk_text.
+
             # To properly test this, we need to let the actual _chunk_text run.
             # We are interested in the calls to speech.create.
-            # If long_segment_text_actually_long results in N chunks, and short_segment_text in 1 chunk,
-            # then speech.create should be called N+1 times.
-            
+            # If long_segment_text_actually_long results in N chunks and
+            # short_segment_text in 1 chunk, then speech.create should be called
+            # N+1 times.
+
             # Let's calculate expected chunks for long_segment_text_actually_long
             # default max_length is 4000.
-            # len("This is an extremely long segment designed to test chunking. ") is 62
+            # len("This is an extremely long segment designed to test chunking.") is 62
             # 62 * 250 = 15500 characters.
             # Expected N = ceil(15500 / 4000) = ceil(3.875) = 4 chunks.
-            # Short segment "This is short." is 1 chunk. Total = 5 calls to speech.create.
-            
-            # We can't easily mock _chunk_text differently for different calls within the loop
-            # So, we'll rely on the actual _chunk_text behavior.
-            
+            # Short segment "This is short." is 1 chunk. Total = 5 calls to
+            # speech.create.
+
+            # We can't easily mock _chunk_text differently for different calls
+            # within the loop so we'll rely on the actual _chunk_text behavior.
+
             process_article(self.article.id)
 
         self.article.refresh_from_db()
         self.assertEqual(self.article.status, Article.COMPLETED)
 
         # Expected calls: 4 for the long segment + 1 for the short segment
-        self.assertEqual(mock_speech_create.call_count, 5) 
+        self.assertEqual(mock_speech_create.call_count, 5)
 
         calls = mock_speech_create.call_args_list
         # First 4 calls should be for "long_talker"
         for i in range(4):
-            self.assertEqual(calls[i][1]["voice"], "fable") # tts_model from "long_talker"
+            # tts_model from "long_talker"
+            self.assertEqual(calls[i][1]["voice"], "fable")
             self.assertEqual(calls[i][1]["speed"], 1.0)
-            self.assertTrue(len(calls[i][1]["input"]) <= 4000) # Check chunk length
-        
+            self.assertTrue(len(calls[i][1]["input"]) <= 4000)  # Check chunk length
+
         # Last call should be for "short_talker"
-        self.assertEqual(calls[4][1]["voice"], "shimmer") # tts_model from "short_talker"
+        # tts_model from "short_talker"
+        self.assertEqual(calls[4][1]["voice"], "shimmer")
         self.assertEqual(calls[4][1]["speed"], 0.8)
         self.assertEqual(calls[4][1]["input"], short_segment_text)
-        
+
         self.assertEqual(mock_save_stats.call_count, 5)
+
+    @patch("text_to_audio.tasks.ContentAnalysisService")
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    def test_process_article_long_text_full_analysis(
+        self,
+        mock_audio_empty,
+        mock_audio_from_mp3,
+        MockContentAnalysisService,
+        MockOpenAIClient,
+    ):
+        """Ensure full article text is passed to content analysis."""
+        long_text = "longword " * 1000
+        self.article.text_content = long_text
+        self.article.save()
+
+        mock_analysis_instance = MockContentAnalysisService.return_value
+        mock_analysis_instance.analyze_content.return_value = {
+            "voices": [
+                {
+                    "name": "narrator",
+                    "tone": "neutral",
+                    "tts_model": "alloy",
+                    "tts_speed": 1.0,
+                }
+            ],
+            "audio_segments": [{"text": long_text, "voice_name": "narrator"}],
+        }
+
+        mock_openai_instance = MockOpenAIClient.return_value
+        mock_speech_create = mock_openai_instance.audio.speech.create
+        mock_tts_response = MagicMock()
+        mock_tts_response.stream_to_file.side_effect = (
+            self.create_dummy_file_side_effect
+        )
+        mock_speech_create.return_value = mock_tts_response
+
+        mock_audio_segment = MagicMock()
+        mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+        mock_audio_segment.duration_seconds = 1
+        mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
+        mock_audio_from_mp3.return_value = mock_audio_segment
+
+        class DummyAudio:
+            def __init__(self):
+                self.duration_seconds = 1
+
+            def __iadd__(self, other):
+                return self
+
+            def set_frame_rate(self, rate):
+                return self
+
+            def export(self, *args, **kwargs):
+                return None
+
+        mock_audio_empty.return_value = DummyAudio()
+
+        with patch(
+            "text_to_audio.tasks._is_valid_multi_voice_data",
+            return_value=True,
+        ), patch("text_to_audio.tasks._save_openai_usage_stats"):
+            result = process_article(self.article.id)
+
+        self.article.refresh_from_db()
+        self.assertEqual(result, f"Article {self.article.id} processed successfully.")
+        mock_analysis_instance.analyze_content.assert_called_once()
+        self.assertEqual(
+            mock_analysis_instance.analyze_content.call_args[0][0],
+            long_text.strip(),
+        )
+
+        concatenated_input = "".join(
+            call.kwargs["input"] for call in mock_speech_create.call_args_list
+        )
+        self.assertEqual(
+            concatenated_input.replace(" ", ""), long_text.replace(" ", "")
+        )
+        self.assertEqual(
+            mock_speech_create.call_count, len(mock_speech_create.call_args_list)
+        )
 
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
