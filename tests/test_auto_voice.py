@@ -97,7 +97,14 @@ class GenreClassificationServiceTest(TestCase):
     def setUp(self):
         """Set up test data."""
         self.service = GenreClassificationService()
-        self.article_text = "Scientists have discovered a new species of butterfly in the Amazon rainforest. The discovery was made during an expedition led by Dr. Emily Carter, who specializes in tropical entomology. The butterfly, named Papilio amazonica, features vibrant blue wings with distinctive yellow patterns. This finding suggests the region's biodiversity may be even richer than previously thought."
+        self.article_text = (
+            "Scientists have discovered a new species of butterfly in the Amazon "
+            "rainforest. The discovery was made during an expedition led by Dr. "
+            "Emily Carter, who specializes in tropical entomology. The butterfly, "
+            "named Papilio amazonica, features vibrant blue wings with distinctive "
+            "yellow patterns. This finding suggests the region's biodiversity may "
+            "be even richer than previously thought."
+        )
 
     @patch(
         "text_to_audio.services.genre_classification.GenreClassificationService.client"
@@ -109,7 +116,13 @@ class GenreClassificationServiceTest(TestCase):
         mock_completion.choices = [
             MagicMock(
                 message=MagicMock(
-                    content='{"genre": "news", "confidence": 0.85, "voice_suggestions": {"affect": "neutral", "tone": "informative", "pacing": "steady", "pitch_variation": "moderate", "speaking_style": "Clear and factual news reporting style"}}'
+                    content=(
+                        '{"genre": "news", "confidence": 0.85, '
+                        '"voice_suggestions": {"affect": "neutral", '
+                        '"tone": "informative", "pacing": "steady", '
+                        '"pitch_variation": "moderate", "speaking_style": '
+                        '"Clear and factual news reporting style"}}'
+                    )
                 )
             )
         ]
@@ -145,10 +158,12 @@ class VoiceParameterGenerationServiceTest(TestCase):
         )
 
     @patch(
-        "text_to_audio.services.genre_classification.GenreClassificationService.classify_genre"
+        "text_to_audio.services.genre_classification."
+        "GenreClassificationService.classify_genre"
     )
     @patch(
-        "text_to_audio.services.content_analysis.ContentAnalysisService.analyze_content"
+        "text_to_audio.services.content_analysis."
+        "ContentAnalysisService.analyze_content"
     )
     def test_generate_voice_parameters(self, mock_analyze_content, mock_classify_genre):
         """Test voice parameter generation."""
@@ -207,7 +222,9 @@ class VoiceParameterGenerationServiceTest(TestCase):
             "tone": "authoritative, expert",
             "pacing": "measured",
             "pitch_variation": "moderate",
-            "speaking_style": "Like a university professor explaining an important concept",
+            "speaking_style": (
+                "Like a university professor explaining an important concept"
+            ),
         }
 
         prompt = self.service.generate_enhanced_prompt(params)
@@ -280,17 +297,25 @@ class FeedVoiceModeTest(TestCase):
         self.assertEqual(self.feed.voice_mode, Feed.VOICE_MODE_AUTO)
 
     @patch(
-        "text_to_audio.services.voice_parameter_generation.VoiceParameterGenerationService.generate_voice_parameters"
+        "text_to_audio.services.voice_parameter_generation."
+        "VoiceParameterGenerationService.generate_voice_parameters"
     )
     def test_configure_article_voice(self, mock_generate_voice_parameters):
-        """Test configuring article voice based on feed mode."""
+        """Test configuring article voice based on feed mode."""  # noqa: D202
+
         # Mock voice parameter generation
-        mock_generate_voice_parameters.return_value = {
-            "voice_id": "alloy",
-            "speed": 1.0,
-            "affect": "neutral",
-            "tone": "informative",
-        }
+        def fake_generate_params(article):
+            article.voice_id = "alloy"
+            article.speed = 1.0
+            article.voice_parameters = {
+                "voice_id": "alloy",
+                "speed": 1.0,
+                "affect": "neutral",
+                "tone": "informative",
+            }
+            return article.voice_parameters
+
+        mock_generate_voice_parameters.side_effect = fake_generate_params
 
         # Test single_default mode
         self.feed.voice_mode = Feed.VOICE_MODE_SINGLE_DEFAULT
@@ -335,3 +360,17 @@ class FeedVoiceModeTest(TestCase):
 
         # Verify generate_voice_parameters was called
         mock_generate_voice_parameters.assert_called_with(self.article)
+
+        # Article fields should be persisted from auto generation
+        self.article.refresh_from_db()
+        self.assertEqual(self.article.voice_id, "alloy")
+        self.assertEqual(self.article.speed, 1.0)
+        self.assertEqual(
+            self.article.voice_parameters,
+            {
+                "voice_id": "alloy",
+                "speed": 1.0,
+                "affect": "neutral",
+                "tone": "informative",
+            },
+        )

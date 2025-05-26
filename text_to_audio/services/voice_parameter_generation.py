@@ -81,6 +81,16 @@ class VoiceParameterGenerationService:
         if "speed" in voice_parameters:
             article.speed = voice_parameters["speed"]
 
+        # Persist generated parameters on the article
+        article.save(
+            update_fields=[
+                "detected_genre",
+                "voice_parameters",
+                "voice_id",
+                "speed",
+            ]
+        )
+
         # Return the complete parameters
         return voice_parameters
 
