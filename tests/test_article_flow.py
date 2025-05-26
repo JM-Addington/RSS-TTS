@@ -49,6 +49,26 @@ class TestArticleSubmissionFlow(TestCase):
             self.assertEqual(article.speed, 1.25)
             mock_delay.assert_called_once_with(article.id)
 
+    def test_submission_defaults_to_auto_speed(self):
+        """Missing speed field should save speed as None."""
+        self.client.login(username="flowtester", password="pass123")
+        with patch("text_to_audio.views.process_article.delay") as mock_delay:
+            mock_task = MagicMock()
+            mock_task.id = "task-id"
+            mock_delay.return_value = mock_task
+
+            response = self.client.post(
+                f"/feeds/{self.feed.pk}/add/",
+                {
+                    "title": "No Speed",
+                    "text_content": "Sample",
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+            article = Article.objects.get(title="No Speed")
+            self.assertIsNone(article.speed)
+            mock_delay.assert_called_once_with(article.id)
+
 
 # For pytest compatibility
 if __name__ == "__main__":
