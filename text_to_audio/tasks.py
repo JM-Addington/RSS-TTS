@@ -185,6 +185,7 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
 
                                     # If word is too long, must force-split it
                                     if len(word) > max_length:
+                                        # autopep8: off
                                         perfect_split = False
                                         # Split the word into chunks of max_length
                                         for i in range(0, len(word), max_length):
@@ -192,6 +193,7 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
                                                 word[i : i + max_length]
                                             )
                                         current_chunk = ""
+                                        # autopep8: on
                                     else:
                                         current_chunk = word
                                 else:
@@ -444,15 +446,30 @@ def process_article(self, article_id: int) -> str:
                         end_time = time.monotonic()
                         processing_time_ms = int((end_time - start_time) * 1000)
 
+                        tokens_used = 0
+                        if hasattr(response, "usage") and hasattr(
+                            response.usage, "total_tokens"
+                        ):
+                            try:
+                                tokens_used = int(response.usage.total_tokens)
+                            except (ValueError, TypeError):
+                                tokens_used = 0
+                        elif hasattr(response, "headers"):
+                            header_value = response.headers.get("x-openai-tokens-used")
+                            if header_value is not None:
+                                try:
+                                    tokens_used = int(header_value)
+                                except (ValueError, TypeError):
+                                    tokens_used = 0
+
                         generated_audio_files.append(chunk_temp_file_path)
                         word_count = len(chunk_text.split())
-                        # TODO: Improve token counting if possible from response, for now passing 0
                         _save_openai_usage_stats(
                             user,
                             article,
                             article_id,
                             f"segment_{segment_idx}_chunk_{chunk_idx}",
-                            0,
+                            tokens_used,
                             processing_time_ms,
                             word_count,
                         )
@@ -601,15 +618,30 @@ def process_article(self, article_id: int) -> str:
                 end_time = time.monotonic()
                 processing_time_ms = int((end_time - start_time) * 1000)
 
+                tokens_used = 0
+                if hasattr(response, "usage") and hasattr(
+                    response.usage, "total_tokens"
+                ):
+                    try:
+                        tokens_used = int(response.usage.total_tokens)
+                    except (ValueError, TypeError):
+                        tokens_used = 0
+                elif hasattr(response, "headers"):
+                    header_value = response.headers.get("x-openai-tokens-used")
+                    if header_value is not None:
+                        try:
+                            tokens_used = int(header_value)
+                        except (ValueError, TypeError):
+                            tokens_used = 0
+
                 generated_audio_files.append(temp_file_path)
                 word_count = len(chunk.split())
-                # TODO: Improve token counting if possible from response
                 _save_openai_usage_stats(
                     user,
                     article,
                     article_id,
                     f"fallback_chunk_{i}",
-                    0,
+                    tokens_used,
                     processing_time_ms,
                     word_count,
                 )
