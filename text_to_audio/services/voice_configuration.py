@@ -223,18 +223,3 @@ class VoiceConfigurationService:
             )
 
         return article
-
-    def get_available_voice_modes(self):
-        """
-        Get list of available voice modes with labels.
-
-        Returns:
-            List of tuples: [(mode_value, display_name), ...]
-        """
-        from text_to_audio.models import Feed
-
-        return [
-            (Feed.VOICE_MODE_SINGLE_DEFAULT, "Single voice (default)"),
-            (Feed.VOICE_MODE_SINGLE_CUSTOM, "Single voice (custom preset)"),
-            (Feed.VOICE_MODE_AUTO, "Auto-generated voice"),
-        ]
