@@ -189,17 +189,14 @@ class TestSignUpView(TestCase):
         """
         self.client = Client()
 
-    def test_signup_page_renders(self):
-        """Test that the signup page renders correctly with the proper template."""
+    def test_signup_page_renders_when_no_users_exist(self):
+        """Sign up page should render when no users are present."""
         response = self.client.get("/accounts/signup/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "registration/signup.html")
 
-    def test_post_creates_user(self):
-        """Test user creation through the signup form.
-
-        Verifies new user creation and redirect.
-        """
+    def test_first_user_becomes_superadmin(self):
+        """First signup should create a superadmin account."""
         response = self.client.post(
             "/accounts/signup/",
             {
@@ -211,7 +208,30 @@ class TestSignUpView(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn("/accounts/login/", response["Location"])
         User = get_user_model()
-        self.assertTrue(User.objects.filter(username="newuser").exists())
+        user = User.objects.get(username="newuser")
+        self.assertTrue(user.is_superuser)
+        self.assertTrue(user.is_staff)
+
+    def test_signup_disabled_when_user_exists(self):
+        """Additional signups should redirect to login and not create users."""
+        User = get_user_model()
+        User.objects.create_user(username="existing", password="pass")
+
+        response = self.client.get("/accounts/signup/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/accounts/login/")
+
+        response = self.client.post(
+            "/accounts/signup/",
+            {
+                "username": "other",
+                "password1": "ComplexPass123",
+                "password2": "ComplexPass123",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/accounts/login/")
+        self.assertFalse(User.objects.filter(username="other").exists())
 
 
 class TestFeedArticleAutoUpdate(TestCase):
