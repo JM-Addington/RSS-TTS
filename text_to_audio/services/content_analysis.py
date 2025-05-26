@@ -3,6 +3,9 @@
 import json
 import logging
 
+# Maximum number of words to analyze with large context LLM models
+MAX_ANALYSIS_WORDS = 750_000
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,22 +30,23 @@ class ContentAnalysisService:
         return self._client
 
     def analyze_content(self, text, title=None, max_completion_tokens=500):
-        """
-        Analyze article content to detect tone and generate summary.
+        """Analyze article text and recommend narration voices.
 
         Args:
-            text: The article text to analyze
-            title: Optional article title for context
-            max_completion_tokens: Maximum tokens for the response
+            text: The article text to analyze.
+            title: Optional article title for additional context.
+            max_completion_tokens: Maximum tokens for the LLM response.
 
         Returns:
             dict with keys:
-                - tone: Detected tone of the article
-                - summary: Generated summary
-                - voice_recommendation: Recommended voice settings
+                - voices: List of voice definitions including ``name``, ``tone``,
+                  ``tts_model`` and ``tts_speed``.
+                - audio_segments: List of segments with ``text`` and the
+                  ``voice_name`` from ``voices`` that should read the segment.
         """
-        # Prepare a sample of the text for analysis (first 2000 chars)
-        text_sample = text[:2000]
+        # Use up to MAX_ANALYSIS_WORDS words for analysis to leverage GPT-4.1's large context
+        words = text.split()
+        text_sample = " ".join(words[:MAX_ANALYSIS_WORDS])
 
         # Create the unified prompt
         prompt = self._create_analysis_prompt(text_sample, title)
@@ -259,4 +263,4 @@ class ContentAnalysisService:
         """Get the model to use for content analysis."""
         from django.conf import settings
 
-        return getattr(settings, "OPENAI_ANALYSIS_MODEL", "o4-mini")
+        return getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4.1")
