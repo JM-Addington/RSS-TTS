@@ -38,14 +38,14 @@ class GenreClassificationService:
             )
         return self._client
 
-    def classify_genre(self, text, title=None, max_tokens=100):
+    def classify_genre(self, text, title=None, max_completion_tokens=100):
         """
         Classify article content into a genre.
 
         Args:
             text: The article text to analyze
             title: Optional article title for context
-            max_tokens: Maximum tokens for the response
+            max_completion_tokens: Maximum tokens for the response
 
         Returns:
             dict with keys:
@@ -66,7 +66,7 @@ class GenreClassificationService:
                 {"role": "system", "content": "You are an expert content classifier."},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=max_tokens,
+            max_completion_tokens=max_completion_tokens,
             temperature=0.3,
             response_format={"type": "json_object"},
         )

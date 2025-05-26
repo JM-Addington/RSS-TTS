@@ -26,14 +26,14 @@ class ContentAnalysisService:
             )
         return self._client
 
-    def analyze_content(self, text, title=None, max_tokens=500):
+    def analyze_content(self, text, title=None, max_completion_tokens=500):
         """
         Analyze article content to detect tone and generate summary.
 
         Args:
             text: The article text to analyze
             title: Optional article title for context
-            max_tokens: Maximum tokens for the response
+            max_completion_tokens: Maximum tokens for the response
 
         Returns:
             dict with keys:
@@ -54,7 +54,7 @@ class ContentAnalysisService:
                 {"role": "system", "content": "You are an expert content analyzer."},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=max_tokens,
+            max_completion_tokens=max_completion_tokens,
             temperature=0.3,
             response_format={"type": "json_object"},
         )
@@ -66,21 +66,28 @@ class ContentAnalysisService:
 
             # Validate the structure
             if "voices" not in result or "audio_segments" not in result:
-                raise ValueError("Missing 'voices' or 'audio_segments' in LLM response.")
-            if not isinstance(result["voices"], list) or not isinstance(result["audio_segments"], list):
+                raise ValueError(
+                    "Missing 'voices' or 'audio_segments' in LLM response."
+                )
+            if not isinstance(result["voices"], list) or not isinstance(
+                result["audio_segments"], list
+            ):
                 raise ValueError("'voices' and 'audio_segments' must be lists.")
-            if not result["voices"]: # Must have at least one voice
-                 raise ValueError("'voices' list cannot be empty.")
-            if not result["audio_segments"]: # Must have at least one segment
-                 raise ValueError("'audio_segments' list cannot be empty.")
+            if not result["voices"]:  # Must have at least one voice
+                raise ValueError("'voices' list cannot be empty.")
+            if not result["audio_segments"]:  # Must have at least one segment
+                raise ValueError("'audio_segments' list cannot be empty.")
 
             # Further validation for each voice and segment can be added here if needed
             # For example, check if all voice_names in audio_segments refer to defined voices.
 
             return result
         except (json.JSONDecodeError, AttributeError, IndexError, ValueError) as e:
-            logger.error(f"Error parsing content analysis response or invalid structure: {e}")
-            logger.error(f"LLM Response Content: {content}") # Log the problematic content
+            logger.error(
+                f"Error parsing content analysis response or invalid structure: {e}"
+            )
+            # Log the problematic content
+            logger.error(f"LLM Response Content: {content}")
             # Return a default structure
             return {
                 "voices": [
@@ -93,7 +100,7 @@ class ContentAnalysisService:
                 ],
                 "audio_segments": [
                     {
-                        "text": text, # Use the original full text for the default segment
+                        "text": text,  # Use the original full text for the default segment
                         "voice_name": "narrator",
                     }
                 ],
