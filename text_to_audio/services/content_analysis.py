@@ -27,19 +27,19 @@ class ContentAnalysisService:
         return self._client
 
     def analyze_content(self, text, title=None, max_completion_tokens=500):
-        """
-        Analyze article content to detect tone and generate summary.
+        """Analyze article text and recommend narration voices.
 
         Args:
-            text: The article text to analyze
-            title: Optional article title for context
-            max_completion_tokens: Maximum tokens for the response
+            text: The article text to analyze.
+            title: Optional article title for additional context.
+            max_completion_tokens: Maximum tokens for the LLM response.
 
         Returns:
             dict with keys:
-                - tone: Detected tone of the article
-                - summary: Generated summary
-                - voice_recommendation: Recommended voice settings
+                - voices: List of voice definitions including ``name``, ``tone``,
+                  ``tts_model`` and ``tts_speed``.
+                - audio_segments: List of segments with ``text`` and the
+                  ``voice_name`` from ``voices`` that should read the segment.
         """
         # Prepare a sample of the text for analysis (first 2000 chars)
         text_sample = text[:2000]
