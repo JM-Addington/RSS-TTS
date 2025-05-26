@@ -23,13 +23,10 @@ from pydub import AudioSegment  # type: ignore
 from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
-from .services.content_analysis import ContentAnalysisService
+from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
 from .services.voice_configuration import VoiceConfigurationService
 from .services.voice_parameter_generation import VoiceParameterGenerationService
 from .utils import process_url_to_text
-
-MAX_ANALYSIS_WORDS = 750_000
-
 
 # Configure logging
 logger = logging.getLogger(__name__)
