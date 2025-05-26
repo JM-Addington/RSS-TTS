@@ -29,7 +29,9 @@ class ArticleSubmissionForm(forms.ModelForm):
         fields = ["title", "source_url", "text_content", "voice_id", "speed"]
         widgets = {
             "title": forms.TextInput(
-                attrs={"placeholder": "Optional if URL is provided"}
+                attrs={
+                    "placeholder": "Optional (a title will be generated automatically)"
+                }
             ),
             "text_content": forms.Textarea(
                 attrs={
