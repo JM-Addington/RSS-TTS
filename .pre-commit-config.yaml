@@ -10,11 +10,6 @@ repos:
     -   id: debug-statements
     -   id: check-merge-conflict
 
--   repo: https://github.com/pre-commit/mirrors-autopep8
-    rev: v2.0.4
-    hooks:
-    -   id: autopep8
-        args: ['--in-place', '--recursive']
 
 -   repo: https://github.com/psf/black
     rev: 25.1.0

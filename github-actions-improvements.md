@@ -67,7 +67,7 @@ jobs:
 
 ### 3. Recommended Final Structure
 
-- **`00-lint.yml`**: Code formatting and linting (autopep8, Black, Flake8, isort)
+- **`00-lint.yml`**: Code formatting and linting (Black, Flake8, isort)
 - **`10-type-check.yml`**: Type checking (mypy)
 - **`20-test.yml`**: Run unit and integration tests
 - **`90-pr-review.yml`**: Run automated PR reviews
