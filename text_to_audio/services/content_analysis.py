@@ -1,12 +1,10 @@
 """Service for analyzing article content."""
 
-# flake8: noqa: E501
-
 import json
 import logging
 
+# Maximum number of words to analyze with large context LLM models
 MAX_ANALYSIS_WORDS = 750_000
-
 
 logger = logging.getLogger(__name__)
 
