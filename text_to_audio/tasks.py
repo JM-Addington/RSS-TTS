@@ -217,6 +217,31 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
     return perfect_split, chunks
 
 
+def _generate_title(client, text: str) -> str:
+    """Generate a short title for the article using GPT."""
+    from django.conf import settings
+
+    try:
+        response = client.chat.completions.create(
+            model=getattr(settings, "OPENAI_TITLE_MODEL", "gpt-4o-mini"),
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "Provide a concise title for this article:\n\n" + text[:5000]
+                    ),
+                }
+            ],
+            max_tokens=10,
+            temperature=0.5,
+        )
+        title = response.choices[0].message.content.strip()
+        return title
+    except Exception as e:  # pragma: no cover - safeguard
+        logger.error(f"Failed to generate title: {e}")
+        return "Untitled Article"
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def process_article(self, article_id: int) -> str:
     """Process an article's text_content to generate an MP3 audio file.
@@ -296,6 +321,11 @@ def process_article(self, article_id: int) -> str:
                 f"Article {article_id} has no text_content after potential URL fetch."
             )
             raise ValueError("Article text_content is empty.")
+
+        if not article.title:
+            logger.info(f"Generating title for Article ID: {article_id}")
+            article.title = _generate_title(client, article.text_content)
+            article.save(update_fields=["title"])
 
         # Configure article voice based on feed preferences (auto-voice if enabled)
         try:
