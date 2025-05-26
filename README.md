@@ -137,7 +137,9 @@ Configuration for these tools lives in `setup.cfg`. Flake8 enforces a McCabe
 complexity limit of 20, and mypy reads its options from the same file.
 
 Install pre-commit hooks to automatically run these tools. You can run the
-commands manually or execute the provided helper script:
+commands manually or execute the provided helper script. The script now also
+sets up a pre-push hook so Black formatting and mypy checks run before pushing
+changes to GitHub:
 
 ```bash
 ./setup_precommit.sh

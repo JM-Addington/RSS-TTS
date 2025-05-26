@@ -16,6 +16,7 @@ repos:
     hooks:
     -   id: black
         language_version: python3
+        stages: [pre-commit, pre-push]
 
 -   repo: https://github.com/pycqa/isort
     rev: 6.0.1
@@ -37,3 +38,4 @@ repos:
         additional_dependencies:
             - django-stubs
             - djangorestframework-stubs
+        stages: [pre-commit, pre-push]
