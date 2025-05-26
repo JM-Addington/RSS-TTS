@@ -133,6 +133,9 @@ We use several tools to maintain code quality:
 - **Flake8**: For linting
 - **mypy**: For type checking
 
+Configuration for these tools lives in `setup.cfg`. Flake8 enforces a McCabe
+complexity limit of 20, and mypy reads its options from the same file.
+
 Install pre-commit hooks to automatically run these tools. You can run the
 commands manually or execute the provided helper script:
 
