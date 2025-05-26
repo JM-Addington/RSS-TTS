@@ -196,13 +196,18 @@ class VoiceConfigurationService:
             )
 
             # Generate enhanced TTS prompt if needed
+            update_fields = ["voice_id", "speed", "voice_parameters", "detected_genre"]
+
             if voice_parameters:
                 enhanced_prompt = self.voice_parameter_service.generate_enhanced_prompt(
                     voice_parameters
                 )
-                if enhanced_prompt:
+                if enhanced_prompt and hasattr(article, "prompt"):
                     article.prompt = enhanced_prompt
-                    article.save(update_fields=["prompt"])
+                    update_fields.append("prompt")
+
+            # Persist generated parameters on the article
+            article.save(update_fields=update_fields)
 
         else:
             # Use default tone-based voice mapping
