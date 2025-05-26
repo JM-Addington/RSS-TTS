@@ -544,8 +544,10 @@ def process_article(self, article_id: int) -> str:
             # Use enhanced voice parameters if available (from auto-voice)
             voice_prompt = None
             if article.voice_parameters:
+                # Check voice field first, then voice_id, then voice_parameters, then default
                 fallback_voice = (
-                    article.voice_parameters.get("voice_id")
+                    article.voice
+                    or article.voice_parameters.get("voice_id")
                     or article.voice_id
                     or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
                 )
@@ -559,8 +561,11 @@ def process_article(self, article_id: int) -> str:
                     article.voice_parameters
                 )
             else:
-                fallback_voice = article.voice_id or getattr(
-                    settings, "OPENAI_TTS_VOICE", "alloy"
+                # Check voice field first, then voice_id, then default
+                fallback_voice = (
+                    article.voice
+                    or article.voice_id
+                    or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
                 )
                 fallback_speed = article.speed or 1.0
 
