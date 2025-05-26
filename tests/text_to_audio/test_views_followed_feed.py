@@ -4,8 +4,8 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from text_to_audio.models import Feed, FollowedFeed
 from text_to_audio.forms import FollowedFeedForm
+from text_to_audio.models import Feed, FollowedFeed
 
 User = get_user_model()
 
@@ -33,7 +33,6 @@ class FollowedFeedUITests(TestCase):
             user=cls.user, name="My Other Podcast"
         )
 
-
     def setUp(self):
         """Log in the user for each test."""
         self.client.login(username="ui_testuser", password="password123")
@@ -52,7 +51,9 @@ class FollowedFeedUITests(TestCase):
             destination_feed=self.user_destination_feed,
         )
         # Create a followed feed for another user (should not be visible)
-        other_user_feed = Feed.objects.create(user=self.other_user, name="Other's Podcast")
+        other_user_feed = Feed.objects.create(
+            user=self.other_user, name="Other's Podcast"
+        )
         FollowedFeed.objects.create(
             user=self.other_user,
             url="https://example.com/feed_other",
@@ -65,7 +66,6 @@ class FollowedFeedUITests(TestCase):
         self.assertContains(response, "https://example.com/feed2")
         self.assertNotContains(response, "https://example.com/feed_other")
         self.assertEqual(len(response.context["followed_feeds"]), 2)
-
 
     def test_followed_feed_create_view_get(self):
         """Test GET request for FollowedFeedCreateView."""
@@ -91,11 +91,12 @@ class FollowedFeedUITests(TestCase):
     def test_followed_feed_create_view_post_invalid(self):
         """Test POST request with invalid data for FollowedFeedCreateView."""
         data = {
-            "url": "not_a_valid_url", # Invalid URL
+            "url": "not_a_valid_url",  # Invalid URL
             "destination_feed": self.user_destination_feed.pk,
         }
         response = self.client.post(reverse("followedfeed-create"), data)
-        self.assertEqual(response.status_code, 200) # Should re-render form with errors
+        self.assertEqual(response.status_code, 200)  # Should re-render form with errors
+        # type: ignore[arg-type]
         self.assertFormError(response, "form", "url", "Enter a valid URL.")
         self.assertFalse(
             FollowedFeed.objects.filter(user=self.user, url="not_a_valid_url").exists()
@@ -121,18 +122,18 @@ class FollowedFeedUITests(TestCase):
             user=self.user,
             url="https://example.com/to_update_post",
             destination_feed=self.user_destination_feed,
-            is_active=True
+            is_active=True,
         )
         data = {
             "url": "https://example.com/updated_url",
-            "destination_feed": self.user_destination_feed_2.pk, # Change destination
-            "is_active": False, # Change active status
+            "destination_feed": self.user_destination_feed_2.pk,  # Change destination
+            "is_active": False,  # Change active status
         }
         response = self.client.post(
             reverse("followedfeed-edit", kwargs={"pk": followed_feed.pk}), data
         )
         self.assertRedirects(response, reverse("followedfeed-list"))
-        
+
         updated_feed = FollowedFeed.objects.get(pk=followed_feed.pk)
         self.assertEqual(updated_feed.url, "https://example.com/updated_url")
         self.assertEqual(updated_feed.destination_feed, self.user_destination_feed_2)
@@ -140,7 +141,9 @@ class FollowedFeedUITests(TestCase):
 
     def test_followed_feed_update_view_other_user(self):
         """Test that a user cannot update another user's followed feed."""
-        other_user_feed_dest = Feed.objects.create(user=self.other_user, name="Other's Dest")
+        other_user_feed_dest = Feed.objects.create(
+            user=self.other_user, name="Other's Dest"
+        )
         other_followed_feed = FollowedFeed.objects.create(
             user=self.other_user,
             url="https://example.com/other_user_feed",
@@ -149,7 +152,8 @@ class FollowedFeedUITests(TestCase):
         response = self.client.get(
             reverse("followedfeed-edit", kwargs={"pk": other_followed_feed.pk})
         )
-        self.assertEqual(response.status_code, 404) # Should be 404 as queryset filters by user
+        # Should be 404 as queryset filters by user
+        self.assertEqual(response.status_code, 404)
 
     def test_followed_feed_delete_view_get(self):
         """Test GET request for FollowedFeedDeleteView."""
@@ -180,7 +184,9 @@ class FollowedFeedUITests(TestCase):
 
     def test_followed_feed_delete_view_other_user(self):
         """Test that a user cannot delete another user's followed feed."""
-        other_user_feed_dest = Feed.objects.create(user=self.other_user, name="Other's Dest Del")
+        other_user_feed_dest = Feed.objects.create(
+            user=self.other_user, name="Other's Dest Del"
+        )
         other_followed_feed = FollowedFeed.objects.create(
             user=self.other_user,
             url="https://example.com/other_user_feed_del",
@@ -189,7 +195,7 @@ class FollowedFeedUITests(TestCase):
         response = self.client.post(
             reverse("followedfeed-delete", kwargs={"pk": other_followed_feed.pk})
         )
-        self.assertEqual(response.status_code, 404) # Should be 404
+        self.assertEqual(response.status_code, 404)  # Should be 404
         self.assertTrue(FollowedFeed.objects.filter(pk=other_followed_feed.pk).exists())
 
     def test_followed_feed_form_validation_valid(self):
@@ -215,7 +221,7 @@ class FollowedFeedUITests(TestCase):
 
     def test_followed_feed_form_missing_destination(self):
         """Test FollowedFeedForm with missing destination_feed."""
-        data = {"url": "https://example.com/valid_form_url"} # Missing destination_feed
+        data = {"url": "https://example.com/valid_form_url"}  # Missing destination_feed
         form = FollowedFeedForm(data=data, user=self.user)
         self.assertFalse(form.is_valid())
         self.assertIn("destination_feed", form.errors)
@@ -223,11 +229,13 @@ class FollowedFeedUITests(TestCase):
     def test_followed_feed_form_destination_feed_queryset(self):
         """Test that destination_feed queryset is correctly filtered for the user."""
         # Create a feed for another user, it should not appear in choices
-        other_user_dest_feed = Feed.objects.create(user=self.other_user, name="Other User's Feed")
-        
+        other_user_dest_feed = Feed.objects.create(
+            user=self.other_user, name="Other User's Feed"
+        )
+
         form = FollowedFeedForm(user=self.user)
         destination_feed_choices = form.fields["destination_feed"].queryset
-        
+
         self.assertIn(self.user_destination_feed, destination_feed_choices)
         self.assertIn(self.user_destination_feed_2, destination_feed_choices)
         self.assertNotIn(other_user_dest_feed, destination_feed_choices)
@@ -236,11 +244,13 @@ class FollowedFeedUITests(TestCase):
     def test_followed_feed_form_no_destination_feeds_for_user(self):
         """Test form behavior when user has no destination feeds."""
         # Create a new user with no feeds
-        no_feeds_user = User.objects.create_user(username="nofeedsuser", password="password")
-        
+        no_feeds_user = User.objects.create_user(
+            username="nofeedsuser", password="password"
+        )
+
         form = FollowedFeedForm(user=no_feeds_user)
         destination_feed_field = form.fields["destination_feed"]
-        
+
         self.assertEqual(destination_feed_field.queryset.count(), 0)
         self.assertTrue(destination_feed_field.widget.attrs.get("disabled", False))
         self.assertIn("You don't have any feeds yet.", destination_feed_field.help_text)
@@ -248,7 +258,9 @@ class FollowedFeedUITests(TestCase):
     def test_create_followed_feed_no_destination_feeds_get(self):
         """Test GET create view when user has no destination feeds."""
         # Login as a user with no feeds
-        no_feeds_user = User.objects.create_user(username="nofeedsuser_get", password="password")
+        no_feeds_user = User.objects.create_user(
+            username="nofeedsuser_get", password="password"
+        )
         self.client.login(username="nofeedsuser_get", password="password")
 
         response = self.client.get(reverse("followedfeed-create"))
@@ -256,11 +268,13 @@ class FollowedFeedUITests(TestCase):
         form = response.context["form"]
         self.assertTrue(form.fields["destination_feed"].widget.attrs.get("disabled"))
         self.assertContains(response, "You don't have any feeds yet.")
-        self.client.logout() # Clean up session for next test
+        self.client.logout()  # Clean up session for next test
 
     def test_create_followed_feed_no_destination_feeds_post_fails(self):
         """Test POST create view fails if user has no destination feeds (form should be invalid)."""
-        no_feeds_user = User.objects.create_user(username="nofeedsuser_post", password="password")
+        no_feeds_user = User.objects.create_user(
+            username="nofeedsuser_post", password="password"
+        )
         self.client.login(username="nofeedsuser_post", password="password")
 
         data = {
@@ -269,7 +283,9 @@ class FollowedFeedUITests(TestCase):
             "is_active": True,
         }
         response = self.client.post(reverse("followedfeed-create"), data)
-        self.assertEqual(response.status_code, 200) # Should re-render form
-        self.assertFormError(response, "form", "destination_feed", "This field is required.")
+        self.assertEqual(response.status_code, 200)  # Should re-render form
+        self.assertFormError(
+            response, "form", "destination_feed", "This field is required."
+        )  # type: ignore[arg-type]
         self.assertFalse(FollowedFeed.objects.filter(user=no_feeds_user).exists())
         self.client.logout()
