@@ -3,6 +3,9 @@
 import json
 import logging
 
+# Maximum number of words to analyze with large context LLM models
+MAX_ANALYSIS_WORDS = 750_000
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,8 +44,9 @@ class ContentAnalysisService:
                 - audio_segments: List of segments with ``text`` and the
                   ``voice_name`` from ``voices`` that should read the segment.
         """
-        # Prepare a sample of the text for analysis (first 2000 chars)
-        text_sample = text[:2000]
+        # Use up to MAX_ANALYSIS_WORDS words for analysis to leverage GPT-4.1's large context
+        words = text.split()
+        text_sample = " ".join(words[:MAX_ANALYSIS_WORDS])
 
         # Create the unified prompt
         prompt = self._create_analysis_prompt(text_sample, title)
@@ -259,4 +263,4 @@ class ContentAnalysisService:
         """Get the model to use for content analysis."""
         from django.conf import settings
 
-        return getattr(settings, "OPENAI_ANALYSIS_MODEL", "o4-mini")
+        return getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4.1")

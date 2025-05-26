@@ -1,5 +1,7 @@
 """Celery tasks for processing articles."""
 
+# flake8: noqa: E501
+
 # mypy: disable-error-code="attr-defined"
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from pydub import AudioSegment  # type: ignore
 from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
-from .services.content_analysis import ContentAnalysisService
+from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
 from .services.voice_configuration import VoiceConfigurationService
 from .services.voice_parameter_generation import VoiceParameterGenerationService
 from .utils import process_url_to_text
@@ -239,7 +241,7 @@ def _generate_title(client, text: str) -> str:
         return title
     except Exception as e:  # pragma: no cover - safeguard
         logger.error(f"Failed to generate title: {e}")
-        return "Untitled Article"
+        return "Untitled Article"  # type: ignore[return-value]
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
@@ -351,12 +353,9 @@ def process_article(self, article_id: int) -> str:
                 )
                 content_service = ContentAnalysisService()
 
-                # Use a sample of the text for analysis if it's too long
-                # The full text is used for actual TTS, analysis_text_sample is for the LLM prompt
-                analysis_text_sample = (
-                    article.text_content[:2000]
-                    if len(article.text_content) > 2000
-                    else article.text_content
+                # Use the entire article text for analysis, truncated to MAX_ANALYSIS_WORDS words
+                analysis_text_sample = " ".join(
+                    article.text_content.split()[:MAX_ANALYSIS_WORDS]
                 )
 
                 analysis_result_json = content_service.analyze_content(
