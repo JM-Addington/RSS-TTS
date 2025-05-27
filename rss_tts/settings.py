@@ -19,6 +19,9 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() in ("1", "true", "yes")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 # Model used when generating titles with GPT
 OPENAI_TITLE_MODEL = os.environ.get("OPENAI_TITLE_MODEL", "gpt-4o-mini")
+# TTS model and voice settings
+OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "tts-1")
+OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "alloy")
 
 ALLOWED_HOSTS: list[str] = []
 ALLOWED_HOSTS += (
