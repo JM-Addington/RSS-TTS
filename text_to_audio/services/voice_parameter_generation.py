@@ -76,6 +76,9 @@ class VoiceParameterGenerationService:
         # Set the primary voice from the parameters
         if "voice_id" in voice_parameters:
             article.voice_id = voice_parameters["voice_id"]
+            article.voice = voice_parameters[
+                "voice_id"
+            ]  # Ensure both voice and voice_id are in sync
 
         # Set the speed from the parameters
         if "speed" in voice_parameters:
@@ -87,6 +90,7 @@ class VoiceParameterGenerationService:
                 "detected_genre",
                 "voice_parameters",
                 "voice_id",
+                "voice",  # Add voice to update_fields
                 "speed",
             ]
         )
