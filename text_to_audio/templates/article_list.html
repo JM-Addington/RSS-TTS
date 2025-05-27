@@ -84,6 +84,11 @@
                         <td>
                             {% if article.voice %}
                                 <span class="badge bg-secondary">{{ article.get_voice_display }}</span>
+                                {% if article.multi_voice_data %}
+                                <span class="badge bg-info" title="Uses multiple AI voices for a more dynamic experience">
+                                    <i class="bi bi-people-fill"></i> Multi-Voice
+                                </span>
+                                {% endif %}
                             {% else %}
                                 <span class="text-muted">Default</span>
                             {% endif %}

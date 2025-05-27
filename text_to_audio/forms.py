@@ -349,15 +349,37 @@ class FeedForm(forms.ModelForm):
         help_text="Preset applied to new articles in this feed by default.",
     )
 
+    # Add voice_mode field to enable multi-voice functionality
+    voice_mode = forms.ChoiceField(
+        required=True,
+        help_text="Select how voices are generated for articles in this feed.",
+    )
+
     class Meta:
         """Meta options for the FeedForm."""
 
         model = Feed
-        fields = ["name", "default_voice_preset"]
+        fields = ["name", "default_voice_preset", "voice_mode"]
 
     def __init__(self, *args, user=None, **kwargs):
         """Initialize form and limit presets to the current user."""
         super().__init__(*args, **kwargs)
+
+        # Configure voice mode choices
+        from typing import cast
+
+        voice_service = VoiceConfigurationService()
+
+        # Cast field to ChoiceField type to make mypy happy
+        voice_mode_field = cast(forms.ChoiceField, self.fields["voice_mode"])
+        voice_mode_field.choices = voice_service.get_available_voice_modes()
+        voice_mode_field.initial = Feed.VOICE_MODE_AUTO
+        self.fields["voice_mode"].help_text = (
+            "Auto-generated voice enables multi-voice narration with different voices for "
+            "quotes, characters, and distinct sections."
+        )
+
+        # Configure preset field
         if user and user.is_authenticated:
             from typing import cast
 
