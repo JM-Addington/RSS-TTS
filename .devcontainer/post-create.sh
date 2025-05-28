@@ -35,5 +35,7 @@ EOF
     echo "Please update .env with your settings"
 fi
 
+npm install -g @anthropic-ai/claude-code
+
 echo "Setup complete! You can now run the development server with:"
 echo "python manage.py runserver 0.0.0.0:8000"
