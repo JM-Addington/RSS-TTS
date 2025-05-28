@@ -1,6 +1,6 @@
 {
   "name": "RSS-TTS Development",
-  "dockerComposeFile": ".devcontainer/docker-compose.yml",
+  "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspaces",
   "runServices": ["app", "caddy"],
@@ -14,7 +14,9 @@
         "ms-azuretools.vscode-docker",
         "eamodio.gitlens",
         "streetsidesoftware.code-spell-checker",
-        "njpwerner.autodocstring"
+        "njpwerner.autodocstring",
+        "saoudrizwan.claude-dev",
+        "RooVeterinaryInc.roo-cline"
       ],
       "settings": {
         "python.linting.enabled": true,
