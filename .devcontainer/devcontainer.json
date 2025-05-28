@@ -2,7 +2,7 @@
   "name": "RSS-TTS Development",
   "dockerComposeFile": ".devcontainer/docker-compose.yml",
   "service": "app",
-  "workspaceFolder": "/app",
+  "workspaceFolder": "/workspaces",
   "runServices": ["app", "caddy"],
   "forwardPorts": [8000, 8084],
   "customizations": {
