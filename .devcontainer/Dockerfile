@@ -10,8 +10,8 @@ ENV PYTHONUNBUFFERED=1 \
     DJANGO_DEBUG=True
 
 # Set work directory
-RUN mkdir /app
-WORKDIR /app
+# RUN mkdir /app
+# WORKDIR /app
 
 # Install dependencies for development
 RUN apt-get update \
