@@ -53,7 +53,7 @@ class Feed(models.Model):
     voice_mode: models.CharField = models.CharField(
         max_length=20,
         choices=VOICE_MODE_CHOICES,
-        default=VOICE_MODE_SINGLE_DEFAULT,
+        default=VOICE_MODE_AUTO,
         help_text="Voice mode preference for this feed",
     )
     created_at: models.DateTimeField = models.DateTimeField(

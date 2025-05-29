@@ -2,9 +2,11 @@
 
 import json
 import logging
+from django.conf import settings
 
-# Maximum number of words to analyze with large context LLM models
-MAX_ANALYSIS_WORDS = 750_000
+# Maximum number of words to analyze with LLM models
+# Reduced from 750k to a more reasonable amount to avoid excessive costs and context limits
+MAX_ANALYSIS_WORDS = getattr(settings, 'MAX_ANALYSIS_WORDS', 8_000)
 
 logger = logging.getLogger(__name__)
 

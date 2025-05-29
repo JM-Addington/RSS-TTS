@@ -78,19 +78,19 @@ def _save_openai_usage_stats(
 
 
 def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
-    """Split text into chunks for TTS processing.
+    """Split text into chunks for TTS processing (optimized for large texts).
 
+    Uses a linear scanning approach for better performance on large documents.
     Prioritizes natural breaks in this order:
-    1. Line breaks
-    2. Periods, exclamation points, question marks (sentence boundaries)
-    3. Semicolons and commas (clause boundaries)
-    4. Spaces (word boundaries)
-    5. As a last resort, forces splits within words
+    1. Line breaks (\n)
+    2. Sentence boundaries (. ! ?)
+    3. Clause boundaries (; ,)
+    4. Word boundaries (spaces)
+    5. Force splits within words as last resort
 
     Returns:
         tuple: (success, chunks)
-            - success (bool): True if all splits were at natural boundaries,
-                             False if forced to split words
+            - success (bool): True if all splits were at natural boundaries
             - chunks (list): List of text chunks, each <= max_length
     """
     logger.debug(
@@ -100,125 +100,116 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
     if not text:
         return True, []
 
-    # Check if the entire text fits within max_length
     if len(text) <= max_length:
         return True, [text]
 
     chunks = []
-    perfect_split = True  # Track if we had to force-split any words
-
-    # First split by line breaks
-    lines = text.split("\n")
-    line_chunks = []
-
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-
-        # If line fits, add it directly
-        if len(line) <= max_length:
-            line_chunks.append(line)
-        else:
-            # Split line by sentence boundaries
-            sentences = []
-            current_sentence = ""
-
-            # Find sentence breaks - periods, exclamation marks, question marks
-            i = 0
-            while i < len(line):
-                current_sentence += line[i]
-
-                # Check for sentence end
-                if (
-                    i < len(line) - 1
-                    and line[i] in [".", "!", "?"]
-                    and line[i + 1].isspace()
-                ):
-                    sentences.append(current_sentence.strip())
-                    current_sentence = ""
-                    # Skip the space
-                    i += 2
-                    continue
-                i += 1
-
-            # Add any remaining sentence fragment
-            if current_sentence:
-                sentences.append(current_sentence.strip())
-
-            # Process each sentence
-            for sentence in sentences:
-                if len(sentence) <= max_length:
-                    line_chunks.append(sentence)
+    perfect_split = True
+    current_chunk = ""
+    
+    # Define break characters in priority order
+    sentence_breaks = {'.', '!', '?'}
+    clause_breaks = {';', ','}
+    
+    i = 0
+    text_len = len(text)
+    
+    while i < text_len:
+        char = text[i]
+        
+        # Check if adding this character would exceed max_length
+        if len(current_chunk) + 1 > max_length:
+            # We need to break here, find the best break point in current_chunk
+            if current_chunk:
+                break_point = _find_best_break_point(current_chunk, max_length)
+                if break_point > 0:
+                    chunks.append(current_chunk[:break_point].strip())
+                    current_chunk = current_chunk[break_point:].strip()
+                    if current_chunk and len(current_chunk) > max_length:
+                        # Still too long, force split
+                        perfect_split = False
+                        chunks.append(current_chunk[:max_length])
+                        current_chunk = current_chunk[max_length:]
                 else:
-                    # Split sentence by semicolons and commas
-                    clause_chunks = []
-                    clauses = []
-
-                    # First split by semicolons
-                    semi_parts = sentence.split(";")
-
-                    for part in semi_parts:
-                        part = part.strip()
-                        if len(part) <= max_length:
-                            clauses.append(part)
-                        else:
-                            # Split by commas
-                            comma_parts = part.split(",")
-                            for comma_part in comma_parts:
-                                comma_part = comma_part.strip()
-                                if comma_part:
-                                    clauses.append(comma_part)
-
-                    # Process each clause
-                    for clause in clauses:
-                        if len(clause) <= max_length:
-                            clause_chunks.append(clause)
-                        else:
-                            # Build word by word
-                            words = clause.split()
-                            current_chunk = ""
-
-                            for word in words:
-                                # Store chunk if next word would exceed max_length
-                                if len(current_chunk) + len(word) + 1 > max_length:
-                                    if current_chunk:
-                                        clause_chunks.append(current_chunk)
-
-                                    # If word is too long, must force-split it
-                                    if len(word) > max_length:
-                                        # autopep8: off
-                                        perfect_split = False
-                                        # Split the word into chunks of max_length
-                                        for i in range(0, len(word), max_length):
-                                            clause_chunks.append(
-                                                word[i : i + max_length]
-                                            )
-                                        current_chunk = ""
-                                        # autopep8: on
-                                    else:
-                                        current_chunk = word
-                                else:
-                                    if current_chunk:
-                                        current_chunk += " " + word
-                                    else:
-                                        current_chunk = word
-
-                            # Add any remaining chunk
-                            if current_chunk:
-                                clause_chunks.append(current_chunk)
-
-                    line_chunks.extend(clause_chunks)
-
-    # Final filtering and sanity check
-    chunks = [chunk for chunk in line_chunks if chunk]
-
-    # Verify all chunks are within max_length
-    for chunk in chunks:
-        if len(chunk) > max_length:
-            perfect_split = False
-
+                    # No good break point found, force split
+                    perfect_split = False
+                    chunks.append(current_chunk[:max_length])
+                    current_chunk = current_chunk[max_length:]
+            continue
+        
+        # Add character to current chunk
+        current_chunk += char
+        
+        # Check for natural break opportunities
+        if char == '\n':
+            # Line break - highest priority
+            chunks.append(current_chunk.strip())
+            current_chunk = ""
+        elif char in sentence_breaks and i + 1 < text_len and text[i + 1].isspace():
+            # Sentence break followed by space
+            current_chunk += text[i + 1]  # Include the space
+            chunks.append(current_chunk.strip())
+            current_chunk = ""
+            i += 1  # Skip the space we just added
+        
+        i += 1
+    
+    # Add any remaining chunk
+    if current_chunk.strip():
+        if len(current_chunk) > max_length:
+            # Need to split the remaining chunk
+            remaining = current_chunk.strip()
+            while remaining:
+                if len(remaining) <= max_length:
+                    chunks.append(remaining)
+                    break
+                
+                break_point = _find_best_break_point(remaining, max_length)
+                if break_point > 0:
+                    chunks.append(remaining[:break_point].strip())
+                    remaining = remaining[break_point:].strip()
+                else:
+                    # Force split
+                    perfect_split = False
+                    chunks.append(remaining[:max_length])
+                    remaining = remaining[max_length:]
+        else:
+            chunks.append(current_chunk.strip())
+    
+    # Filter out empty chunks
+    chunks = [chunk for chunk in chunks if chunk]
+    
     return perfect_split, chunks
+
+
+def _find_best_break_point(text: str, max_length: int) -> int:
+    """Find the best break point within a text segment.
+    
+    Returns the index where to break, or 0 if no good break point found.
+    """
+    if len(text) <= max_length:
+        return len(text)
+    
+    # Search backwards from max_length for break opportunities
+    search_text = text[:max_length]
+    
+    # Priority 1: Sentence breaks with space after
+    for i in range(len(search_text) - 2, -1, -1):
+        if search_text[i] in {'.', '!', '?'} and search_text[i + 1].isspace():
+            return i + 2  # Include the punctuation and space
+    
+    # Priority 2: Clause breaks with space after
+    for i in range(len(search_text) - 2, -1, -1):
+        if search_text[i] in {';', ','} and search_text[i + 1].isspace():
+            return i + 2
+    
+    # Priority 3: Word boundaries (spaces)
+    for i in range(len(search_text) - 1, -1, -1):
+        if search_text[i].isspace():
+            return i + 1
+    
+    # No good break point found
+    return 0
 
 
 def _generate_title(client, text: str) -> str:
@@ -637,10 +628,6 @@ def process_article(self, article_id: int) -> str:
                     "input": chunk,
                     "speed": fallback_speed,
                 }
-
-                # Add voice prompt if available
-                if voice_prompt:
-                    tts_args["voice_instructions"] = voice_prompt
 
                 response = client.audio.speech.create(**tts_args)
                 response.stream_to_file(temp_file_path)
