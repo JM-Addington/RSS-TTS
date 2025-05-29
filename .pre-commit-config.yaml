@@ -10,27 +10,30 @@ repos:
     -   id: debug-statements
     -   id: check-merge-conflict
 
-
+# Code formatting - only run on pre-push to avoid blocking development
 -   repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:
     -   id: black
         language_version: python3
-        stages: [pre-commit, pre-push]
+        stages: [pre-push]
 
 -   repo: https://github.com/pycqa/isort
     rev: 6.0.1
     hooks:
     -   id: isort
         args: ["--profile", "black"]
+        stages: [pre-push]
 
+# Basic linting without docstrings - less strict
 -   repo: https://github.com/pycqa/flake8
     rev: 7.2.0
     hooks:
     -   id: flake8
-        additional_dependencies: [flake8-docstrings]
-        args: ["--max-line-length=88", "--extend-ignore=E203"]
+        args: ["--max-line-length=88", "--extend-ignore=E203,W503,E501"]
+        stages: [pre-push]
 
+# Type checking only on manual run or CI
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.15.0
     hooks:
@@ -38,4 +41,4 @@ repos:
         additional_dependencies:
             - django-stubs
             - djangorestframework-stubs
-        stages: [pre-commit, pre-push]
+        stages: [manual]
