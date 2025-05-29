@@ -22,6 +22,9 @@ OPENAI_TITLE_MODEL = os.environ.get("OPENAI_TITLE_MODEL", "gpt-4o-mini")
 # TTS model and voice settings
 OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "tts-1")
 OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "alloy")
+# Models used for content analysis and genre classification
+OPENAI_ANALYSIS_MODEL = os.environ.get("OPENAI_ANALYSIS_MODEL", "gpt-4o-mini")
+OPENAI_CLASSIFICATION_MODEL = os.environ.get("OPENAI_CLASSIFICATION_MODEL", "gpt-4o-mini")
 
 ALLOWED_HOSTS: list[str] = []
 ALLOWED_HOSTS += (
@@ -138,9 +141,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
-# Directory structure for articles - this should match the structure in tasks.py
-ARTICLE_STORAGE_DIR = os.path.join(BASE_DIR, "articles")
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_REDIRECT_URL = "home"
@@ -154,3 +154,5 @@ SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
 # Article Processing Settings
 ARTICLE_PROCESSING_TIMEOUT_SECONDS = 3600  # 1 hour
+# Maximum number of words to analyze for content analysis (reduced from 750k for cost/performance)
+MAX_ANALYSIS_WORDS = int(os.environ.get("MAX_ANALYSIS_WORDS", "8000"))

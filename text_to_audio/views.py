@@ -4,6 +4,7 @@ This module defines the views used for the RSS-to-TTS system, handling article
 submission, listing, media serving, and article deletion.
 """
 
+import logging
 import os
 import uuid
 
@@ -37,6 +38,8 @@ from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
 from .tasks import process_article
 from .utils import extract_article_text, extract_title_from_html, fetch_url_content
+
+logger = logging.getLogger(__name__)
 
 
 class HomeView(TemplateView):
@@ -110,27 +113,38 @@ class ArticleMediaView(LoginRequiredMixin, View):
 
     def _resolve_path(self, article):
         """Resolve the audio file path based on different storage strategies."""
+        import warnings
+        
         # Try multiple path resolution strategies
         possible_paths = []
 
-        # Path 1: Check if it's a Docker path
+        # Path 1: Check if it's a Docker path (DEPRECATED)
         if article.audio_file_path.startswith("/app/"):
+            warnings.warn(
+                f"Using deprecated Docker path correction for article {article.id}. "
+                "This will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+            logger.warning(
+                f"DEPRECATED: Docker path correction used for article {article.id}. "
+                f"Path: {article.audio_file_path}"
+            )
             # Docker path correction
             path_suffix = article.audio_file_path.replace("/app/media/", "").replace(
                 "/app/", ""
             )
             possible_paths.append(os.path.join(settings.BASE_DIR, path_suffix))
 
-        # Path 2: If it's a relative path, try with MEDIA_ROOT first
+        # Path 2: If it's a relative path, try with MEDIA_ROOT first (PREFERRED)
         if not os.path.isabs(article.audio_file_path):
             path = os.path.join(settings.MEDIA_ROOT, article.audio_file_path)
             possible_paths.append(path)
 
-        # Path 3: Try with BASE_DIR (for backwards compatibility)
+        # Path 3: Try with BASE_DIR (DEPRECATED - for backwards compatibility)
         if not os.path.isabs(article.audio_file_path):
-            possible_paths.append(
-                os.path.join(settings.BASE_DIR, article.audio_file_path)
-            )
+            base_dir_path = os.path.join(settings.BASE_DIR, article.audio_file_path)
+            possible_paths.append(base_dir_path)
 
         # Path 4: If it's an absolute path, use it directly
         if os.path.isabs(article.audio_file_path):
@@ -138,34 +152,58 @@ class ArticleMediaView(LoginRequiredMixin, View):
 
         # Path 5: Try simplified structure
         if article.audio_uuid:
-            # New simplified path
-            possible_paths.append(
-                os.path.join(
-                    settings.MEDIA_ROOT,
-                    "articles",
-                    f"{article.audio_uuid}.mp3",
-                )
+            # New simplified path (PREFERRED)
+            preferred_path = os.path.join(
+                settings.MEDIA_ROOT,
+                "articles",
+                f"{article.audio_uuid}.mp3",
             )
-            # Legacy paths for backwards compatibility
+            possible_paths.append(preferred_path)
+            
+            # Legacy paths for backwards compatibility (DEPRECATED)
             user_id = (
                 str(article.feed.user_id)
                 if hasattr(article.feed, "user_id")
                 else "unknown"
             )
             feed_id = str(article.feed.id) if hasattr(article.feed, "id") else "unknown"
-            possible_paths.append(
-                os.path.join(
-                    settings.MEDIA_ROOT,
-                    "articles",
-                    str(user_id),
-                    str(feed_id),
-                    f"article_{article.audio_uuid}.mp3",
-                )
+            legacy_path = os.path.join(
+                settings.MEDIA_ROOT,
+                "articles",
+                str(user_id),
+                str(feed_id),
+                f"article_{article.audio_uuid}.mp3",
             )
+            possible_paths.append(legacy_path)
 
-        # Check all possible paths
-        for path in possible_paths:
+        # Check all possible paths and log deprecation warnings for legacy paths
+        for i, path in enumerate(possible_paths):
             if os.path.exists(path):
+                # Log deprecation warning for legacy paths
+                if i == 2:  # BASE_DIR path
+                    warnings.warn(
+                        f"Using deprecated BASE_DIR path resolution for article {article.id}. "
+                        "Files should be stored in MEDIA_ROOT/articles/. "
+                        "This will be removed in a future version.",
+                        DeprecationWarning,
+                        stacklevel=2
+                    )
+                    logger.warning(
+                        f"DEPRECATED: BASE_DIR path used for article {article.id}. "
+                        f"Path: {path}. Migrate to MEDIA_ROOT/articles/"
+                    )
+                elif i == 4 and "articles" in path and len(path.split(os.sep)) > 5:  # Legacy structured path
+                    warnings.warn(
+                        f"Using deprecated user/feed folder structure for article {article.id}. "
+                        "Files should be stored as MEDIA_ROOT/articles/<uuid>.mp3. "
+                        "This will be removed in a future version.",
+                        DeprecationWarning,
+                        stacklevel=2
+                    )
+                    logger.warning(
+                        f"DEPRECATED: Legacy folder structure used for article {article.id}. "
+                        f"Path: {path}. Migrate to simplified structure."
+                    )
                 return path
 
         # If we get here, we couldn't find the file
@@ -603,15 +641,12 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
         if not file_path_to_delete and article.audio_uuid:
             user_id = str(article.feed.user.id)
             feed_id_str = str(article.feed.id)
-            article_storage_dir = getattr(
-                settings,
-                "ARTICLE_STORAGE_DIR",
-                os.path.join(settings.BASE_DIR, "articles"),
-            )
+            # Legacy path resolution - this is for backwards compatibility only
+            legacy_storage_dir = os.path.join(settings.BASE_DIR, "articles")
 
             possible_paths_pattern = [
                 os.path.join(
-                    article_storage_dir,
+                    legacy_storage_dir,
                     user_id,
                     feed_id_str,
                     f"article_{article.audio_uuid}.mp3",
@@ -640,22 +675,14 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
         # Only try to delete if we found a path and the file exists
         if file_path_to_delete and os.path.exists(file_path_to_delete):
             try:
-                # Force file deletion with os.unlink to ensure it happens
+                # Delete only the specific file, never the parent directory
                 os.unlink(file_path_to_delete)
-                # Verify the file was deleted
-                if os.path.exists(file_path_to_delete):
-                    # If it still exists, try one more time with a different method
-                    import shutil
-
-                    dirname = os.path.dirname(file_path_to_delete)
-                    shutil.rmtree(dirname, ignore_errors=True)
             except (OSError, FileNotFoundError, PermissionError) as e:
                 # Log the error but continue with DB deletion
                 import logging
 
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Error deleting file {file_path_to_delete}: {e}")
-                pass
 
         # Call delete method to remove DB record
         success_url = self.get_success_url()
