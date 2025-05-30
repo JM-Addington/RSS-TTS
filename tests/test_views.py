@@ -340,3 +340,101 @@ class ArticleDetailViewTests(TestCase):
         self.assertEqual(new_article.voice_id, "echo")
         self.assertEqual(new_article.speed, 1.1)
         mock_delay.assert_called_once_with(new_article.pk)
+
+
+class ArticleMediaViewTests(TestCase):
+    """Tests for the ArticleMediaView to ensure public access for podcast clients."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="mediauser", password="password", email="m@example.com"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Media Feed")
+        self.article = Article.objects.create(
+            feed=self.feed,
+            title="Media Article",
+            text_content="Content for media test",
+            status=Article.COMPLETED,
+            audio_uuid=uuid.uuid4(),
+        )
+        # Create a dummy audio file using canonical path
+        from django.conf import settings
+        import os
+
+        # Set the canonical path first
+        self.article.set_canonical_audio_path()
+        self.article.save()
+
+        # Create the file at the canonical path location
+        canonical_path = self.article.get_canonical_audio_path()
+        self.audio_file_path = canonical_path
+
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(canonical_path), exist_ok=True)
+
+        with open(canonical_path, "wb") as f:
+            f.write(b"fake audio data for testing")
+
+    def tearDown(self):
+        """Clean up test files."""
+        if os.path.exists(self.audio_file_path):
+            os.remove(self.audio_file_path)
+
+    def test_unauthenticated_access_allowed(self):
+        """Test that unauthenticated users can access audio files via UUID."""
+        # Ensure not logged in
+        self.client.logout()
+
+        # Make request to audio endpoint
+        response = self.client.get(
+            reverse("article-media", kwargs={"audio_uuid": self.article.audio_uuid})
+        )
+
+        # Should return 200, not 401/302 (authentication required)
+        self.assertEqual(response.status_code, 200)
+
+        # Should have correct Content-Type
+        self.assertEqual(response.get("Content-Type"), "audio/mpeg")
+
+        # Should have Content-Disposition header with filename
+        self.assertIn("attachment", response.get("Content-Disposition", ""))
+        self.assertIn("Media Article.mp3", response.get("Content-Disposition", ""))
+
+    def test_authenticated_access_still_works(self):
+        """Test that authenticated users can still access audio files."""
+        self.client.login(username="mediauser", password="password")
+
+        response = self.client.get(
+            reverse("article-media", kwargs={"audio_uuid": self.article.audio_uuid})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get("Content-Type"), "audio/mpeg")
+
+    def test_invalid_uuid_returns_404(self):
+        """Test that invalid UUIDs return 404."""
+        invalid_uuid = uuid.uuid4()  # Random UUID that doesn't exist
+
+        response = self.client.get(
+            reverse("article-media", kwargs={"audio_uuid": invalid_uuid})
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_non_completed_article_returns_404(self):
+        """Test that articles not in COMPLETED status return 404."""
+        # Create article in PROCESSING status
+        processing_article = Article.objects.create(
+            feed=self.feed,
+            title="Processing Article",
+            text_content="Still processing",
+            status=Article.PROCESSING,
+            audio_uuid=uuid.uuid4(),
+        )
+
+        response = self.client.get(
+            reverse("article-media", kwargs={"audio_uuid": processing_article.audio_uuid})
+        )
+
+        self.assertEqual(response.status_code, 404)
