@@ -45,7 +45,7 @@ RUN apt-get update && apt-get install -y ffmpeg
 
 ### Test Coverage
 
-The test suite includes 78 tests covering:
+The test suite includes 89 tests covering:
 
 - Core model functionality
 - Article processing and chunking
@@ -53,6 +53,31 @@ The test suite includes 78 tests covering:
 - URL content extraction and processing
 - Error handling and recovery
 - Project structure and configuration
+- **Article deletion safety** - Protection against accidental directory deletion
+
+#### Article Deletion Safety Tests
+
+The `tests/test_article_deletion_safety.py` module contains comprehensive tests for safe audio file deletion:
+
+**Core Safety Features:**
+- Directory protection: Prevents deletion of directories (raises AssertionError)
+- File extension validation: Only allows deletion of audio files (.mp3, .wav, .m4a, .ogg, .flac, .aac)
+- Path validation: Ensures paths are not None, empty, or whitespace-only
+- Symlink handling: Safely handles symlinks to files but blocks symlinks to directories
+
+**Edge Case Handling:**
+- Non-existent files (returns False gracefully)
+- Permission errors (logs warning, returns False)
+- Integration with ArticleDeleteView to ensure view-level safety
+
+**Implementation Details:**
+The `safe_delete_audio_file()` function in `utils.py` includes multiple assertion checks:
+```python
+assert not os.path.isdir(file_path), f"Cannot delete directory: {file_path}"
+assert file_extension in valid_audio_extensions, "Only audio files can be deleted"
+```
+
+These safety measures ensure that even if there's a bug in path resolution logic, the deletion function will never accidentally remove directories or non-audio files.
 
 ### Notes
 

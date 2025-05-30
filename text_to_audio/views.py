@@ -39,7 +39,7 @@ from .models import Article, Feed, FollowedFeed, UserVoicePreset, UserVoiceProfi
 from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
 from .tasks import process_article
-from .utils import extract_article_text, extract_title_from_html, fetch_url_content
+from .utils import extract_article_text, extract_title_from_html, fetch_url_content, safe_delete_audio_file
 
 logger = logging.getLogger(__name__)
 
@@ -777,17 +777,17 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
 
         # First find the file path using our helper method
         file_path_to_delete = self._get_article_audio_file_path(article)
-        # Only try to delete if we found a path and the file exists
-        if file_path_to_delete and os.path.exists(file_path_to_delete):
+        # Only try to delete if we found a path
+        if file_path_to_delete:
             try:
-                # Delete only the specific file, never the parent directory
-                os.unlink(file_path_to_delete)
-            except (OSError, FileNotFoundError, PermissionError) as e:
-                # Log the error but continue with DB deletion
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.warning(f"Error deleting file {file_path_to_delete}: {e}")
+                # Use safe deletion function with directory protection
+                safe_delete_audio_file(file_path_to_delete)
+            except AssertionError as e:
+                # Log assertion errors (like trying to delete directory) but continue
+                logger.error(f"Safe deletion assertion failed for {file_path_to_delete}: {e}")
+            except Exception as e:
+                # Log any other unexpected errors but continue with DB deletion
+                logger.warning(f"Unexpected error during safe deletion of {file_path_to_delete}: {e}")
 
         # Call delete method to remove DB record
         success_url = self.get_success_url()
