@@ -215,7 +215,27 @@ class UserVoicePreset(models.Model):
 
 
 class Article(models.Model):
-    """Model representing an article that has been converted to audio."""
+    """Model representing an article that has been converted to audio.
+
+    Voice Field Deprecation Strategy:
+    ================================
+    The Article model has two voice-related fields for historical reasons:
+    - `voice`: CharField with predefined choices (canonical for standard voices)
+    - `voice_id`: CharField for custom voice IDs (canonical for custom voices)
+
+    IMPORTANT: Only ONE of these fields should be set at a time to maintain data consistency.
+    The clean() method enforces this constraint.
+
+    Recommended Usage:
+    - Use `voice` field for standard OpenAI TTS voices (alloy, nova, etc.)
+    - Use `voice_id` field for custom or future voice implementations
+    - Never set both fields simultaneously
+
+    Migration Strategy:
+    - Standard voice values are normalized to the `voice` field
+    - Custom voice values are normalized to the `voice_id` field
+    - The validation ensures single source of truth going forward
+    """
 
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
@@ -256,7 +276,11 @@ class Article(models.Model):
         default=VOICE_ALLOY,
         null=False,
         blank=False,
-        help_text="The voice to use for text-to-speech conversion.",
+        help_text=(
+            "Standard OpenAI TTS voice to use for conversion. "
+            "Use this field for predefined voices (alloy, nova, etc.). "
+            "Do not set both 'voice' and 'voice_id' - only one should be used."
+        ),
     )
     audio_file_path: models.CharField = models.CharField(
         max_length=255, blank=True, help_text="Path to the audio file."
@@ -311,7 +335,12 @@ class Article(models.Model):
         max_length=50,
         null=True,
         blank=True,
-        help_text="Voice ID used for text-to-speech conversion.",
+        help_text=(
+            "Custom voice ID for text-to-speech conversion. "
+            "Use this field for custom or non-standard voices. "
+            "Do not set both 'voice' and 'voice_id' - only one should be used. "
+            "Leave empty when using standard voices."
+        ),
     )
     speed: models.FloatField = models.FloatField(
         null=True,
@@ -338,6 +367,32 @@ class Article(models.Model):
         blank=True,
         help_text="Detailed voice parameters for text-to-speech conversion.",
     )
+
+    def clean(self) -> None:
+        """Validate Article model fields for consistency.
+
+        Ensures single source of truth for voice fields:
+        - Only one of 'voice' or 'voice_id' should be set at a time
+        - Empty strings and whitespace-only values are treated as unset
+        - Provides clear error messages for conflicts
+
+        Raises:
+            ValidationError: When both voice and voice_id are set with values
+        """
+        super().clean()
+
+        # Normalize values - treat empty strings and whitespace as unset
+        voice_is_set = bool(self.voice and str(self.voice).strip())
+        voice_id_is_set = bool(self.voice_id and str(self.voice_id).strip())
+
+        # Check if both fields are set
+        if voice_is_set and voice_id_is_set:
+            from django.core.exceptions import ValidationError
+            raise ValidationError({
+                'voice': f"Only one voice field should be set at a time. "
+                        f"Found voice='{self.voice}' and voice_id='{self.voice_id}'. "
+                        f"Please use either 'voice' for standard voices or 'voice_id' for custom voices, but not both."
+            })
 
     def __str__(self) -> str:
         """Return a string representation of the article."""
