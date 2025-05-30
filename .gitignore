@@ -15,3 +15,10 @@ tts demo/
 # Test scripts
 test_byte_range.sh
 data/
+joe.txt
+joe2.txt
+mike.txt
+mike2.txt
+*final_report.*
+/.pytest_cache/
+/media/*
