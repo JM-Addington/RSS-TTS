@@ -7,12 +7,10 @@ accidental directory deletion.
 
 import os
 import tempfile
-import unittest
-from unittest.mock import patch, mock_open
-from pathlib import Path
+from unittest.mock import patch
 
-from django.test import TestCase
 from django.contrib.auth.models import User
+from django.test import TestCase
 
 from text_to_audio.models import Article, Feed
 from text_to_audio.utils import safe_delete_audio_file
@@ -28,24 +26,20 @@ class TestArticleDeletionSafety(TestCase):
         self.test_subdir = os.path.join(self.temp_dir, "subdir")
 
         # Create test files and directories
-        with open(self.test_file, 'w') as f:
+        with open(self.test_file, "w") as f:
             f.write("test content")
         os.makedirs(self.test_subdir)
 
         # Create test user and feed for Django model tests
         self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass'
+            username="testuser", email="test@example.com", password="testpass"
         )
-        self.feed = Feed.objects.create(
-            user=self.user,
-            name='Test Feed'
-        )
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
 
     def tearDown(self):
         """Clean up test environment."""
         import shutil
+
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
@@ -90,11 +84,11 @@ class TestArticleDeletionSafety(TestCase):
         """Test that deletion handles permission errors gracefully."""
         # Create a file
         test_file = os.path.join(self.temp_dir, "permission_test.mp3")
-        with open(test_file, 'w') as f:
+        with open(test_file, "w") as f:
             f.write("test")
 
         # Mock os.unlink to raise PermissionError
-        with patch('os.unlink') as mock_unlink:
+        with patch("os.unlink") as mock_unlink:
             mock_unlink.side_effect = PermissionError("Permission denied")
 
             result = safe_delete_audio_file(test_file)
@@ -162,7 +156,7 @@ class TestArticleDeletionSafety(TestCase):
         """Test that deletion validates audio file extensions."""
         # Create a file with non-audio extension
         non_audio_file = os.path.join(self.temp_dir, "test.txt")
-        with open(non_audio_file, 'w') as f:
+        with open(non_audio_file, "w") as f:
             f.write("test")
 
         # Should fail with assertion for non-audio file
@@ -176,13 +170,13 @@ class TestArticleDeletionSafety(TestCase):
 
     def test_safe_delete_allows_valid_audio_extensions(self):
         """Test that deletion allows valid audio file extensions."""
-        valid_extensions = ['.mp3', '.wav', '.m4a', '.ogg', '.flac']
+        valid_extensions = [".mp3", ".wav", ".m4a", ".ogg", ".flac"]
 
         for ext in valid_extensions:
             with self.subTest(extension=ext):
                 # Create file with valid audio extension
                 audio_file = os.path.join(self.temp_dir, f"test{ext}")
-                with open(audio_file, 'w') as f:
+                with open(audio_file, "w") as f:
                     f.write("test audio content")
 
                 # Should successfully delete
@@ -197,23 +191,24 @@ class TestArticleDeletionSafety(TestCase):
             feed=self.feed,
             title="Test Article",
             text_content="Test content",
-            status=Article.COMPLETED
+            status=Article.COMPLETED,
         )
 
         # Create a mock audio file path
         test_audio_file = os.path.join(self.temp_dir, "article_audio.mp3")
-        with open(test_audio_file, 'w') as f:
+        with open(test_audio_file, "w") as f:
             f.write("audio content")
 
         article.audio_file_path = test_audio_file
         article.save()
 
         # Mock the safe_delete_audio_file function to verify it's called
-        with patch('text_to_audio.utils.safe_delete_audio_file') as mock_safe_delete:
+        with patch("text_to_audio.utils.safe_delete_audio_file") as mock_safe_delete:
             mock_safe_delete.return_value = True
 
             # Simulate the deletion logic directly
             from text_to_audio.utils import safe_delete_audio_file
+
             safe_delete_audio_file(test_audio_file)
 
             # Verify safe_delete_audio_file was called
@@ -226,15 +221,10 @@ class TestArticleDeletionIntegration(TestCase):
     def setUp(self):
         """Set up test environment for integration tests."""
         self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass'
+            username="testuser", email="test@example.com", password="testpass"
         )
-        self.feed = Feed.objects.create(
-            user=self.user,
-            name='Test Feed'
-        )
-        self.client.login(username='testuser', password='testpass')
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
+        self.client.login(username="testuser", password="testpass")
 
     def test_article_delete_view_safety_checks(self):
         """Test that ArticleDeleteView includes safety checks."""
@@ -242,7 +232,7 @@ class TestArticleDeletionIntegration(TestCase):
             feed=self.feed,
             title="Test Article",
             text_content="Test content",
-            status=Article.COMPLETED
+            status=Article.COMPLETED,
         )
 
         # Create a temporary directory to simulate directory path
@@ -253,13 +243,14 @@ class TestArticleDeletionIntegration(TestCase):
             article.save()
 
             # Mock the safe deletion to verify it would be called with directory
-            with patch('text_to_audio.utils.safe_delete_audio_file') as mock_safe_delete:
+            with patch(
+                "text_to_audio.utils.safe_delete_audio_file"
+            ) as mock_safe_delete:
                 mock_safe_delete.side_effect = AssertionError("Cannot delete directory")
 
                 # Attempt to delete article through the view
                 response = self.client.post(
-                    f'/feeds/{self.feed.id}/articles/{article.id}/delete/',
-                    follow=True
+                    f"/feeds/{self.feed.id}/articles/{article.id}/delete/", follow=True
                 )
 
                 # The view should handle the assertion error gracefully
@@ -273,5 +264,6 @@ class TestArticleDeletionIntegration(TestCase):
         finally:
             # Clean up
             import shutil
+
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)

@@ -108,8 +108,8 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
     current_chunk = ""
 
     # Define break characters in priority order
-    sentence_breaks = {'.', '!', '?'}
-    clause_breaks = {';', ','}
+    sentence_breaks = {".", "!", "?"}
+    clause_breaks = {";", ","}
 
     i = 0
     text_len = len(text)
@@ -149,7 +149,7 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
         current_chunk += char
 
         # Check for natural break opportunities
-        if char == '\n':
+        if char == "\n":
             # Line break - highest priority
             chunks.append(current_chunk.strip())
             current_chunk = ""
@@ -203,12 +203,12 @@ def _find_best_break_point(text: str, max_length: int) -> int:
 
     # Priority 1: Sentence breaks with space after
     for i in range(len(search_text) - 2, -1, -1):
-        if search_text[i] in {'.', '!', '?'} and search_text[i + 1].isspace():
+        if search_text[i] in {".", "!", "?"} and search_text[i + 1].isspace():
             return i + 2  # Include the punctuation and space
 
     # Priority 2: Clause breaks with space after
     for i in range(len(search_text) - 2, -1, -1):
-        if search_text[i] in {';', ','} and search_text[i + 1].isspace():
+        if search_text[i] in {";", ","} and search_text[i + 1].isspace():
             return i + 2
 
     # Priority 3: Word boundaries (spaces)

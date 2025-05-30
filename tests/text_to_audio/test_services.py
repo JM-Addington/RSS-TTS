@@ -1,15 +1,15 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase
 from django.conf import settings
+from django.test import TestCase
 
 from text_to_audio.services.content_analysis import ContentAnalysisService
 
 # Ensure settings are configured if not already
 if not settings.configured:
     settings.configure(
-        OPENAI_API_KEY="test_api_key", # Dummy key for tests
+        OPENAI_API_KEY="test_api_key",  # Dummy key for tests
         # Add other necessary settings if ContentAnalysisService depends on them
     )
 
@@ -27,8 +27,18 @@ class ContentAnalysisServiceTest(TestCase):
         sample_text = "This is a test text."
         mock_llm_response_content = {
             "voices": [
-                {"name": "narrator", "tone": "neutral", "tts_model": "alloy", "tts_speed": 1.0},
-                {"name": "character1", "tone": "excited", "tts_model": "nova", "tts_speed": 1.2},
+                {
+                    "name": "narrator",
+                    "tone": "neutral",
+                    "tts_model": "alloy",
+                    "tts_speed": 1.0,
+                },
+                {
+                    "name": "character1",
+                    "tone": "excited",
+                    "tts_model": "nova",
+                    "tts_speed": 1.2,
+                },
             ],
             "audio_segments": [
                 {"text": "Segment 1.", "voice_name": "narrator"},
@@ -40,24 +50,27 @@ class ContentAnalysisServiceTest(TestCase):
 
         # Mock the API call structure
         mock_completion_message = MagicMock()
-        mock_completion_message.message.content = json.dumps(mock_llm_response_content) # LLM returns a JSON string
-        
+        mock_completion_message.message.content = json.dumps(
+            mock_llm_response_content
+        )  # LLM returns a JSON string
+
         mock_choice = MagicMock()
         mock_choice.message = mock_completion_message
-        
+
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
         self.mock_openai_client.chat.completions.create.return_value = mock_response
-        
+
         # We need json.loads to return the actual dict when the service calls it
         # The patch should apply to the json.loads call within analyze_content
-        original_json_loads = json.loads 
+        original_json_loads = json.loads
+
         def side_effect_json_loads(s):
             if s == json.dumps(mock_llm_response_content):
                 return mock_llm_response_content
             return original_json_loads(s)
-        mock_json_loads.side_effect = side_effect_json_loads
 
+        mock_json_loads.side_effect = side_effect_json_loads
 
         result = self.service.analyze_content(sample_text)
 
@@ -71,7 +84,9 @@ class ContentAnalysisServiceTest(TestCase):
     def test_analyze_content_malformed_json(self):
         """Test with malformed JSON output from LLM."""
         sample_text = "Another test text."
-        malformed_json_string = '{"voices": [{"name": "narrator"} /* missing comma */ "audio_segments": []}'
+        malformed_json_string = (
+            '{"voices": [{"name": "narrator"} /* missing comma */ "audio_segments": []}'
+        )
 
         mock_completion_message = MagicMock()
         mock_completion_message.message.content = malformed_json_string
@@ -86,7 +101,7 @@ class ContentAnalysisServiceTest(TestCase):
         self.assertIn("voices", result)
         self.assertEqual(len(result["voices"]), 1)
         self.assertEqual(result["voices"][0]["name"], "narrator")
-        self.assertEqual(result["voices"][0]["tts_model"], "alloy") # Default
+        self.assertEqual(result["voices"][0]["tts_model"], "alloy")  # Default
         self.assertIn("audio_segments", result)
         self.assertEqual(len(result["audio_segments"]), 1)
         self.assertEqual(result["audio_segments"][0]["text"], sample_text)
@@ -114,10 +129,10 @@ class ContentAnalysisServiceTest(TestCase):
         """Test LLM returning JSON with empty 'voices' list."""
         sample_text = "Text for empty voices test."
         llm_response_content = {
-            "voices": [], # Empty list
+            "voices": [],  # Empty list
             "audio_segments": [{"text": "Segment 1.", "voice_name": "narrator"}],
         }
-        
+
         mock_completion_message = MagicMock()
         mock_completion_message.message.content = json.dumps(llm_response_content)
         mock_choice = MagicMock()
@@ -125,20 +140,30 @@ class ContentAnalysisServiceTest(TestCase):
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
         self.mock_openai_client.chat.completions.create.return_value = mock_response
-        
+
         # Mock json.loads for this specific case
-        with patch("text_to_audio.services.content_analysis.json.loads", return_value=llm_response_content):
+        with patch(
+            "text_to_audio.services.content_analysis.json.loads",
+            return_value=llm_response_content,
+        ):
             result = self.service.analyze_content(sample_text)
 
-        self.assertEqual(result["voices"][0]["name"], "narrator") # Default fallback
+        self.assertEqual(result["voices"][0]["name"], "narrator")  # Default fallback
         self.assertEqual(result["audio_segments"][0]["text"], sample_text)
 
     def test_analyze_content_empty_audio_segments_list(self):
         """Test LLM returning JSON with empty 'audio_segments' list."""
         sample_text = "Text for empty segments test."
         llm_response_content = {
-            "voices": [{"name": "narrator", "tone": "neutral", "tts_model": "alloy", "tts_speed": 1.0}],
-            "audio_segments": [], # Empty list
+            "voices": [
+                {
+                    "name": "narrator",
+                    "tone": "neutral",
+                    "tts_model": "alloy",
+                    "tts_speed": 1.0,
+                }
+            ],
+            "audio_segments": [],  # Empty list
         }
         mock_completion_message = MagicMock()
         mock_completion_message.message.content = json.dumps(llm_response_content)
@@ -149,8 +174,11 @@ class ContentAnalysisServiceTest(TestCase):
         self.mock_openai_client.chat.completions.create.return_value = mock_response
 
         # Mock json.loads for this specific case
-        with patch("text_to_audio.services.content_analysis.json.loads", return_value=llm_response_content):
+        with patch(
+            "text_to_audio.services.content_analysis.json.loads",
+            return_value=llm_response_content,
+        ):
             result = self.service.analyze_content(sample_text)
 
-        self.assertEqual(result["voices"][0]["name"], "narrator") # Default fallback
+        self.assertEqual(result["voices"][0]["name"], "narrator")  # Default fallback
         self.assertEqual(result["audio_segments"][0]["text"], sample_text)

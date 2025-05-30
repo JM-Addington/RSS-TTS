@@ -206,6 +206,7 @@ class UserVoicePreset(models.Model):
 
     class Meta:
         """Metadata options for UserVoicePreset model."""
+
         unique_together = ["user", "name"]
         ordering = ["name"]
 
@@ -389,16 +390,21 @@ class Article(models.Model):
         # - Treat default "alloy" as "unset" when voice_id is provided
         # - This allows objects with custom voice_id to work without conflicts
         voice_value = str(self.voice).strip() if self.voice else ""
-        voice_is_set = bool(voice_value and not (voice_value == VOICE_ALLOY and voice_id_is_set))
+        voice_is_set = bool(
+            voice_value and not (voice_value == VOICE_ALLOY and voice_id_is_set)
+        )
 
         # Check if both fields are set
         if voice_is_set and voice_id_is_set:
             from django.core.exceptions import ValidationError
-            raise ValidationError({
-                'voice': f"Only one voice field should be set at a time. "
-                        f"Found voice='{self.voice}' and voice_id='{self.voice_id}'. "
-                        f"Please use either 'voice' for standard voices or 'voice_id' for custom voices, but not both."
-            })
+
+            raise ValidationError(
+                {
+                    "voice": f"Only one voice field should be set at a time. "
+                    f"Found voice='{self.voice}' and voice_id='{self.voice_id}'. "
+                    f"Please use either 'voice' for standard voices or 'voice_id' for custom voices, but not both."
+                }
+            )
 
     def __str__(self) -> str:
         """Return a string representation of the article."""
@@ -411,39 +417,34 @@ class Article(models.Model):
             The canonical path: media/audio/{user_id}/{article_id}.mp3
         """
         import os
+
         from django.conf import settings
 
         return os.path.join(
-            settings.MEDIA_ROOT,
-            "audio",
-            str(self.feed.user.id),
-            f"{self.id}.mp3"
+            settings.MEDIA_ROOT, "audio", str(self.feed.user.id), f"{self.id}.mp3"
         )
 
     def set_canonical_audio_path(self) -> None:
         """Set the audio_file_path to the canonical relative path."""
         import os
 
-        relative_path = os.path.join(
-            "audio",
-            str(self.feed.user.id),
-            f"{self.id}.mp3"
-        )
+        relative_path = os.path.join("audio", str(self.feed.user.id), f"{self.id}.mp3")
         self.audio_file_path = relative_path
 
     def ensure_canonical_directory_exists(self) -> None:
         """Create the canonical directory structure if it doesn't exist."""
         import os
+
         from django.conf import settings
 
         # Check if MEDIA_ROOT exists first
         if not os.path.exists(settings.MEDIA_ROOT):
-            raise FileNotFoundError(f"MEDIA_ROOT directory does not exist: {settings.MEDIA_ROOT}")
+            raise FileNotFoundError(
+                f"MEDIA_ROOT directory does not exist: {settings.MEDIA_ROOT}"
+            )
 
         user_audio_dir = os.path.join(
-            settings.MEDIA_ROOT,
-            "audio",
-            str(self.feed.user.id)
+            settings.MEDIA_ROOT, "audio", str(self.feed.user.id)
         )
         os.makedirs(user_audio_dir, exist_ok=True)
 
@@ -560,6 +561,7 @@ class VoiceMapping(models.Model):
 
     class Meta:
         """Metadata options for VoiceMapping model."""
+
         ordering = ["tone"]
 
 
@@ -609,4 +611,5 @@ class VoiceGenreTemplate(models.Model):
 
     class Meta:
         """Metadata options for VoiceGenreTemplate model."""
+
         ordering = ["genre"]

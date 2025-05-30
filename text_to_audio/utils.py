@@ -320,14 +320,10 @@ def get_canonical_audio_path(user_id: int, article_id: int) -> str:
         The canonical path: media/audio/{user_id}/{article_id}.mp3
     """
     import os
+
     from django.conf import settings
 
-    return os.path.join(
-        settings.MEDIA_ROOT,
-        "audio",
-        str(user_id),
-        f"{article_id}.mp3"
-    )
+    return os.path.join(settings.MEDIA_ROOT, "audio", str(user_id), f"{article_id}.mp3")
 
 
 def safe_delete_audio_file(file_path: Optional[str]) -> bool:
@@ -364,7 +360,7 @@ def safe_delete_audio_file(file_path: Optional[str]) -> bool:
     assert not os.path.isdir(file_path), f"Cannot delete directory: {file_path}"
 
     # Validate file extension - only allow audio files
-    valid_audio_extensions = {'.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac'}
+    valid_audio_extensions = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}
     file_extension = os.path.splitext(file_path)[1].lower()
     assert file_extension in valid_audio_extensions, (
         f"Only audio files can be deleted. Got extension: {file_extension}. "

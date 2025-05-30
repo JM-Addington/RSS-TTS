@@ -90,7 +90,9 @@ class UserPreferencesService:
                     preset = UserVoicePreset.objects.get(id=voice_preset)
                     article.voice_preset = preset
                     article.voice_id = preset.voice_id
-                    article.voice = preset.voice_id  # Set both voice and voice_id fields
+                    article.voice = (
+                        preset.voice_id
+                    )  # Set both voice and voice_id fields
                     article.speed = preset.speed
                 except (UserVoicePreset.DoesNotExist, ValueError):
                     # If preset doesn't exist, ignore it
@@ -98,7 +100,9 @@ class UserPreferencesService:
             else:
                 article.voice_preset = voice_preset
                 article.voice_id = voice_preset.voice_id
-                article.voice = voice_preset.voice_id  # Set both voice and voice_id fields
+                article.voice = (
+                    voice_preset.voice_id
+                )  # Set both voice and voice_id fields
                 article.speed = voice_preset.speed
         else:
             if voice is not None:

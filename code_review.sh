@@ -6,7 +6,7 @@ MIKE_MODEL="gemini-2.5-pro-preview-05-06"
 JOE_MODEL="o3"
 MARKDOWN_ROOT="./"
 CODE_ROOT="./"
-EXTRA_MESSAGE="Pay special attention to see if there are any files (including markdown files) that can be removed."
+EXTRA_MESSAGE="Pay special attention to see if automatic voice tones are properly generating and being sent to the TTS API"
 
 datestring=$(date +%Y-%m-%d-%H-%M)
 final_report="$datestring-final_report.md"

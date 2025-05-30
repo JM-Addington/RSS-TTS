@@ -6,9 +6,6 @@ save audio files to a consistent path: media/audio/{user_id}/{article_id}.mp3
 
 import os
 import tempfile
-import uuid
-from pathlib import Path
-from unittest.mock import Mock, patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -59,6 +56,7 @@ class CanonicalMediaPathsTestCase(TestCase):
 
         # This utility function should also be implemented
         from text_to_audio.utils import get_canonical_audio_path
+
         path2 = get_canonical_audio_path(self.user.id, self.article.id)
 
         # Both should return the same canonical path
@@ -88,7 +86,9 @@ class CanonicalMediaPathsTestCase(TestCase):
         self.assertNotIn("article_", canonical_path)  # Old prefix pattern
         # Only check UUID pattern if audio_uuid exists
         if self.article.audio_uuid:
-            self.assertNotIn(str(self.article.audio_uuid), canonical_path)  # UUID pattern
+            self.assertNotIn(
+                str(self.article.audio_uuid), canonical_path
+            )  # UUID pattern
 
     @override_settings(MEDIA_ROOT="/tmp/test_media")
     def test_canonical_path_directory_creation(self):
@@ -100,7 +100,7 @@ class CanonicalMediaPathsTestCase(TestCase):
                 self.assertFalse(os.path.exists(user_audio_dir))
 
                 # Getting canonical path should create directories
-                canonical_path = self.article.get_canonical_audio_path()
+                self.article.get_canonical_audio_path()
 
                 # This should fail initially - the method should create dirs
                 self.article.ensure_canonical_directory_exists()
@@ -187,6 +187,7 @@ class CanonicalMediaPathsTestCase(TestCase):
 
                 # Test that media serving finds the file
                 from text_to_audio.views import ArticleMediaView
+
                 view = ArticleMediaView()
 
                 # This should work with canonical paths
@@ -221,8 +222,9 @@ class CanonicalMediaPathsTestCase(TestCase):
     def test_get_absolute_url_uses_canonical_path(self):
         """Test that article's get_absolute_url method works with canonical paths."""
         # Set up article with canonical path and audio_uuid
-        import uuid
-        self.article.audio_uuid = uuid.uuid4()
+        import uuid as uuid_module
+
+        self.article.audio_uuid = uuid_module.uuid4()
         self.article.set_canonical_audio_path()
         self.article.status = Article.COMPLETED
         self.article.save()
@@ -251,12 +253,14 @@ class CanonicalMediaPathsTestCase(TestCase):
                 self.article.save()
 
                 # Ensure article has audio_uuid for RSS feed
-                import uuid
-                self.article.audio_uuid = uuid.uuid4()
+                import uuid as uuid_module2
+
+                self.article.audio_uuid = uuid_module2.uuid4()
                 self.article.save()
 
                 # Test RSS feed generation
                 from text_to_audio.feeds import UserFeed
+
                 feed = UserFeed()
 
                 items = list(feed.items(self.feed))
