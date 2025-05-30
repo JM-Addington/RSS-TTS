@@ -173,6 +173,58 @@ class ChunkTextTests(TestCase):
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 20)
 
+    def test_chunk_text_large_continuous_input_no_infinite_loop(self):
+        """Test that _chunk_text doesn't get stuck in infinite loop with large continuous text."""
+        # Create a 5000+ character string with no natural breaks
+        # This would previously cause an infinite loop
+        large_continuous_text = "a" * 5000
+
+        # Use a small max_length to force multiple splits
+        max_length = 100
+        success, chunks = _chunk_text(large_continuous_text, max_length=max_length)
+
+        # Should complete without hanging and produce chunks
+        self.assertTrue(len(chunks) > 0)  # Should produce chunks
+
+        # Each chunk should be within the max_length limit
+        for chunk in chunks:
+            self.assertLessEqual(len(chunk), max_length)
+
+        # All characters should be preserved
+        combined_length = sum(len(chunk) for chunk in chunks)
+        self.assertEqual(combined_length, len(large_continuous_text))
+
+        # Should produce the expected number of chunks (50 chunks of 100 chars each)
+        expected_chunks = len(large_continuous_text) // max_length
+        self.assertEqual(len(chunks), expected_chunks)
+
+        # The key test: this should complete in reasonable time (not hang in infinite loop)
+        # If the fix wasn't applied, this test would never complete
+
+    def test_chunk_text_stress_test_completion(self):
+        """Stress test to ensure _chunk_text completes for various edge cases."""
+        # Test cases that could potentially cause infinite loops
+        test_cases = [
+            ("a" * 1000, 100),  # Very long continuous text
+            ("word" * 300, 50),  # Repeated words
+            ("x" * 500 + " end", 100),  # Long sequence with break at end
+        ]
+
+        for text, max_len in test_cases:
+            with self.subTest(text_len=len(text), max_length=max_len):
+                success, chunks = _chunk_text(text, max_length=max_len)
+
+                # Key assertion: should complete without hanging
+                self.assertTrue(len(chunks) > 0)
+
+                # Each chunk should be within limits
+                for chunk in chunks:
+                    self.assertLessEqual(len(chunk), max_len)
+
+                # Should preserve content length approximately (accounting for whitespace)
+                total_chunk_chars = sum(len(chunk) for chunk in chunks)
+                self.assertGreaterEqual(total_chunk_chars, len(text) * 0.9)  # Allow some variance
+
 
 @override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT, OPENAI_API_KEY="test_api_key")
 @patch("text_to_audio.tasks.openai.OpenAI")
