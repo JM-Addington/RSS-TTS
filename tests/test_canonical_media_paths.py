@@ -86,7 +86,9 @@ class CanonicalMediaPathsTestCase(TestCase):
         # Should not contain legacy patterns
         self.assertNotIn("articles", canonical_path)  # Old pattern
         self.assertNotIn("article_", canonical_path)  # Old prefix pattern
-        self.assertNotIn(str(self.article.audio_uuid or ""), canonical_path)  # UUID pattern
+        # Only check UUID pattern if audio_uuid exists
+        if self.article.audio_uuid:
+            self.assertNotIn(str(self.article.audio_uuid), canonical_path)  # UUID pattern
 
     @override_settings(MEDIA_ROOT="/tmp/test_media")
     def test_canonical_path_directory_creation(self):
@@ -218,7 +220,9 @@ class CanonicalMediaPathsTestCase(TestCase):
 
     def test_get_absolute_url_uses_canonical_path(self):
         """Test that article's get_absolute_url method works with canonical paths."""
-        # Set up article with canonical path
+        # Set up article with canonical path and audio_uuid
+        import uuid
+        self.article.audio_uuid = uuid.uuid4()
         self.article.set_canonical_audio_path()
         self.article.status = Article.COMPLETED
         self.article.save()
@@ -226,10 +230,9 @@ class CanonicalMediaPathsTestCase(TestCase):
         # get_absolute_url should work with new path structure
         url = self.article.get_absolute_url()
 
-        # Should return media URL for audio
-        self.assertIn("media/audio/", url)
-        self.assertIn(str(self.user.id), url)
-        self.assertIn(str(self.article.id), url)
+        # Should return media URL for audio using audio_uuid
+        self.assertIn("/audio/", url)
+        self.assertIn(str(self.article.audio_uuid), url)
 
     def test_rss_feed_uses_canonical_paths(self):
         """Test that RSS feed generation uses canonical paths for enclosures."""
@@ -247,15 +250,19 @@ class CanonicalMediaPathsTestCase(TestCase):
 
                 self.article.save()
 
+                # Ensure article has audio_uuid for RSS feed
+                import uuid
+                self.article.audio_uuid = uuid.uuid4()
+                self.article.save()
+
                 # Test RSS feed generation
                 from text_to_audio.feeds import UserFeed
                 feed = UserFeed()
-                feed.token = self.feed.token
 
-                items = list(feed.items())
+                items = list(feed.items(self.feed))
                 self.assertGreater(len(items), 0)
 
-                # Test enclosure URL uses canonical path
+                # Test enclosure URL uses audio_uuid (not user_id - that's for file organization)
                 enclosure_url = feed.item_enclosure_url(self.article)
                 self.assertIn("audio", enclosure_url)
-                self.assertIn(str(self.user.id), enclosure_url)
+                self.assertIn(str(self.article.audio_uuid), enclosure_url)

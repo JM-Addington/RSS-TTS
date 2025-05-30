@@ -307,3 +307,24 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
         return False, "", error
 
     return True, text, None
+
+
+def get_canonical_audio_path(user_id: int, article_id: int) -> str:
+    """Get the canonical path for an article's audio file.
+
+    Args:
+        user_id: ID of the user who owns the article
+        article_id: ID of the article
+
+    Returns:
+        The canonical path: media/audio/{user_id}/{article_id}.mp3
+    """
+    import os
+    from django.conf import settings
+
+    return os.path.join(
+        settings.MEDIA_ROOT,
+        "audio",
+        str(user_id),
+        f"{article_id}.mp3"
+    )

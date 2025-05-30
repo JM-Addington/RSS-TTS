@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     """Migration to fix missing voice column."""
 
     dependencies = [
-        ("text_to_audio", "0012_fix_migration_conflicts"),
+        ("text_to_audio", "0003_set_feeds_to_auto_voice"),
     ]
 
     operations = [
