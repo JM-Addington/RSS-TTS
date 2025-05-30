@@ -328,3 +328,55 @@ def get_canonical_audio_path(user_id: int, article_id: int) -> str:
         str(user_id),
         f"{article_id}.mp3"
     )
+
+
+def safe_delete_audio_file(file_path: Optional[str]) -> bool:
+    """Safely delete an audio file with directory protection.
+
+    This function ensures that only audio files are deleted and prevents
+    accidental deletion of directories or non-audio files.
+
+    Args:
+        file_path: Path to the audio file to delete.
+
+    Returns:
+        True if the file was successfully deleted, False otherwise.
+
+    Raises:
+        AssertionError: If the path is invalid, points to a directory,
+                       or is not an audio file.
+    """
+    import os
+
+    # Validate input
+    assert file_path is not None, "Path cannot be None or empty"
+    assert isinstance(file_path, str), "Path must be a string"
+    assert file_path.strip() != "", "Path cannot be None or empty"
+
+    file_path = file_path.strip()
+
+    # Check if path exists first (for better error handling)
+    if not os.path.exists(file_path):
+        logger.info(f"File does not exist, skipping deletion: {file_path}")
+        return False
+
+    # Safety check: ensure we're not trying to delete a directory
+    assert not os.path.isdir(file_path), f"Cannot delete directory: {file_path}"
+
+    # Validate file extension - only allow audio files
+    valid_audio_extensions = {'.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac'}
+    file_extension = os.path.splitext(file_path)[1].lower()
+    assert file_extension in valid_audio_extensions, (
+        f"Only audio files can be deleted. Got extension: {file_extension}. "
+        f"Valid extensions: {', '.join(sorted(valid_audio_extensions))}"
+    )
+
+    try:
+        # Actually delete the file
+        os.unlink(file_path)
+        logger.info(f"Successfully deleted audio file: {file_path}")
+        return True
+
+    except (OSError, FileNotFoundError, PermissionError) as e:
+        logger.warning(f"Error deleting file {file_path}: {e}")
+        return False
