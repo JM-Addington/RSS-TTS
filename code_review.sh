@@ -11,8 +11,11 @@ EXTRA_MESSAGE="Pay special attention to see if there are any files (including ma
 datestring=$(date +%Y-%m-%d-%H-%M)
 final_report="$datestring-final_report.md"
 
-# Initialize the final report file
-echo "" > "$final_report"
+# Initialize the final report file with header
+{
+  echo "# Final Code Review Report - $datestring"
+  echo ""
+} > "$final_report"
 
 # intialize review files
 echo "<mike1_review>" > mike1_review.md
@@ -31,7 +34,8 @@ emit_all() {
   # Output all markdown files first (excluding venv, .git, and other common directories)
   find "$MARKDOWN_ROOT" -name '*.md' -not -name 'PROJECT_PLAN.md' \
     -not -name '*final_report*' \
-    -not -path '*/.gitignore' \
+    -not -name 'mike*_review.md' \
+    -not -name 'joe*_review.md' \
     -not -path '*/venv/*' \
     -not -path '*/.venv/*' \
     -not -path '*/env/*' \
@@ -70,7 +74,6 @@ emit_all() {
 
 echo "Asking Mike for a code review of the project..."
 # 1) Mike's first pass
-echo "Mike's first review:" >> "$final_report"
 emit_all | llm -m "$MIKE_MODEL" -s \
 "You are Mike, our senior django engineer. Please perform a review on all of this code, looking for bugs and inconsistencies. Include a list of prioritized action items. $EXTRA_MESSAGE" \
 >> "mike1_review.md"
@@ -97,7 +100,6 @@ echo "</mike2_review>" >> mike2_review.md
 
 echo "Joe will now review Mike's final comments and make his own notes..."
 # 4) Joe's last pass
-echo "Joe's final review:" >> "$final_report"
 (emit_all && cat mike1_review.md joe1_review.md mike2_review.md) | \
 llm -m "$JOE_MODEL" -s \
 "You are Joe, a senior django engineer. Mike did a first pass on a code review and now it is your turn. Please perform a review on all of this code, looking for bugs and inconsistencies. It is your decision to create the FINAL list of action items for the developers to work on next. Go off of the entire discussion." \
@@ -107,7 +109,6 @@ echo "</joe2_review>" >> joe2_review.md
 # Append all reviews to the final report
 echo "Appending all reviews to the final report..."
 {
-  echo "# Final Code Review Report - $datestring"
   echo "## Mike's First Review"
   cat mike1_review.md
   echo "## Joe's First Review"
