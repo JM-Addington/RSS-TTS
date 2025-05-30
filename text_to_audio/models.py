@@ -10,6 +10,33 @@ from django.conf import settings
 from django.db import models
 from django.db.models import JSONField
 
+# Available voice options for TTS (shared across models)
+VOICE_ALLOY = "alloy"
+VOICE_ECHO = "echo"
+VOICE_FABLE = "fable"
+VOICE_ASH = "ash"
+VOICE_BALLAD = "ballad"
+VOICE_CORAL = "coral"
+VOICE_ONYX = "onyx"
+VOICE_NOVA = "nova"
+VOICE_SAGE = "sage"
+VOICE_SHIMMER = "shimmer"
+VOICE_VERSE = "verse"
+
+VOICE_CHOICES = [
+    (VOICE_ALLOY, "Alloy"),
+    (VOICE_ASH, "Ash"),
+    (VOICE_BALLAD, "Ballad"),
+    (VOICE_CORAL, "Coral"),
+    (VOICE_ECHO, "Echo"),
+    (VOICE_FABLE, "Fable"),
+    (VOICE_ONYX, "Onyx"),
+    (VOICE_NOVA, "Nova"),
+    (VOICE_SAGE, "Sage"),
+    (VOICE_SHIMMER, "Shimmer"),
+    (VOICE_VERSE, "Verse"),
+]
+
 
 class Feed(models.Model):
     """Model representing a user's collection of articles (podcast feed)."""
@@ -136,7 +163,7 @@ class UserVoicePreset(models.Model):
         max_length=100, help_text="Name of the voice preset."
     )
     voice_id: models.CharField = models.CharField(
-        max_length=50, help_text="Voice ID for this preset."
+        max_length=50, choices=VOICE_CHOICES, help_text="Voice ID for this preset."
     )
     speed: models.FloatField = models.FloatField(
         default=1.0, help_text="Speed for this preset."
@@ -200,32 +227,8 @@ class Article(models.Model):
         (FAILED, "Failed"),
     ]
 
-    # Available voice options for TTS
-    VOICE_ALLOY = "alloy"
-    VOICE_ECHO = "echo"
-    VOICE_FABLE = "fable"
-    VOICE_ASH = "ash"
-    VOICE_BALLAD = "ballad"
-    VOICE_CORAL = "coral"
-    VOICE_ONYX = "onyx"
-    VOICE_NOVA = "nova"
-    VOICE_SAGE = "sage"
-    VOICE_SHIMMER = "shimmer"
-    VOICE_VERSE = "verse"
-
-    VOICE_CHOICES = [
-        (VOICE_ALLOY, "Alloy"),
-        (VOICE_ASH, "Ash"),
-        (VOICE_BALLAD, "Ballad"),
-        (VOICE_CORAL, "Coral"),
-        (VOICE_ECHO, "Echo"),
-        (VOICE_FABLE, "Fable"),
-        (VOICE_ONYX, "Onyx"),
-        (VOICE_NOVA, "Nova"),
-        (VOICE_SAGE, "Sage"),
-        (VOICE_SHIMMER, "Shimmer"),
-        (VOICE_VERSE, "Verse"),
-    ]
+    # Use module-level voice choices as single source of truth
+    VOICE_CHOICES = VOICE_CHOICES
 
     feed: models.ForeignKey = models.ForeignKey(
         Feed,
