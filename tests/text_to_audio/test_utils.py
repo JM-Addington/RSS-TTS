@@ -6,8 +6,11 @@ from unittest.mock import MagicMock, patch
 import requests
 from django.test import TestCase
 
-from text_to_audio.utils import (extract_article_text, fetch_url_content,
-                                 process_url_to_text)
+from text_to_audio.utils import (
+    extract_article_text,
+    fetch_url_content,
+    process_url_to_text,
+)
 
 
 class UrlUtilsTests(TestCase):

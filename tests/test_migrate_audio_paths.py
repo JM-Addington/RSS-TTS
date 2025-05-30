@@ -5,13 +5,10 @@ to the new canonical location and updates database paths accordingly.
 """
 
 import os
-import shutil
 import tempfile
 import uuid
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -155,7 +152,9 @@ class MigrateAudioPathsTestCase(TestCase):
                 self.article1.refresh_from_db()
 
                 # Verify path updated to canonical format
-                expected_path = os.path.join("audio", str(self.user1.id), f"{self.article1.id}.mp3")
+                expected_path = os.path.join(
+                    "audio", str(self.user1.id), f"{self.article1.id}.mp3"
+                )
                 self.assertEqual(self.article1.audio_file_path, expected_path)
                 self.assertNotEqual(self.article1.audio_file_path, original_path)
 
@@ -228,7 +227,7 @@ class MigrateAudioPathsTestCase(TestCase):
                     f.write("mock audio 2")
 
                 # Mock a database error during the second migration
-                with patch('text_to_audio.models.Article.save') as mock_save:
+                with patch("text_to_audio.models.Article.save") as mock_save:
                     mock_save.side_effect = [None, Exception("Database error")]
 
                     with captured_stderr() as stderr:

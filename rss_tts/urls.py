@@ -7,18 +7,33 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from text_to_audio.feeds import UserFeed
-from text_to_audio.views import (ArticleCreateView, ArticleDeleteView,
-                                 ArticleDetailView, ArticleListView,
-                                 ArticleMediaView, FeedArticleCreateView,
-                                 FeedArticleListView, FeedArticleStatusView,
-                                 FeedCreateView, FeedDeleteView, FeedListView,
-                                 FeedUpdateView, FollowedFeedCreateView,
-                                 FollowedFeedDeleteView, FollowedFeedListView,
-                                 FollowedFeedUpdateView, HomeView,
-                                 RegenerateArticleView, SignUpView,
-                                 article_voice_settings, voice_preferences,
-                                 voice_preset_create, voice_preset_delete,
-                                 voice_preset_edit, voice_preset_list)
+from text_to_audio.views import (
+    ArticleCreateView,
+    ArticleDeleteView,
+    ArticleDetailView,
+    ArticleListView,
+    ArticleMediaView,
+    FeedArticleCreateView,
+    FeedArticleListView,
+    FeedArticleStatusView,
+    FeedCreateView,
+    FeedDeleteView,
+    FeedListView,
+    FeedUpdateView,
+    FollowedFeedCreateView,
+    FollowedFeedDeleteView,
+    FollowedFeedListView,
+    FollowedFeedUpdateView,
+    HomeView,
+    RegenerateArticleView,
+    SignUpView,
+    article_voice_settings,
+    voice_preferences,
+    voice_preset_create,
+    voice_preset_delete,
+    voice_preset_edit,
+    voice_preset_list,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -65,9 +80,21 @@ urlpatterns = [
     path("feeds/<int:feed_id>/delete/", FeedDeleteView.as_view(), name="feed-delete"),
     # FollowedFeed management URLs
     path("followed-feeds/", FollowedFeedListView.as_view(), name="followedfeed-list"),
-    path("followed-feeds/new/", FollowedFeedCreateView.as_view(), name="followedfeed-create"),
-    path("followed-feeds/<int:pk>/edit/", FollowedFeedUpdateView.as_view(), name="followedfeed-edit"),
-    path("followed-feeds/<int:pk>/delete/", FollowedFeedDeleteView.as_view(), name="followedfeed-delete"),
+    path(
+        "followed-feeds/new/",
+        FollowedFeedCreateView.as_view(),
+        name="followedfeed-create",
+    ),
+    path(
+        "followed-feeds/<int:pk>/edit/",
+        FollowedFeedUpdateView.as_view(),
+        name="followedfeed-edit",
+    ),
+    path(
+        "followed-feeds/<int:pk>/delete/",
+        FollowedFeedDeleteView.as_view(),
+        name="followedfeed-delete",
+    ),
     # RSS feed URL (must come after management URLs to avoid conflicts)
     path("feeds/<uuid:token>/", UserFeed(), name="feed"),
     # Voice preference URLs

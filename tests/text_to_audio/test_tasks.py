@@ -223,7 +223,9 @@ class ChunkTextTests(TestCase):
 
                 # Should preserve content length approximately (accounting for whitespace)
                 total_chunk_chars = sum(len(chunk) for chunk in chunks)
-                self.assertGreaterEqual(total_chunk_chars, len(text) * 0.9)  # Allow some variance
+                self.assertGreaterEqual(
+                    total_chunk_chars, len(text) * 0.9
+                )  # Allow some variance
 
 
 @override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT, OPENAI_API_KEY="test_api_key")

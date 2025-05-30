@@ -24,7 +24,9 @@ OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "tts-1")
 OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "alloy")
 # Models used for content analysis and genre classification
 OPENAI_ANALYSIS_MODEL = os.environ.get("OPENAI_ANALYSIS_MODEL", "gpt-4o-mini")
-OPENAI_CLASSIFICATION_MODEL = os.environ.get("OPENAI_CLASSIFICATION_MODEL", "gpt-4o-mini")
+OPENAI_CLASSIFICATION_MODEL = os.environ.get(
+    "OPENAI_CLASSIFICATION_MODEL", "gpt-4o-mini"
+)
 
 ALLOWED_HOSTS: list[str] = []
 ALLOWED_HOSTS += (

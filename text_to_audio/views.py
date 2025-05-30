@@ -39,7 +39,12 @@ from .models import Article, Feed, FollowedFeed, UserVoicePreset, UserVoiceProfi
 from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
 from .tasks import process_article
-from .utils import extract_article_text, extract_title_from_html, fetch_url_content, safe_delete_audio_file
+from .utils import (
+    extract_article_text,
+    extract_title_from_html,
+    fetch_url_content,
+    safe_delete_audio_file,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +131,7 @@ class ArticleMediaView(View):
                 f"Using deprecated Docker path correction for article {article.id}. "
                 "This will be removed in a future version.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             logger.warning(
                 f"DEPRECATED: Docker path correction used for article {article.id}. "
@@ -188,19 +193,21 @@ class ArticleMediaView(View):
                         "Files should be stored in MEDIA_ROOT/articles/. "
                         "This will be removed in a future version.",
                         DeprecationWarning,
-                        stacklevel=2
+                        stacklevel=2,
                     )
                     logger.warning(
                         f"DEPRECATED: BASE_DIR path used for article {article.id}. "
                         f"Path: {path}. Migrate to MEDIA_ROOT/articles/"
                     )
-                elif i == 4 and "articles" in path and len(path.split(os.sep)) > 5:  # Legacy structured path
+                elif (
+                    i == 4 and "articles" in path and len(path.split(os.sep)) > 5
+                ):  # Legacy structured path
                     warnings.warn(
                         f"Using deprecated user/feed folder structure for article {article.id}. "
                         "Files should be stored as MEDIA_ROOT/articles/<uuid>.mp3. "
                         "This will be removed in a future version.",
                         DeprecationWarning,
-                        stacklevel=2
+                        stacklevel=2,
                     )
                     logger.warning(
                         f"DEPRECATED: Legacy folder structure used for article {article.id}. "
@@ -324,7 +331,7 @@ class SignUpView(CreateView):
         user = self.object
         user.is_superuser = True
         user.is_staff = True
-        user.save(update_fields=['is_superuser', 'is_staff'])
+        user.save(update_fields=["is_superuser", "is_staff"])
         return response
 
 
@@ -428,7 +435,9 @@ class FollowedFeedListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         """Return only the user's followed feeds."""
-        return FollowedFeed.objects.filter(user=self.request.user).order_by("-created_at")
+        return FollowedFeed.objects.filter(user=self.request.user).order_by(
+            "-created_at"
+        )
 
 
 class FollowedFeedCreateView(LoginRequiredMixin, CreateView):
@@ -786,10 +795,14 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
                 safe_delete_audio_file(file_path_to_delete)
             except AssertionError as e:
                 # Log assertion errors (like trying to delete directory) but continue
-                logger.error(f"Safe deletion assertion failed for {file_path_to_delete}: {e}")
+                logger.error(
+                    f"Safe deletion assertion failed for {file_path_to_delete}: {e}"
+                )
             except Exception as e:
                 # Log any other unexpected errors but continue with DB deletion
-                logger.warning(f"Unexpected error during safe deletion of {file_path_to_delete}: {e}")
+                logger.warning(
+                    f"Unexpected error during safe deletion of {file_path_to_delete}: {e}"
+                )
 
         # Call delete method to remove DB record
         success_url = self.get_success_url()

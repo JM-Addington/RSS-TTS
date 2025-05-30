@@ -23,8 +23,17 @@ def establish_voice_single_source_of_truth(apps, schema_editor):
 
     # Standard voice choices (from models.py VOICE_CHOICES)
     STANDARD_VOICES = {
-        "alloy", "ash", "ballad", "coral", "echo",
-        "fable", "onyx", "nova", "sage", "shimmer", "verse"
+        "alloy",
+        "ash",
+        "ballad",
+        "coral",
+        "echo",
+        "fable",
+        "onyx",
+        "nova",
+        "sage",
+        "shimmer",
+        "verse",
     }
 
     updated_count = 0
@@ -42,12 +51,12 @@ def establish_voice_single_source_of_truth(apps, schema_editor):
             if voice_id_lower in STANDARD_VOICES:
                 # voice_id is standard, so prefer voice field and clear voice_id
                 article.voice_id = None
-                article.save(update_fields=['voice_id'])
+                article.save(update_fields=["voice_id"])
                 updated_count += 1
             else:
                 # voice_id is custom, so prefer voice_id and clear voice
                 article.voice = ""  # Clear voice for custom voice_id
-                article.save(update_fields=['voice'])
+                article.save(update_fields=["voice"])
                 updated_count += 1
 
         elif not voice_is_set and voice_id_is_set:
@@ -58,20 +67,20 @@ def establish_voice_single_source_of_truth(apps, schema_editor):
                 # Move standard voice_id to voice field
                 article.voice = voice_id_lower
                 article.voice_id = None
-                article.save(update_fields=['voice', 'voice_id'])
+                article.save(update_fields=["voice", "voice_id"])
                 updated_count += 1
             else:
                 # Keep custom voice_id, but ensure voice is empty
                 if voice_is_set:  # Only update if voice was set
                     article.voice = ""
-                    article.save(update_fields=['voice'])
+                    article.save(update_fields=["voice"])
                     updated_count += 1
 
-    print(f"Voice field migration completed:")
+    print("Voice field migration completed:")
     print(f"  - Found {conflict_count} articles with conflicting voice fields")
     print(f"  - Updated {updated_count} articles to establish single source of truth")
-    print(f"  - Standard voices use 'voice' field")
-    print(f"  - Custom voices use 'voice_id' field")
+    print("  - Standard voices use 'voice' field")
+    print("  - Custom voices use 'voice_id' field")
 
 
 def reverse_establish_voice_single_source_of_truth(apps, schema_editor):

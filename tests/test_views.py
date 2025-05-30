@@ -359,7 +359,6 @@ class ArticleMediaViewTests(TestCase):
             audio_uuid=uuid.uuid4(),
         )
         # Create a dummy audio file using canonical path
-        from django.conf import settings
         import os
 
         # Set the canonical path first
@@ -434,7 +433,9 @@ class ArticleMediaViewTests(TestCase):
         )
 
         response = self.client.get(
-            reverse("article-media", kwargs={"audio_uuid": processing_article.audio_uuid})
+            reverse(
+                "article-media", kwargs={"audio_uuid": processing_article.audio_uuid}
+            )
         )
 
         self.assertEqual(response.status_code, 404)

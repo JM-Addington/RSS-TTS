@@ -3,8 +3,7 @@
 import os
 import shutil
 import traceback
-from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
@@ -21,50 +20,50 @@ class Command(BaseCommand):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.stats = {
-            'found': 0,
-            'migrated': 0,
-            'failed': 0,
-            'skipped': 0,
+            "found": 0,
+            "migrated": 0,
+            "failed": 0,
+            "skipped": 0,
         }
         self.rollback_operations = []
 
     def add_arguments(self, parser):
         """Add command line arguments."""
         parser.add_argument(
-            '--dry-run',
-            action='store_true',
-            help='Show what would be migrated without actually doing it',
+            "--dry-run",
+            action="store_true",
+            help="Show what would be migrated without actually doing it",
         )
         parser.add_argument(
-            '--force',
-            action='store_true',
-            help='Overwrite existing files at canonical locations',
+            "--force",
+            action="store_true",
+            help="Overwrite existing files at canonical locations",
         )
         parser.add_argument(
-            '--batch-size',
+            "--batch-size",
             type=int,
             default=20,
-            help='Number of articles to process in each batch (default: 20)',
+            help="Number of articles to process in each batch (default: 20)",
         )
         parser.add_argument(
-            '--rollback-on-error',
-            action='store_true',
-            help='Rollback all changes if any error occurs',
+            "--rollback-on-error",
+            action="store_true",
+            help="Rollback all changes if any error occurs",
         )
 
     def handle(self, *args, **options):
         """Execute the migration command."""
-        dry_run = options['dry_run']
-        force = options['force']
-        batch_size = options['batch_size']
-        rollback_on_error = options['rollback_on_error']
+        dry_run = options["dry_run"]
+        force = options["force"]
+        batch_size = options["batch_size"]
+        rollback_on_error = options["rollback_on_error"]
 
         self.stdout.write("Starting audio path migration...")
 
         try:
             # Find articles that need migration
             articles_to_migrate = self._find_legacy_articles()
-            self.stats['found'] = len(articles_to_migrate)
+            self.stats["found"] = len(articles_to_migrate)
 
             if not articles_to_migrate:
                 self.stdout.write(self.style.SUCCESS("No articles need migration."))
@@ -95,14 +94,19 @@ class Command(BaseCommand):
         legacy_articles = []
 
         # Find completed articles with audio files that don't use canonical paths
-        articles = Article.objects.filter(
-            status=Article.COMPLETED,
-            audio_file_path__isnull=False
-        ).exclude(audio_file_path='').select_related('feed__user')
+        articles = (
+            Article.objects.filter(
+                status=Article.COMPLETED, audio_file_path__isnull=False
+            )
+            .exclude(audio_file_path="")
+            .select_related("feed__user")
+        )
 
         for article in articles:
             # Check if it's already using canonical path format
-            canonical_relative = os.path.join("audio", str(article.feed.user.id), f"{article.id}.mp3")
+            canonical_relative = os.path.join(
+                "audio", str(article.feed.user.id), f"{article.id}.mp3"
+            )
 
             if article.audio_file_path != canonical_relative:
                 # This is a legacy path that needs migration
@@ -123,12 +127,16 @@ class Command(BaseCommand):
             self.stdout.write(f"  To:   {canonical_path}")
 
             if os.path.exists(legacy_path):
-                self.stdout.write(f"  Status: File exists, ready to migrate")
+                self.stdout.write("  Status: File exists, ready to migrate")
             else:
-                self.stdout.write(f"  Status: Audio file not found")
+                self.stdout.write("  Status: Audio file not found")
 
     def _process_articles_in_batches(
-        self, articles: List[Article], batch_size: int, force: bool, rollback_on_error: bool
+        self,
+        articles: List[Article],
+        batch_size: int,
+        force: bool,
+        rollback_on_error: bool,
     ) -> None:
         """Process articles in batches for better performance."""
         total_batches = (len(articles) + batch_size - 1) // batch_size
@@ -153,14 +161,16 @@ class Command(BaseCommand):
                     self._rollback_changes()
                     raise
 
-    def _process_batch(self, articles: List[Article], force: bool, rollback_on_error: bool = False) -> None:
+    def _process_batch(
+        self, articles: List[Article], force: bool, rollback_on_error: bool = False
+    ) -> None:
         """Process a batch of articles."""
         for article in articles:
             try:
                 self._migrate_single_article(article, force)
             except Exception as e:
                 self.stderr.write(f"Failed to migrate article {article.id}: {e}")
-                self.stats['failed'] += 1
+                self.stats["failed"] += 1
                 if rollback_on_error:
                     # Re-raise the exception to trigger rollback
                     raise
@@ -172,14 +182,18 @@ class Command(BaseCommand):
 
         # Check if source file exists
         if not os.path.exists(legacy_path):
-            self.stderr.write(f"Audio file not found for article {article.id}: {legacy_path}")
-            self.stats['failed'] += 1
+            self.stderr.write(
+                f"Audio file not found for article {article.id}: {legacy_path}"
+            )
+            self.stats["failed"] += 1
             return
 
         # Check if destination already exists
         if os.path.exists(canonical_path) and not force:
-            self.stdout.write(f"Canonical file already exists for article {article.id}, skipping")
-            self.stats['skipped'] += 1
+            self.stdout.write(
+                f"Canonical file already exists for article {article.id}, skipping"
+            )
+            self.stats["skipped"] += 1
             return
 
         try:
@@ -198,28 +212,32 @@ class Command(BaseCommand):
 
             # Update database path
             article.set_canonical_audio_path()
-            article.save(update_fields=['audio_file_path'])
+            article.save(update_fields=["audio_file_path"])
 
             # Track for potential rollback
-            self.rollback_operations.append({
-                'type': 'move',
-                'article_id': article.id,
-                'from_path': canonical_path,
-                'to_path': legacy_path,
-                'old_db_path': article.audio_file_path,
-                'new_db_path': os.path.join("audio", str(article.feed.user.id), f"{article.id}.mp3")
-            })
+            self.rollback_operations.append(
+                {
+                    "type": "move",
+                    "article_id": article.id,
+                    "from_path": canonical_path,
+                    "to_path": legacy_path,
+                    "old_db_path": article.audio_file_path,
+                    "new_db_path": os.path.join(
+                        "audio", str(article.feed.user.id), f"{article.id}.mp3"
+                    ),
+                }
+            )
 
-            self.stats['migrated'] += 1
+            self.stats["migrated"] += 1
             self.stdout.write(f"Successfully migrated article {article.id}")
 
         except PermissionError as e:
             self.stderr.write(f"Permission denied migrating article {article.id}: {e}")
-            self.stats['failed'] += 1
+            self.stats["failed"] += 1
         except Exception as e:
             self.stderr.write(f"Error migrating article {article.id}: {e}")
             self.stderr.write(traceback.format_exc())
-            self.stats['failed'] += 1
+            self.stats["failed"] += 1
 
     def _rollback_changes(self) -> None:
         """Rollback all successful migrations."""
@@ -227,18 +245,20 @@ class Command(BaseCommand):
 
         for operation in reversed(self.rollback_operations):
             try:
-                if operation['type'] == 'move':
+                if operation["type"] == "move":
                     # Move file back
-                    if os.path.exists(operation['from_path']):
-                        shutil.move(operation['from_path'], operation['to_path'])
+                    if os.path.exists(operation["from_path"]):
+                        shutil.move(operation["from_path"], operation["to_path"])
 
                     # Restore database path
-                    article = Article.objects.get(id=operation['article_id'])
-                    article.audio_file_path = operation['old_db_path']
-                    article.save(update_fields=['audio_file_path'])
+                    article = Article.objects.get(id=operation["article_id"])
+                    article.audio_file_path = operation["old_db_path"]
+                    article.save(update_fields=["audio_file_path"])
 
             except Exception as rollback_error:
-                self.stderr.write(f"Error during rollback for article {operation['article_id']}: {rollback_error}")
+                self.stderr.write(
+                    f"Error during rollback for article {operation['article_id']}: {rollback_error}"
+                )
 
     def _report_statistics(self) -> None:
         """Report migration statistics."""
@@ -248,7 +268,11 @@ class Command(BaseCommand):
         self.stdout.write(f"{self.stats['failed']} files failed")
         self.stdout.write(f"{self.stats['skipped']} files skipped")
 
-        if self.stats['failed'] > 0:
-            self.stdout.write(self.style.WARNING("Some files failed to migrate. Check error messages above."))
+        if self.stats["failed"] > 0:
+            self.stdout.write(
+                self.style.WARNING(
+                    "Some files failed to migrate. Check error messages above."
+                )
+            )
         else:
             self.stdout.write(self.style.SUCCESS("All files migrated successfully!"))

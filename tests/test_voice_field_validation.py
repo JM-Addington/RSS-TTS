@@ -7,13 +7,11 @@ These tests follow TDD principles and are designed to fail initially, then pass
 once the validation logic is implemented.
 """
 
-import uuid
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase, TransactionTestCase
-from django.db import transaction
 
-from text_to_audio.models import Article, Feed, VOICE_ALLOY, VOICE_NOVA
+from text_to_audio.models import VOICE_ALLOY, VOICE_NOVA, Article, Feed
 
 User = get_user_model()
 
@@ -24,9 +22,7 @@ class VoiceFieldValidationTests(TestCase):
     def setUp(self):
         """Set up test data."""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
         self.feed = Feed.objects.create(user=self.user, name="Test Feed")
 
@@ -37,7 +33,7 @@ class VoiceFieldValidationTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice=VOICE_ALLOY,
-            voice_id=None  # explicitly None
+            voice_id=None,  # explicitly None
         )
 
         # This should not raise ValidationError
@@ -53,14 +49,16 @@ class VoiceFieldValidationTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice="",  # empty string should be treated as unset
-            voice_id="custom_voice_123"
+            voice_id="custom_voice_123",
         )
 
         # This should not raise ValidationError
         try:
             article.clean()
         except ValidationError:
-            self.fail("Article.clean() raised ValidationError when only voice_id was set")
+            self.fail(
+                "Article.clean() raised ValidationError when only voice_id was set"
+            )
 
     def test_article_clean_rejects_both_fields_set(self):
         """Test that Article.clean() rejects when both voice and voice_id are set."""
@@ -70,7 +68,7 @@ class VoiceFieldValidationTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice=VOICE_NOVA,  # Use nova instead of alloy to avoid default handling
-            voice_id="custom_voice_123"
+            voice_id="custom_voice_123",
         )
 
         with self.assertRaises(ValidationError) as context:
@@ -78,8 +76,8 @@ class VoiceFieldValidationTests(TestCase):
 
         # Check that the error message is clear and helpful
         error_dict = context.exception.error_dict
-        self.assertIn('voice', error_dict)
-        error_message = str(error_dict['voice'][0])
+        self.assertIn("voice", error_dict)
+        error_message = str(error_dict["voice"][0])
         self.assertIn("Only one voice field should be set", error_message)
         self.assertIn("voice", error_message)
         self.assertIn("voice_id", error_message)
@@ -91,14 +89,16 @@ class VoiceFieldValidationTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice="",  # empty string
-            voice_id=None
+            voice_id=None,
         )
 
         # This should not raise ValidationError - defaults will apply
         try:
             article.clean()
         except ValidationError:
-            self.fail("Article.clean() raised ValidationError when neither voice field was set")
+            self.fail(
+                "Article.clean() raised ValidationError when neither voice field was set"
+            )
 
     def test_article_clean_empty_string_voice_id_treated_as_unset(self):
         """Test that empty string voice_id is treated as unset."""
@@ -107,14 +107,16 @@ class VoiceFieldValidationTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice=VOICE_NOVA,
-            voice_id=""  # empty string should be treated as unset
+            voice_id="",  # empty string should be treated as unset
         )
 
         # This should not raise ValidationError
         try:
             article.clean()
         except ValidationError:
-            self.fail("Article.clean() raised ValidationError when voice_id was empty string")
+            self.fail(
+                "Article.clean() raised ValidationError when voice_id was empty string"
+            )
 
     def test_article_clean_whitespace_only_voice_id_treated_as_unset(self):
         """Test that whitespace-only voice_id is treated as unset."""
@@ -123,14 +125,16 @@ class VoiceFieldValidationTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice=VOICE_NOVA,
-            voice_id="   "  # whitespace only should be treated as unset
+            voice_id="   ",  # whitespace only should be treated as unset
         )
 
         # This should not raise ValidationError
         try:
             article.clean()
         except ValidationError:
-            self.fail("Article.clean() raised ValidationError when voice_id was whitespace only")
+            self.fail(
+                "Article.clean() raised ValidationError when voice_id was whitespace only"
+            )
 
     def test_article_clean_allows_default_voice_with_voice_id(self):
         """Test that Article.clean() allows default 'alloy' voice when voice_id is set."""
@@ -140,14 +144,16 @@ class VoiceFieldValidationTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice=VOICE_ALLOY,  # Default value
-            voice_id="custom_voice_123"  # Custom voice ID
+            voice_id="custom_voice_123",  # Custom voice ID
         )
 
         # This should NOT raise ValidationError with the fix
         try:
             article.clean()
         except ValidationError:
-            self.fail("Article.clean() raised ValidationError when default 'alloy' voice was set with voice_id")
+            self.fail(
+                "Article.clean() raised ValidationError when default 'alloy' voice was set with voice_id"
+            )
 
     def test_article_clean_error_message_format(self):
         """Test that validation error message has proper format and information."""
@@ -157,15 +163,15 @@ class VoiceFieldValidationTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice=VOICE_NOVA,  # Use nova instead of alloy to avoid default handling
-            voice_id="custom_voice_456"
+            voice_id="custom_voice_456",
         )
 
         with self.assertRaises(ValidationError) as context:
             article.clean()
 
         error_dict = context.exception.error_dict
-        self.assertIn('voice', error_dict)
-        error_message = str(error_dict['voice'][0])
+        self.assertIn("voice", error_dict)
+        error_message = str(error_dict["voice"][0])
 
         # Check message contains helpful information
         self.assertIn("Only one voice field should be set", error_message)
@@ -180,7 +186,7 @@ class VoiceFieldValidationTests(TestCase):
             title="",  # This might trigger other validation
             text_content="Test content",
             voice=VOICE_ALLOY,
-            voice_id=None
+            voice_id=None,
         )
 
         # Voice validation should pass, but other validation might fail
@@ -189,8 +195,8 @@ class VoiceFieldValidationTests(TestCase):
             article.clean()
         except ValidationError as e:
             # If there's a ValidationError, it shouldn't be about voice fields
-            if hasattr(e, 'error_dict'):
-                self.assertNotIn('voice', e.error_dict)
+            if hasattr(e, "error_dict"):
+                self.assertNotIn("voice", e.error_dict)
 
 
 class VoiceFieldMigrationTests(TransactionTestCase):
@@ -201,7 +207,7 @@ class VoiceFieldMigrationTests(TransactionTestCase):
         self.user = User.objects.create_user(
             username="migrationuser",
             email="migration@example.com",
-            password="testpass123"
+            password="testpass123",
         )
         self.feed = Feed.objects.create(user=self.user, name="Migration Feed")
 
@@ -213,7 +219,7 @@ class VoiceFieldMigrationTests(TransactionTestCase):
             title="Migration Test",
             text_content="Test content",
             voice=VOICE_ALLOY,
-            voice_id=None
+            voice_id=None,
         )
 
         # TODO: This will be implemented when we create the data migration
@@ -229,7 +235,7 @@ class VoiceFieldMigrationTests(TransactionTestCase):
             title="Migration Test 2",
             text_content="Test content",
             voice=VOICE_ALLOY,  # This might be inconsistent
-            voice_id="custom_voice_789"
+            voice_id="custom_voice_789",
         )
 
         # TODO: This will be implemented when we create the data migration
@@ -244,7 +250,7 @@ class VoiceFieldMigrationTests(TransactionTestCase):
             title="Conflict Test",
             text_content="Test content",
             voice=VOICE_ALLOY,
-            voice_id="different_custom_voice"
+            voice_id="different_custom_voice",
         )
 
         # TODO: This will be implemented when we create the data migration
@@ -274,8 +280,8 @@ class VoiceFieldDocumentationTests(TestCase):
         """Test that voice fields have helpful help_text."""
         from text_to_audio.models import Article
 
-        voice_field = Article._meta.get_field('voice')
-        voice_id_field = Article._meta.get_field('voice_id')
+        voice_field = Article._meta.get_field("voice")
+        voice_id_field = Article._meta.get_field("voice_id")
 
         self.assertIsNotNone(voice_field.help_text)
         self.assertIsNotNone(voice_id_field.help_text)
@@ -290,9 +296,7 @@ class VoiceFieldEdgeCaseTests(TestCase):
     def setUp(self):
         """Set up test data."""
         self.user = User.objects.create_user(
-            username="edgecase",
-            email="edge@example.com",
-            password="testpass123"
+            username="edgecase", email="edge@example.com", password="testpass123"
         )
         self.feed = Feed.objects.create(user=self.user, name="Edge Case Feed")
 
@@ -303,7 +307,7 @@ class VoiceFieldEdgeCaseTests(TestCase):
             title="Edge Case",
             text_content="Test content",
             voice=None,  # This might not be valid due to field constraints
-            voice_id=""
+            voice_id="",
         )
 
         # This should not raise ValidationError from our custom validation
@@ -312,8 +316,8 @@ class VoiceFieldEdgeCaseTests(TestCase):
             article.clean()
         except ValidationError as e:
             # If error is about voice being None (Django field validation), that's expected
-            if hasattr(e, 'error_dict') and 'voice' in e.error_dict:
-                error_msg = str(e.error_dict['voice'][0])
+            if hasattr(e, "error_dict") and "voice" in e.error_dict:
+                error_msg = str(e.error_dict["voice"][0])
                 # Our custom validation error contains "Only one voice field"
                 if "Only one voice field" in error_msg:
                     self.fail("Our validation triggered when it shouldn't have")
@@ -325,7 +329,7 @@ class VoiceFieldEdgeCaseTests(TestCase):
             title="Unicode Test",
             text_content="Test content",
             voice="",
-            voice_id="voice_ñoño_測試"
+            voice_id="voice_ñoño_測試",
         )
 
         # Should not raise ValidationError
@@ -342,7 +346,7 @@ class VoiceFieldEdgeCaseTests(TestCase):
             title="Long Voice ID Test",
             text_content="Test content",
             voice="",
-            voice_id=long_voice_id
+            voice_id=long_voice_id,
         )
 
         # Should not raise ValidationError from our validation
@@ -351,7 +355,7 @@ class VoiceFieldEdgeCaseTests(TestCase):
             article.clean()
         except ValidationError as e:
             # If error is about field length, that's Django's validation
-            if hasattr(e, 'error_dict') and 'voice_id' in e.error_dict:
-                error_msg = str(e.error_dict['voice_id'][0])
+            if hasattr(e, "error_dict") and "voice_id" in e.error_dict:
+                error_msg = str(e.error_dict["voice_id"][0])
                 if "Only one voice field" in error_msg:
                     self.fail("Our validation triggered when it shouldn't have")
