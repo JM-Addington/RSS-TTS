@@ -1,5 +1,12 @@
 version: "3.9"
 
+# Environment variables applied to all services
+x-environment: &default-environment
+  DJANGO_SECRET_KEY: codespace-dev-secret-key
+  DJANGO_DEBUG: "True"
+  CELERY_BROKER_URL: redis://redis:6379/0
+  PYTHONPATH: /workspaces/RSS-TTS
+
 services:
   # Development container
   app:
@@ -7,18 +14,35 @@ services:
       context: ..
       dockerfile: .devcontainer/Dockerfile
     volumes:
-      - ..:/app
-      - sqlite-data:/app/data
-      - ./media:/app/media
+      - ..:/workspaces/RSS-TTS
+      - sqlite-data:/workspaces/RSS-TTS/data
+      - ../media:/workspaces/RSS-TTS/media
     environment:
-      DJANGO_SECRET_KEY: codespace-dev-secret-key
-      DJANGO_DEBUG: "True"
-      CELERY_BROKER_URL: redis://redis:6379/0
-      SITE_URL: ${CODESPACE_NAME:+https://${CODESPACE_NAME}-8084.app.github.dev}
+      <<: *default-environment
+      SITE_URL: ${CODESPACE_NAME:+https://${CODESPACE_NAME}-9084.app.github.dev}
     command: sleep infinity
     # Overrides default command so container doesn't exit
     ports:
-      - 8000:8000
+      - 9000:9000
+    depends_on:
+      - redis
+    networks:
+      - rsstts
+
+  # Worker for Celery tasks
+  worker:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspaces/RSS-TTS
+      - sqlite-data:/workspaces/RSS-TTS/data
+      - ../media:/workspaces/RSS-TTS/media
+    environment:
+      <<: *default-environment
+      PATH: /usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    command: sh -c "cd /workspaces/RSS-TTS && python -m celery -A rss_tts worker --loglevel=info"
+    working_dir: /workspaces/RSS-TTS
     depends_on:
       - redis
     networks:
@@ -28,9 +52,9 @@ services:
   caddy:
     image: caddy:2-alpine
     ports:
-      - "8084:80"
+      - "9084:80"
     volumes:
-      - ../Caddyfile:/etc/caddy/Caddyfile
+      - ./Caddyfile:/etc/caddy/Caddyfile
       - ../media:/media
     depends_on:
       - app

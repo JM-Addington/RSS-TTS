@@ -1,0 +1,56 @@
+# Caddyfile for RSS-TTS DevContainer
+# This configuration serves MP3 files directly and proxies other requests to Django
+
+# Development configuration for devcontainer
+:80 {
+    # Serve audio files directly from the media directory
+    # Caddy automatically handles byte-range requests for streaming
+    handle /audio/* {
+        # Extract UUID from the URL pattern /audio/<uuid>/
+        @uuid path_regexp uuid ^/audio/([a-f0-9\-]+)/$
+        handle @uuid {
+            # Rewrite to the actual file path
+            rewrite * /articles/{re.uuid.1}.mp3
+
+            # Serve files from the media root
+            root * /media
+
+            # Important: Set headers BEFORE file_server
+            header {
+                Content-Type "audio/mpeg"
+                Cache-Control "public, max-age=3600"
+            }
+
+            # file_server automatically handles byte-range requests
+            file_server
+        }
+
+        # Handle test-podcast specifically for testing
+        @test path /audio/test-podcast/
+        handle @test {
+            rewrite * /articles/test-podcast.mp3
+            root * /media
+            header {
+                Content-Type "audio/mpeg"
+                Cache-Control "public, max-age=3600"
+            }
+            file_server
+        }
+    }
+
+    # Proxy all other requests to Django
+    handle {
+        reverse_proxy app:9000 {
+            # Add standard proxy headers
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Enable Caddy's logging
+    log {
+        output stdout
+        format console
+    }
+}
