@@ -69,7 +69,7 @@ class ArticleListView(LoginRequiredMixin, View):
         return redirect("feed-list")
 
 
-class ArticleMediaView(LoginRequiredMixin, View):
+class ArticleMediaView(View):
     """View for serving article media files."""
 
     def _find_by_pattern(self, article):
@@ -246,11 +246,10 @@ class ArticleMediaView(LoginRequiredMixin, View):
 
         This view can only be accessed by audio_uuid.
         """
-        # Get the article by UUID
+        # Get the article by UUID (no authentication required - UUID provides security)
         article = get_object_or_404(
             Article,
             audio_uuid=audio_uuid,
-            feed__user=request.user,
             status=Article.COMPLETED,
         )
 
@@ -286,6 +285,9 @@ class ArticleMediaView(LoginRequiredMixin, View):
 
         # Serve the file
         response = FileResponse(open(file_path, "rb"))
+
+        # Set Content-Type for development consistency (Caddy handles this in prod)
+        response["Content-Type"] = "audio/mpeg"
 
         # Clean the filename for the Content-Disposition header
         safe_title = article.title.replace('"', "_").replace("/", "_")
