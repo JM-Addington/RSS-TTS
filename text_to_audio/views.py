@@ -10,6 +10,7 @@ import uuid
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -30,10 +31,11 @@ from .forms import (
     ArticleSubmissionForm,
     ArticleVoiceForm,
     FeedForm,
+    FollowedFeedForm,
     UserVoicePreferenceForm,
     VoicePresetForm,
 )
-from .models import Article, Feed, UserVoicePreset, UserVoiceProfile
+from .models import Article, Feed, FollowedFeed, UserVoicePreset, UserVoiceProfile
 from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
 from .tasks import process_article
@@ -114,7 +116,7 @@ class ArticleMediaView(LoginRequiredMixin, View):
     def _resolve_path(self, article):
         """Resolve the audio file path based on different storage strategies."""
         import warnings
-        
+
         # Try multiple path resolution strategies
         possible_paths = []
 
@@ -159,7 +161,7 @@ class ArticleMediaView(LoginRequiredMixin, View):
                 f"{article.audio_uuid}.mp3",
             )
             possible_paths.append(preferred_path)
-            
+
             # Legacy paths for backwards compatibility (DEPRECATED)
             user_id = (
                 str(article.feed.user_id)
@@ -209,18 +211,34 @@ class ArticleMediaView(LoginRequiredMixin, View):
         # If we get here, we couldn't find the file
         return None
 
+    def _resolve_canonical_path(self, article):
+        """Resolve the canonical audio file path for an article."""
+        try:
+            canonical_path = article.get_canonical_audio_path()
+            if os.path.exists(canonical_path):
+                return canonical_path
+        except Exception:
+            # If canonical path resolution fails, fall back to legacy methods
+            pass
+        return None
+
     def _find_audio_file(self, article):
         """Find the audio file for an article using various path strategies."""
-        # Case 1: No path set, try to find by pattern
+        # Case 1: Try canonical path first (preferred)
+        canonical_path = self._resolve_canonical_path(article)
+        if canonical_path:
+            return canonical_path
+
+        # Case 2: No path set, try to find by pattern
         if not article.audio_file_path:
             return self._find_by_pattern(article)
 
-        # Case 2: Path set, try to resolve it
+        # Case 3: Path set, try to resolve it using legacy methods
         file_path = self._resolve_path(article)
         if file_path:
             return file_path
 
-        # Case 3: Last resort, try to find by pattern again
+        # Case 4: Last resort, try to find by pattern again
         return self._find_by_pattern(article)
 
     def get(self, request, audio_uuid):
@@ -282,6 +300,30 @@ class SignUpView(CreateView):
     form_class = UserCreationForm
     template_name = "registration/signup.html"
     success_url = reverse_lazy("login")
+
+    def get(self, request, *args, **kwargs):
+        """Render signup form only if no users exist, otherwise redirect to login."""
+        User = get_user_model()
+        if User.objects.exists():
+            return redirect("login")
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        """Process signup only if no users exist, otherwise redirect to login."""
+        User = get_user_model()
+        if User.objects.exists():
+            return redirect("login")
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Make the first user a superuser."""
+        response = super().form_valid(form)
+        # Make the first user a superuser
+        user = self.object
+        user.is_superuser = True
+        user.is_staff = True
+        user.save(update_fields=['is_superuser', 'is_staff'])
+        return response
 
 
 class FeedListView(LoginRequiredMixin, ListView):
@@ -373,6 +415,69 @@ class FeedDeleteView(LoginRequiredMixin, DeleteView):
     def get_queryset(self):
         """Ensure users can only delete their own feeds."""
         return Feed.objects.filter(user=self.request.user)
+
+
+class FollowedFeedListView(LoginRequiredMixin, ListView):
+    """View for listing a user's followed feeds."""
+
+    model = FollowedFeed
+    template_name = "text_to_audio/followedfeed_list.html"
+    context_object_name = "followed_feeds"
+
+    def get_queryset(self):
+        """Return only the user's followed feeds."""
+        return FollowedFeed.objects.filter(user=self.request.user).order_by("-created_at")
+
+
+class FollowedFeedCreateView(LoginRequiredMixin, CreateView):
+    """View for creating a new followed feed."""
+
+    model = FollowedFeed
+    form_class = FollowedFeedForm
+    template_name = "text_to_audio/followedfeed_form.html"
+    success_url = reverse_lazy("followedfeed-list")
+
+    def get_form_kwargs(self):
+        """Add user to form kwargs."""
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def form_valid(self, form):
+        """Set the user before saving."""
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
+
+class FollowedFeedUpdateView(LoginRequiredMixin, UpdateView):
+    """View for updating a followed feed."""
+
+    model = FollowedFeed
+    form_class = FollowedFeedForm
+    template_name = "text_to_audio/followedfeed_form.html"
+    success_url = reverse_lazy("followedfeed-list")
+
+    def get_form_kwargs(self):
+        """Add user to form kwargs."""
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_queryset(self):
+        """Ensure users can only edit their own followed feeds."""
+        return FollowedFeed.objects.filter(user=self.request.user)
+
+
+class FollowedFeedDeleteView(LoginRequiredMixin, DeleteView):
+    """View for deleting a followed feed."""
+
+    model = FollowedFeed
+    template_name = "text_to_audio/followedfeed_confirm_delete.html"
+    success_url = reverse_lazy("followedfeed-list")
+
+    def get_queryset(self):
+        """Ensure users can only delete their own followed feeds."""
+        return FollowedFeed.objects.filter(user=self.request.user)
 
 
 class FeedArticleListView(LoginRequiredMixin, ListView):

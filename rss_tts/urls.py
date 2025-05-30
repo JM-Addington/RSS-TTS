@@ -12,7 +12,9 @@ from text_to_audio.views import (ArticleCreateView, ArticleDeleteView,
                                  ArticleMediaView, FeedArticleCreateView,
                                  FeedArticleListView, FeedArticleStatusView,
                                  FeedCreateView, FeedDeleteView, FeedListView,
-                                 FeedUpdateView, HomeView,
+                                 FeedUpdateView, FollowedFeedCreateView,
+                                 FollowedFeedDeleteView, FollowedFeedListView,
+                                 FollowedFeedUpdateView, HomeView,
                                  RegenerateArticleView, SignUpView,
                                  article_voice_settings, voice_preferences,
                                  voice_preset_create, voice_preset_delete,
@@ -61,6 +63,11 @@ urlpatterns = [
     ),
     path("feeds/<int:feed_id>/edit/", FeedUpdateView.as_view(), name="feed-update"),
     path("feeds/<int:feed_id>/delete/", FeedDeleteView.as_view(), name="feed-delete"),
+    # FollowedFeed management URLs
+    path("followed-feeds/", FollowedFeedListView.as_view(), name="followedfeed-list"),
+    path("followed-feeds/new/", FollowedFeedCreateView.as_view(), name="followedfeed-create"),
+    path("followed-feeds/<int:pk>/edit/", FollowedFeedUpdateView.as_view(), name="followedfeed-edit"),
+    path("followed-feeds/<int:pk>/delete/", FollowedFeedDeleteView.as_view(), name="followedfeed-delete"),
     # RSS feed URL (must come after management URLs to avoid conflicts)
     path("feeds/<uuid:token>/", UserFeed(), name="feed"),
     # Voice preference URLs

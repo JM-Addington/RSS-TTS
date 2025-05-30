@@ -102,19 +102,9 @@ class VoiceConfigurationService:
         Returns:
             List of tuples: [(voice_id, display_name), ...]
         """
-        return [
-            ("alloy", "Alloy"),
-            ("ash", "Ash"),
-            ("ballad", "Ballad"),
-            ("coral", "Coral"),
-            ("echo", "Echo"),
-            ("fable", "Fable"),
-            ("onyx", "Onyx"),
-            ("nova", "Nova"),
-            ("sage", "Sage"),
-            ("shimmer", "Shimmer"),
-            ("verse", "Verse"),
-        ]
+        from text_to_audio.models import Article
+
+        return Article.VOICE_CHOICES
 
     def get_available_speeds(self):
         """

@@ -99,10 +99,10 @@ class MigrateAudioPathsTestCase(TestCase):
 
                 # Should identify both legacy files
                 self.assertIn("Found 2 articles to migrate", output)
-                self.assertIn(str(self.article1.id), output)
-                self.assertIn(str(self.article2.id), output)
+                self.assertIn(f"Article {self.article1.id}:", output)
+                self.assertIn(f"Article {self.article2.id}:", output)
                 # Should not include processing article without file
-                self.assertNotIn(str(self.article3.id), output)
+                self.assertNotIn(f"Article {self.article3.id}:", output)
 
     def test_migrate_files_to_canonical_location(self):
         """Test that files are moved to the new canonical location."""
