@@ -20,8 +20,9 @@ services:
     environment:
       <<: *default-environment
       SITE_URL: ${CODESPACE_NAME:+https://${CODESPACE_NAME}-9084.app.github.dev}
-    command: sleep infinity
-    # Overrides default command so container doesn't exit
+    entrypoint: ["/workspaces/RSS-TTS/.devcontainer/entrypoint.sh"]
+    command: ["bash", "-c", "cd /workspaces/RSS-TTS && exec bash"]
+    working_dir: /workspaces/RSS-TTS
     ports:
       - 9000:9000
     depends_on:
