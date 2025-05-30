@@ -2,9 +2,9 @@
   "name": "RSS-TTS Development",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
-  "workspaceFolder": "/workspaces",
-  "runServices": ["app", "caddy"],
-  "forwardPorts": [8000, 8084],
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "runServices": ["app", "caddy", "redis", "worker"],
+  "forwardPorts": [9000, 9084],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -43,9 +43,9 @@
       }
     }
   },
-  "postCreateCommand": "./.devcontainer/post-create.sh",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:1": {}
+    "ghcr.io/devcontainers/features/docker-in-docker:2.12.2": {}
   },
   "remoteUser": "vscode"
 }

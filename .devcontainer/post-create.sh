@@ -10,7 +10,7 @@ pip install -r requirements-test.txt
 
 # Setup pre-commit hooks
 echo "Setting up pre-commit hooks..."
-./setup_precommit.sh
+bash setup_precommit.sh
 
 # Apply database migrations
 echo "Applying database migrations..."
@@ -29,13 +29,15 @@ if [ ! -f .env ]; then
 DJANGO_SECRET_KEY=codespace-dev-secret-key
 DJANGO_DEBUG=True
 CELERY_BROKER_URL=redis://redis:6379/0
-SITE_URL=https://${CODESPACE_NAME}-8084.app.github.dev
+SITE_URL=https://${CODESPACE_NAME}-9084.app.github.dev
 EOF
     fi
     echo "Please update .env with your settings"
 fi
 
+# Install Claude Code CLI - Use npm global directory without sudo
+export PATH="/home/vscode/.npm-global/bin:$PATH"
 npm install -g @anthropic-ai/claude-code
 
 echo "Setup complete! You can now run the development server with:"
-echo "python manage.py runserver 0.0.0.0:8000"
+echo "python manage.py runserver 0.0.0.0:9000"
