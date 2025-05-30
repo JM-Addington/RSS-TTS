@@ -135,7 +135,15 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
                     perfect_split = False
                     chunks.append(current_chunk[:max_length])
                     current_chunk = current_chunk[max_length:]
-            continue
+            # Check if we can now add the current character after splitting
+            if len(current_chunk) + 1 <= max_length:
+                # We can now add the character, fall through to normal processing
+                pass
+            else:
+                # Still can't add the character, skip it and move to next
+                # This prevents the infinite loop by ensuring i is incremented
+                i += 1
+                continue
 
         # Add character to current chunk
         current_chunk += char
