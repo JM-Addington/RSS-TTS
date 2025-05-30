@@ -8,6 +8,20 @@ MARKDOWN_ROOT="./"
 CODE_ROOT="./"
 EXTRA_MESSAGE="Pay special attention to see if there are any files (including markdown files) that can be removed."
 
+datestring=$(date +%Y-%m-%d-%H-%M)
+final_report="$datestring-final_report.md"
+
+# Initialize the final report file
+echo "" > "$final_report"
+
+# intialize review files
+echo "<mike1_review>" > mike1_review.md
+echo "<joe1_review>" > joe1_review.md
+echo "<mike2_review>" > mike2_review.md
+echo "<joe2_review>" > joe2_review.md
+
+echo "Starting at `date`"
+
 # Function to emit the project plan and all Python source files
 emit_all() {
   echo "<project_plan>"
@@ -36,16 +50,16 @@ emit_all() {
 
   # Then output all Python files (excluding venv, .git, and other common directories)
   find "$CODE_ROOT" -name '*.py' \
-    -not-path '*/venv/*' \
-    -not-path '*/.venv/*' \
-    -not-path '*/env/*' \
-    -not-path '*/.env/*' \
-    -not-path '*/.git/*' \
-    -not-path '*/node_modules/*' \
-    -not-path '*/__pycache__/*' \
-    -not-path '*/build/*' \
-    -not-path '*/dist/*' \
-    -not-path '*/migrations/*' \
+    -not -path '*/venv/*' \
+    -not -path '*/.venv/*' \
+    -not -path '*/env/*' \
+    -not -path '*/.env/*' \
+    -not -path '*/.git/*' \
+    -not -path '*/node_modules/*' \
+    -not -path '*/__pycache__/*' \
+    -not -path '*/build/*' \
+    -not -path '*/dist/*' \
+    -not -path '*/migrations/*' \
     -exec sh -c '
     echo "# Contents of $1"
     echo "<$1>"
@@ -54,44 +68,54 @@ emit_all() {
   ' _ {} \;
 }
 
-datestring=$(date +%Y-%m-%d-%H-%M)
-final_report="$datestring-final_report.txt"
-
-# Initialize the final report file
-echo "<final_report>" > "$final_report"
-
 echo "Asking Mike for a code review of the project..."
 # 1) Mike's first pass
 echo "Mike's first review:" >> "$final_report"
-emit_all | \
-llm -m "$MIKE_MODEL" -s \
-"You are Mike, our senior django engineer. Please perform a review on all of this code, looking for bugs and inconsistencies. $EXTRA_MESSAGE" \
->> "$final_report"
+emit_all | llm -m "$MIKE_MODEL" -s \
+"You are Mike, our senior django engineer. Please perform a review on all of this code, looking for bugs and inconsistencies. Include a list of prioritized action items. $EXTRA_MESSAGE" \
+>> "mike1_review.md"
+echo "</mike1_review>" >> mike1_review.md
 
 echo "Joe will now review Mike's comments and make his own notes..."
 # 2) Joe's pass, incorporating Mike's comments
-echo "Joe's reply review:" >> "$final_report"
-cat "$final_report" | \
+
+(emit_all && cat mike1_review.md) | \
 llm -m "$JOE_MODEL" -s \
-"You are Joe, a senior django engineer. Mike did a first pass on a code review and now it is your turn. Please perform a review on all of this code, looking for bugs and inconsistencies. $EXTRA_MESSAGE" \
->> "$final_report"
+"You are Joe, a senior django engineer. Mike did a first pass on a code review and now it is your turn. Please perform a review on all of this code, looking for bugs and inconsistencies. Update Mike's list of action items. $EXTRA_MESSAGE" \
+>> joe1_review.md
+echo "</joe1_review>" >> joe1_review.md
 
 echo "Mike will now review Joe's comments and make his own notes..."
 # 3) Mike's final pass
-echo "Mike's final review:" >> "$final_report"
-cat "$final_report" | \
-llm -m "$MIKE_MODEL" -s \
-"You are Mike, a senior django engineer. You and Joe have been looking for bugs and inconsistencies in this code. This is your back-and-forth conversation—please make any final notes or replies to Joe." \
->> "$final_report"
+(
+  emit_all &&
+  cat mike1_review.md joe1_review.md
+) | llm -m "$MIKE_MODEL" -s \
+"You are Mike, a senior django engineer. You and Joe have been looking for bugs and inconsistencies in this code. This is your back-and-forth conversation—please make any final notes or replies to Joe. Give a final proposed list of action items." \
+>> mike2_review.md
+echo "</mike2_review>" >> mike2_review.md
 
 echo "Joe will now review Mike's final comments and make his own notes..."
 # 4) Joe's last pass
 echo "Joe's final review:" >> "$final_report"
-cat "$final_report" | \
+(emit_all && cat mike1_review.md joe1_review.md mike2_review.md) | \
 llm -m "$JOE_MODEL" -s \
-"You are Joe, a senior django engineer. Mike did a first pass on a code review and now it is your turn. Please perform a review on all of this code, looking for bugs and inconsistencies." \
->> "$final_report"
+"You are Joe, a senior django engineer. Mike did a first pass on a code review and now it is your turn. Please perform a review on all of this code, looking for bugs and inconsistencies. It is your decision to create the FINAL list of action items for the developers to work on next. Go off of the entire discussion." \
+>> joe2_review.md
+echo "</joe2_review>" >> joe2_review.md
 
-# Close the final report
-echo "</final_report>" >> "$final_report"
-echo "Code review completed. Final report saved to $final_report"
+# Append all reviews to the final report
+echo "Appending all reviews to the final report..."
+{
+  echo "# Final Code Review Report - $datestring"
+  echo "## Mike's First Review"
+  cat mike1_review.md
+  echo "## Joe's First Review"
+  cat joe1_review.md
+  echo "## Mike's Final Review"
+  cat mike2_review.md
+  echo "## Joe's Final Review"
+  cat joe2_review.md
+} >> "$final_report"
+
+echo "Ended at `date`"

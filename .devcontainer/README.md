@@ -14,6 +14,7 @@ The devcontainer setup uses a modified version of the main project's Docker conf
 - The workspace is mounted at `/workspaces/RSS-TTS` inside the container
 - Node.js 20.x is installed for frontend development and tooling
 - Pre-commit hooks are automatically set up during container creation
+- The container starts with an interactive bash shell
 
 ## Services
 
@@ -33,14 +34,33 @@ The devcontainer includes the following services:
 
 ## Usage
 
-Once the container is running, you can:
+Once the container is running, you can use the following commands:
 
-- Access the Django app at http://localhost:9000
-- Access the Caddy-served content at http://localhost:9084
-- Run commands inside the container using VS Code's terminal
-- Debug the application using VS Code's debugging features
-- Run the development server with `python manage.py runserver 0.0.0.0:9000`
-- Start the Celery worker with `python -m celery -A rss_tts worker --loglevel=info`
+- `start-server` - Start Django development server
+- `start-worker` - Start Celery worker
+- `start-all` - Start both server and worker
+- `run-tests` - Run tests with mock
+- `lint` - Run linters (flake8, black, mypy)
+- `setup-db` - Setup database with migrations and create admin user
+- `create-feed` - Create a test feed for the admin user
+- `start-dev` - Start development environment with all services
+- `generate-article` - Create a test article for processing
+
+### Quick Start Development
+
+For a quick start:
+
+1. Run `setup-db` to initialize the database and create an admin user
+2. Run `start-dev` to start both Django and Celery worker
+3. Run `create-feed` to add a test feed
+4. Run `generate-article` to create a test article
+5. Access the app at http://localhost:9000 and admin at http://localhost:9000/admin
+
+## Key URLs
+
+- Django app: http://localhost:9000
+- Django admin: http://localhost:9000/admin (user: admin, password: admin)
+- Caddy proxy: http://localhost:9084
 
 ## Customization
 
@@ -50,4 +70,5 @@ You can customize the devcontainer by modifying:
 - `docker-compose.yml`: Container configuration and port mappings
 - `Dockerfile`: Container image definition
 - `Caddyfile`: Caddy web server configuration
-- `post-create.sh`: Commands to run after container creation
+- `entrypoint.sh`: Container startup configuration
+- `scripts/`: Helper scripts for development tasks
