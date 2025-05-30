@@ -64,11 +64,12 @@ class VoiceFieldValidationTests(TestCase):
 
     def test_article_clean_rejects_both_fields_set(self):
         """Test that Article.clean() rejects when both voice and voice_id are set."""
+        # Use a non-default voice to ensure conflict detection
         article = Article(
             feed=self.feed,
             title="Test Article",
             text_content="Test content",
-            voice=VOICE_ALLOY,
+            voice=VOICE_NOVA,  # Use nova instead of alloy to avoid default handling
             voice_id="custom_voice_123"
         )
 
@@ -131,13 +132,31 @@ class VoiceFieldValidationTests(TestCase):
         except ValidationError:
             self.fail("Article.clean() raised ValidationError when voice_id was whitespace only")
 
-    def test_article_clean_error_message_format(self):
-        """Test that validation error message has proper format and information."""
+    def test_article_clean_allows_default_voice_with_voice_id(self):
+        """Test that Article.clean() allows default 'alloy' voice when voice_id is set."""
+        # This is the specific case that was causing issues before the fix
         article = Article(
             feed=self.feed,
             title="Test Article",
             text_content="Test content",
-            voice=VOICE_ALLOY,
+            voice=VOICE_ALLOY,  # Default value
+            voice_id="custom_voice_123"  # Custom voice ID
+        )
+
+        # This should NOT raise ValidationError with the fix
+        try:
+            article.clean()
+        except ValidationError:
+            self.fail("Article.clean() raised ValidationError when default 'alloy' voice was set with voice_id")
+
+    def test_article_clean_error_message_format(self):
+        """Test that validation error message has proper format and information."""
+        # Use a non-default voice to ensure conflict detection
+        article = Article(
+            feed=self.feed,
+            title="Test Article",
+            text_content="Test content",
+            voice=VOICE_NOVA,  # Use nova instead of alloy to avoid default handling
             voice_id="custom_voice_456"
         )
 
@@ -150,7 +169,7 @@ class VoiceFieldValidationTests(TestCase):
 
         # Check message contains helpful information
         self.assertIn("Only one voice field should be set", error_message)
-        self.assertIn("voice='alloy'", error_message)
+        self.assertIn("voice='nova'", error_message)
         self.assertIn("voice_id='custom_voice_456'", error_message)
 
     def test_article_clean_preserves_other_validation(self):

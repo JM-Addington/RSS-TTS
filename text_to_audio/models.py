@@ -374,6 +374,7 @@ class Article(models.Model):
         Ensures single source of truth for voice fields:
         - Only one of 'voice' or 'voice_id' should be set at a time
         - Empty strings and whitespace-only values are treated as unset
+        - Default 'alloy' value is treated as unset when voice_id is provided
         - Provides clear error messages for conflicts
 
         Raises:
@@ -382,8 +383,13 @@ class Article(models.Model):
         super().clean()
 
         # Normalize values - treat empty strings and whitespace as unset
-        voice_is_set = bool(self.voice and str(self.voice).strip())
         voice_id_is_set = bool(self.voice_id and str(self.voice_id).strip())
+
+        # Special handling for voice field:
+        # - Treat default "alloy" as "unset" when voice_id is provided
+        # - This allows objects with custom voice_id to work without conflicts
+        voice_value = str(self.voice).strip() if self.voice else ""
+        voice_is_set = bool(voice_value and not (voice_value == VOICE_ALLOY and voice_id_is_set))
 
         # Check if both fields are set
         if voice_is_set and voice_id_is_set:
