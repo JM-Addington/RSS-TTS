@@ -438,11 +438,15 @@ def process_article(self, article_id: int) -> str:
                     )
                     start_time = time.monotonic()
 
+                    # Generate voice prompt for chunk tone
+                    chunk_voice_prompt = "Speak in a clear, engaging manner with appropriate expression for the content."
+
                     response = client.audio.speech.create(
                         model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
                         voice=chunk_data.voice.voice,
                         input=chunk_data.text,
                         speed=resolved_speed,
+                        instructions=chunk_voice_prompt,
                     )
                     response.stream_to_file(chunk_temp_file_path)
                     end_time = time.monotonic()
@@ -573,6 +577,10 @@ def process_article(self, article_id: int) -> str:
                         )
                         start_time = time.monotonic()
 
+                        # Generate voice prompt for multi-voice segment
+                        voice_tone = voice_definition.get("tone", "neutral")
+                        segment_voice_prompt = f"Use a {voice_tone} tone. Speak in a clear, engaging manner."
+
                         response = client.audio.speech.create(
                             model=getattr(
                                 settings, "OPENAI_TTS_MODEL", "tts-1"
@@ -580,6 +588,7 @@ def process_article(self, article_id: int) -> str:
                             voice=tts_api_voice,  # This is 'alloy', 'echo', etc.
                             input=chunk_text,
                             speed=tts_speed,
+                            instructions=segment_voice_prompt,
                         )
                         response.stream_to_file(chunk_temp_file_path)
                         end_time = time.monotonic()
@@ -750,6 +759,10 @@ def process_article(self, article_id: int) -> str:
                     "input": chunk,
                     "speed": fallback_speed,
                 }
+
+                # Add voice prompt instructions if available
+                if voice_prompt:
+                    tts_args["instructions"] = voice_prompt
 
                 response = client.audio.speech.create(**tts_args)
                 response.stream_to_file(temp_file_path)

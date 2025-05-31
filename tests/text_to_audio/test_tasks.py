@@ -372,6 +372,12 @@ class ProcessArticleTests(TestCase):
             # Check word count (sample text has 13 words with title)
             self.assertEqual(stats_obj.word_count, 13)
 
+        # Verify instructions parameter is passed
+        call_args = mock_speech_create.call_args[1]
+        self.assertIn("instructions", call_args)
+        self.assertIsInstance(call_args["instructions"], str)
+        self.assertTrue(len(call_args["instructions"]) > 0)
+
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     @patch("text_to_audio.tasks._generate_title")
@@ -944,6 +950,14 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(calls[1][1]["voice"], "onyx")  # tts_model from "hero"
         self.assertEqual(calls[1][1]["speed"], 1.1)
 
+        # Verify instructions parameter is passed to both calls
+        self.assertIn("instructions", calls[0][1])
+        self.assertIn("instructions", calls[1][1])
+        self.assertIsInstance(calls[0][1]["instructions"], str)
+        self.assertIsInstance(calls[1][1]["instructions"], str)
+        self.assertIn("neutral", calls[0][1]["instructions"])  # tone from voice definition
+        self.assertIn("bold", calls[1][1]["instructions"])  # tone from voice definition
+
         mock_audio_segment.export.assert_called_once()  # Assuming combined export
         self.assertEqual(mock_save_stats.call_count, 2)
 
@@ -1000,6 +1014,12 @@ class ProcessArticleTests(TestCase):
         call_args = mock_speech_create.call_args_list[0][1]
         self.assertEqual(call_args["voice"], "echo")
         self.assertEqual(call_args["speed"], 0.9)
+
+        # Verify instructions parameter is passed in fallback
+        self.assertIn("instructions", call_args)
+        self.assertIsInstance(call_args["instructions"], str)
+        # Should contain fallback voice prompt if voice_parameters exist, otherwise basic prompt
+
         self.assertEqual(mock_save_stats.call_count, expected_chunks)
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
@@ -1132,6 +1152,15 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(calls[4][1]["voice"], "shimmer")
         self.assertEqual(calls[4][1]["speed"], 0.8)
         self.assertEqual(calls[4][1]["input"], short_segment_text)
+
+        # Verify instructions parameter is passed to all calls
+        for i, call in enumerate(calls):
+            self.assertIn("instructions", call[1])
+            self.assertIsInstance(call[1]["instructions"], str)
+            if i < 4:  # First 4 calls for long_talker
+                self.assertIn("verbose", call[1]["instructions"])
+            else:  # Last call for short_talker
+                self.assertIn("concise", call[1]["instructions"])
 
         self.assertEqual(mock_save_stats.call_count, 5)
 

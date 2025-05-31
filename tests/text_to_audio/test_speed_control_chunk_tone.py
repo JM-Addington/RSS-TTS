@@ -184,6 +184,10 @@ class SpeedControlChunkToneTests(TestCase):
                 1.25,
                 f"Call {i+1} should have speed 1.25, got {call_kwargs['speed']}",
             )
+            # Verify instructions parameter is passed
+            self.assertIn("instructions", call_kwargs)
+            self.assertIsInstance(call_kwargs["instructions"], str)
+            self.assertTrue(len(call_kwargs["instructions"]) > 0)
 
         # Last 2 calls should be for article_100 (speed 1.0)
         for i in range(2, 4):
@@ -193,6 +197,10 @@ class SpeedControlChunkToneTests(TestCase):
                 1.0,
                 f"Call {i+1} should have speed 1.0, got {call_kwargs['speed']}",
             )
+            # Verify instructions parameter is passed
+            self.assertIn("instructions", call_kwargs)
+            self.assertIsInstance(call_kwargs["instructions"], str)
+            self.assertTrue(len(call_kwargs["instructions"]) > 0)
 
     @patch("text_to_audio.tasks.ChunkToneService")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
@@ -291,6 +299,10 @@ class SpeedControlChunkToneTests(TestCase):
                 1.5,
                 f"Call {i+1} should use voice_parameters speed 1.5, got {call_kwargs['speed']}",
             )
+            # Verify instructions parameter is passed
+            self.assertIn("instructions", call_kwargs)
+            self.assertIsInstance(call_kwargs["instructions"], str)
+            self.assertTrue(len(call_kwargs["instructions"]) > 0)
 
     @patch("text_to_audio.tasks.ChunkToneService")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
@@ -387,3 +399,7 @@ class SpeedControlChunkToneTests(TestCase):
                 1.0,
                 f"Call {i+1} should use default speed 1.0, got {call_kwargs['speed']}",
             )
+            # Verify instructions parameter is passed
+            self.assertIn("instructions", call_kwargs)
+            self.assertIsInstance(call_kwargs["instructions"], str)
+            self.assertTrue(len(call_kwargs["instructions"]) > 0)
