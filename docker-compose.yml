@@ -21,6 +21,7 @@ services:
       - .:/app
       - ../data/sqlite-data/:/data
       - ./media:/app/media  # Bind mount for saving MP3 files
+      - ./logs:/app/logs    # Bind mount for log files
       # For Docker volume instead of bind mount, uncomment the following:
       # - media-data:/app/media
     # Port mapping removed - now accessed through Caddy
@@ -30,7 +31,7 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
       CELERY_BROKER_URL: redis://redis:6379/0
-      SQLITE_DATA_DIR: /data/db.sqlite3
+      SQLITE_DATA_DIR: /data
     depends_on:
       - worker
       - redis
@@ -39,18 +40,19 @@ services:
 
   worker:
     build: .
-    command: celery -A rss_tts worker --loglevel=info
+    command: /app/start-worker.sh celery -A rss_tts worker --loglevel=info
     volumes:
       - .:/app
       - ../data/sqlite-data/:/data
       - ./media:/app/media  # Bind mount for saving MP3 files
+      - ./logs:/app/logs    # Bind mount for log files
       # For Docker volume instead of bind mount, uncomment the following:
       # - media-data:/app/media
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
       DJANGO_DEBUG: "True"
       CELERY_BROKER_URL: redis://redis:6379/0
-      SQLITE_DATA_DIR: /data/db.sqlite3
+      SQLITE_DATA_DIR: /data
     env_file:
       - .env
     depends_on:

@@ -35,6 +35,11 @@ RUN apt-get update \
 RUN pip install --upgrade pip \
     && pip install pre-commit black flake8 mypy isort pytest pytest-django
 
+# Copy and install requirements
+COPY requirements.txt requirements-test.txt ./
+RUN pip install -r requirements.txt \
+    && pip install -r requirements-test.txt
+
 # Create a non-root user with sudo access
 ARG USERNAME=vscode
 ARG USER_UID=1000

@@ -42,7 +42,7 @@ services:
     environment:
       <<: *default-environment
       PATH: /usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    command: sh -c "cd /workspaces/RSS-TTS && python -m celery -A rss_tts worker --loglevel=info"
+    command: sh -c "cd /workspaces/RSS-TTS && /workspaces/RSS-TTS/start-worker.sh celery -A rss_tts worker --loglevel=info"
     working_dir: /workspaces/RSS-TTS
     depends_on:
       - redis

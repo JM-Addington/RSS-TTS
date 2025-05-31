@@ -25,3 +25,6 @@ mike2.txt
 
 # pytest cache
 .pytest_cache/
+
+# Log files
+logs/

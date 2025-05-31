@@ -44,7 +44,7 @@ services:
 
   worker:
     build: .
-    command: /app/start-web.sh celery -A rss_tts worker --loglevel=info
+    command: /app/start-worker.sh celery -A rss_tts worker --loglevel=info
     env_file: .env
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
