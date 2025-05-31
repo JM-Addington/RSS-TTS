@@ -237,23 +237,77 @@ def _generate_title(client, text: str) -> str:
     """Generate a short title for the article using GPT."""
     from django.conf import settings
 
+    # Prepare request data for logging
+    model = getattr(settings, "OPENAI_TITLE_MODEL", "gpt-4o-mini")
+    request_data = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "Provide a concise title for this article:\n\n" + text[:5000]
+                ),
+            }
+        ],
+        "max_tokens": 10,
+        "temperature": 0.5,
+    }
+
+    # Call OpenAI API with detailed logging
+    start_time = time.monotonic()
     try:
-        response = client.chat.completions.create(
-            model=getattr(settings, "OPENAI_TITLE_MODEL", "gpt-4o-mini"),
-            messages=[
+        response = client.chat.completions.create(**request_data)
+        end_time = time.monotonic()
+        duration_ms = int((end_time - start_time) * 1000)
+
+        # Extract response data for logging
+        response_data = {
+            "id": response.id,
+            "model": response.model,
+            "object": response.object,
+            "created": response.created,
+            "choices": [
                 {
-                    "role": "user",
-                    "content": (
-                        "Provide a concise title for this article:\n\n" + text[:5000]
-                    ),
+                    "index": choice.index,
+                    "message": {
+                        "role": choice.message.role,
+                        "content": choice.message.content
+                    },
+                    "finish_reason": choice.finish_reason
                 }
+                for choice in response.choices
             ],
-            max_tokens=10,
-            temperature=0.5,
+            "usage": {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens
+            } if response.usage else None
+        }
+
+        # Log successful API call
+        from .utils import log_openai_api_call
+        log_openai_api_call(
+            operation="Title Generation",
+            request_data=request_data,
+            response_data=response_data,
+            duration_ms=duration_ms
         )
+
         title = response.choices[0].message.content.strip()
         return str(title)
     except Exception as e:  # pragma: no cover - safeguard
+        end_time = time.monotonic()
+        duration_ms = int((end_time - start_time) * 1000)
+
+        # Log failed API call
+        from .utils import log_openai_api_call
+        log_openai_api_call(
+            operation="Title Generation",
+            request_data=request_data,
+            error=e,
+            duration_ms=duration_ms
+        )
+
         logger.error(f"Failed to generate title: {e}")
         return "Untitled Article"  # type: ignore[return-value]
 
@@ -500,16 +554,64 @@ def process_article(self, article_id: int) -> str:
                     # Generate voice prompt for chunk tone
                     chunk_voice_prompt = "Speak in a clear, engaging manner with appropriate expression for the content."
 
-                    response = client.audio.speech.create(
-                        model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
-                        voice=chunk_data.voice.voice,
-                        input=chunk_data.text,
-                        speed=resolved_speed,
-                        instructions=chunk_voice_prompt,
+                    # Prepare TTS request data for logging
+                    tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
+                    tts_request_data = {
+                        "model": tts_model,
+                        "voice": chunk_data.voice.voice,
+                        "input": chunk_data.text,
+                        "speed": resolved_speed,
+                        "instructions": chunk_voice_prompt,
+                    }
+
+                    # Log TTS API call details
+                    logger.info(
+                        f"TTS API Call - Article {article_id}, chunk {chunk_idx}: "
+                        f"model={tts_model}, voice={chunk_data.voice.voice}, "
+                        f"speed={resolved_speed}, text_length={len(chunk_data.text)} chars, "
+                        f"instructions='{chunk_voice_prompt}'"
                     )
-                    response.stream_to_file(chunk_temp_file_path)
-                    end_time = time.monotonic()
-                    processing_time_ms = int((end_time - start_time) * 1000)
+
+                    # Call TTS API with detailed logging
+                    try:
+                        response = client.audio.speech.create(**tts_request_data)  # type: ignore
+                        response.stream_to_file(chunk_temp_file_path)
+                        end_time = time.monotonic()
+                        processing_time_ms = int((end_time - start_time) * 1000)
+
+                        # Extract response data for logging (TTS doesn't return JSON, but has headers)
+                        tts_response_data = {
+                            "status": "success",
+                            "audio_file_generated": True,
+                            "file_path": str(chunk_temp_file_path),
+                        }
+
+                        # Add response headers if available
+                        if hasattr(response, "headers"):
+                            tts_response_data["headers"] = dict(response.headers)
+
+                        # Log successful TTS API call
+                        from .utils import log_openai_api_call
+                        log_openai_api_call(
+                            operation=f"TTS Generation (ChunkTone) - Article {article_id}, chunk {chunk_idx}",
+                            request_data=tts_request_data,
+                            response_data=tts_response_data,
+                            duration_ms=processing_time_ms
+                        )
+
+                    except Exception as e:
+                        end_time = time.monotonic()
+                        processing_time_ms = int((end_time - start_time) * 1000)
+
+                        # Log failed TTS API call
+                        from .utils import log_openai_api_call
+                        log_openai_api_call(
+                            operation=f"TTS Generation (ChunkTone) - Article {article_id}, chunk {chunk_idx}",
+                            request_data=tts_request_data,
+                            error=e,
+                            duration_ms=processing_time_ms
+                        )
+                        raise
 
                     tokens_used = 0
                     if hasattr(response, "usage") and hasattr(
@@ -640,18 +742,67 @@ def process_article(self, article_id: int) -> str:
                         voice_tone = voice_definition.get("tone", "neutral")
                         segment_voice_prompt = f"Use a {voice_tone} tone. Speak in a clear, engaging manner."
 
-                        response = client.audio.speech.create(
-                            model=getattr(
-                                settings, "OPENAI_TTS_MODEL", "tts-1"
-                            ),  # tts-1 or tts-1-hd
-                            voice=tts_api_voice,  # This is 'alloy', 'echo', etc.
-                            input=chunk_text,
-                            speed=tts_speed,
-                            instructions=segment_voice_prompt,
+                        # Prepare TTS request data for logging
+                        tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
+                        tts_request_data = {
+                            "model": tts_model,  # tts-1 or tts-1-hd
+                            "voice": tts_api_voice,  # This is 'alloy', 'echo', etc.
+                            "input": chunk_text,
+                            "speed": tts_speed,
+                            "instructions": segment_voice_prompt,
+                        }
+
+                        # Log multi-voice TTS API call details
+                        logger.info(
+                            f"Multi-voice TTS API Call - Article {article_id}, segment {segment_idx}: "
+                            f"model={tts_model}, voice={tts_api_voice}, "
+                            f"speed={tts_speed}, text_length={len(chunk_text)} chars, "
+                            f"voice_name='{voice_name}', tone='{voice_tone}', "
+                            f"instructions='{segment_voice_prompt}'"
                         )
-                        response.stream_to_file(chunk_temp_file_path)
-                        end_time = time.monotonic()
-                        processing_time_ms = int((end_time - start_time) * 1000)
+
+                        # Call TTS API with detailed logging
+                        try:
+                            response = client.audio.speech.create(**tts_request_data)  # type: ignore
+                            response.stream_to_file(chunk_temp_file_path)
+                            end_time = time.monotonic()
+                            processing_time_ms = int((end_time - start_time) * 1000)
+
+                            # Extract response data for logging (TTS doesn't return JSON, but has headers)
+                            tts_response_data = {
+                                "status": "success",
+                                "audio_file_generated": True,
+                                "file_path": str(chunk_temp_file_path),
+                                "voice_name": voice_name,
+                                "voice_tone": voice_tone,
+                            }
+
+                            # Add response headers if available
+                            if hasattr(response, "headers"):
+                                tts_response_data["headers"] = dict(response.headers)
+
+                            # Log successful TTS API call
+                            from .utils import log_openai_api_call
+                            log_openai_api_call(
+                                operation=f"TTS Generation (Multi-voice) - Article {article_id}, segment {segment_idx}, chunk {chunk_idx}",
+                                request_data=tts_request_data,
+                                response_data=tts_response_data,
+                                duration_ms=processing_time_ms
+                            )
+
+                        except Exception as e:
+                            end_time = time.monotonic()
+                            processing_time_ms = int((end_time - start_time) * 1000)
+
+                            # Log failed TTS API call
+                            from .utils import log_openai_api_call
+                            log_openai_api_call(
+                                operation=f"TTS Generation (Multi-voice) - Article {article_id}, segment {segment_idx}, chunk {chunk_idx}",
+                                request_data=tts_request_data,
+                                error=e,
+                                duration_ms=processing_time_ms
+                            )
+                            raise
 
                         tokens_used = 0
                         if hasattr(response, "usage") and hasattr(
@@ -826,10 +977,54 @@ def process_article(self, article_id: int) -> str:
                 if voice_prompt:
                     tts_args["instructions"] = voice_prompt
 
-                response = client.audio.speech.create(**tts_args)
-                response.stream_to_file(temp_file_path)
-                end_time = time.monotonic()
-                processing_time_ms = int((end_time - start_time) * 1000)
+                # Log fallback TTS API call details
+                logger.info(
+                    f"Fallback TTS API Call - Article {article_id}, chunk {i}: "
+                    f"model={tts_args['model']}, voice={fallback_voice}, "
+                    f"speed={fallback_speed}, text_length={len(chunk)} chars"
+                    + (f", instructions='{voice_prompt}'" if voice_prompt else "")
+                )
+
+                # Call TTS API with detailed logging
+                try:
+                    response = client.audio.speech.create(**tts_args)  # type: ignore
+                    response.stream_to_file(temp_file_path)
+                    end_time = time.monotonic()
+                    processing_time_ms = int((end_time - start_time) * 1000)
+
+                    # Extract response data for logging (TTS doesn't return JSON, but has headers)
+                    tts_response_data = {
+                        "status": "success",
+                        "audio_file_generated": True,
+                        "file_path": str(temp_file_path),
+                    }
+
+                    # Add response headers if available
+                    if hasattr(response, "headers"):
+                        tts_response_data["headers"] = dict(response.headers)
+
+                    # Log successful TTS API call
+                    from .utils import log_openai_api_call
+                    log_openai_api_call(
+                        operation=f"TTS Generation (Fallback) - Article {article_id}, chunk {i}",
+                        request_data=tts_args,
+                        response_data=tts_response_data,
+                        duration_ms=processing_time_ms
+                    )
+
+                except Exception as e:
+                    end_time = time.monotonic()
+                    processing_time_ms = int((end_time - start_time) * 1000)
+
+                    # Log failed TTS API call
+                    from .utils import log_openai_api_call
+                    log_openai_api_call(
+                        operation=f"TTS Generation (Fallback) - Article {article_id}, chunk {i}",
+                        request_data=tts_args,
+                        error=e,
+                        duration_ms=processing_time_ms
+                    )
+                    raise
 
                 tokens_used = 0
                 if hasattr(response, "usage") and hasattr(

@@ -381,6 +381,10 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
 
     def dispatch(self, request, *args, **kwargs):
         """Verify the feed exists and belongs to the user."""
+        # LoginRequiredMixin should handle this, but add extra safety check
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+
         self.feed = get_object_or_404(
             Feed, pk=self.kwargs.get("feed_id"), user=request.user
         )

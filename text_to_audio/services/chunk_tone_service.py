@@ -4,6 +4,7 @@ ChunkToneService for LLM-driven text chunking and tone analysis.
 
 import json
 import logging
+import time
 from typing import Optional
 
 import openai
@@ -26,7 +27,7 @@ class ChunkToneService:
     def __init__(self, openai_api_key: Optional[str] = None):
         """Initialize with optional OpenAI API key override."""
         self.openai_api_key = openai_api_key
-        self._client = None
+        self._client: Optional[openai.OpenAI] = None
 
     @property
     def client(self):
@@ -88,7 +89,8 @@ class ChunkToneService:
 
     def _build_prompt(self, text: str, title: str, max_chars: int) -> str:
         """Build the prompt for the LLM."""
-        return f"""You are a text-to-speech specialist. Analyze the following article and break it into logical chunks for multi-voice narration.
+        return f"""You are a text-to-speech specialist. Analyze the following article and break it into \
+logical chunks for multi-voice narration.
 
 Article Title: {title}
 
@@ -128,18 +130,67 @@ The JSON must be valid and parseable. Do not include any other text or explanati
         Raises:
             ValidationError: If response cannot be parsed or validated
         """
+        model = getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4o-mini")
+
+        # Prepare request data for logging
+        request_data = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a professional text-to-speech specialist. Return only valid JSON.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.3,
+            "max_tokens": 4000,
+        }
+
+        # Log ChunkToneService API call details
+        logger.info(
+            f"ChunkToneService API Call: model={model}, "
+            f"max_tokens=4000, temperature=0.3, "
+            f"prompt_length={len(prompt)} chars"
+        )
+
+        # Call OpenAI API with detailed logging
+        start_time = time.monotonic()
         try:
-            response = self.client.chat.completions.create(
-                model=getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4o-mini"),
-                messages=[
+            response = self.client.chat.completions.create(**request_data)
+            end_time = time.monotonic()
+            duration_ms = int((end_time - start_time) * 1000)
+
+            # Extract response data for logging
+            response_data = {
+                "id": response.id,
+                "model": response.model,
+                "object": response.object,
+                "created": response.created,
+                "choices": [
                     {
-                        "role": "system",
-                        "content": "You are a professional text-to-speech specialist. Return only valid JSON.",
-                    },
-                    {"role": "user", "content": prompt},
+                        "index": choice.index,
+                        "message": {
+                            "role": choice.message.role,
+                            "content": choice.message.content
+                        },
+                        "finish_reason": choice.finish_reason
+                    }
+                    for choice in response.choices
                 ],
-                temperature=0.3,
-                max_tokens=4000,
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                } if response.usage else None
+            }
+
+            # Log successful API call
+            from ..utils import log_openai_api_call
+            log_openai_api_call(
+                operation="Chunk Tone Analysis",
+                request_data=request_data,
+                response_data=response_data,
+                duration_ms=duration_ms
             )
 
             response_text = response.choices[0].message.content.strip()
@@ -153,5 +204,17 @@ The JSON must be valid and parseable. Do not include any other text or explanati
                 raise Exception(f"Invalid JSON response: {e}") from e
 
         except Exception as e:
+            end_time = time.monotonic()
+            duration_ms = int((end_time - start_time) * 1000)
+
+            # Log failed API call
+            from ..utils import log_openai_api_call
+            log_openai_api_call(
+                operation="Chunk Tone Analysis",
+                request_data=request_data,
+                error=e,
+                duration_ms=duration_ms
+            )
+
             logger.error(f"OpenAI API call failed: {e}")
             raise Exception(f"OpenAI API error: {e}") from e

@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 from django.conf import settings
 
@@ -16,6 +17,7 @@ MODEL_TOKEN_LIMITS = {
     "gpt-4-turbo": 128_000,  # 128k context window
     "gpt-4o": 128_000,  # 128k context window
     "gpt-4o-mini": 128_000,  # 128k context window
+    "gpt-4.1": 32_000,  # 1M context window but 32k max completion tokens
 }
 
 # Default conservative limit if model not recognized
@@ -145,17 +147,80 @@ class ContentAnalysisService:
         if max_completion_tokens is None:
             max_completion_tokens = self._calculate_dynamic_max_tokens(prompt, model)
 
-        # Call OpenAI API with JSON mode
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=[
+        # Prepare request data for logging
+        request_data = {
+            "model": model,
+            "messages": [
                 {"role": "system", "content": "You are an expert content analyzer."},
                 {"role": "user", "content": prompt},
             ],
-            max_completion_tokens=max_completion_tokens,
-            temperature=0.3,
-            response_format={"type": "json_object"},
+            "max_completion_tokens": max_completion_tokens,
+            "temperature": 0.3,
+            "response_format": {"type": "json_object"},
+        }
+
+        # Log content analysis API call details
+        logger.info(
+            f"Content Analysis API Call: model={model}, "
+            f"max_completion_tokens={max_completion_tokens}, temperature=0.3, "
+            f"prompt_length={len(prompt)} chars, "
+            f"text_sample_length={len(text_sample)} chars, "
+            f"title='{title or 'None'}'"
         )
+
+        # Call OpenAI API with JSON mode and detailed logging
+        start_time = time.monotonic()
+        try:
+            response = self.client.chat.completions.create(**request_data)
+            end_time = time.monotonic()
+            duration_ms = int((end_time - start_time) * 1000)
+
+            # Extract response data for logging
+            response_data = {
+                "id": response.id,
+                "model": response.model,
+                "object": response.object,
+                "created": response.created,
+                "choices": [
+                    {
+                        "index": choice.index,
+                        "message": {
+                            "role": choice.message.role,
+                            "content": choice.message.content
+                        },
+                        "finish_reason": choice.finish_reason
+                    }
+                    for choice in response.choices
+                ],
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                } if response.usage else None
+            }
+
+            # Log successful API call
+            from ..utils import log_openai_api_call
+            log_openai_api_call(
+                operation="Content Analysis",
+                request_data=request_data,
+                response_data=response_data,
+                duration_ms=duration_ms
+            )
+
+        except Exception as e:
+            end_time = time.monotonic()
+            duration_ms = int((end_time - start_time) * 1000)
+
+            # Log failed API call
+            from ..utils import log_openai_api_call
+            log_openai_api_call(
+                operation="Content Analysis",
+                request_data=request_data,
+                error=e,
+                duration_ms=duration_ms
+            )
+            raise
 
         # Parse the response
         try:
@@ -348,6 +413,16 @@ class ContentAnalysisService:
 
         **Edge Case: Short or Monotone Text**
         If the text is very short or does not have clear distinctions for multiple voices, define a single "narrator" voice and include the entire text as one segment.
+
+        **Consistency** of Voices**: Ensure that the same voice is used consistently for the same type of content throughout the text. For example, if you define a "narrator" voice, use it for all general narration segments. For news articles, think about how it would sound on the radio or in a podcast.
+
+        Quotes and Dialogue**: For direct quotes or dialogue, create distinct voices that match the character or speaker's tone. Use descriptive names like "expert_quote" or "character_jane" to differentiate them. For quotes longer than a few words, switch between the narrator and the quoted speaker's voice.
+
+        Example:
+        "Jim is the smartest character in the book. It's a mistake to assume he's there to be ridiculed. In fact, he becomes a father to Huck," says Fishkin, who wrote the 1993 literature critic classic,
+
+        {"text":" Jim is the smartest character in the book. It's a mistake to assume he's there to be ridiculed. In fact, he becomes a father to Huck.", "voice_name":"expert_quote",
+        "text":" says Fishkin, who wrote the 1993 literature critic classic.", "voice_name":"narrator"}
 
         Article Text to Analyze:
         {text}

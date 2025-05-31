@@ -4,9 +4,11 @@ This module provides utility functions for the RSS-to-TTS system, including
 URL content extraction and text processing.
 """
 
+import json
 import logging
+import re
 import time
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -376,3 +378,85 @@ def safe_delete_audio_file(file_path: Optional[str]) -> bool:
     except (OSError, FileNotFoundError, PermissionError) as e:
         logger.warning(f"Error deleting file {file_path}: {e}")
         return False
+
+
+def redact_api_key(data: Any) -> Any:
+    """Recursively redact API keys from data structures.
+
+    Args:
+        data: The data to redact API keys from (dict, list, str, etc.)
+
+    Returns:
+        The data with API keys redacted
+    """
+    if isinstance(data, dict):
+        redacted = {}
+        for key, value in data.items():
+            if isinstance(key, str) and any(
+                sensitive in key.lower()
+                for sensitive in ['api_key', 'authorization', 'token', 'secret']
+            ):
+                redacted[key] = "[REDACTED]"
+            else:
+                redacted[key] = redact_api_key(value)
+        return redacted
+    elif isinstance(data, list):
+        return [redact_api_key(item) for item in data]
+    elif isinstance(data, str):
+        # Redact bearer tokens and API keys in strings
+        redacted_text = re.sub(
+            r'(Bearer\s+|api[_-]?key["\s]*[:=]\s*["\']?)([a-zA-Z0-9_-]+)',
+            r'\1[REDACTED]',
+            data,
+            flags=re.IGNORECASE
+        )
+        # Redact sk- prefixed tokens (OpenAI format)
+        redacted_text = re.sub(r'sk-[a-zA-Z0-9_-]+', '[REDACTED]', redacted_text)
+        return redacted_text
+    else:
+        return data
+
+
+def log_openai_api_call(
+    operation: str,
+    request_data: Dict[str, Any],
+    response_data: Optional[Dict[str, Any]] = None,
+    error: Optional[Exception] = None,
+    duration_ms: Optional[int] = None
+) -> None:
+    """Log OpenAI API calls with sensitive data redaction.
+
+    Args:
+        operation: Description of the operation (e.g., "TTS Generation", "Content Analysis")
+        request_data: The request data sent to OpenAI
+        response_data: The response data from OpenAI (if successful)
+        error: Exception if the call failed
+        duration_ms: Duration of the API call in milliseconds
+    """
+    # Create log entry structure
+    log_entry = {
+        "operation": operation,
+        "timestamp": time.time(),
+        "request": redact_api_key(request_data),
+    }
+
+    if duration_ms is not None:
+        log_entry["duration_ms"] = duration_ms
+
+    if error:
+        log_entry["error"] = {
+            "type": type(error).__name__,
+            "message": str(error),
+        }
+        log_level = logging.ERROR
+        status = "FAILED"
+    else:
+        log_entry["response"] = redact_api_key(response_data or {})
+        log_level = logging.INFO
+        status = "SUCCESS"
+
+    # Log with structured format
+    logger.log(
+        log_level,
+        f"OpenAI API Call [{status}] - {operation}: {json.dumps(log_entry, default=str, indent=2)}"
+    )
