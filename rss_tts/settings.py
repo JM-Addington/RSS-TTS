@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+import dj_database_url
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -91,16 +93,44 @@ WSGI_APPLICATION = "rss_tts.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# Using SQLite for all environments
-data_dir = os.environ.get("SQLITE_DATA_DIR", "")
-db_path = os.path.join(data_dir, "db.sqlite3") if data_dir else "db.sqlite3"
+# Flexible database configuration
+# Priority: DATABASE_URL > PostgreSQL env vars > SQLite (default)
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": str(BASE_DIR / db_path),
+if database_url := os.environ.get("DATABASE_URL"):
+    # Use dj-database-url for DATABASE_URL parsing
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=database_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+elif all(
+    os.environ.get(var)
+    for var in ["POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST"]
+):
+    # Use explicit PostgreSQL configuration
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ["POSTGRES_DB"],
+            "USER": os.environ["POSTGRES_USER"],
+            "PASSWORD": os.environ["POSTGRES_PASSWORD"],
+            "HOST": os.environ["POSTGRES_HOST"],
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        }
+    }
+else:
+    # Default to SQLite for local development
+    data_dir = os.environ.get("SQLITE_DATA_DIR", "")
+    db_path = os.path.join(data_dir, "db.sqlite3") if data_dir else "db.sqlite3"
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": str(BASE_DIR / db_path),
+        }
+    }
 
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_TASK_ALWAYS_EAGER = False

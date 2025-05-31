@@ -7,7 +7,7 @@ This project converts web articles and text into audio files using Django and Dj
 | Area | Summary |
 | --- | --- |
 | **Vision** | Turn web articles, blog posts, or text into high-quality audio available through a private podcast-style RSS feed. |
-| **Technology Stack** | Django 5 + DRF • Celery 6 + Redis • SQLite • OpenAI TTS • Bootstrap 5 for UI. |
+| **Technology Stack** | Django 5 + DRF • Celery 6 + Redis • SQLite/PostgreSQL • OpenAI TTS • Bootstrap 5 for UI. |
 
 For more details, see [PROJECT_PLAN.md](PROJECT_PLAN.md).
 Each user manages one or more **Feeds**. A feed groups a user's converted articles and is accessed via a unique token-based URL, e.g. `/feeds/<feed_token>/`. The token is generated using UUID4 when the feed is created so the RSS feed remains private.
@@ -45,6 +45,41 @@ Key environment variables:
 - `SQLITE_DATA_DIR`: Directory to store SQLite database (optional)
 - `CELERY_BROKER_URL`: Redis URL for Celery
 - `SITE_URL`: Full URL of your site (e.g., "https://example.com") for RSS feed links
+
+### Database Configuration
+
+The application supports both SQLite (default for local development) and PostgreSQL (recommended for production).
+
+#### SQLite (Default)
+By default, the application uses SQLite with zero configuration required. The database file is created automatically when you run migrations:
+
+```bash
+python manage.py migrate
+```
+
+To customize the SQLite database location, set:
+```bash
+SQLITE_DATA_DIR=data  # Database will be stored at data/db.sqlite3
+```
+
+#### PostgreSQL (Production)
+For production deployments, PostgreSQL is recommended. Configure it using either:
+
+**Option 1: DATABASE_URL (Recommended)**
+```bash
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+```
+
+**Option 2: Explicit PostgreSQL Variables**
+```bash
+POSTGRES_DB=your_db_name
+POSTGRES_USER=your_db_user
+POSTGRES_PASSWORD=your_db_password
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+```
+
+The application automatically detects which database to use based on available environment variables. Priority: DATABASE_URL > PostgreSQL vars > SQLite.
 
 ### Docker Development
 
