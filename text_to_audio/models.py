@@ -414,21 +414,27 @@ class Article(models.Model):
         """Return the canonical path for this article's audio file.
 
         Returns:
-            The canonical path: media/audio/{user_id}/{article_id}.mp3
+            The canonical path: media/articles/{audio_uuid}.mp3
         """
         import os
 
         from django.conf import settings
 
+        if not self.audio_uuid:
+            raise ValueError(f"Article {self.id} has no audio_uuid set")
+
         return os.path.join(
-            settings.MEDIA_ROOT, "audio", str(self.feed.user.id), f"{self.id}.mp3"
+            settings.MEDIA_ROOT, "articles", f"{self.audio_uuid}.mp3"
         )
 
     def set_canonical_audio_path(self) -> None:
         """Set the audio_file_path to the canonical relative path."""
         import os
 
-        relative_path = os.path.join("audio", str(self.feed.user.id), f"{self.id}.mp3")
+        if not self.audio_uuid:
+            raise ValueError(f"Article {self.id} has no audio_uuid set")
+
+        relative_path = os.path.join("articles", f"{self.audio_uuid}.mp3")
         self.audio_file_path = relative_path
 
     def ensure_canonical_directory_exists(self) -> None:
@@ -443,10 +449,8 @@ class Article(models.Model):
                 f"MEDIA_ROOT directory does not exist: {settings.MEDIA_ROOT}"
             )
 
-        user_audio_dir = os.path.join(
-            settings.MEDIA_ROOT, "audio", str(self.feed.user.id)
-        )
-        os.makedirs(user_audio_dir, exist_ok=True)
+        articles_dir = os.path.join(settings.MEDIA_ROOT, "articles")
+        os.makedirs(articles_dir, exist_ok=True)
 
     def get_absolute_url(self) -> str:
         """Return the URL for this article.

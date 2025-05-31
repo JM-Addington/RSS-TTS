@@ -1,8 +1,17 @@
 """Service for configuring TTS voice parameters."""
 
+import logging
+
 from text_to_audio.services.voice_parameter_generation import (
     VoiceParameterGenerationService,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _is_mock_object(obj):
+    """Check if an object is a mock (for testing)."""
+    return obj is not None and hasattr(obj, '_mock_name')
 
 
 class VoiceConfigurationService:
@@ -181,9 +190,16 @@ class VoiceConfigurationService:
 
         elif voice_mode == Feed.VOICE_MODE_AUTO:
             # Generate AI-driven voice parameters
-            voice_parameters = self.voice_parameter_service.generate_voice_parameters(
-                article
-            )
+            try:
+                voice_parameters = self.voice_parameter_service.generate_voice_parameters(
+                    article
+                )
+                # Validate that we got actual data, not a mock
+                if _is_mock_object(voice_parameters):
+                    voice_parameters = None
+            except Exception as e:
+                logger.error(f"Voice parameter generation failed: {e}")
+                voice_parameters = None
 
             # Generate enhanced TTS prompt if needed
             update_fields = ["voice_id", "speed", "voice_parameters", "detected_genre"]

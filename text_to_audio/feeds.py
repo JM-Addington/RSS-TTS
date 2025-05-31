@@ -173,14 +173,11 @@ class UserFeed(Feed):
 
     def item_enclosure_length(self, item: Article) -> int:
         """Get the size of the MP3 file."""
-        # Try to get actual file size
+        # Try to get actual file size using canonical path
         try:
-            file_path = item.audio_file_path
-            if not os.path.isabs(file_path):
-                file_path = os.path.join(settings.MEDIA_ROOT, file_path)
-
-            if os.path.exists(file_path):
-                return os.path.getsize(file_path)
+            canonical_path = item.get_canonical_audio_path()
+            if os.path.exists(canonical_path):
+                return os.path.getsize(canonical_path)
         except (OSError, ValueError):
             pass
 

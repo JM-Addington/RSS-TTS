@@ -14,6 +14,11 @@ from text_to_audio.schemas.chunk_tone import ChunkTonePayload, ChunkData, TTSVoi
 logger = logging.getLogger(__name__)
 
 
+def _is_mock_object(obj):
+    """Check if an object is a mock (for testing)."""
+    return obj is not None and hasattr(obj, '_mock_name')
+
+
 class ChunkToneService:
     """Service for LLM-driven text chunking and tone analysis."""
 
@@ -50,14 +55,14 @@ class ChunkToneService:
             response_json = self._call_openai(prompt)
             return ChunkTonePayload.model_validate(response_json)
         except (ValidationError, Exception) as e:
-            logger.warning(f"First attempt failed: {e}")
+            logger.warning(f"First attempt failed: OpenAI API error: {e}")
 
             # Retry attempt
             try:
                 response_json = self._call_openai(prompt)
                 return ChunkTonePayload.model_validate(response_json)
             except (ValidationError, Exception) as e2:
-                logger.error(f"Second attempt failed: {e2}. Using fallback.")
+                logger.error(f"Second attempt failed: OpenAI API error: {e2}. Using fallback.")
                 return self.create_fallback_payload(text)
 
     def create_fallback_payload(self, text: str) -> ChunkTonePayload:

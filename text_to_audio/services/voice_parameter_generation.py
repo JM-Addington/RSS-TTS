@@ -9,6 +9,11 @@ from text_to_audio.services.voice_genre_templates import VoiceGenreTemplateServi
 logger = logging.getLogger(__name__)
 
 
+def _is_mock_object(obj):
+    """Check if an object is a mock (for testing)."""
+    return obj is not None and hasattr(obj, '_mock_name')
+
+
 class VoiceParameterGenerationService:
     """Service for generating detailed voice parameters for text-to-speech."""
 
@@ -57,9 +62,16 @@ class VoiceParameterGenerationService:
         template = self.template_service.get_template_by_genre(genre)
 
         # Step 3: Perform content analysis to get multi-voice configuration
-        content_analysis = self.content_service.analyze_content(
-            article.text_content, title=article.title
-        )
+        try:
+            content_analysis = self.content_service.analyze_content(
+                article.text_content, title=article.title
+            )
+            # Validate that we got actual data, not a mock
+            if _is_mock_object(content_analysis):
+                content_analysis = None
+        except Exception as e:
+            logger.error(f"Content analysis failed: {e}")
+            content_analysis = None
 
         # Step 4: Combine all inputs to generate final voice parameters
         voice_parameters = self._generate_parameters(

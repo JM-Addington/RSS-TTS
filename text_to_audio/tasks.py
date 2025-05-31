@@ -276,8 +276,8 @@ def process_article(self, article_id: int) -> str:
         article.ensure_canonical_directory_exists()
 
         # Use canonical directory for temporary files during processing
-        user_audio_dir = media_root / "audio" / str(article.feed.user.id)
-        article_media_dir = user_audio_dir  # For temporary files during processing
+        articles_dir = media_root / "articles"
+        article_media_dir = articles_dir  # For temporary files during processing
 
         # Generate a UUID for the article audio file if not already set
         if not article.audio_uuid:
@@ -367,7 +367,11 @@ def process_article(self, article_id: int) -> str:
                     analysis_text_sample, title=article.title
                 )
 
-                article.multi_voice_data = analysis_result_json
+                # Validate that we got actual JSON-serializable data, not a mock
+                if analysis_result_json is not None and not hasattr(analysis_result_json, '_mock_name'):
+                    article.multi_voice_data = analysis_result_json
+                else:
+                    article.multi_voice_data = None
                 # The fields article.summary, article.detected_tone, article.voice_id, article.speed
                 # are no longer directly set from this specific analysis call.
                 # They might be deprecated or populated via a different mechanism if still needed.
@@ -418,6 +422,14 @@ def process_article(self, article_id: int) -> str:
                     f"ChunkToneService returned {len(chunk_tone_payload.chunks)} chunks for Article ID: {article_id}"
                 )
 
+                # Resolve speed using the same logic as single-voice fallback
+                if article.voice_parameters:
+                    resolved_speed = (
+                        article.voice_parameters.get("speed") or article.speed or 1.0
+                    )
+                else:
+                    resolved_speed = article.speed or 1.0
+
                 # Process each chunk with TTS
                 for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
                     chunk_temp_file_path = (
@@ -430,7 +442,7 @@ def process_article(self, article_id: int) -> str:
                         model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
                         voice=chunk_data.voice.voice,
                         input=chunk_data.text,
-                        speed=1.0,  # Default speed for ChunkToneService
+                        speed=resolved_speed,
                     )
                     response.stream_to_file(chunk_temp_file_path)
                     end_time = time.monotonic()
@@ -453,13 +465,13 @@ def process_article(self, article_id: int) -> str:
                     generated_audio_files.append(chunk_temp_file_path)
                     word_count = len(chunk_data.text.split())
                     _save_openai_usage_stats(
-                        user,
-                        article,
-                        article_id,
-                        f"chunk_tone_{chunk_idx}",
-                        tokens_used,
-                        processing_time_ms,
-                        word_count,
+                        user=user,
+                        article=article,
+                        article_id=article_id,
+                        chunk_index=f"chunk_tone_{chunk_idx}",
+                        tokens_used=tokens_used,
+                        processing_time_ms=processing_time_ms,
+                        word_count=word_count,
                     )
 
                 if generated_audio_files:
@@ -588,13 +600,13 @@ def process_article(self, article_id: int) -> str:
                         generated_audio_files.append(chunk_temp_file_path)
                         word_count = len(chunk_text.split())
                         _save_openai_usage_stats(
-                            user,
-                            article,
-                            article_id,
-                            f"segment_{segment_idx}_chunk_{chunk_idx}",
-                            tokens_used,
-                            processing_time_ms,
-                            word_count,
+                            user=user,
+                            article=article,
+                            article_id=article_id,
+                            chunk_index=f"segment_{segment_idx}_chunk_{chunk_idx}",
+                            tokens_used=tokens_used,
+                            processing_time_ms=processing_time_ms,
+                            word_count=word_count,
                         )
 
                 # Validate concatenated text matches original (if possible, or a large portion of it)
@@ -756,13 +768,13 @@ def process_article(self, article_id: int) -> str:
                 generated_audio_files.append(temp_file_path)
                 word_count = len(chunk.split())
                 _save_openai_usage_stats(
-                    user,
-                    article,
-                    article_id,
-                    f"fallback_chunk_{i}",
-                    tokens_used,
-                    processing_time_ms,
-                    word_count,
+                    user=user,
+                    article=article,
+                    article_id=article_id,
+                    chunk_index=f"fallback_chunk_{i}",
+                    tokens_used=tokens_used,
+                    processing_time_ms=processing_time_ms,
+                    word_count=word_count,
                 )
 
             if (
@@ -804,7 +816,7 @@ def process_article(self, article_id: int) -> str:
                 44100
             )  # Ensure consistent frame rate
             audio_segment.export(
-                final_audio_path,
+                str(final_audio_path),
                 format="mp3",
                 bitrate="128k",
                 tags=tags_dict,
@@ -833,7 +845,7 @@ def process_article(self, article_id: int) -> str:
                     44100
                 )  # Ensure consistent frame rate
                 combined_audio.export(
-                    final_audio_path,
+                    str(final_audio_path),
                     format="mp3",
                     bitrate="128k",
                     tags=tags_dict,

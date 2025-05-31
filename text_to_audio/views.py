@@ -77,176 +77,20 @@ class ArticleListView(LoginRequiredMixin, View):
 class ArticleMediaView(View):
     """View for serving article media files."""
 
-    def _find_by_pattern(self, article):
-        """Try to find audio file by standard patterns and update article if found."""
-        if not article.audio_uuid:
-            return None
-
-        # Try multiple locations for the audio file
-        possible_paths = [
-            # Check in MEDIA_ROOT/articles with new simplified structure
-            os.path.join(
-                settings.MEDIA_ROOT,
-                "articles",
-                f"{article.audio_uuid}.mp3",
-            ),
-            # Legacy paths for backwards compatibility
-            os.path.join(
-                settings.MEDIA_ROOT,
-                "articles",
-                str(article.feed.user.id),
-                str(article.feed.id),
-                f"article_{article.audio_uuid}.mp3",
-            ),
-        ]
-
-        for path in possible_paths:
-            if os.path.exists(path):
-                # Store relative to MEDIA_ROOT for consistency with tasks.py
-                try:
-                    relative_path = os.path.relpath(path, settings.MEDIA_ROOT)
-                    article.audio_file_path = relative_path
-                    article.status = Article.COMPLETED
-                    article.save(update_fields=["audio_file_path", "status"])
-                    return path
-                except ValueError:
-                    # If path is not relative to MEDIA_ROOT, store as absolute path
-                    article.audio_file_path = path
-                    article.status = Article.COMPLETED
-                    article.save(update_fields=["audio_file_path", "status"])
-                    return path
-
-        return None
-
-    def _resolve_path(self, article):
-        """Resolve the audio file path based on different storage strategies."""
-        import warnings
-
-        # Try multiple path resolution strategies
-        possible_paths = []
-
-        # Path 1: Check if it's a Docker path (DEPRECATED)
-        if article.audio_file_path.startswith("/app/"):
-            warnings.warn(
-                f"Using deprecated Docker path correction for article {article.id}. "
-                "This will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            logger.warning(
-                f"DEPRECATED: Docker path correction used for article {article.id}. "
-                f"Path: {article.audio_file_path}"
-            )
-            # Docker path correction
-            path_suffix = article.audio_file_path.replace("/app/media/", "").replace(
-                "/app/", ""
-            )
-            possible_paths.append(os.path.join(settings.BASE_DIR, path_suffix))
-
-        # Path 2: If it's a relative path, try with MEDIA_ROOT first (PREFERRED)
-        if not os.path.isabs(article.audio_file_path):
-            path = os.path.join(settings.MEDIA_ROOT, article.audio_file_path)
-            possible_paths.append(path)
-
-        # Path 3: Try with BASE_DIR (DEPRECATED - for backwards compatibility)
-        if not os.path.isabs(article.audio_file_path):
-            base_dir_path = os.path.join(settings.BASE_DIR, article.audio_file_path)
-            possible_paths.append(base_dir_path)
-
-        # Path 4: If it's an absolute path, use it directly
-        if os.path.isabs(article.audio_file_path):
-            possible_paths.append(article.audio_file_path)
-
-        # Path 5: Try simplified structure
-        if article.audio_uuid:
-            # New simplified path (PREFERRED)
-            preferred_path = os.path.join(
-                settings.MEDIA_ROOT,
-                "articles",
-                f"{article.audio_uuid}.mp3",
-            )
-            possible_paths.append(preferred_path)
-
-            # Legacy paths for backwards compatibility (DEPRECATED)
-            user_id = (
-                str(article.feed.user_id)
-                if hasattr(article.feed, "user_id")
-                else "unknown"
-            )
-            feed_id = str(article.feed.id) if hasattr(article.feed, "id") else "unknown"
-            legacy_path = os.path.join(
-                settings.MEDIA_ROOT,
-                "articles",
-                str(user_id),
-                str(feed_id),
-                f"article_{article.audio_uuid}.mp3",
-            )
-            possible_paths.append(legacy_path)
-
-        # Check all possible paths and log deprecation warnings for legacy paths
-        for i, path in enumerate(possible_paths):
-            if os.path.exists(path):
-                # Log deprecation warning for legacy paths
-                if i == 2:  # BASE_DIR path
-                    warnings.warn(
-                        f"Using deprecated BASE_DIR path resolution for article {article.id}. "
-                        "Files should be stored in MEDIA_ROOT/articles/. "
-                        "This will be removed in a future version.",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
-                    logger.warning(
-                        f"DEPRECATED: BASE_DIR path used for article {article.id}. "
-                        f"Path: {path}. Migrate to MEDIA_ROOT/articles/"
-                    )
-                elif (
-                    i == 4 and "articles" in path and len(path.split(os.sep)) > 5
-                ):  # Legacy structured path
-                    warnings.warn(
-                        f"Using deprecated user/feed folder structure for article {article.id}. "
-                        "Files should be stored as MEDIA_ROOT/articles/<uuid>.mp3. "
-                        "This will be removed in a future version.",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
-                    logger.warning(
-                        f"DEPRECATED: Legacy folder structure used for article {article.id}. "
-                        f"Path: {path}. Migrate to simplified structure."
-                    )
-                return path
-
-        # If we get here, we couldn't find the file
-        return None
-
-    def _resolve_canonical_path(self, article):
-        """Resolve the canonical audio file path for an article."""
+    def _find_audio_file(self, article):
+        """Find the audio file for an article using canonical path."""
         try:
             canonical_path = article.get_canonical_audio_path()
             if os.path.exists(canonical_path):
                 return canonical_path
-        except Exception:
-            # If canonical path resolution fails, fall back to legacy methods
-            pass
+        except ValueError as e:
+            logger.error(f"Cannot resolve canonical path for article {article.id}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error resolving canonical path for article {article.id}: {e}")
+            return None
+
         return None
-
-    def _find_audio_file(self, article):
-        """Find the audio file for an article using various path strategies."""
-        # Case 1: Try canonical path first (preferred)
-        canonical_path = self._resolve_canonical_path(article)
-        if canonical_path:
-            return canonical_path
-
-        # Case 2: No path set, try to find by pattern
-        if not article.audio_file_path:
-            return self._find_by_pattern(article)
-
-        # Case 3: Path set, try to resolve it using legacy methods
-        file_path = self._resolve_path(article)
-        if file_path:
-            return file_path
-
-        # Case 4: Last resort, try to find by pattern again
-        return self._find_by_pattern(article)
 
     def get(self, request, audio_uuid):
         """Serve the media file for an article by audio_uuid.
@@ -723,63 +567,17 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
         return reverse_lazy("feed-articles", kwargs={"feed_id": self.object.feed.id})
 
     def _get_article_audio_file_path(self, article):
-        """Find the audio file path for an article using various strategies."""
-        file_path_to_delete = None
+        """Find the audio file path for an article using canonical path."""
+        try:
+            canonical_path = article.get_canonical_audio_path()
+            if os.path.exists(canonical_path):
+                return canonical_path
+        except ValueError as e:
+            logger.error(f"Cannot resolve canonical path for article {article.id}: {e}")
+        except Exception as e:
+            logger.error(f"Error resolving canonical path for article {article.id}: {e}")
 
-        # Attempt 1: Use _resolve_path logic if audio_file_path is set
-        if article.audio_file_path:
-            possible_paths = []
-            # Docker path correction
-            if article.audio_file_path.startswith("/app/"):
-                path_suffix = article.audio_file_path.replace(
-                    "/app/media/", ""
-                ).replace("/app/", "")
-                possible_paths.append(os.path.join(settings.BASE_DIR, path_suffix))
-
-            # Relative path checks
-            if not os.path.isabs(article.audio_file_path):
-                possible_paths.append(
-                    os.path.join(settings.MEDIA_ROOT, article.audio_file_path)
-                )
-                possible_paths.append(
-                    os.path.join(settings.BASE_DIR, article.audio_file_path)
-                )
-
-            # Absolute path
-            if os.path.isabs(article.audio_file_path):
-                possible_paths.append(article.audio_file_path)
-
-            for path in possible_paths:
-                if os.path.exists(path):
-                    file_path_to_delete = path
-                    break
-        # Attempt 2: Use _find_by_pattern logic if no path resolved or not set initially
-        if not file_path_to_delete and article.audio_uuid:
-            user_id = str(article.feed.user.id)
-            feed_id_str = str(article.feed.id)
-            # Legacy path resolution - this is for backwards compatibility only
-            legacy_storage_dir = os.path.join(settings.BASE_DIR, "articles")
-
-            possible_paths_pattern = [
-                os.path.join(
-                    legacy_storage_dir,
-                    user_id,
-                    feed_id_str,
-                    f"article_{article.audio_uuid}.mp3",
-                ),
-                os.path.join(
-                    settings.MEDIA_ROOT,
-                    "articles",
-                    user_id,
-                    feed_id_str,
-                    f"article_{article.audio_uuid}.mp3",
-                ),
-            ]
-            for path in possible_paths_pattern:
-                if os.path.exists(path):
-                    file_path_to_delete = path
-                    break
-        return file_path_to_delete
+        return None
 
     def delete(self, request, *args, **kwargs):
         """Delete the article and its associated audio file."""

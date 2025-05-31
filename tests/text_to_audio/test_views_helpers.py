@@ -38,40 +38,30 @@ class ArticleMediaViewHelperTests(TestCase):
         with open(path, "w") as f:
             f.write("dummy")
 
-    def test_find_by_pattern_updates_article(self):
-        """File found by pattern updates article path."""
-        file_path = os.path.join(
+    def test_find_audio_file_uses_canonical_path(self):
+        """_find_audio_file uses canonical path when available."""
+        canonical_path = os.path.join(
             settings.MEDIA_ROOT, "articles", f"{self.article.audio_uuid}.mp3"
         )
-        self._create_audio_file(file_path)
-
-        result = self.view._find_by_pattern(self.article)
-        self.assertEqual(result, file_path)
-        self.article.refresh_from_db()
-        rel = os.path.relpath(file_path, settings.MEDIA_ROOT)
-        self.assertEqual(self.article.audio_file_path, rel)
-
-    def test_resolve_path_relative(self):
-        """Relative paths resolve to existing file."""
-        file_path = os.path.join(
-            settings.MEDIA_ROOT, "articles", f"{self.article.audio_uuid}.mp3"
-        )
-        self._create_audio_file(file_path)
-        self.article.audio_file_path = os.path.relpath(file_path, settings.MEDIA_ROOT)
-        self.article.save()
-
-        result = self.view._resolve_path(self.article)
-        self.assertEqual(result, file_path)
-
-    def test_find_audio_file_fallback(self):
-        """Fallback to pattern search when set path missing."""
-        # Create file only at pattern location
-        file_path = os.path.join(
-            settings.MEDIA_ROOT, "articles", f"{self.article.audio_uuid}.mp3"
-        )
-        self._create_audio_file(file_path)
-        self.article.audio_file_path = "nonexistent/path.mp3"
-        self.article.save()
+        self._create_audio_file(canonical_path)
 
         result = self.view._find_audio_file(self.article)
-        self.assertEqual(result, file_path)
+        self.assertEqual(result, canonical_path)
+
+    def test_find_audio_file_returns_none_when_missing(self):
+        """_find_audio_file returns None when canonical file doesn't exist."""
+        # Don't create the file
+        result = self.view._find_audio_file(self.article)
+        self.assertIsNone(result)
+
+    def test_find_audio_file_handles_missing_audio_uuid(self):
+        """_find_audio_file handles articles without audio_uuid."""
+        article_no_uuid = Article.objects.create(
+            feed=self.feed,
+            title="No UUID",
+            status=Article.COMPLETED,
+            audio_uuid=None,
+        )
+
+        result = self.view._find_audio_file(article_no_uuid)
+        self.assertIsNone(result)

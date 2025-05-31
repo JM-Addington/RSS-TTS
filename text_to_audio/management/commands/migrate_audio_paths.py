@@ -15,7 +15,7 @@ from text_to_audio.models import Article
 class Command(BaseCommand):
     """Command to migrate audio files from legacy paths to canonical locations."""
 
-    help = "Migrates legacy audio files to canonical path structure: media/audio/{user_id}/{article_id}.mp3"
+    help = "Migrates legacy audio files to canonical path structure: media/articles/{audio_uuid}.mp3"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -103,10 +103,13 @@ class Command(BaseCommand):
         )
 
         for article in articles:
+            # Check if article has audio_uuid (required for canonical path)
+            if not article.audio_uuid:
+                # Skip articles without audio_uuid - they need to be handled separately
+                continue
+
             # Check if it's already using canonical path format
-            canonical_relative = os.path.join(
-                "audio", str(article.feed.user.id), f"{article.id}.mp3"
-            )
+            canonical_relative = os.path.join("articles", f"{article.audio_uuid}.mp3")
 
             if article.audio_file_path != canonical_relative:
                 # This is a legacy path that needs migration
@@ -222,9 +225,7 @@ class Command(BaseCommand):
                     "from_path": canonical_path,
                     "to_path": legacy_path,
                     "old_db_path": article.audio_file_path,
-                    "new_db_path": os.path.join(
-                        "audio", str(article.feed.user.id), f"{article.id}.mp3"
-                    ),
+                    "new_db_path": os.path.join("articles", f"{article.audio_uuid}.mp3"),
                 }
             )
 

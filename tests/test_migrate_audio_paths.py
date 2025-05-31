@@ -120,7 +120,7 @@ class MigrateAudioPathsTestCase(TestCase):
 
                 # Verify file moved to canonical location
                 canonical_path = os.path.join(
-                    temp_dir, "audio", str(self.user1.id), f"{self.article1.id}.mp3"
+                    temp_dir, "articles", f"{self.article1.audio_uuid}.mp3"
                 )
                 self.assertTrue(os.path.exists(canonical_path))
 
@@ -152,9 +152,7 @@ class MigrateAudioPathsTestCase(TestCase):
                 self.article1.refresh_from_db()
 
                 # Verify path updated to canonical format
-                expected_path = os.path.join(
-                    "audio", str(self.user1.id), f"{self.article1.id}.mp3"
-                )
+                expected_path = f"articles/{self.article1.audio_uuid}.mp3"
                 self.assertEqual(self.article1.audio_file_path, expected_path)
                 self.assertNotEqual(self.article1.audio_file_path, original_path)
 
@@ -189,9 +187,9 @@ class MigrateAudioPathsTestCase(TestCase):
                     f.write("mock audio content")
 
                 # Make destination directory read-only
-                audio_dir = os.path.join(temp_dir, "audio")
-                os.makedirs(audio_dir, exist_ok=True)
-                os.chmod(audio_dir, 0o444)
+                articles_dir = os.path.join(temp_dir, "articles")
+                os.makedirs(articles_dir, exist_ok=True)
+                os.chmod(articles_dir, 0o444)
 
                 try:
                     with captured_stderr() as stderr:
@@ -208,7 +206,7 @@ class MigrateAudioPathsTestCase(TestCase):
 
                 finally:
                     # Restore permissions for cleanup
-                    os.chmod(audio_dir, 0o755)
+                    os.chmod(articles_dir, 0o755)
 
     def test_migration_rollback_on_error(self):
         """Test migration rollback when errors occur during batch processing."""
@@ -274,7 +272,7 @@ class MigrateAudioPathsTestCase(TestCase):
 
                 # Canonical location should not exist
                 canonical_path = os.path.join(
-                    temp_dir, "audio", str(self.user1.id), f"{self.article1.id}.mp3"
+                    temp_dir, "articles", f"{self.article1.audio_uuid}.mp3"
                 )
                 self.assertFalse(os.path.exists(canonical_path))
 
@@ -291,7 +289,7 @@ class MigrateAudioPathsTestCase(TestCase):
 
                 # Create existing file at canonical location
                 canonical_path = os.path.join(
-                    temp_dir, "audio", str(self.user1.id), f"{self.article1.id}.mp3"
+                    temp_dir, "articles", f"{self.article1.audio_uuid}.mp3"
                 )
                 os.makedirs(os.path.dirname(canonical_path), exist_ok=True)
 
@@ -321,7 +319,7 @@ class MigrateAudioPathsTestCase(TestCase):
 
                 # Create existing file at canonical location
                 canonical_path = os.path.join(
-                    temp_dir, "audio", str(self.user1.id), f"{self.article1.id}.mp3"
+                    temp_dir, "articles", f"{self.article1.audio_uuid}.mp3"
                 )
                 os.makedirs(os.path.dirname(canonical_path), exist_ok=True)
 
@@ -380,7 +378,7 @@ class MigrateAudioPathsTestCase(TestCase):
                 # All files should be migrated
                 for article in articles:
                     canonical_path = os.path.join(
-                        temp_dir, "audio", str(self.user1.id), f"{article.id}.mp3"
+                        temp_dir, "articles", f"{article.audio_uuid}.mp3"
                     )
                     self.assertTrue(os.path.exists(canonical_path))
 
@@ -427,7 +425,7 @@ class MigrateAudioPathsTestCase(TestCase):
 
                 # Check canonical file
                 canonical_path = os.path.join(
-                    temp_dir, "audio", str(self.user1.id), f"{self.article1.id}.mp3"
+                    temp_dir, "articles", f"{self.article1.audio_uuid}.mp3"
                 )
                 self.assertTrue(os.path.exists(canonical_path))
 
