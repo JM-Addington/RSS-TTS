@@ -233,3 +233,25 @@ class VoiceConfigurationService:
             (Feed.VOICE_MODE_SINGLE_CUSTOM, "Single voice (custom preset)"),
             (Feed.VOICE_MODE_AUTO, "Auto-generated voice"),
         ]
+
+    def voice_for_character(self, char_name: str, payload) -> str:
+        """
+        Get voice for a character from ChunkTonePayload.
+
+        Args:
+            char_name: Character name to find voice for
+            payload: ChunkTonePayload or similar object with chunks
+
+        Returns:
+            Voice ID string, defaults to "alloy" if not found
+        """
+        if hasattr(payload, 'chunks'):
+            for chunk in payload.chunks:
+                if (hasattr(chunk, 'character_name') and
+                    chunk.character_name == char_name and
+                    hasattr(chunk, 'voice') and
+                    hasattr(chunk.voice, 'voice')):
+                    return chunk.voice.voice
+
+        # Fallback to default voice
+        return "alloy"

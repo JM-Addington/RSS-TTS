@@ -159,6 +159,34 @@ We follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide for
 - Feature branches should follow the format `feature/description`
 - See [AGENTS.md](AGENTS.md) for more details on branch management
 
+## Features
+
+### ChunkToneService (LLM-Driven Audio Processing)
+
+The application includes an advanced LLM-driven text chunking and voice assignment system called ChunkToneService. This feature can replace the traditional chunking pipeline with intelligent, context-aware processing.
+
+**Key Features:**
+- **Intelligent Chunking**: Uses OpenAI GPT models to break text into logical segments
+- **Voice Assignment**: Automatically assigns appropriate voices for different speakers/narrators
+- **Character Recognition**: Identifies dialogue and assigns character-specific voices
+- **Fallback Safety**: Always produces valid output, even when LLM processing fails
+
+**Configuration:**
+```bash
+# Enable ChunkToneService (default: false)
+ENABLE_CHUNK_TONE_LLM=true
+```
+
+**Available Voices:**
+- `alloy` - Default narrator voice
+- `echo` - Character dialogue
+- `fable` - Storytelling
+- `onyx` - Bold/dramatic characters
+- `nova` - Casual/conversational
+- `shimmer` - News/formal content
+
+For detailed documentation, see [docs/chunk_tone_service.md](docs/chunk_tone_service.md).
+
 ## Tests
 
 Activate the virtual environment and run:

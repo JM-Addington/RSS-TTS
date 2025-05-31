@@ -6,7 +6,9 @@ MIKE_MODEL="gemini-2.5-pro-preview-05-06"
 JOE_MODEL="o3"
 MARKDOWN_ROOT="./"
 CODE_ROOT="./"
-EXTRA_MESSAGE="Pay special attention to see if automatic voice tones are properly generating and being sent to the TTS API"
+EXTRA_MESSAGE="
+Pay special attention to see if automatic voice tones are properly generating and
+being sent to the TTS API. The last two commits completely refactored it."
 
 datestring=$(date +%Y-%m-%d-%H-%M)
 final_report="$datestring-final_report.md"

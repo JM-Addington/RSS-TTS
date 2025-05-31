@@ -26,6 +26,7 @@ from .models import Article  # Import OpenAIUsageStats in helper method
 from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
 from .services.voice_configuration import VoiceConfigurationService
 from .services.voice_parameter_generation import VoiceParameterGenerationService
+from .services.chunk_tone_service import ChunkToneService
 from .utils import process_url_to_text
 
 # Configure logging
@@ -77,7 +78,7 @@ def _save_openai_usage_stats(
         )
 
 
-def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
+def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
     """Split text into chunks for TTS processing (optimized for large texts).
 
     Uses a linear scanning approach for better performance on large documents.
@@ -121,7 +122,7 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
         if len(current_chunk) + 1 > max_length:
             # We need to break here, find the best break point in current_chunk
             if current_chunk:
-                break_point = _find_best_break_point(current_chunk, max_length)
+                break_point = _legacy_find_best_break_point(current_chunk, max_length)
                 if break_point > 0:
                     chunks.append(current_chunk[:break_point].strip())
                     current_chunk = current_chunk[break_point:].strip()
@@ -172,7 +173,7 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
                     chunks.append(remaining)
                     break
 
-                break_point = _find_best_break_point(remaining, max_length)
+                break_point = _legacy_find_best_break_point(remaining, max_length)
                 if break_point > 0:
                     chunks.append(remaining[:break_point].strip())
                     remaining = remaining[break_point:].strip()
@@ -190,7 +191,7 @@ def _chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
     return perfect_split, chunks
 
 
-def _find_best_break_point(text: str, max_length: int) -> int:
+def _legacy_find_best_break_point(text: str, max_length: int) -> int:
     """Find the best break point within a text segment.
 
     Returns the index where to break, or 0 if no good break point found.
@@ -392,9 +393,100 @@ def process_article(self, article_id: int) -> str:
             article.multi_voice_data = None
             # No need to save here if it was already None or if text_content was missing from start
 
-        # --- Multi-Voice TTS Generation Attempt ---
+        # --- ChunkTone LLM Service (New) or Multi-Voice TTS Generation (Legacy) ---
+        chunk_tone_generation_successful = False
+        if settings.ENABLE_CHUNK_TONE_LLM:
+            try:
+                logger.info(
+                    f"Using ChunkToneService for Article ID: {article_id}"
+                )
+                chunk_tone_service = ChunkToneService()
+
+                # Prepare text for chunking (include title)
+                text_for_chunking = article.text_content
+                if article.title:
+                    text_for_chunking = f"{article.title}.\n\n{article.text_content}"
+
+                # Get chunks from LLM service
+                chunk_tone_payload = chunk_tone_service.get_payload(
+                    text=text_for_chunking,
+                    title=article.title or "Untitled",
+                    max_chars=4000
+                )
+
+                logger.info(
+                    f"ChunkToneService returned {len(chunk_tone_payload.chunks)} chunks for Article ID: {article_id}"
+                )
+
+                # Process each chunk with TTS
+                for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
+                    chunk_temp_file_path = (
+                        article_media_dir
+                        / f"temp_article_{article.audio_uuid}_chunk_{chunk_idx}_{uuid.uuid4()}.mp3"
+                    )
+                    start_time = time.monotonic()
+
+                    response = client.audio.speech.create(
+                        model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
+                        voice=chunk_data.voice.voice,
+                        input=chunk_data.text,
+                        speed=1.0,  # Default speed for ChunkToneService
+                    )
+                    response.stream_to_file(chunk_temp_file_path)
+                    end_time = time.monotonic()
+                    processing_time_ms = int((end_time - start_time) * 1000)
+
+                    tokens_used = 0
+                    if hasattr(response, "usage") and hasattr(response.usage, "total_tokens"):
+                        try:
+                            tokens_used = int(response.usage.total_tokens)
+                        except (ValueError, TypeError):
+                            tokens_used = 0
+                    elif hasattr(response, "headers"):
+                        header_value = response.headers.get("x-openai-tokens-used")
+                        if header_value is not None:
+                            try:
+                                tokens_used = int(header_value)
+                            except (ValueError, TypeError):
+                                tokens_used = 0
+
+                    generated_audio_files.append(chunk_temp_file_path)
+                    word_count = len(chunk_data.text.split())
+                    _save_openai_usage_stats(
+                        user,
+                        article,
+                        article_id,
+                        f"chunk_tone_{chunk_idx}",
+                        tokens_used,
+                        processing_time_ms,
+                        word_count,
+                    )
+
+                if generated_audio_files:
+                    chunk_tone_generation_successful = True
+                    logger.info(
+                        f"ChunkToneService generation successful for Article ID: {article_id}, {len(generated_audio_files)} audio pieces generated."
+                    )
+                else:
+                    logger.warning(
+                        f"ChunkToneService attempted for Article ID {article_id}, but no audio files were generated."
+                    )
+
+            except Exception as ct_exc:
+                logger.error(
+                    f"ChunkToneService generation failed for Article ID {article_id}: {ct_exc}"
+                )
+                logger.debug(traceback.format_exc())
+                # Clean up any partially generated files before fallback
+                for temp_file in generated_audio_files:
+                    if temp_file.exists():
+                        os.remove(temp_file)
+                generated_audio_files = []
+                chunk_tone_generation_successful = False
+
+        # --- Legacy Multi-Voice TTS Generation Attempt ---
         multi_voice_generation_successful = False
-        if _is_valid_multi_voice_data(article.multi_voice_data):
+        if not chunk_tone_generation_successful and _is_valid_multi_voice_data(article.multi_voice_data):
             try:
                 logger.info(
                     f"Attempting multi-voice TTS generation for Article ID: {article_id}"
@@ -447,7 +539,7 @@ def process_article(self, article_id: int) -> str:
                         tts_speed = max(0.25, min(tts_speed, 4.0))
 
                     # Chunk the segment's text if necessary
-                    _, segment_text_chunks = _chunk_text(segment_text)
+                    _, segment_text_chunks = _legacy_chunk_text(segment_text)
                     if not segment_text_chunks:
                         logger.warning(
                             f"Segment {segment_idx} for article {article_id} ('{voice_name}') resulted in no text chunks. Skipping."
@@ -558,7 +650,7 @@ def process_article(self, article_id: int) -> str:
             )
 
         # --- Fallback to Single-Voice Generation ---
-        if not multi_voice_generation_successful:
+        if not chunk_tone_generation_successful and not multi_voice_generation_successful:
             logger.info(
                 f"Falling back to single-voice TTS generation for Article ID: {article_id}"
             )
@@ -579,7 +671,7 @@ def process_article(self, article_id: int) -> str:
             if article.title:
                 text_for_audio = f"{article.title}.\n\n{article.text_content}"
 
-            _, text_chunks = _chunk_text(text_for_audio)
+            _, text_chunks = _legacy_chunk_text(text_for_audio)
             if not text_chunks:
                 raise ValueError(
                     "No text chunks generated from text_content for single-voice fallback."

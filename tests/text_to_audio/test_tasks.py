@@ -20,7 +20,7 @@ from django.test import TestCase, override_settings
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
-from text_to_audio.tasks import _chunk_text, process_article
+from text_to_audio.tasks import _legacy_chunk_text, process_article
 
 User = get_user_model()
 
@@ -30,7 +30,7 @@ TEST_MEDIA_ROOT = Path(settings.BASE_DIR) / "test_media_tasks"
 
 @override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
 class ChunkTextTests(TestCase):
-    """Tests for the _chunk_text function.
+    """Tests for the _legacy_chunk_text function.
 
     These tests verify that the text chunking algorithm properly splits text at natural
     language boundaries while respecting the maximum length constraint.
@@ -38,21 +38,21 @@ class ChunkTextTests(TestCase):
 
     def test_empty_string(self):
         """Test that an empty string returns an empty list of chunks."""
-        success, chunks = _chunk_text("")
+        success, chunks = _legacy_chunk_text("")
         self.assertTrue(success)
         self.assertEqual(chunks, [])
 
     def test_short_string(self):
         """Test that a short string (under max length) is kept as one chunk."""
         text = "This is a short sentence."
-        success, chunks = _chunk_text(text, max_length=100)
+        success, chunks = _legacy_chunk_text(text, max_length=100)
         self.assertTrue(success)
         self.assertEqual(chunks, [text])
 
     def test_string_equals_max_length(self):
         """Test that a string exactly equal to max length is kept as one chunk."""
         text = "abcde"
-        success, chunks = _chunk_text(text, max_length=5)
+        success, chunks = _legacy_chunk_text(text, max_length=5)
         self.assertTrue(success)
         self.assertEqual(chunks, [text])
 
@@ -60,7 +60,7 @@ class ChunkTextTests(TestCase):
         """Test that a string is properly split at word boundaries when needed."""
         # Explicitly 40 chars with trailing spaces
         text = "This is a sentence that needs splitting.  "
-        success, chunks = _chunk_text(text, max_length=20)
+        success, chunks = _legacy_chunk_text(text, max_length=20)
         self.assertTrue(success)
         # Should properly split into chunks smaller than max_length
         for chunk in chunks:
@@ -69,7 +69,7 @@ class ChunkTextTests(TestCase):
     def test_string_needs_multiple_splits(self):
         """Test that a string requiring multiple splits is properly chunked."""
         text = "one two three four five six seven eight nine ten"
-        success, chunks = _chunk_text(text, max_length=17)
+        success, chunks = _legacy_chunk_text(text, max_length=17)
         self.assertTrue(success)
         # Ensure each chunk is within limits
         for chunk in chunks:
@@ -82,12 +82,12 @@ class ChunkTextTests(TestCase):
     def test_split_respects_paragraph_breaks(self):
         """Test that text is properly split at paragraph boundaries when possible."""
         text = "First paragraph.\n\nSecond paragraph, which is a bit longer."
-        success, chunks_ml50 = _chunk_text(text, max_length=50)
+        success, chunks_ml50 = _legacy_chunk_text(text, max_length=50)
         self.assertTrue(success)
         # Should split into 2 paragraphs
         self.assertEqual(len(chunks_ml50), 2)
 
-        success, chunks_ml30 = _chunk_text(text, max_length=30)
+        success, chunks_ml30 = _legacy_chunk_text(text, max_length=30)
         self.assertTrue(success)
         # Each chunk should be <= max_length
         for chunk in chunks_ml30:
@@ -96,7 +96,7 @@ class ChunkTextTests(TestCase):
     def test_split_respects_sentence_breaks(self):
         """Test that text is properly split at sentence boundaries when possible."""
         text = "First sentence. Second sentence, also fairly short. Third one."
-        success, chunks = _chunk_text(text, max_length=40)
+        success, chunks = _legacy_chunk_text(text, max_length=40)
         self.assertTrue(success)
         # Should split at sentence boundaries
         self.assertEqual(len(chunks), 3)
@@ -107,7 +107,7 @@ class ChunkTextTests(TestCase):
     def test_long_word_handling(self):
         """Test long words with forced splitting."""
         text = "Supercalifragilisticexpialidocious"
-        success, chunks = _chunk_text(text, max_length=20)
+        success, chunks = _legacy_chunk_text(text, max_length=20)
         # This word will need to be force-split
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 20)
@@ -115,7 +115,7 @@ class ChunkTextTests(TestCase):
     def test_force_split_if_no_natural_break(self):
         """Test text with no natural breaks."""
         text = "abcdefghijklmnopqrstuvwxyz"
-        success, chunks = _chunk_text(text, max_length=20)
+        success, chunks = _legacy_chunk_text(text, max_length=20)
         # Should indicate compromised splitting for words
         self.assertFalse(success)
         for chunk in chunks:
@@ -127,7 +127,7 @@ class ChunkTextTests(TestCase):
             "Short. Longer sentence here.\n\n"
             "New paragraph. Another sentence. And a final one."
         )
-        success, chunks = _chunk_text(text, max_length=30)
+        success, chunks = _legacy_chunk_text(text, max_length=30)
         self.assertTrue(success)
         # Each chunk should be <= max_length
         for chunk in chunks:
@@ -146,42 +146,42 @@ class ChunkTextTests(TestCase):
             text = f.read()
 
         # Test with realistic TTS max length (4000 chars)
-        success, chunks = _chunk_text(text, max_length=4000)
+        success, chunks = _legacy_chunk_text(text, max_length=4000)
         self.assertTrue(success)
         self.assertTrue(len(chunks) >= 1)  # Should have at least one chunk
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 4000)
 
         # Test with medium max_length (1000 chars) - more realistic for API calls
-        success, chunks = _chunk_text(text, max_length=1000)
+        success, chunks = _legacy_chunk_text(text, max_length=1000)
         self.assertTrue(success)
         self.assertTrue(len(chunks) >= 3)  # Should have several chunks
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 1000)
 
         # Test with smaller max_length (200 chars) - should split on sentences
-        success, chunks = _chunk_text(text, max_length=200)
+        success, chunks = _legacy_chunk_text(text, max_length=200)
         self.assertTrue(success)
         self.assertTrue(len(chunks) >= 10)  # Should have many chunks
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 200)
 
         # Test with very small max_length (20 chars) - should force word splitting
-        success, chunks = _chunk_text(text, max_length=20)
+        success, chunks = _legacy_chunk_text(text, max_length=20)
         # May be false if words need to be forcibly split
         self.assertTrue(len(chunks) > 0)
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 20)
 
-    def test_chunk_text_large_continuous_input_no_infinite_loop(self):
-        """Test that _chunk_text doesn't get stuck in infinite loop with large continuous text."""
+    def test_legacy_chunk_text_large_continuous_input_no_infinite_loop(self):
+        """Test that _legacy_chunk_text doesn't get stuck in infinite loop with large continuous text."""
         # Create a 5000+ character string with no natural breaks
         # This would previously cause an infinite loop
         large_continuous_text = "a" * 5000
 
         # Use a small max_length to force multiple splits
         max_length = 100
-        success, chunks = _chunk_text(large_continuous_text, max_length=max_length)
+        success, chunks = _legacy_chunk_text(large_continuous_text, max_length=max_length)
 
         # Should complete without hanging and produce chunks
         self.assertTrue(len(chunks) > 0)  # Should produce chunks
@@ -201,8 +201,8 @@ class ChunkTextTests(TestCase):
         # The key test: this should complete in reasonable time (not hang in infinite loop)
         # If the fix wasn't applied, this test would never complete
 
-    def test_chunk_text_stress_test_completion(self):
-        """Stress test to ensure _chunk_text completes for various edge cases."""
+    def test_legacy_chunk_text_stress_test_completion(self):
+        """Stress test to ensure _legacy_chunk_text completes for various edge cases."""
         # Test cases that could potentially cause infinite loops
         test_cases = [
             ("a" * 1000, 100),  # Very long continuous text
@@ -212,7 +212,7 @@ class ChunkTextTests(TestCase):
 
         for text, max_len in test_cases:
             with self.subTest(text_len=len(text), max_length=max_len):
-                success, chunks = _chunk_text(text, max_length=max_len)
+                success, chunks = _legacy_chunk_text(text, max_length=max_len)
 
                 # Key assertion: should complete without hanging
                 self.assertTrue(len(chunks) > 0)
@@ -454,14 +454,14 @@ class ProcessArticleTests(TestCase):
         chunks_data = ["Chunk 1 content.", "Second chunk here."]  # 3 words, 3 words
 
         # Create a patch to force return of multiple chunks and to mock audio processing
-        with patch("text_to_audio.tasks._chunk_text") as mock_chunk_text, patch(
+        with patch("text_to_audio.tasks._legacy_chunk_text") as mock_legacy_chunk_text, patch(
             "text_to_audio.tasks.AudioSegment"
         ), patch.object(
             Path, "rename"
         ):  # Prevent file rename attempts
 
             # Return 2 chunks to force multi-chunk processing
-            mock_chunk_text.return_value = (True, chunks_data)
+            mock_legacy_chunk_text.return_value = (True, chunks_data)
 
             # Run the function
             result = process_article(self.article.id)
@@ -776,10 +776,10 @@ class ProcessArticleTests(TestCase):
         mock_speech_create.return_value = mock_tts_response
 
         # Use a text that will produce exactly 2 chunks for consistent testing
-        # Override _chunk_text to return exactly 2 chunks
+        # Override _legacy_chunk_text to return exactly 2 chunks
         chunks = ["Chunk one for cleanup.", "Chunk two for cleanup."]
 
-        with patch("text_to_audio.tasks._chunk_text", return_value=(True, chunks)):
+        with patch("text_to_audio.tasks._legacy_chunk_text", return_value=(True, chunks)):
             # Patch django transaction.atomic to avoid transaction issues in tests
             with patch("django.db.transaction.atomic", lambda func=None: func):
                 with patch("text_to_audio.tasks.os.remove") as mock_os_remove:
@@ -837,16 +837,16 @@ class ProcessArticleTests(TestCase):
             mock_analysis_instance = MockContentAnalysisService.return_value
             mock_analysis_instance.analyze_content.return_value = None
 
-            # Mock os.remove to verify calls and patch _chunk_text for 2 chunks
+            # Mock os.remove to verify calls and patch _legacy_chunk_text for 2 chunks
             with patch("text_to_audio.tasks.os.remove") as mock_os_remove, patch(
-                "text_to_audio.tasks._chunk_text"
-            ) as mock_chunk_text, patch(
+                "text_to_audio.tasks._legacy_chunk_text"
+            ) as mock_legacy_chunk_text, patch(
                 "text_to_audio.tasks.process_article.retry",
                 side_effect=Exception("Celery failure cleanup retry"),
             ):
 
                 # Force the function to process 2 chunks
-                mock_chunk_text.return_value = (True, ["Chunk 1", "Chunk 2"])
+                mock_legacy_chunk_text.return_value = (True, ["Chunk 1", "Chunk 2"])
 
                 # The test should raise an exception when retry is called
                 with self.assertRaises(Exception) as cm:
@@ -983,7 +983,7 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(result, f"Article {self.article.id} processed successfully.")
         self.assertEqual(self.article.status, Article.COMPLETED)
 
-        # _chunk_text on "Test Article.\n\nThis is fallback content. It is short."
+        # _legacy_chunk_text on "Test Article.\n\nThis is fallback content. It is short."
         # is likely 1 chunk.
         expected_chunks = 1
         self.assertEqual(mock_speech_create.call_count, expected_chunks)
@@ -1056,11 +1056,11 @@ class ProcessArticleTests(TestCase):
         )  # For analysis sample if it ran
         self.article.save()
 
-        # Determine how many chunks _chunk_text will make for long_segment_text.
+        # Determine how many chunks _legacy_chunk_text will make for long_segment_text.
         # Default max_length is 4000 and our long_segment_text is ~2100.
         # It should be 1 chunk based on length. Make it longer to force chunking.
         # Assume max_length is small for testing chunking within a segment.
-        # The _chunk_text in tasks.py has max_length=4000, so make
+        # The _legacy_chunk_text in tasks.py has max_length=4000, so make
         # long_segment_text > 4000 to test chunking.
         long_segment_text_actually_long = (
             "This is an extremely long segment designed to test chunking. " * 250
@@ -1072,21 +1072,21 @@ class ProcessArticleTests(TestCase):
         self.article.multi_voice_data = multi_voice_data_with_long_segment
         self.article.save()
 
-        # Let's spy on _chunk_text to verify its calls
+        # Let's spy on _legacy_chunk_text to verify its calls
         with patch(
             "text_to_audio.tasks._is_valid_multi_voice_data", return_value=True
-        ), patch("text_to_audio.tasks._chunk_text"), patch(
+        ), patch("text_to_audio.tasks._legacy_chunk_text"), patch(
             "text_to_audio.tasks._save_openai_usage_stats"
         ) as mock_save_stats:
 
-            # Make _chunk_text behave normally for the first call (long segment)
+            # Make _legacy_chunk_text behave normally for the first call (long segment)
             # and return 1 chunk for the second call (short segment)
             # The first segment (long_segment_text_actually_long) will be
-            # chunked by the actual _chunk_text.
+            # chunked by the actual _legacy_chunk_text.
             # The second segment (short_segment_text) will also be chunked
-            # by the actual _chunk_text.
+            # by the actual _legacy_chunk_text.
 
-            # To properly test this, we need to let the actual _chunk_text run.
+            # To properly test this, we need to let the actual _legacy_chunk_text run.
             # We are interested in the calls to speech.create.
             # If long_segment_text_actually_long results in N chunks and
             # short_segment_text in 1 chunk, then speech.create should be called
@@ -1100,8 +1100,8 @@ class ProcessArticleTests(TestCase):
             # Short segment "This is short." is 1 chunk. Total = 5 calls to
             # speech.create.
 
-            # We can't easily mock _chunk_text differently for different calls
-            # within the loop so we'll rely on the actual _chunk_text behavior.
+            # We can't easily mock _legacy_chunk_text differently for different calls
+            # within the loop so we'll rely on the actual _legacy_chunk_text behavior.
 
             process_article(self.article.id)
 

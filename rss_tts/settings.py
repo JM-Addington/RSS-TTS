@@ -28,6 +28,9 @@ OPENAI_CLASSIFICATION_MODEL = os.environ.get(
     "OPENAI_CLASSIFICATION_MODEL", "gpt-4o-mini"
 )
 
+# ChunkTone LLM Service Feature Flag
+ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "false").lower() == "true"
+
 ALLOWED_HOSTS: list[str] = []
 ALLOWED_HOSTS += (
     os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")

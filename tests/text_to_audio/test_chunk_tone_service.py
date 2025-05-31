@@ -1,0 +1,255 @@
+"""
+Tests for ChunkToneService.
+"""
+import json
+import pytest
+from unittest.mock import MagicMock
+
+from pydantic import ValidationError
+
+from text_to_audio.services.chunk_tone_service import ChunkToneService
+from text_to_audio.schemas.chunk_tone import ChunkTonePayload, ChunkData, TTSVoice
+
+
+class TestChunkToneService:
+    """Test cases for ChunkToneService."""
+
+    @pytest.fixture
+    def service(self):
+        """Create ChunkToneService instance for testing."""
+        return ChunkToneService(openai_api_key="test-key")
+
+    @pytest.fixture
+    def sample_text(self):
+        """Sample text for testing."""
+        return "Once upon a time, there was a brave knight. 'I shall save the kingdom!' he declared."
+
+    @pytest.fixture
+    def valid_response_data(self):
+        """Valid LLM response data."""
+        return {
+            "chunks": [
+                {
+                    "text": "Once upon a time, there was a brave knight.",
+                    "voice": {"voice": "alloy"},
+                    "character_name": "narrator"
+                },
+                {
+                    "text": "I shall save the kingdom!",
+                    "voice": {"voice": "onyx"},
+                    "character_name": "knight"
+                }
+            ]
+        }
+
+    @pytest.fixture
+    def invalid_response_data(self):
+        """Invalid LLM response data."""
+        return {
+            "chunks": [
+                {
+                    "text": "Some text",
+                    "voice": {"voice": "invalid@voice"},  # Invalid characters
+                    "character_name": "narrator"
+                }
+            ]
+        }
+
+    @pytest.mark.parametrize("valid_first_try", [True, False])
+    def test_get_payload_valid_json_first_try(self, service, sample_text, valid_response_data, monkeypatch, valid_first_try):
+        """Test successful processing on first attempt."""
+        # Mock OpenAI client
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.choices[0].message.content = json.dumps(valid_response_data)
+        mock_client.chat.completions.create.return_value = mock_response
+
+        # Patch the client property
+        monkeypatch.setattr(service, "_client", mock_client)
+
+        # Call the service
+        result = service.get_payload(sample_text, "Test Title", 100)
+
+        # Verify result
+        assert isinstance(result, ChunkTonePayload)
+        assert len(result.chunks) == 2
+        assert result.chunks[0].text == "Once upon a time, there was a brave knight."
+        assert result.chunks[0].voice.voice == "alloy"
+        assert result.chunks[0].character_name == "narrator"
+        assert result.chunks[1].text == "I shall save the kingdom!"
+        assert result.chunks[1].voice.voice == "onyx"
+        assert result.chunks[1].character_name == "knight"
+
+        # Verify API was called once
+        assert mock_client.chat.completions.create.call_count == 1
+
+    def test_get_payload_invalid_then_valid_retry(self, service, sample_text, valid_response_data, invalid_response_data, monkeypatch):
+        """Test retry mechanism when first response is invalid."""
+        # Mock OpenAI client
+        mock_client = MagicMock()
+        mock_response_invalid = MagicMock()
+        mock_response_invalid.choices[0].message.content = json.dumps(invalid_response_data)
+
+        mock_response_valid = MagicMock()
+        mock_response_valid.choices[0].message.content = json.dumps(valid_response_data)
+
+        # First call returns invalid, second call returns valid
+        mock_client.chat.completions.create.side_effect = [mock_response_invalid, mock_response_valid]
+
+        # Patch the client property
+        monkeypatch.setattr(service, "_client", mock_client)
+
+        # Call the service
+        result = service.get_payload(sample_text, "Test Title", 100)
+
+        # Verify result is valid (from second attempt)
+        assert isinstance(result, ChunkTonePayload)
+        assert len(result.chunks) == 2
+        assert result.chunks[0].voice.voice == "alloy"
+
+        # Verify API was called twice
+        assert mock_client.chat.completions.create.call_count == 2
+
+    def test_get_payload_invalid_twice_fallback(self, service, sample_text, invalid_response_data, monkeypatch):
+        """Test fallback when both attempts return invalid data."""
+        # Mock OpenAI client
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.choices[0].message.content = json.dumps(invalid_response_data)
+
+        # Both calls return invalid data
+        mock_client.chat.completions.create.return_value = mock_response
+
+        # Patch the client property
+        monkeypatch.setattr(service, "_client", mock_client)
+
+        # Call the service
+        result = service.get_payload(sample_text, "Test Title", 100)
+
+        # Verify fallback result
+        assert isinstance(result, ChunkTonePayload)
+        assert len(result.chunks) == 1
+        assert result.chunks[0].text == sample_text
+        assert result.chunks[0].voice.voice == "alloy"
+        assert result.chunks[0].character_name == "narrator"
+
+        # Verify API was called twice
+        assert mock_client.chat.completions.create.call_count == 2
+
+    def test_get_payload_openai_api_error_fallback(self, service, sample_text, monkeypatch):
+        """Test fallback when OpenAI API raises an exception."""
+        # Mock OpenAI client to raise an exception
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = Exception("API Error")
+
+        # Patch the client property
+        monkeypatch.setattr(service, "_client", mock_client)
+
+        # Call the service
+        result = service.get_payload(sample_text, "Test Title", 100)
+
+        # Verify fallback result
+        assert isinstance(result, ChunkTonePayload)
+        assert len(result.chunks) == 1
+        assert result.chunks[0].text == sample_text
+        assert result.chunks[0].voice.voice == "alloy"
+        assert result.chunks[0].character_name == "narrator"
+
+    def test_get_payload_invalid_json_fallback(self, service, sample_text, monkeypatch):
+        """Test fallback when OpenAI returns invalid JSON."""
+        # Mock OpenAI client
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.choices[0].message.content = "{ invalid json }"
+
+        # Both calls return invalid JSON
+        mock_client.chat.completions.create.return_value = mock_response
+
+        # Patch the client property
+        monkeypatch.setattr(service, "_client", mock_client)
+
+        # Call the service
+        result = service.get_payload(sample_text, "Test Title", 100)
+
+        # Verify fallback result
+        assert isinstance(result, ChunkTonePayload)
+        assert len(result.chunks) == 1
+        assert result.chunks[0].text == sample_text
+
+    def test_create_fallback_payload(self, service):
+        """Test create_fallback_payload method."""
+        text = "Test fallback text"
+        result = service.create_fallback_payload(text)
+
+        assert isinstance(result, ChunkTonePayload)
+        assert len(result.chunks) == 1
+        assert result.chunks[0].text == text
+        assert result.chunks[0].voice.voice == "alloy"
+        assert result.chunks[0].character_name == "narrator"
+
+    def test_build_prompt(self, service):
+        """Test prompt building."""
+        text = "Sample text"
+        title = "Sample Title"
+        max_chars = 1000
+
+        prompt = service._build_prompt(text, title, max_chars)
+
+        assert "Sample text" in prompt
+        assert "Sample Title" in prompt
+        assert "1000" in prompt
+        assert "JSON" in prompt
+        assert "chunks" in prompt
+
+    def test_voice_validation(self):
+        """Test TTSVoice validation."""
+        # Valid voices
+        valid_voice = TTSVoice(voice="alloy")
+        assert valid_voice.voice == "alloy"
+
+        valid_voice_with_underscore = TTSVoice(voice="test_voice")
+        assert valid_voice_with_underscore.voice == "test_voice"
+
+        valid_voice_with_hyphen = TTSVoice(voice="test-voice")
+        assert valid_voice_with_hyphen.voice == "test-voice"
+
+        # Invalid voices
+        with pytest.raises(ValidationError):
+            TTSVoice(voice="invalid@voice")
+
+        with pytest.raises(ValidationError):
+            TTSVoice(voice="invalid voice")  # Space not allowed
+
+        with pytest.raises(ValidationError):
+            TTSVoice(voice="invalid.voice")  # Dot not allowed
+
+    def test_chunk_data_validation(self):
+        """Test ChunkData validation."""
+        valid_chunk = ChunkData(
+            text="Test text",
+            voice=TTSVoice(voice="alloy"),
+            character_name="narrator"
+        )
+        assert valid_chunk.text == "Test text"
+        assert valid_chunk.character_name == "narrator"
+
+        # character_name is optional
+        chunk_without_character = ChunkData(
+            text="Test text",
+            voice=TTSVoice(voice="alloy")
+        )
+        assert chunk_without_character.character_name is None
+
+    def test_chunk_tone_payload_validation(self):
+        """Test ChunkTonePayload validation."""
+        valid_chunks = [
+            ChunkData(text="Text 1", voice=TTSVoice(voice="alloy")),
+            ChunkData(text="Text 2", voice=TTSVoice(voice="onyx"))
+        ]
+
+        payload = ChunkTonePayload(chunks=valid_chunks)
+        assert len(payload.chunks) == 2
+
+        # Empty chunks should fail validation
+        with pytest.raises(ValidationError):
+            ChunkTonePayload(chunks=[])
