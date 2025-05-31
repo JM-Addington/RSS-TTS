@@ -181,9 +181,7 @@ class SignUpView(CreateView):
 
         # Create the user's first feed to improve onboarding experience
         Feed.objects.create(
-            user=user,
-            name="My Articles",
-            voice_mode=Feed.VOICE_MODE_AUTO
+            user=user, name="My Articles", voice_mode=Feed.VOICE_MODE_AUTO
         )
         logger.info(f"Created first feed 'My Articles' for new user {user.username}")
 

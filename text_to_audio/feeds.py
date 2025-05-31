@@ -174,6 +174,7 @@ class UserFeed(Feed):
     def item_enclosure_length(self, item: Article) -> int:
         """Get the size of the MP3 file."""
         import logging
+
         logger = logging.getLogger(__name__)
 
         # Try to get actual file size using canonical path

@@ -11,10 +11,11 @@ Keep in mind, that as of now this is a single-instance app that runs in my basem
 for personal use. I'll probably extend it to some family and friends, and eventually
 a limited set of customers, but this is never gonna be a huge platform. It's my hobby,.
 
-For today's review please focus on functionality. _Is everything working as expected?_
+For today's review please focus on giving color to the contents of issues.md
 
-You can note bugs, but the next sprint needs to focus on functionality, not bugs, unless
-they are show-stoppers.
+First, which are problems, and how can we fix them?
+
+Second, what is a good plan for implementing the new features?
 
 The latest docs for the TTS API are here: openai-tts-docs.md
 "

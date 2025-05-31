@@ -391,13 +391,23 @@ def redact_api_key(data: Any) -> Any:
     """
     # Define sensitive key patterns to redact
     sensitive_keys = {
-        "api_key", "authorization", "secret", "password", "passwd", "token"
+        "api_key",
+        "authorization",
+        "secret",
+        "password",
+        "passwd",
+        "token",
     }
 
     # Define keys to preserve (important for debugging)
     preserve_keys = {
-        "prompt_tokens", "completion_tokens", "total_tokens", "max_tokens",
-        "max_completion_tokens", "input_tokens", "output_tokens"
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "max_tokens",
+        "max_completion_tokens",
+        "input_tokens",
+        "output_tokens",
     }
 
     if isinstance(data, dict):

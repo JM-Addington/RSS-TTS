@@ -404,7 +404,9 @@ def process_article(self, article_id: int) -> str:
                     f"This system supports articles up to 30,000 words. "
                     f"Please try a shorter article or excerpt."
                 )
-                logger.error(f"Word count limit exceeded for Article ID {article_id}: {error_msg}")
+                logger.error(
+                    f"Word count limit exceeded for Article ID {article_id}: {error_msg}"
+                )
 
                 article.status = Article.FAILED
                 article.error_message = error_msg
