@@ -126,16 +126,9 @@ MP3 files are stored in the `./media/articles/` directory and served directly by
 
 To use Docker volumes instead of bind mounts for media files, uncomment the relevant sections in the docker-compose files.
 
-Redis runs inside the worker container. Its data lives in `/data/redis` which is
-mapped to the named volume `redis-data`. If you want to persist Redis data on
-your host machine, replace that volume mapping with a bind mount:
+Redis runs as a **separate Docker service** (`redis:` in docker-compose.yml) and is not bundled inside the worker container. Both the web and worker containers connect to Redis via the `REDIS_URL` environment variable (`redis://redis:6379/0`).
 
-```yaml
-services:
-  worker:
-    volumes:
-      - ./redis-data:/data/redis
-```
+Redis data is persisted in the `../data/redis` directory on the host, which is mapped to `/data` inside the Redis container. The Redis service uses a custom configuration file (`./redis.conf`) for its settings.
 
 ### Environment Configuration
 
