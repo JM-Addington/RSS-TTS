@@ -64,7 +64,7 @@ class VoiceParameterGenerationService:
         # Step 3: Reuse existing content analysis or perform new analysis
         # Check if content analysis has already been performed and stored
         content_analysis = None
-        if hasattr(article, 'multi_voice_data') and article.multi_voice_data:
+        if hasattr(article, "multi_voice_data") and article.multi_voice_data:
             # Reuse existing analysis to avoid duplicate LLM calls
             logger.info(f"Reusing existing content analysis for article {article.id}")
             content_analysis = article.multi_voice_data
@@ -103,6 +103,7 @@ class VoiceParameterGenerationService:
             voice_value = voice_parameters["voice_id"]
             # Determine if this is a standard voice or custom voice
             from text_to_audio.models import VOICE_CHOICES
+
             standard_voices = [choice[0] for choice in VOICE_CHOICES]
 
             if voice_value in standard_voices:

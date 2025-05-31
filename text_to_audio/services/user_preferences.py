@@ -83,7 +83,7 @@ class UserPreferencesService:
             Updated Article object
         """
         if voice_preset is not None:
-            from text_to_audio.models import UserVoicePreset, VOICE_CHOICES
+            from text_to_audio.models import VOICE_CHOICES, UserVoicePreset
 
             standard_voices = [choice[0] for choice in VOICE_CHOICES]
 
@@ -100,7 +100,9 @@ class UserPreferencesService:
                     else:
                         # Use voice_id field for custom voices
                         article.voice_id = preset.voice_id
-                        article.voice = "alloy"  # Reset to default for validation compatibility
+                        article.voice = (
+                            "alloy"  # Reset to default for validation compatibility
+                        )
 
                     article.speed = preset.speed
                 except (UserVoicePreset.DoesNotExist, ValueError):
@@ -117,12 +119,15 @@ class UserPreferencesService:
                 else:
                     # Use voice_id field for custom voices
                     article.voice_id = voice_preset.voice_id
-                    article.voice = "alloy"  # Reset to default for validation compatibility
+                    article.voice = (
+                        "alloy"  # Reset to default for validation compatibility
+                    )
 
                 article.speed = voice_preset.speed
         else:
             if voice is not None:
                 from text_to_audio.models import VOICE_CHOICES
+
                 standard_voices = [choice[0] for choice in VOICE_CHOICES]
 
                 # Apply single source of truth for voice fields
@@ -133,7 +138,9 @@ class UserPreferencesService:
                 else:
                     # Use voice_id field for custom voices
                     article.voice_id = voice
-                    article.voice = "alloy"  # Reset to default for validation compatibility
+                    article.voice = (
+                        "alloy"  # Reset to default for validation compatibility
+                    )
 
             if speed is not None:
                 article.speed = float(speed)
