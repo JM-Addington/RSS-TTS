@@ -389,14 +389,30 @@ def redact_api_key(data: Any) -> Any:
     Returns:
         The data with API keys redacted
     """
+    # Define sensitive key patterns to redact
+    sensitive_keys = {
+        "api_key", "authorization", "secret", "password", "passwd", "token"
+    }
+
+    # Define keys to preserve (important for debugging)
+    preserve_keys = {
+        "prompt_tokens", "completion_tokens", "total_tokens", "max_tokens",
+        "max_completion_tokens", "input_tokens", "output_tokens"
+    }
+
     if isinstance(data, dict):
         redacted = {}
         for key, value in data.items():
-            if isinstance(key, str) and any(
-                sensitive in key.lower()
-                for sensitive in ["api_key", "authorization", "token", "secret"]
-            ):
-                redacted[key] = "[REDACTED]"
+            if isinstance(key, str):
+                key_lower = key.lower()
+                # Preserve important token usage metrics
+                if key_lower in preserve_keys:
+                    redacted[key] = value
+                # Redact sensitive keys
+                elif any(sensitive in key_lower for sensitive in sensitive_keys):
+                    redacted[key] = "[REDACTED]"
+                else:
+                    redacted[key] = redact_api_key(value)
             else:
                 redacted[key] = redact_api_key(value)
         return redacted

@@ -154,7 +154,7 @@ class ContentAnalysisService:
                 {"role": "system", "content": "You are an expert content analyzer."},
                 {"role": "user", "content": prompt},
             ],
-            "max_completion_tokens": max_completion_tokens,
+            "max_tokens": max_completion_tokens,
             "temperature": 0.3,
             "response_format": {"type": "json_object"},
         }
