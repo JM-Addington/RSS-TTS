@@ -366,6 +366,11 @@ class Article(models.Model):
         blank=True,
         help_text="Detailed voice parameters for text-to-speech conversion.",
     )
+    prompt: models.TextField = models.TextField(
+        blank=True,
+        default="",
+        help_text="Computed TTS prompt for audit/debugging purposes.",
+    )
 
     def clean(self) -> None:
         """Validate and enforce single source of truth for voice fields.

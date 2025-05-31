@@ -26,4 +26,4 @@ class ArticleAdmin(admin.ModelAdmin):
     list_display = ["title", "feed", "status", "created_at"]
     list_filter = ["status", "created_at", "feed"]
     search_fields = ["title", "feed__name", "feed__user__username"]
-    readonly_fields = ["created_at"]
+    readonly_fields = ["created_at", "prompt"]

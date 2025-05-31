@@ -208,7 +208,7 @@ class VoiceConfigurationService:
                 enhanced_prompt = self.voice_parameter_service.generate_enhanced_prompt(
                     voice_parameters
                 )
-                if enhanced_prompt and hasattr(article, "prompt"):
+                if enhanced_prompt:
                     article.prompt = enhanced_prompt
                     update_fields.append("prompt")
 
