@@ -334,22 +334,9 @@ def process_article(self, article_id: int) -> str:
             article.title = _generate_title(client, article.text_content)
             article.save(update_fields=["title"])
 
-        # Configure article voice based on feed preferences (auto-voice if enabled)
-        try:
-            logger.info(f"Configuring voice settings for Article ID: {article_id}")
-            voice_config_service = VoiceConfigurationService()
-            voice_config_service.configure_article_voice(article)
-            logger.info(f"Voice configuration complete for Article ID: {article_id}")
-        except Exception as voice_config_exc:
-            logger.error(
-                f"Voice configuration failed for Article ID {article_id}: {voice_config_exc}"
-            )
-            logger.debug(traceback.format_exc())
-            # Continue with existing voice settings as fallback
-
-        # Analyze content to get multi-voice data.
-        # This is done before TTS generation.
-        # The result will be stored in article.multi_voice_data.
+        # Analyze content to get multi-voice data first to avoid duplicate LLM calls.
+        # This is done before voice configuration and TTS generation.
+        # The result will be stored in article.multi_voice_data and can be reused by voice parameter generation.
         # If this step fails or if the data is invalid, we will fall back to single-voice generation.
         if article.text_content:  # Only proceed if there's text content
             try:
@@ -398,6 +385,20 @@ def process_article(self, article_id: int) -> str:
             )
             article.multi_voice_data = None
             # No need to save here if it was already None or if text_content was missing from start
+
+        # Configure article voice based on feed preferences (auto-voice if enabled)
+        # This now happens after content analysis so voice parameter generation can reuse analysis results
+        try:
+            logger.info(f"Configuring voice settings for Article ID: {article_id}")
+            voice_config_service = VoiceConfigurationService()
+            voice_config_service.configure_article_voice(article)
+            logger.info(f"Voice configuration complete for Article ID: {article_id}")
+        except Exception as voice_config_exc:
+            logger.error(
+                f"Voice configuration failed for Article ID {article_id}: {voice_config_exc}"
+            )
+            logger.debug(traceback.format_exc())
+            # Continue with existing voice settings as fallback
 
         # --- ChunkTone LLM Service (New) or Multi-Voice TTS Generation (Legacy) ---
         chunk_tone_generation_successful = False

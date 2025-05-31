@@ -199,6 +199,17 @@ The RSS-TTS system automatically includes intelligent `instructions` in all TTS 
 
 This ensures that all generated audio benefits from smart narration functionality without requiring manual configuration.
 
+### Content Analysis Optimization
+
+For feeds using AUTO voice mode, the RSS-TTS system implements an optimization to reduce API costs and ensure data consistency:
+
+- **Single Analysis Execution**: Content analysis is performed exactly once per article during TTS generation
+- **Analysis Result Reuse**: Voice parameter generation services reuse existing analysis results instead of making duplicate API calls
+- **Cost Reduction**: This eliminates redundant LLM calls that previously occurred when both the main task and voice parameter services analyzed the same content
+- **Data Consistency**: Using a single analysis ensures all voice-related decisions are based on the same content interpretation
+
+The system automatically detects when content analysis has already been performed and stored in `article.multi_voice_data`, preventing unnecessary duplicate API calls while maintaining the same functionality and voice quality.
+
 Customization and ownership
 ---------------------------
 

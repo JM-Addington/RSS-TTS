@@ -1245,5 +1245,90 @@ class ProcessArticleTests(TestCase):
             mock_speech_create.call_count, len(mock_speech_create.call_args_list)
         )
 
+    @patch("text_to_audio.tasks.ContentAnalysisService")
+    @patch("text_to_audio.services.voice_parameter_generation.ContentAnalysisService")
+    @patch("text_to_audio.tasks.VoiceConfigurationService")
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    def test_content_analysis_called_once_for_auto_feed(
+        self,
+        mock_audio_empty,
+        mock_audio_from_mp3,
+        MockVoiceConfigurationService,
+        MockVoiceParameterContentAnalysisService,
+        MockTasksContentAnalysisService,
+        MockOpenAIClient,
+    ):
+        """Test that ContentAnalysisService is called exactly once for AUTO feeds."""
+        # Set up the feed as AUTO mode
+        from text_to_audio.models import Feed
+        self.feed.voice_mode = Feed.VOICE_MODE_AUTO
+        self.feed.save()
+
+        # Configure mocks for OpenAI
+        mock_openai_instance = MockOpenAIClient.return_value
+        mock_speech_create = mock_openai_instance.audio.speech.create
+        mock_tts_response = MagicMock()
+        mock_tts_response.stream_to_file.side_effect = (
+            self.create_dummy_file_side_effect
+        )
+        mock_speech_create.return_value = mock_tts_response
+
+        # Configure audio processing mocks
+        mock_audio_segment = MagicMock()
+        mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+        mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
+        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_empty.return_value = MagicMock()
+
+        # Configure ContentAnalysisService mock for tasks.py
+        mock_tasks_analysis_instance = MockTasksContentAnalysisService.return_value
+        valid_analysis_result = {
+            "voices": [
+                {
+                    "name": "narrator",
+                    "tone": "neutral",
+                    "tts_model": "alloy",
+                    "tts_speed": 1.0,
+                }
+            ],
+            "audio_segments": [
+                {"text": "Test content for our article. It has sentences.", "voice_name": "narrator"}
+            ],
+        }
+        mock_tasks_analysis_instance.analyze_content.return_value = valid_analysis_result
+
+        # Configure ContentAnalysisService mock for voice parameter generation
+        # This should NOT be called because we're reusing the existing analysis
+        mock_voice_param_analysis_instance = MockVoiceParameterContentAnalysisService.return_value
+        mock_voice_param_analysis_instance.analyze_content.return_value = valid_analysis_result
+
+        # Mock VoiceConfigurationService to avoid database issues
+        mock_voice_config_instance = MockVoiceConfigurationService.return_value
+        mock_voice_config_instance.configure_article_voice.return_value = self.article
+
+        # Mock other services to avoid interference and skip stats
+        with patch("text_to_audio.tasks._save_openai_usage_stats"), \
+             patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=False):
+
+            result = process_article(self.article.id)
+
+        # Verify the article was processed successfully
+        self.article.refresh_from_db()
+        self.assertEqual(result, f"Article {self.article.id} processed successfully.")
+        self.assertEqual(self.article.status, Article.COMPLETED)
+
+        # Critical assertion: ContentAnalysisService should be called exactly once
+        # in tasks.py (first call) and NOT called in voice_parameter_generation.py
+        mock_tasks_analysis_instance.analyze_content.assert_called_once()
+
+        # The voice parameter generation service should NOT call analyze_content
+        # because it should reuse the existing multi_voice_data
+        mock_voice_param_analysis_instance.analyze_content.assert_not_called()
+
+        # Verify that multi_voice_data was set correctly
+        self.assertIsNotNone(self.article.multi_voice_data)
+        self.assertEqual(self.article.multi_voice_data, valid_analysis_result)
+
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks

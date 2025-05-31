@@ -61,17 +61,30 @@ class VoiceParameterGenerationService:
         # Step 2: Get template for the genre
         template = self.template_service.get_template_by_genre(genre)
 
-        # Step 3: Perform content analysis to get multi-voice configuration
-        try:
-            content_analysis = self.content_service.analyze_content(
-                article.text_content, title=article.title
-            )
+        # Step 3: Reuse existing content analysis or perform new analysis
+        # Check if content analysis has already been performed and stored
+        content_analysis = None
+        if hasattr(article, 'multi_voice_data') and article.multi_voice_data:
+            # Reuse existing analysis to avoid duplicate LLM calls
+            logger.info(f"Reusing existing content analysis for article {article.id}")
+            content_analysis = article.multi_voice_data
             # Validate that we got actual data, not a mock
             if _is_mock_object(content_analysis):
                 content_analysis = None
-        except Exception as e:
-            logger.error(f"Content analysis failed: {e}")
-            content_analysis = None
+
+        # Only perform new analysis if we don't have valid existing data
+        if not content_analysis:
+            try:
+                logger.info(f"Performing new content analysis for article {article.id}")
+                content_analysis = self.content_service.analyze_content(
+                    article.text_content, title=article.title
+                )
+                # Validate that we got actual data, not a mock
+                if _is_mock_object(content_analysis):
+                    content_analysis = None
+            except Exception as e:
+                logger.error(f"Content analysis failed: {e}")
+                content_analysis = None
 
         # Step 4: Combine all inputs to generate final voice parameters
         voice_parameters = self._generate_parameters(
