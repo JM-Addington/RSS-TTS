@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('text_to_audio', '0021_remove_verse_voice'),
+        ("text_to_audio", "0021_remove_verse_voice"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='article',
-            name='prompt',
-            field=models.TextField(blank=True, default='', help_text='Computed TTS prompt for audit/debugging purposes.'),
+            model_name="article",
+            name="prompt",
+            field=models.TextField(
+                blank=True,
+                default="",
+                help_text="Computed TTS prompt for audit/debugging purposes.",
+            ),
         ),
     ]

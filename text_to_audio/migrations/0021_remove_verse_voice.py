@@ -5,15 +5,15 @@ from django.db import migrations, models
 
 def migrate_verse_to_alloy(apps, schema_editor):
     """Update any articles or voice presets using 'verse' to use 'alloy' instead."""
-    Article = apps.get_model('text_to_audio', 'Article')
-    UserVoicePreset = apps.get_model('text_to_audio', 'UserVoicePreset')
+    Article = apps.get_model("text_to_audio", "Article")
+    UserVoicePreset = apps.get_model("text_to_audio", "UserVoicePreset")
 
     # Update articles using 'verse' to use 'alloy'
-    Article.objects.filter(voice='verse').update(voice='alloy')
-    Article.objects.filter(voice_id='verse').update(voice_id='alloy')
+    Article.objects.filter(voice="verse").update(voice="alloy")
+    Article.objects.filter(voice_id="verse").update(voice_id="alloy")
 
     # Update voice presets using 'verse' to use 'alloy'
-    UserVoicePreset.objects.filter(voice_id='verse').update(voice_id='alloy')
+    UserVoicePreset.objects.filter(voice_id="verse").update(voice_id="alloy")
 
 
 def reverse_migrate_alloy_to_verse(apps, schema_editor):
@@ -26,59 +26,56 @@ def reverse_migrate_alloy_to_verse(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('text_to_audio', '0020_canonical_audio_paths'),
+        ("text_to_audio", "0020_canonical_audio_paths"),
     ]
 
     operations = [
         # First update existing data
-        migrations.RunPython(
-            migrate_verse_to_alloy,
-            reverse_migrate_alloy_to_verse
-        ),
+        migrations.RunPython(migrate_verse_to_alloy, reverse_migrate_alloy_to_verse),
         # Then update the field choices
         migrations.AlterField(
-            model_name='article',
-            name='voice',
+            model_name="article",
+            name="voice",
             field=models.CharField(
                 choices=[
-                    ('alloy', 'Alloy'),
-                    ('ash', 'Ash'),
-                    ('ballad', 'Ballad'),
-                    ('coral', 'Coral'),
-                    ('echo', 'Echo'),
-                    ('fable', 'Fable'),
-                    ('onyx', 'Onyx'),
-                    ('nova', 'Nova'),
-                    ('sage', 'Sage'),
-                    ('shimmer', 'Shimmer')
+                    ("alloy", "Alloy"),
+                    ("ash", "Ash"),
+                    ("ballad", "Ballad"),
+                    ("coral", "Coral"),
+                    ("echo", "Echo"),
+                    ("fable", "Fable"),
+                    ("onyx", "Onyx"),
+                    ("nova", "Nova"),
+                    ("sage", "Sage"),
+                    ("shimmer", "Shimmer"),
                 ],
-                default='alloy',
+                default="alloy",
                 help_text=(
                     "Standard OpenAI TTS voice to use for conversion. "
                     "Use this field for predefined voices (alloy, nova, etc.). "
                     "Do not set both 'voice' and 'voice_id' - only one should be used."
                 ),
-                max_length=20
+                max_length=20,
             ),
         ),
         migrations.AlterField(
-            model_name='uservoicepreset',
-            name='voice_id',
+            model_name="uservoicepreset",
+            name="voice_id",
             field=models.CharField(
                 choices=[
-                    ('alloy', 'Alloy'),
-                    ('ash', 'Ash'),
-                    ('ballad', 'Ballad'),
-                    ('coral', 'Coral'),
-                    ('echo', 'Echo'),
-                    ('fable', 'Fable'),
-                    ('onyx', 'Onyx'),
-                    ('nova', 'Nova'),
-                    ('sage', 'Sage'),
-                    ('shimmer', 'Shimmer')
+                    ("alloy", "Alloy"),
+                    ("ash", "Ash"),
+                    ("ballad", "Ballad"),
+                    ("coral", "Coral"),
+                    ("echo", "Echo"),
+                    ("fable", "Fable"),
+                    ("onyx", "Onyx"),
+                    ("nova", "Nova"),
+                    ("sage", "Sage"),
+                    ("shimmer", "Shimmer"),
                 ],
-                help_text='Voice ID for this preset.',
-                max_length=50
+                help_text="Voice ID for this preset.",
+                max_length=50,
             ),
         ),
     ]
