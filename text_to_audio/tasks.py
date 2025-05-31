@@ -345,27 +345,66 @@ def process_article(self, article_id: int) -> str:
                 )
                 content_service = ContentAnalysisService()
 
-                # Use the entire article text for analysis, truncated to MAX_ANALYSIS_WORDS words
-                analysis_text_sample = " ".join(
-                    article.text_content.split()[:MAX_ANALYSIS_WORDS]
-                )
+                # For legacy multi-voice path, we need to ensure the entire article is processed
+                # Split into chunks if the article is longer than MAX_ANALYSIS_WORDS
+                article_words = article.text_content.split()
+                total_words = len(article_words)
 
-                analysis_result_json = content_service.analyze_content(
-                    analysis_text_sample, title=article.title
-                )
-
-                # Validate that we got actual JSON-serializable data, not a mock
-                if analysis_result_json is not None and not hasattr(
-                    analysis_result_json, "_mock_name"
-                ):
+                if total_words <= MAX_ANALYSIS_WORDS:
+                    # Use the entire article text for analysis
+                    analysis_text_sample = article.text_content
+                    analysis_result_json = content_service.analyze_content(
+                        analysis_text_sample, title=article.title
+                    )
+                    # Store the single analysis result
                     article.multi_voice_data = analysis_result_json
                 else:
+                    # Article is longer than MAX_ANALYSIS_WORDS, process in chunks
+                    logger.info(
+                        f"Article ID: {article_id} has {total_words} words (> {MAX_ANALYSIS_WORDS}). Processing in chunks for full coverage."
+                    )
+
+                    # Split into chunks and analyze each
+                    chunk_analyses = []
+                    chunk_start = 0
+                    chunk_number = 0
+
+                    while chunk_start < total_words:
+                        chunk_end = min(chunk_start + MAX_ANALYSIS_WORDS, total_words)
+                        chunk_words = article_words[chunk_start:chunk_end]
+                        chunk_text = " ".join(chunk_words)
+
+                        logger.info(
+                            f"Analyzing chunk {chunk_number + 1} of Article ID: {article_id} (words {chunk_start + 1}-{chunk_end})"
+                        )
+
+                        chunk_title = f"{article.title} (Part {chunk_number + 1})" if article.title else f"Part {chunk_number + 1}"
+                        chunk_analysis = content_service.analyze_content(
+                            chunk_text, title=chunk_title
+                        )
+
+                        if chunk_analysis and "audio_segments" in chunk_analysis:
+                            chunk_analyses.append(chunk_analysis)
+
+                        chunk_start = chunk_end
+                        chunk_number += 1
+
+                    # Combine all chunk analyses into a single multi_voice_data structure
+                    if chunk_analyses:
+                        combined_analysis = _combine_chunk_analyses(chunk_analyses)
+                        article.multi_voice_data = combined_analysis
+                        logger.info(
+                            f"Combined {len(chunk_analyses)} chunk analyses for Article ID: {article_id}"
+                        )
+                    else:
+                        article.multi_voice_data = None
+
+                # Validate that we got actual JSON-serializable data, not a mock
+                if article.multi_voice_data is not None and hasattr(
+                    article.multi_voice_data, "_mock_name"
+                ):
                     article.multi_voice_data = None
-                # The fields article.summary, article.detected_tone, article.voice_id, article.speed
-                # are no longer directly set from this specific analysis call.
-                # They might be deprecated or populated via a different mechanism if still needed.
-                # For instance, a summary might be part of analysis_result_json or a separate LLM call.
-                # article.voice_id and article.speed are now primarily for fallback.
+
                 article.save(update_fields=["multi_voice_data"])
                 logger.info(
                     f"Content analysis successful, multi_voice_data updated for Article ID: {article_id}"
@@ -990,6 +1029,50 @@ def _is_valid_multi_voice_data(data: dict | None) -> bool:
         return False
 
     return True
+
+
+def _combine_chunk_analyses(chunk_analyses: list[dict]) -> dict:
+    """Combine multiple chunk analysis results into a single multi_voice_data structure.
+
+    Takes a list of analysis results from different chunks and merges them into one
+    comprehensive analysis while preserving voice definitions and concatenating segments.
+
+    Args:
+        chunk_analyses: List of analysis results, each containing 'voices' and 'audio_segments'
+
+    Returns:
+        Combined analysis with unified voices and concatenated audio segments
+    """
+    if not chunk_analyses:
+        return {
+            "voices": [],
+            "audio_segments": []
+        }
+
+    # Collect all unique voices across chunks
+    all_voices = {}  # name -> voice definition
+    all_segments = []
+
+    for chunk_analysis in chunk_analyses:
+        voices = chunk_analysis.get("voices", [])
+        segments = chunk_analysis.get("audio_segments", [])
+
+        # Add voices to the unified collection (later definitions override earlier ones)
+        for voice in voices:
+            voice_name = voice.get("name")
+            if voice_name:
+                all_voices[voice_name] = voice
+
+        # Add all segments
+        all_segments.extend(segments)
+
+    # Convert voices dict back to list
+    unique_voices = list(all_voices.values())
+
+    return {
+        "voices": unique_voices,
+        "audio_segments": all_segments
+    }
 
 
 @shared_task

@@ -1330,5 +1330,95 @@ class ProcessArticleTests(TestCase):
         self.assertIsNotNone(self.article.multi_voice_data)
         self.assertEqual(self.article.multi_voice_data, valid_analysis_result)
 
+    @patch("text_to_audio.tasks.ContentAnalysisService")
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    def test_process_article_long_article_chunked_analysis(
+        self,
+        mock_audio_empty,
+        mock_audio_from_mp3,
+        MockContentAnalysisService,
+        MockOpenAIClient,
+    ):
+        """Test that articles longer than MAX_ANALYSIS_WORDS are processed in chunks."""
+        from text_to_audio.services.content_analysis import MAX_ANALYSIS_WORDS
+
+        # Create an article with more than MAX_ANALYSIS_WORDS (8000) words
+        # Use simple repeated words to make it predictable
+        long_text = "word " * (MAX_ANALYSIS_WORDS + 1000)  # 9000 words total
+        self.article.text_content = long_text
+        self.article.save()
+
+        # Configure OpenAI mock
+        mock_openai_instance = MockOpenAIClient.return_value
+        mock_speech_create = mock_openai_instance.audio.speech.create
+        mock_tts_response = MagicMock()
+        mock_tts_response.stream_to_file.side_effect = (
+            self.create_dummy_file_side_effect
+        )
+        mock_speech_create.return_value = mock_tts_response
+
+        # Configure audio processing mocks
+        mock_audio_segment = MagicMock()
+        mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+        mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
+        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_empty.return_value = MagicMock()
+
+        # Mock ContentAnalysisService to return different analysis for each chunk
+        mock_analysis_instance = MockContentAnalysisService.return_value
+
+        def analysis_side_effect(text, title=None):
+            # Create a simple analysis that varies by chunk content
+            if "Part 1" in title:
+                return {
+                    "voices": [{"name": "narrator1", "tone": "neutral", "tts_model": "alloy", "tts_speed": 1.0}],
+                    "audio_segments": [{"text": text, "voice_name": "narrator1"}]
+                }
+            else:
+                return {
+                    "voices": [{"name": "narrator2", "tone": "energetic", "tts_model": "onyx", "tts_speed": 1.1}],
+                    "audio_segments": [{"text": text, "voice_name": "narrator2"}]
+                }
+
+        mock_analysis_instance.analyze_content.side_effect = analysis_side_effect
+
+        # Mock _is_valid_multi_voice_data to return True for combined result
+        with patch(
+            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=True
+        ), patch("text_to_audio.tasks._save_openai_usage_stats"):
+            result = process_article(self.article.id)
+
+        # Verify the article was processed successfully
+        self.article.refresh_from_db()
+        self.assertEqual(result, f"Article {self.article.id} processed successfully.")
+        self.assertEqual(self.article.status, Article.COMPLETED)
+
+        # Verify ContentAnalysisService was called twice (for two chunks)
+        self.assertEqual(mock_analysis_instance.analyze_content.call_count, 2)
+
+        # Verify that multi_voice_data contains combined results
+        self.assertIsNotNone(self.article.multi_voice_data)
+        self.assertIn("voices", self.article.multi_voice_data)
+        self.assertIn("audio_segments", self.article.multi_voice_data)
+
+        # Should have both voices from both chunks
+        voices = self.article.multi_voice_data["voices"]
+        self.assertEqual(len(voices), 2)
+        voice_names = {voice["name"] for voice in voices}
+        self.assertEqual(voice_names, {"narrator1", "narrator2"})
+
+        # Should have both audio segments
+        segments = self.article.multi_voice_data["audio_segments"]
+        self.assertEqual(len(segments), 2)
+
+        # Verify that the combined text length covers the full article
+        combined_text = "".join(segment["text"] for segment in segments)
+        # Should be approximately the same length (allowing for some whitespace differences)
+        self.assertGreater(len(combined_text), len(long_text) * 0.95)
+
+        # Verify TTS was called for both segments (may be chunked further by _legacy_chunk_text)
+        self.assertGreater(mock_speech_create.call_count, 0)
+
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks

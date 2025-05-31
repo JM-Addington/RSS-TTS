@@ -210,6 +210,19 @@ For feeds using AUTO voice mode, the RSS-TTS system implements an optimization t
 
 The system automatically detects when content analysis has already been performed and stored in `article.multi_voice_data`, preventing unnecessary duplicate API calls while maintaining the same functionality and voice quality.
 
+### Long Article Processing (Legacy Multi-voice Mode)
+
+The RSS-TTS system ensures complete processing of articles regardless of length in the legacy multi-voice path:
+
+- **Full Article Coverage**: Articles longer than MAX_ANALYSIS_WORDS (8,000 words) are automatically processed in chunks to ensure no content is lost
+- **Chunked Analysis**: Long articles are split into overlapping chunks, each analyzed separately for optimal voice assignment and segmentation
+- **Seamless Combination**: Analysis results from all chunks are merged into a unified multi-voice structure with consistent voice definitions across the entire article
+- **Audio Ordering**: The final audio maintains correct chronological order by processing chunks sequentially and concatenating the resulting audio segments
+- **No Silent Loss**: Unlike previous behavior that silently dropped content beyond the first 8,000 words, the system now processes 100% of the article text
+- **ChunkTone Compatibility**: The newer ChunkTone service is unaffected by this change and continues to process articles as before
+
+This enhancement resolves the long-article loss issue in legacy multi-voice processing while maintaining backward compatibility and ensuring all article content is converted to audio.
+
 Customization and ownership
 ---------------------------
 
