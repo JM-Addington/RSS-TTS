@@ -29,7 +29,7 @@ OPENAI_CLASSIFICATION_MODEL = os.environ.get(
 )
 
 # ChunkTone LLM Service Feature Flag
-ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "false").lower() == "true"
+ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "true").lower() == "true"
 
 ALLOWED_HOSTS: list[str] = []
 ALLOWED_HOSTS += (
