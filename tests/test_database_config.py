@@ -1,7 +1,6 @@
 """Test flexible database configuration."""
 
 import os
-import unittest
 from unittest import mock
 
 from django.test import TestCase

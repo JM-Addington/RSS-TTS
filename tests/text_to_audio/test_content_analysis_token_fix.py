@@ -175,7 +175,7 @@ class ContentAnalysisTokenFixTest(TestCase):
         self.mock_client.chat.completions.create.return_value = mock_response
 
         # Analyze content with explicit max_completion_tokens
-        result = self.service.analyze_content("Test", max_completion_tokens=1000)
+        self.service.analyze_content("Test", max_completion_tokens=1000)
 
         # Check that the explicit value was used
         call_args = self.mock_client.chat.completions.create.call_args

@@ -122,7 +122,7 @@ class VoiceSingleSourceFixTests(TestCase):
         service.content_service.analyze_content = lambda *args, **kwargs: None
 
         # Generate parameters
-        params = service.generate_voice_parameters(self.article)
+        service.generate_voice_parameters(self.article)
 
         # Reload from database
         self.article.refresh_from_db()
@@ -152,7 +152,7 @@ class VoiceSingleSourceFixTests(TestCase):
         service.content_service.analyze_content = lambda *args, **kwargs: None
 
         # Generate parameters
-        params = service.generate_voice_parameters(self.article)
+        service.generate_voice_parameters(self.article)
 
         # Reload from database
         self.article.refresh_from_db()
