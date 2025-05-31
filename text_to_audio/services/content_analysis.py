@@ -9,6 +9,22 @@ from django.conf import settings
 # Reduced from 750k to a more reasonable amount to avoid excessive costs and context limits
 MAX_ANALYSIS_WORDS = getattr(settings, "MAX_ANALYSIS_WORDS", 8_000)
 
+# Token limits for different models (conservative to ensure we don't exceed limits)
+MODEL_TOKEN_LIMITS = {
+    "gpt-4": 8_000,  # 8k context window
+    "gpt-4-32k": 32_000,  # 32k context window
+    "gpt-4-turbo": 128_000,  # 128k context window
+    "gpt-4o": 128_000,  # 128k context window
+    "gpt-4o-mini": 128_000,  # 128k context window
+}
+
+# Default conservative limit if model not recognized
+DEFAULT_TOKEN_LIMIT = 8_000
+
+# Rough approximation: 1 token ≈ 4 characters or 0.75 words
+CHARS_PER_TOKEN = 4
+WORDS_PER_TOKEN = 0.75
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,13 +48,81 @@ class ContentAnalysisService:
             )
         return self._client
 
-    def analyze_content(self, text, title=None, max_completion_tokens=500):
+    def _estimate_token_count(self, text):
+        """Estimate token count for text using simple approximation.
+
+        Args:
+            text: The text to estimate tokens for.
+
+        Returns:
+            Estimated token count.
+        """
+        # Use character count as primary estimation
+        char_estimate = len(text) / CHARS_PER_TOKEN
+        # Also check word count as secondary estimation
+        word_estimate = len(text.split()) / WORDS_PER_TOKEN
+        # Use the higher estimate to be conservative
+        return int(max(char_estimate, word_estimate))
+
+    def _calculate_dynamic_max_tokens(self, prompt_text, model):
+        """Calculate dynamic max_completion_tokens based on prompt size and model.
+
+        Args:
+            prompt_text: The full prompt text being sent to the model.
+            model: The model name being used.
+
+        Returns:
+            Safe max_completion_tokens value.
+        """
+        # Get model token limit
+        model_limit = DEFAULT_TOKEN_LIMIT
+
+        # Check for exact match first, then prefix match
+        if model in MODEL_TOKEN_LIMITS:
+            model_limit = MODEL_TOKEN_LIMITS[model]
+        else:
+            # Try prefix matching
+            for model_prefix, limit in MODEL_TOKEN_LIMITS.items():
+                if model.startswith(model_prefix):
+                    model_limit = limit
+                    break
+
+        # Estimate prompt tokens (including system message)
+        system_message = "You are an expert content analyzer."
+        total_prompt_tokens = self._estimate_token_count(prompt_text + system_message)
+
+        # Reserve tokens for response (at least 500, but ideally more)
+        # Use 80% of remaining tokens for completion to leave safety margin
+        remaining_tokens = model_limit - total_prompt_tokens
+
+        # Ensure we don't have negative remaining tokens
+        if remaining_tokens < 0:
+            logger.warning(
+                f"Prompt tokens ({total_prompt_tokens}) exceed model limit ({model_limit}). "
+                f"Using minimum completion tokens."
+            )
+            remaining_tokens = 1000  # Give at least some room
+
+        max_completion_tokens = int(remaining_tokens * 0.8)
+
+        # Ensure we have at least 500 tokens for response, but not more than model limit
+        max_completion_tokens = max(500, min(max_completion_tokens, model_limit - 1000))
+
+        logger.info(
+            f"Dynamic token calculation: model={model}, model_limit={model_limit}, "
+            f"prompt_tokens≈{total_prompt_tokens}, max_completion_tokens={max_completion_tokens}"
+        )
+
+        return max_completion_tokens
+
+    def analyze_content(self, text, title=None, max_completion_tokens=None):
         """Analyze article text and recommend narration voices.
 
         Args:
             text: The article text to analyze.
             title: Optional article title for additional context.
-            max_completion_tokens: Maximum tokens for the LLM response.
+            max_completion_tokens: Maximum tokens for the LLM response. If None,
+                                   will be dynamically calculated based on prompt size.
 
         Returns:
             dict with keys:
@@ -47,16 +131,23 @@ class ContentAnalysisService:
                 - audio_segments: List of segments with ``text`` and the
                   ``voice_name`` from ``voices`` that should read the segment.
         """
-        # Use up to MAX_ANALYSIS_WORDS words for analysis to leverage GPT-4.1's large context
+        # Use up to MAX_ANALYSIS_WORDS words for analysis
         words = text.split()
         text_sample = " ".join(words[:MAX_ANALYSIS_WORDS])
 
         # Create the unified prompt
         prompt = self._create_analysis_prompt(text_sample, title)
 
+        # Get the model we'll use
+        model = self._get_analysis_model()
+
+        # Calculate dynamic max tokens if not provided
+        if max_completion_tokens is None:
+            max_completion_tokens = self._calculate_dynamic_max_tokens(prompt, model)
+
         # Call OpenAI API with JSON mode
         response = self.client.chat.completions.create(
-            model=self._get_analysis_model(),
+            model=model,
             messages=[
                 {"role": "system", "content": "You are an expert content analyzer."},
                 {"role": "user", "content": prompt},
@@ -266,4 +357,4 @@ class ContentAnalysisService:
         """Get the model to use for content analysis."""
         from django.conf import settings
 
-        return getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4.1")
+        return getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4o-mini")

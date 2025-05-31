@@ -223,6 +223,27 @@ The RSS-TTS system ensures complete processing of articles regardless of length 
 
 This enhancement resolves the long-article loss issue in legacy multi-voice processing while maintaining backward compatibility and ensuring all article content is converted to audio.
 
+### Dynamic Token Sizing for Content Analysis
+
+The RSS-TTS system implements intelligent dynamic token sizing for content analysis to prevent truncated LLM responses:
+
+- **Automatic Token Calculation**: The system dynamically calculates `max_completion_tokens` based on the prompt size and model being used
+- **Model-Aware Limits**: Different token limits are applied for different models:
+  - GPT-4: 8,000 token context window
+  - GPT-4o/GPT-4o-mini: 128,000 token context window
+- **Conservative Estimation**: Uses a conservative formula (1 token ≈ 4 characters or 0.75 words) to ensure accurate prompt token counts
+- **Safety Margins**: Reserves 80% of remaining tokens for completion with a minimum of 500 tokens
+- **No More Truncation**: Resolves the issue where 8,000-word articles could only receive 500-token responses, causing incomplete voice analysis
+
+**Implementation Benefits:**
+
+- **Complete Analysis**: Long articles receive comprehensive multi-voice analysis without truncated responses
+- **Cost Optimization**: Uses appropriate token limits for each model to balance cost and quality
+- **Backward Compatibility**: Existing code can still specify explicit `max_completion_tokens` when needed
+- **Logging Support**: Token calculations are logged for debugging and monitoring purposes
+
+This fix ensures that the legacy multi-voice system can properly analyze long articles without LLM response truncation, maintaining the quality of voice assignments and segmentation even for extensive content.
+
 ### Voice Field Single Source of Truth
 
 The RSS-TTS system implements a single source of truth strategy for voice information to prevent data inconsistencies and validation errors:
