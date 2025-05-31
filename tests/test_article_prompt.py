@@ -1,12 +1,13 @@
 """Tests for the Article prompt field."""
 
-import pytest
-from django.test import TestCase
 from unittest.mock import Mock, patch
+
+import pytest
+from django.contrib.auth import get_user_model
+from django.test import TestCase
 
 from text_to_audio.models import Article, Feed
 from text_to_audio.services.voice_configuration import VoiceConfigurationService
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
@@ -50,9 +51,7 @@ class ArticlePromptTests(TestCase):
 
         self.assertEqual(article.prompt, "")
 
-    @patch(
-        "text_to_audio.services.voice_configuration.VoiceParameterGenerationService"
-    )
+    @patch("text_to_audio.services.voice_configuration.VoiceParameterGenerationService")
     def test_voice_configuration_service_populates_prompt(self, mock_param_service):
         """Test that VoiceConfigurationService populates the prompt field."""
         # Mock the parameter generation service

@@ -25,14 +25,14 @@ class MultipleFeedsTestCase(TestCase):
         # Create first feed
         response = self.client.post(
             reverse("feed-create"),
-            {"name": "Business News", "voice_mode": Feed.VOICE_MODE_AUTO}
+            {"name": "Business News", "voice_mode": Feed.VOICE_MODE_AUTO},
         )
         self.assertEqual(response.status_code, 302)
 
         # Create second feed
         response = self.client.post(
             reverse("feed-create"),
-            {"name": "Kids Stories", "voice_mode": Feed.VOICE_MODE_AUTO}
+            {"name": "Kids Stories", "voice_mode": Feed.VOICE_MODE_AUTO},
         )
         self.assertEqual(response.status_code, 302)
 

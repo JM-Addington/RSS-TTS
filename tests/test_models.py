@@ -339,7 +339,7 @@ class ArticleVoiceFieldTests(TestCase):
             text_content="Test content",
             voice="nova",
             voice_id="custom_voice_123",
-            feed=self.feed
+            feed=self.feed,
         )
         article.clean()
         # Single source of truth: voice_id provided resets voice to default
@@ -352,7 +352,7 @@ class ArticleVoiceFieldTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice="nova",
-            feed=self.feed
+            feed=self.feed,
         )
         article.clean()
         # Should keep voice, voice_id should remain None or empty
@@ -365,7 +365,7 @@ class ArticleVoiceFieldTests(TestCase):
             title="Test Article",
             text_content="Test content",
             voice_id="custom_voice_123",
-            feed=self.feed
+            feed=self.feed,
         )
         article.clean()
         # Should set default voice when voice_id is provided
@@ -375,9 +375,7 @@ class ArticleVoiceFieldTests(TestCase):
     def test_article_voice_validation_neither_provided(self):
         """Test Article with neither voice nor voice_id provided."""
         article = Article.objects.create(
-            title="Test Article",
-            text_content="Test content",
-            feed=self.feed
+            title="Test Article", text_content="Test content", feed=self.feed
         )
         article.clean()
         # Should set default voice

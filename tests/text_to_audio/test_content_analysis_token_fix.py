@@ -28,14 +28,24 @@ class ContentAnalysisTokenFixTest(TestCase):
         # Test with various text lengths
         test_cases = [
             ("Hello world", 2),  # ~11 chars / 4 = 2.75, ~2 words / 0.75 = 2.67 -> 2
-            ("This is a longer text with multiple words", 10),  # ~42 chars / 4 = 10.5, ~8 words / 0.75 = 10.67 -> 10
+            (
+                "This is a longer text with multiple words",
+                10,
+            ),  # ~42 chars / 4 = 10.5, ~8 words / 0.75 = 10.67 -> 10
             ("A" * 400, 100),  # 400 chars / 4 = 100
-            ("Word " * 100, 133),  # 500 chars / 4 = 125, 100 words / 0.75 = 133.33 -> 133
+            (
+                "Word " * 100,
+                133,
+            ),  # 500 chars / 4 = 125, 100 words / 0.75 = 133.33 -> 133
         ]
 
         for text, expected_min in test_cases:
             result = self.service._estimate_token_count(text)
-            self.assertGreaterEqual(result, expected_min, f"Token estimate for '{text[:20]}...' should be at least {expected_min}")
+            self.assertGreaterEqual(
+                result,
+                expected_min,
+                f"Token estimate for '{text[:20]}...' should be at least {expected_min}",
+            )
 
     def test_calculate_dynamic_max_tokens_gpt4(self):
         """Test dynamic token calculation for GPT-4 models."""
@@ -81,7 +91,9 @@ class ContentAnalysisTokenFixTest(TestCase):
     def test_calculate_dynamic_max_tokens_unknown_model(self):
         """Test fallback for unknown models."""
         prompt = "A" * 4000  # ~1000 tokens
-        max_tokens = self.service._calculate_dynamic_max_tokens(prompt, "unknown-model-xyz")
+        max_tokens = self.service._calculate_dynamic_max_tokens(
+            prompt, "unknown-model-xyz"
+        )
 
         # Should use default 8k limit
         # With ~1000 prompt tokens, should have ~7000 remaining
@@ -106,35 +118,36 @@ class ContentAnalysisTokenFixTest(TestCase):
         # Mock the response
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = json.dumps({
-            "voices": [
-                {
-                    "name": "narrator",
-                    "tone": "Clear and neutral",
-                    "tts_model": "alloy",
-                    "tts_speed": 1.0
-                }
-            ],
-            "audio_segments": [
-                {
-                    "text": "Test article content",
-                    "voice_name": "narrator"
-                }
-            ]
-        })
+        mock_response.choices[0].message.content = json.dumps(
+            {
+                "voices": [
+                    {
+                        "name": "narrator",
+                        "tone": "Clear and neutral",
+                        "tts_model": "alloy",
+                        "tts_speed": 1.0,
+                    }
+                ],
+                "audio_segments": [
+                    {"text": "Test article content", "voice_name": "narrator"}
+                ],
+            }
+        )
 
         self.mock_client.chat.completions.create.return_value = mock_response
 
         # Analyze content without specifying max_completion_tokens
-        result = self.service.analyze_content("Test article content", title="Test Title")
+        result = self.service.analyze_content(
+            "Test article content", title="Test Title"
+        )
 
         # Check that OpenAI was called
         self.mock_client.chat.completions.create.assert_called_once()
         call_args = self.mock_client.chat.completions.create.call_args
 
         # Verify dynamic max_completion_tokens was calculated (not the default 500)
-        self.assertIn('max_completion_tokens', call_args.kwargs)
-        self.assertNotEqual(call_args.kwargs['max_completion_tokens'], 500)
+        self.assertIn("max_completion_tokens", call_args.kwargs)
+        self.assertNotEqual(call_args.kwargs["max_completion_tokens"], 500)
 
         # Verify result structure
         self.assertIn("voices", result)
@@ -145,10 +158,19 @@ class ContentAnalysisTokenFixTest(TestCase):
         # Mock the response
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = json.dumps({
-            "voices": [{"name": "narrator", "tone": "Test", "tts_model": "alloy", "tts_speed": 1.0}],
-            "audio_segments": [{"text": "Test", "voice_name": "narrator"}]
-        })
+        mock_response.choices[0].message.content = json.dumps(
+            {
+                "voices": [
+                    {
+                        "name": "narrator",
+                        "tone": "Test",
+                        "tts_model": "alloy",
+                        "tts_speed": 1.0,
+                    }
+                ],
+                "audio_segments": [{"text": "Test", "voice_name": "narrator"}],
+            }
+        )
 
         self.mock_client.chat.completions.create.return_value = mock_response
 
@@ -157,7 +179,7 @@ class ContentAnalysisTokenFixTest(TestCase):
 
         # Check that the explicit value was used
         call_args = self.mock_client.chat.completions.create.call_args
-        self.assertEqual(call_args.kwargs['max_completion_tokens'], 1000)
+        self.assertEqual(call_args.kwargs["max_completion_tokens"], 1000)
 
     def test_analyze_long_content_no_truncation(self):
         """Test that long content analysis doesn't get truncated."""
@@ -168,21 +190,22 @@ class ContentAnalysisTokenFixTest(TestCase):
         voices = []
         segments = []
         for i in range(20):  # Create many voices and segments
-            voices.append({
-                "name": f"character_{i}",
-                "tone": f"This is a detailed description of character {i}'s tone and speaking style",
-                "tts_model": "alloy",
-                "tts_speed": 1.0
-            })
-            segments.append({
-                "text": f"This is segment {i} with a substantial amount of text that represents actual dialogue or narration content",
-                "voice_name": f"character_{i}"
-            })
+            voices.append(
+                {
+                    "name": f"character_{i}",
+                    "tone": f"This is a detailed description of character {i}'s tone and speaking style",
+                    "tts_model": "alloy",
+                    "tts_speed": 1.0,
+                }
+            )
+            segments.append(
+                {
+                    "text": f"This is segment {i} with a substantial amount of text that represents actual dialogue or narration content",
+                    "voice_name": f"character_{i}",
+                }
+            )
 
-        large_response = {
-            "voices": voices,
-            "audio_segments": segments
-        }
+        large_response = {"voices": voices, "audio_segments": segments}
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -199,7 +222,7 @@ class ContentAnalysisTokenFixTest(TestCase):
 
         # Check that a large max_completion_tokens was used
         call_args = self.mock_client.chat.completions.create.call_args
-        max_tokens = call_args.kwargs['max_completion_tokens']
+        max_tokens = call_args.kwargs["max_completion_tokens"]
         # With 8000 words (~10666 tokens) and gpt-4o-mini (128k), should get much more than 500
         self.assertGreater(max_tokens, 80000)  # Should be much larger than default 500
 
@@ -212,32 +235,59 @@ class ContentAnalysisTokenFixTest(TestCase):
         # Mock responses for each chunk
         mock_response1 = MagicMock()
         mock_response1.choices = [MagicMock()]
-        mock_response1.choices[0].message.content = json.dumps({
-            "voices": [
-                {"name": "narrator", "tone": "Professional", "tts_model": "nova", "tts_speed": 1.0},
-                {"name": "expert", "tone": "Academic", "tts_model": "onyx", "tts_speed": 0.9}
-            ],
-            "audio_segments": [
-                {"text": "First chunk content", "voice_name": "narrator"},
-                {"text": "Expert quote in first chunk", "voice_name": "expert"}
-            ]
-        })
+        mock_response1.choices[0].message.content = json.dumps(
+            {
+                "voices": [
+                    {
+                        "name": "narrator",
+                        "tone": "Professional",
+                        "tts_model": "nova",
+                        "tts_speed": 1.0,
+                    },
+                    {
+                        "name": "expert",
+                        "tone": "Academic",
+                        "tts_model": "onyx",
+                        "tts_speed": 0.9,
+                    },
+                ],
+                "audio_segments": [
+                    {"text": "First chunk content", "voice_name": "narrator"},
+                    {"text": "Expert quote in first chunk", "voice_name": "expert"},
+                ],
+            }
+        )
 
         mock_response2 = MagicMock()
         mock_response2.choices = [MagicMock()]
-        mock_response2.choices[0].message.content = json.dumps({
-            "voices": [
-                {"name": "narrator", "tone": "Professional", "tts_model": "nova", "tts_speed": 1.0},
-                {"name": "interviewer", "tone": "Curious", "tts_model": "echo", "tts_speed": 1.1}
-            ],
-            "audio_segments": [
-                {"text": "Second chunk content", "voice_name": "narrator"},
-                {"text": "Interview question", "voice_name": "interviewer"}
-            ]
-        })
+        mock_response2.choices[0].message.content = json.dumps(
+            {
+                "voices": [
+                    {
+                        "name": "narrator",
+                        "tone": "Professional",
+                        "tts_model": "nova",
+                        "tts_speed": 1.0,
+                    },
+                    {
+                        "name": "interviewer",
+                        "tone": "Curious",
+                        "tts_model": "echo",
+                        "tts_speed": 1.1,
+                    },
+                ],
+                "audio_segments": [
+                    {"text": "Second chunk content", "voice_name": "narrator"},
+                    {"text": "Interview question", "voice_name": "interviewer"},
+                ],
+            }
+        )
 
         # Set up mock to return different responses
-        self.mock_client.chat.completions.create.side_effect = [mock_response1, mock_response2]
+        self.mock_client.chat.completions.create.side_effect = [
+            mock_response1,
+            mock_response2,
+        ]
 
         # Analyze both chunks
         result1 = self.service.analyze_content(chunk1, title="Article Part 1")
@@ -252,5 +302,7 @@ class ContentAnalysisTokenFixTest(TestCase):
         # Check that appropriate max_tokens were used for both
         calls = self.mock_client.chat.completions.create.call_args_list
         for call in calls:
-            max_tokens = call.kwargs['max_completion_tokens']
-            self.assertGreater(max_tokens, 90000)  # Should be dynamically calculated for gpt-4o-mini
+            max_tokens = call.kwargs["max_completion_tokens"]
+            self.assertGreater(
+                max_tokens, 90000
+            )  # Should be dynamically calculated for gpt-4o-mini

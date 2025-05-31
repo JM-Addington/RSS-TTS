@@ -955,7 +955,9 @@ class ProcessArticleTests(TestCase):
         self.assertIn("instructions", calls[1][1])
         self.assertIsInstance(calls[0][1]["instructions"], str)
         self.assertIsInstance(calls[1][1]["instructions"], str)
-        self.assertIn("neutral", calls[0][1]["instructions"])  # tone from voice definition
+        self.assertIn(
+            "neutral", calls[0][1]["instructions"]
+        )  # tone from voice definition
         self.assertIn("bold", calls[1][1]["instructions"])  # tone from voice definition
 
         mock_audio_segment.export.assert_called_once()  # Assuming combined export
@@ -1262,6 +1264,7 @@ class ProcessArticleTests(TestCase):
         """Test that ContentAnalysisService is called exactly once for AUTO feeds."""
         # Set up the feed as AUTO mode
         from text_to_audio.models import Feed
+
         self.feed.voice_mode = Feed.VOICE_MODE_AUTO
         self.feed.save()
 
@@ -1293,23 +1296,33 @@ class ProcessArticleTests(TestCase):
                 }
             ],
             "audio_segments": [
-                {"text": "Test content for our article. It has sentences.", "voice_name": "narrator"}
+                {
+                    "text": "Test content for our article. It has sentences.",
+                    "voice_name": "narrator",
+                }
             ],
         }
-        mock_tasks_analysis_instance.analyze_content.return_value = valid_analysis_result
+        mock_tasks_analysis_instance.analyze_content.return_value = (
+            valid_analysis_result
+        )
 
         # Configure ContentAnalysisService mock for voice parameter generation
         # This should NOT be called because we're reusing the existing analysis
-        mock_voice_param_analysis_instance = MockVoiceParameterContentAnalysisService.return_value
-        mock_voice_param_analysis_instance.analyze_content.return_value = valid_analysis_result
+        mock_voice_param_analysis_instance = (
+            MockVoiceParameterContentAnalysisService.return_value
+        )
+        mock_voice_param_analysis_instance.analyze_content.return_value = (
+            valid_analysis_result
+        )
 
         # Mock VoiceConfigurationService to avoid database issues
         mock_voice_config_instance = MockVoiceConfigurationService.return_value
         mock_voice_config_instance.configure_article_voice.return_value = self.article
 
         # Mock other services to avoid interference and skip stats
-        with patch("text_to_audio.tasks._save_openai_usage_stats"), \
-             patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=False):
+        with patch("text_to_audio.tasks._save_openai_usage_stats"), patch(
+            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=False
+        ):
 
             result = process_article(self.article.id)
 
@@ -1372,13 +1385,27 @@ class ProcessArticleTests(TestCase):
             # Create a simple analysis that varies by chunk content
             if "Part 1" in title:
                 return {
-                    "voices": [{"name": "narrator1", "tone": "neutral", "tts_model": "alloy", "tts_speed": 1.0}],
-                    "audio_segments": [{"text": text, "voice_name": "narrator1"}]
+                    "voices": [
+                        {
+                            "name": "narrator1",
+                            "tone": "neutral",
+                            "tts_model": "alloy",
+                            "tts_speed": 1.0,
+                        }
+                    ],
+                    "audio_segments": [{"text": text, "voice_name": "narrator1"}],
                 }
             else:
                 return {
-                    "voices": [{"name": "narrator2", "tone": "energetic", "tts_model": "onyx", "tts_speed": 1.1}],
-                    "audio_segments": [{"text": text, "voice_name": "narrator2"}]
+                    "voices": [
+                        {
+                            "name": "narrator2",
+                            "tone": "energetic",
+                            "tts_model": "onyx",
+                            "tts_speed": 1.1,
+                        }
+                    ],
+                    "audio_segments": [{"text": text, "voice_name": "narrator2"}],
                 }
 
         mock_analysis_instance.analyze_content.side_effect = analysis_side_effect
@@ -1420,7 +1447,6 @@ class ProcessArticleTests(TestCase):
         # Verify TTS was called for both segments (may be chunked further by _legacy_chunk_text)
         self.assertGreater(mock_speech_create.call_count, 0)
 
-
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_speed_clamping_single_voice(
@@ -1429,11 +1455,11 @@ class ProcessArticleTests(TestCase):
         """Test that speed is clamped correctly in single-voice fallback path."""
         # Test different speed values to ensure clamping works
         test_cases = [
-            (0.1, 0.25),    # Below minimum
-            (0.25, 0.25),   # At minimum
-            (1.0, 1.0),     # Normal speed
-            (4.0, 4.0),     # At maximum
-            (5.0, 4.0),     # Above maximum
+            (0.1, 0.25),  # Below minimum
+            (0.25, 0.25),  # At minimum
+            (1.0, 1.0),  # Normal speed
+            (4.0, 4.0),  # At maximum
+            (5.0, 4.0),  # Above maximum
         ]
 
         for input_speed, expected_speed in test_cases:
@@ -1446,12 +1472,16 @@ class ProcessArticleTests(TestCase):
                 mock_openai_instance = MockOpenAIClient.return_value
                 mock_speech_create = mock_openai_instance.audio.speech.create
                 mock_tts_response = MagicMock()
-                mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+                mock_tts_response.stream_to_file.side_effect = (
+                    self.create_dummy_file_side_effect
+                )
                 mock_speech_create.return_value = mock_tts_response
 
                 mock_audio_segment = MagicMock()
                 mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
-                mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
+                mock_audio_segment.export.side_effect = (
+                    self.create_dummy_file_side_effect
+                )
                 mock_audio_from_mp3.return_value = mock_audio_segment
                 mock_audio_empty.return_value = MagicMock()
 
@@ -1471,14 +1501,18 @@ class ProcessArticleTests(TestCase):
     @patch("text_to_audio.tasks.AudioSegment.empty")
     @override_settings(ENABLE_CHUNK_TONE_LLM=True)
     def test_process_article_speed_clamping_chunk_tone(
-        self, mock_audio_empty, mock_audio_from_mp3, MockChunkToneService, MockOpenAIClient
+        self,
+        mock_audio_empty,
+        mock_audio_from_mp3,
+        MockChunkToneService,
+        MockOpenAIClient,
     ):
         """Test that speed is clamped correctly in ChunkTone path."""
         # Test boundary values
         test_cases = [
-            (0.2, 0.25),    # Below minimum
-            (4.5, 4.0),     # Above maximum
-            (2.5, 2.5),     # In range
+            (0.2, 0.25),  # Below minimum
+            (4.5, 4.0),  # Above maximum
+            (2.5, 2.5),  # In range
         ]
 
         for input_speed, expected_speed in test_cases:
@@ -1488,15 +1522,16 @@ class ProcessArticleTests(TestCase):
                 self.article.save()
 
                 # Configure ChunkToneService mock
-                from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoice
+                from text_to_audio.schemas.chunk_tone import (
+                    ChunkData,
+                    ChunkTonePayload,
+                    TTSVoice,
+                )
 
                 mock_chunk_tone_instance = MockChunkToneService.return_value
                 mock_chunk_tone_instance.get_payload.return_value = ChunkTonePayload(
                     chunks=[
-                        ChunkData(
-                            text="Test chunk text",
-                            voice=TTSVoice(voice="alloy")
-                        )
+                        ChunkData(text="Test chunk text", voice=TTSVoice(voice="alloy"))
                     ]
                 )
 
@@ -1504,12 +1539,16 @@ class ProcessArticleTests(TestCase):
                 mock_openai_instance = MockOpenAIClient.return_value
                 mock_speech_create = mock_openai_instance.audio.speech.create
                 mock_tts_response = MagicMock()
-                mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+                mock_tts_response.stream_to_file.side_effect = (
+                    self.create_dummy_file_side_effect
+                )
                 mock_speech_create.return_value = mock_tts_response
 
                 mock_audio_segment = MagicMock()
                 mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
-                mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
+                mock_audio_segment.export.side_effect = (
+                    self.create_dummy_file_side_effect
+                )
                 mock_audio_from_mp3.return_value = mock_audio_segment
                 mock_audio_empty.return_value = MagicMock()
 
@@ -1545,9 +1584,9 @@ class SpeedClampingUnitTests(TestCase):
     def test_clamp_tts_speed_in_range(self):
         """Test speeds within valid range remain unchanged."""
         self.assertEqual(_clamp_tts_speed(0.25), 0.25)  # Min boundary
-        self.assertEqual(_clamp_tts_speed(1.0), 1.0)     # Normal speed
-        self.assertEqual(_clamp_tts_speed(2.5), 2.5)     # Mid-range
-        self.assertEqual(_clamp_tts_speed(4.0), 4.0)     # Max boundary
+        self.assertEqual(_clamp_tts_speed(1.0), 1.0)  # Normal speed
+        self.assertEqual(_clamp_tts_speed(2.5), 2.5)  # Mid-range
+        self.assertEqual(_clamp_tts_speed(4.0), 4.0)  # Max boundary
 
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks

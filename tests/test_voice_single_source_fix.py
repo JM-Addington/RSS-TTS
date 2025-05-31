@@ -3,9 +3,11 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from text_to_audio.models import Article, Feed, UserVoicePreset, VOICE_ALLOY, VOICE_NOVA
+from text_to_audio.models import VOICE_ALLOY, VOICE_NOVA, Article, Feed, UserVoicePreset
 from text_to_audio.services.user_preferences import UserPreferencesService
-from text_to_audio.services.voice_parameter_generation import VoiceParameterGenerationService
+from text_to_audio.services.voice_parameter_generation import (
+    VoiceParameterGenerationService,
+)
 
 User = get_user_model()
 
@@ -31,10 +33,7 @@ class VoiceSingleSourceFixTests(TestCase):
         service = UserPreferencesService()
 
         # Save a standard voice
-        service.save_article_preferences(
-            article=self.article,
-            voice=VOICE_NOVA
-        )
+        service.save_article_preferences(article=self.article, voice=VOICE_NOVA)
 
         # Reload from database
         self.article.refresh_from_db()
@@ -52,10 +51,7 @@ class VoiceSingleSourceFixTests(TestCase):
 
         # Save a custom voice
         custom_voice = "custom_voice_123"
-        service.save_article_preferences(
-            article=self.article,
-            voice=custom_voice
-        )
+        service.save_article_preferences(article=self.article, voice=custom_voice)
 
         # Reload from database
         self.article.refresh_from_db()
@@ -71,17 +67,11 @@ class VoiceSingleSourceFixTests(TestCase):
         """Test that UserPreferencesService correctly handles presets with standard voices."""
         # Create a preset with standard voice
         preset = UserVoicePreset.objects.create(
-            user=self.user,
-            name="Standard Preset",
-            voice_id=VOICE_NOVA,
-            speed=1.2
+            user=self.user, name="Standard Preset", voice_id=VOICE_NOVA, speed=1.2
         )
 
         service = UserPreferencesService()
-        service.save_article_preferences(
-            article=self.article,
-            voice_preset=preset
-        )
+        service.save_article_preferences(article=self.article, voice_preset=preset)
 
         # Reload from database
         self.article.refresh_from_db()
@@ -99,17 +89,11 @@ class VoiceSingleSourceFixTests(TestCase):
         # Create a preset with custom voice
         custom_voice = "custom_preset_voice"
         preset = UserVoicePreset.objects.create(
-            user=self.user,
-            name="Custom Preset",
-            voice_id=custom_voice,
-            speed=0.9
+            user=self.user, name="Custom Preset", voice_id=custom_voice, speed=0.9
         )
 
         service = UserPreferencesService()
-        service.save_article_preferences(
-            article=self.article,
-            voice_preset=preset
-        )
+        service.save_article_preferences(article=self.article, voice_preset=preset)
 
         # Reload from database
         self.article.refresh_from_db()
@@ -129,11 +113,11 @@ class VoiceSingleSourceFixTests(TestCase):
         # Mock the services to return a standard voice
         service.genre_service.classify_genre = lambda *args, **kwargs: {
             "genre": "news",
-            "voice_suggestions": {"voice_id": VOICE_NOVA}
+            "voice_suggestions": {"voice_id": VOICE_NOVA},
         }
         service.template_service.get_template_by_genre = lambda genre: {
             "voice_id": VOICE_NOVA,
-            "speed": 1.1
+            "speed": 1.1,
         }
         service.content_service.analyze_content = lambda *args, **kwargs: None
 
@@ -159,11 +143,11 @@ class VoiceSingleSourceFixTests(TestCase):
         # Mock the services to return a custom voice
         service.genre_service.classify_genre = lambda *args, **kwargs: {
             "genre": "fiction",
-            "voice_suggestions": {"voice_id": custom_voice}
+            "voice_suggestions": {"voice_id": custom_voice},
         }
         service.template_service.get_template_by_genre = lambda genre: {
             "voice_id": custom_voice,
-            "speed": 1.3
+            "speed": 1.3,
         }
         service.content_service.analyze_content = lambda *args, **kwargs: None
 
@@ -192,16 +176,15 @@ class VoiceSingleSourceFixTests(TestCase):
         self.article.clean()  # Should pass
 
         # 2. Save custom voice
-        service.save_article_preferences(article=self.article, voice="custom_voice_test")
+        service.save_article_preferences(
+            article=self.article, voice="custom_voice_test"
+        )
         self.article.refresh_from_db()
         self.article.clean()  # Should pass
 
         # 3. Apply preset with standard voice
         preset = UserVoicePreset.objects.create(
-            user=self.user,
-            name="Test Preset",
-            voice_id=VOICE_NOVA,
-            speed=1.0
+            user=self.user, name="Test Preset", voice_id=VOICE_NOVA, speed=1.0
         )
         service.save_article_preferences(article=self.article, voice_preset=preset)
         self.article.refresh_from_db()
