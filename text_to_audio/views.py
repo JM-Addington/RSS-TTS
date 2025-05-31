@@ -410,6 +410,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
 
                 # Apply single source of truth for voice fields
                 from text_to_audio.models import VOICE_CHOICES
+
                 standard_voices = [choice[0] for choice in VOICE_CHOICES]
 
                 if preset.voice_id in standard_voices:
@@ -417,7 +418,9 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                     article.voice_id = None
                 else:
                     article.voice_id = preset.voice_id
-                    article.voice = "alloy"  # Reset to default for validation compatibility
+                    article.voice = (
+                        "alloy"  # Reset to default for validation compatibility
+                    )
 
                 article.speed = preset.speed
             except UserVoicePreset.DoesNotExist:
@@ -428,6 +431,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
 
             # Apply single source of truth for voice fields
             from text_to_audio.models import VOICE_CHOICES
+
             standard_voices = [choice[0] for choice in VOICE_CHOICES]
 
             if preset.voice_id in standard_voices:
@@ -444,6 +448,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             if voice_id:
                 # Apply single source of truth for voice fields
                 from text_to_audio.models import VOICE_CHOICES
+
                 standard_voices = [choice[0] for choice in VOICE_CHOICES]
 
                 if voice_id in standard_voices:
@@ -451,7 +456,9 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                     article.voice_id = None
                 else:
                     article.voice_id = voice_id
-                    article.voice = "alloy"  # Reset to default for validation compatibility
+                    article.voice = (
+                        "alloy"  # Reset to default for validation compatibility
+                    )
             if speed:
                 article.speed = float(speed)
 
@@ -573,6 +580,7 @@ class ArticleDetailView(LoginRequiredMixin, View):
             voice_id = form.cleaned_data.get("voice_id")
             if voice_id:
                 from text_to_audio.models import VOICE_CHOICES
+
                 standard_voices = [choice[0] for choice in VOICE_CHOICES]
 
                 if voice_id in standard_voices:
@@ -580,7 +588,9 @@ class ArticleDetailView(LoginRequiredMixin, View):
                     new_article.voice_id = None
                 else:
                     new_article.voice_id = voice_id
-                    new_article.voice = "alloy"  # Reset to default for validation compatibility
+                    new_article.voice = (
+                        "alloy"  # Reset to default for validation compatibility
+                    )
             new_article.save()
             task = process_article.delay(new_article.pk)
             new_article.celery_task_id = task.id

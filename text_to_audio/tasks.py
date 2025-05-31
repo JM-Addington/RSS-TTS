@@ -390,7 +390,11 @@ def process_article(self, article_id: int) -> str:
                             f"Analyzing chunk {chunk_number + 1} of Article ID: {article_id} (words {chunk_start + 1}-{chunk_end})"
                         )
 
-                        chunk_title = f"{article.title} (Part {chunk_number + 1})" if article.title else f"Part {chunk_number + 1}"
+                        chunk_title = (
+                            f"{article.title} (Part {chunk_number + 1})"
+                            if article.title
+                            else f"Part {chunk_number + 1}"
+                        )
                         chunk_analysis = content_service.analyze_content(
                             chunk_text, title=chunk_title
                         )
@@ -1062,10 +1066,7 @@ def _combine_chunk_analyses(chunk_analyses: list[dict]) -> dict:
         Combined analysis with unified voices and concatenated audio segments
     """
     if not chunk_analyses:
-        return {
-            "voices": [],
-            "audio_segments": []
-        }
+        return {"voices": [], "audio_segments": []}
 
     # Collect all unique voices across chunks
     all_voices = {}  # name -> voice definition
@@ -1087,10 +1088,7 @@ def _combine_chunk_analyses(chunk_analyses: list[dict]) -> dict:
     # Convert voices dict back to list
     unique_voices = list(all_voices.values())
 
-    return {
-        "voices": unique_voices,
-        "audio_segments": all_segments
-    }
+    return {"voices": unique_voices, "audio_segments": all_segments}
 
 
 @shared_task
