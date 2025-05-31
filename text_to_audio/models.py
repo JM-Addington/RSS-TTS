@@ -258,7 +258,7 @@ class Article(models.Model):
         help_text="The feed this article belongs to.",
     )
     title: models.CharField = models.CharField(
-        max_length=255,
+        max_length=1024,
         null=False,
         blank=True,
         help_text="The title of the article. Optional if URL is provided.",
