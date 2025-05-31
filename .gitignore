@@ -22,3 +22,6 @@ mike2.txt
 *final_report.*
 /.pytest_cache/
 /media/*
+
+# pytest cache
+.pytest_cache/
