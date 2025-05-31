@@ -1,13 +1,16 @@
 """
 Pydantic schemas for ChunkToneService LLM responses.
 """
+
 import re
 from typing import List, Optional
+
 from pydantic import BaseModel, field_validator
 
 
 class TTSVoice(BaseModel):
     """Voice configuration for TTS."""
+
     voice: str
 
     @field_validator("voice")
@@ -16,12 +19,15 @@ class TTSVoice(BaseModel):
         """Validate voice follows expected format."""
         # Pattern: letters, digits, hyphens, underscores
         if not re.match(r"^[a-zA-Z0-9_-]+$", v):
-            raise ValueError("Voice must contain only letters, digits, hyphens, and underscores")
+            raise ValueError(
+                "Voice must contain only letters, digits, hyphens, and underscores"
+            )
         return v
 
 
 class ChunkData(BaseModel):
     """Individual chunk of text with voice configuration."""
+
     text: str
     voice: TTSVoice
     character_name: Optional[str] = None
@@ -29,6 +35,7 @@ class ChunkData(BaseModel):
 
 class ChunkTonePayload(BaseModel):
     """Complete payload from ChunkToneService containing all chunks."""
+
     chunks: List[ChunkData]
 
     @field_validator("chunks")

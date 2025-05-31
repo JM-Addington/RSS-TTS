@@ -423,9 +423,7 @@ class Article(models.Model):
         if not self.audio_uuid:
             raise ValueError(f"Article {self.id} has no audio_uuid set")
 
-        return os.path.join(
-            settings.MEDIA_ROOT, "articles", f"{self.audio_uuid}.mp3"
-        )
+        return os.path.join(settings.MEDIA_ROOT, "articles", f"{self.audio_uuid}.mp3")
 
     def set_canonical_audio_path(self) -> None:
         """Set the audio_file_path to the canonical relative path."""

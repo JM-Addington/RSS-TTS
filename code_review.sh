@@ -7,6 +7,8 @@ JOE_MODEL="o3"
 MARKDOWN_ROOT="./"
 CODE_ROOT="./"
 EXTRA_MESSAGE="
+Keep in mind, that as of now this is a single-instance app that runs in my basement for personal use. I’ll probably extend it to some family and friends, and eventually a limited set of customers, but this is never gonna be a huge platform. It’s my hobby,.
+
 Pay special attention to see if automatic voice tones are properly generating and
 being sent to the TTS API. The last two commits completely refactored it."
 

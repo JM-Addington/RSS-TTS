@@ -23,10 +23,10 @@ from pydub import AudioSegment  # type: ignore
 from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
+from .services.chunk_tone_service import ChunkToneService
 from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
 from .services.voice_configuration import VoiceConfigurationService
 from .services.voice_parameter_generation import VoiceParameterGenerationService
-from .services.chunk_tone_service import ChunkToneService
 from .utils import process_url_to_text
 
 # Configure logging
@@ -368,7 +368,9 @@ def process_article(self, article_id: int) -> str:
                 )
 
                 # Validate that we got actual JSON-serializable data, not a mock
-                if analysis_result_json is not None and not hasattr(analysis_result_json, '_mock_name'):
+                if analysis_result_json is not None and not hasattr(
+                    analysis_result_json, "_mock_name"
+                ):
                     article.multi_voice_data = analysis_result_json
                 else:
                     article.multi_voice_data = None
@@ -401,9 +403,7 @@ def process_article(self, article_id: int) -> str:
         chunk_tone_generation_successful = False
         if settings.ENABLE_CHUNK_TONE_LLM:
             try:
-                logger.info(
-                    f"Using ChunkToneService for Article ID: {article_id}"
-                )
+                logger.info(f"Using ChunkToneService for Article ID: {article_id}")
                 chunk_tone_service = ChunkToneService()
 
                 # Prepare text for chunking (include title)
@@ -415,7 +415,7 @@ def process_article(self, article_id: int) -> str:
                 chunk_tone_payload = chunk_tone_service.get_payload(
                     text=text_for_chunking,
                     title=article.title or "Untitled",
-                    max_chars=4000
+                    max_chars=4000,
                 )
 
                 logger.info(
@@ -449,7 +449,9 @@ def process_article(self, article_id: int) -> str:
                     processing_time_ms = int((end_time - start_time) * 1000)
 
                     tokens_used = 0
-                    if hasattr(response, "usage") and hasattr(response.usage, "total_tokens"):
+                    if hasattr(response, "usage") and hasattr(
+                        response.usage, "total_tokens"
+                    ):
                         try:
                             tokens_used = int(response.usage.total_tokens)
                         except (ValueError, TypeError):
@@ -498,7 +500,9 @@ def process_article(self, article_id: int) -> str:
 
         # --- Legacy Multi-Voice TTS Generation Attempt ---
         multi_voice_generation_successful = False
-        if not chunk_tone_generation_successful and _is_valid_multi_voice_data(article.multi_voice_data):
+        if not chunk_tone_generation_successful and _is_valid_multi_voice_data(
+            article.multi_voice_data
+        ):
             try:
                 logger.info(
                     f"Attempting multi-voice TTS generation for Article ID: {article_id}"
@@ -662,7 +666,10 @@ def process_article(self, article_id: int) -> str:
             )
 
         # --- Fallback to Single-Voice Generation ---
-        if not chunk_tone_generation_successful and not multi_voice_generation_successful:
+        if (
+            not chunk_tone_generation_successful
+            and not multi_voice_generation_successful
+        ):
             logger.info(
                 f"Falling back to single-voice TTS generation for Article ID: {article_id}"
             )

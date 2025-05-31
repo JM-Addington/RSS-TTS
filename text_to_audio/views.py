@@ -87,7 +87,9 @@ class ArticleMediaView(View):
             logger.error(f"Cannot resolve canonical path for article {article.id}: {e}")
             return None
         except Exception as e:
-            logger.error(f"Error resolving canonical path for article {article.id}: {e}")
+            logger.error(
+                f"Error resolving canonical path for article {article.id}: {e}"
+            )
             return None
 
         return None
@@ -575,7 +577,9 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
         except ValueError as e:
             logger.error(f"Cannot resolve canonical path for article {article.id}: {e}")
         except Exception as e:
-            logger.error(f"Error resolving canonical path for article {article.id}: {e}")
+            logger.error(
+                f"Error resolving canonical path for article {article.id}: {e}"
+            )
 
         return None
 

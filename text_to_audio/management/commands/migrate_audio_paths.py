@@ -225,7 +225,9 @@ class Command(BaseCommand):
                     "from_path": canonical_path,
                     "to_path": legacy_path,
                     "old_db_path": article.audio_file_path,
-                    "new_db_path": os.path.join("articles", f"{article.audio_uuid}.mp3"),
+                    "new_db_path": os.path.join(
+                        "articles", f"{article.audio_uuid}.mp3"
+                    ),
                 }
             )
 

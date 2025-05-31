@@ -181,7 +181,9 @@ class ChunkTextTests(TestCase):
 
         # Use a small max_length to force multiple splits
         max_length = 100
-        success, chunks = _legacy_chunk_text(large_continuous_text, max_length=max_length)
+        success, chunks = _legacy_chunk_text(
+            large_continuous_text, max_length=max_length
+        )
 
         # Should complete without hanging and produce chunks
         self.assertTrue(len(chunks) > 0)  # Should produce chunks
@@ -455,7 +457,9 @@ class ProcessArticleTests(TestCase):
         chunks_data = ["Chunk 1 content.", "Second chunk here."]  # 3 words, 3 words
 
         # Create a patch to force return of multiple chunks and to mock audio processing
-        with patch("text_to_audio.tasks._legacy_chunk_text") as mock_legacy_chunk_text, patch(
+        with patch(
+            "text_to_audio.tasks._legacy_chunk_text"
+        ) as mock_legacy_chunk_text, patch(
             "text_to_audio.tasks.AudioSegment"
         ), patch.object(
             Path, "rename"
@@ -567,7 +571,8 @@ class ProcessArticleTests(TestCase):
         # The ChunkTone service creates fallback chunks with index chunk_tone_0
         self.assertTrue(
             any(
-                "Failed to save OpenAIUsageStats for article 1, chunk chunk_tone_0:" in message
+                "Failed to save OpenAIUsageStats for article 1, chunk chunk_tone_0:"
+                in message
                 for message in log_watcher.output
             ),
             f"Log does not contain detailed stats saving error message. Actual logs: {log_watcher.output}",
@@ -780,7 +785,9 @@ class ProcessArticleTests(TestCase):
         # Override _legacy_chunk_text to return exactly 2 chunks
         chunks = ["Chunk one for cleanup.", "Chunk two for cleanup."]
 
-        with patch("text_to_audio.tasks._legacy_chunk_text", return_value=(True, chunks)):
+        with patch(
+            "text_to_audio.tasks._legacy_chunk_text", return_value=(True, chunks)
+        ):
             # Patch django transaction.atomic to avoid transaction issues in tests
             with patch("django.db.transaction.atomic", lambda func=None: func):
                 with patch("text_to_audio.tasks.os.remove") as mock_os_remove:

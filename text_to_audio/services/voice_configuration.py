@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def _is_mock_object(obj):
     """Check if an object is a mock (for testing)."""
-    return obj is not None and hasattr(obj, '_mock_name')
+    return obj is not None and hasattr(obj, "_mock_name")
 
 
 class VoiceConfigurationService:
@@ -191,8 +191,8 @@ class VoiceConfigurationService:
         elif voice_mode == Feed.VOICE_MODE_AUTO:
             # Generate AI-driven voice parameters
             try:
-                voice_parameters = self.voice_parameter_service.generate_voice_parameters(
-                    article
+                voice_parameters = (
+                    self.voice_parameter_service.generate_voice_parameters(article)
                 )
                 # Validate that we got actual data, not a mock
                 if _is_mock_object(voice_parameters):
@@ -261,12 +261,14 @@ class VoiceConfigurationService:
         Returns:
             Voice ID string, defaults to "alloy" if not found
         """
-        if hasattr(payload, 'chunks'):
+        if hasattr(payload, "chunks"):
             for chunk in payload.chunks:
-                if (hasattr(chunk, 'character_name') and
-                    chunk.character_name == char_name and
-                    hasattr(chunk, 'voice') and
-                    hasattr(chunk.voice, 'voice')):
+                if (
+                    hasattr(chunk, "character_name")
+                    and chunk.character_name == char_name
+                    and hasattr(chunk, "voice")
+                    and hasattr(chunk.voice, "voice")
+                ):
                     return chunk.voice.voice
 
         # Fallback to default voice

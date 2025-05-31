@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def _is_mock_object(obj):
     """Check if an object is a mock (for testing)."""
-    return obj is not None and hasattr(obj, '_mock_name')
+    return obj is not None and hasattr(obj, "_mock_name")
 
 
 class VoiceParameterGenerationService:

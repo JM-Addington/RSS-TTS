@@ -184,7 +184,9 @@ class CanonicalMediaPathsTestCase(TestCase):
 
                 # Verify the path is stored correctly
                 self.article.refresh_from_db()
-                expected_relative_path = os.path.join("articles", f"{self.article.audio_uuid}.mp3")
+                expected_relative_path = os.path.join(
+                    "articles", f"{self.article.audio_uuid}.mp3"
+                )
                 self.assertEqual(self.article.audio_file_path, expected_relative_path)
 
     def test_article_media_serving_uses_canonical_path(self):

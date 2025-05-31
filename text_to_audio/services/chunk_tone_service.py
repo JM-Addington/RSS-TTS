@@ -1,6 +1,7 @@
 """
 ChunkToneService for LLM-driven text chunking and tone analysis.
 """
+
 import json
 import logging
 from typing import Optional
@@ -9,14 +10,14 @@ import openai
 from django.conf import settings
 from pydantic import ValidationError
 
-from text_to_audio.schemas.chunk_tone import ChunkTonePayload, ChunkData, TTSVoice
+from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoice
 
 logger = logging.getLogger(__name__)
 
 
 def _is_mock_object(obj):
     """Check if an object is a mock (for testing)."""
-    return obj is not None and hasattr(obj, '_mock_name')
+    return obj is not None and hasattr(obj, "_mock_name")
 
 
 class ChunkToneService:
@@ -62,7 +63,9 @@ class ChunkToneService:
                 response_json = self._call_openai(prompt)
                 return ChunkTonePayload.model_validate(response_json)
             except (ValidationError, Exception) as e2:
-                logger.error(f"Second attempt failed: OpenAI API error: {e2}. Using fallback.")
+                logger.error(
+                    f"Second attempt failed: OpenAI API error: {e2}. Using fallback."
+                )
                 return self.create_fallback_payload(text)
 
     def create_fallback_payload(self, text: str) -> ChunkTonePayload:
@@ -78,9 +81,7 @@ class ChunkToneService:
         return ChunkTonePayload(
             chunks=[
                 ChunkData(
-                    text=text,
-                    voice=TTSVoice(voice="alloy"),
-                    character_name="narrator"
+                    text=text, voice=TTSVoice(voice="alloy"), character_name="narrator"
                 )
             ]
         )
@@ -133,15 +134,12 @@ The JSON must be valid and parseable. Do not include any other text or explanati
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a professional text-to-speech specialist. Return only valid JSON."
+                        "content": "You are a professional text-to-speech specialist. Return only valid JSON.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
-                max_tokens=4000
+                max_tokens=4000,
             )
 
             response_text = response.choices[0].message.content.strip()
