@@ -223,6 +223,25 @@ The RSS-TTS system ensures complete processing of articles regardless of length 
 
 This enhancement resolves the long-article loss issue in legacy multi-voice processing while maintaining backward compatibility and ensuring all article content is converted to audio.
 
+### Voice Field Single Source of Truth
+
+The RSS-TTS system implements a single source of truth strategy for voice information to prevent data inconsistencies and validation errors:
+
+- **Standard Voices**: OpenAI predefined voices (`alloy`, `nova`, `echo`, etc.) are stored in the `voice` field only
+- **Custom Voices**: Non-standard voice IDs are stored in the `voice_id` field only
+- **Mutual Exclusivity**: Only one voice field should be set at a time to maintain data consistency
+- **Automatic Resolution**: Services automatically determine the appropriate field based on whether the voice is standard or custom
+- **Validation Enforcement**: The `Article.clean()` method prevents both fields from being set simultaneously
+
+**Implementation Details:**
+
+- **VoiceParameterGenerationService**: Automatically routes voice values to the correct field based on standard voice detection
+- **UserPreferencesService**: Applies the same single source logic when saving article preferences or voice presets
+- **Views**: All form processing follows the single source approach for voice field assignment
+- **Migration Support**: Data migration ensures existing articles conform to the single source strategy
+
+This approach eliminates the "single source of truth for voice fields" validation errors while maintaining full compatibility with both standard OpenAI voices and future custom voice implementations.
+
 Customization and ownership
 ---------------------------
 

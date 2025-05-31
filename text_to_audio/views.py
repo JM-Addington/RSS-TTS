@@ -407,23 +407,51 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             try:
                 preset = UserVoicePreset.objects.get(id=preset_id)
                 article.voice_preset = preset
-                article.voice_id = preset.voice_id
-                article.voice = preset.voice_id  # Set both voice and voice_id fields
+
+                # Apply single source of truth for voice fields
+                from text_to_audio.models import VOICE_CHOICES
+                standard_voices = [choice[0] for choice in VOICE_CHOICES]
+
+                if preset.voice_id in standard_voices:
+                    article.voice = preset.voice_id
+                    article.voice_id = None
+                else:
+                    article.voice_id = preset.voice_id
+                    article.voice = "alloy"  # Reset to default for validation compatibility
+
                 article.speed = preset.speed
             except UserVoicePreset.DoesNotExist:
                 pass
         elif self.feed.default_voice_preset:
             preset = self.feed.default_voice_preset
             article.voice_preset = preset
-            article.voice_id = preset.voice_id
-            article.voice = preset.voice_id  # Set both voice and voice_id fields
+
+            # Apply single source of truth for voice fields
+            from text_to_audio.models import VOICE_CHOICES
+            standard_voices = [choice[0] for choice in VOICE_CHOICES]
+
+            if preset.voice_id in standard_voices:
+                article.voice = preset.voice_id
+                article.voice_id = None
+            else:
+                article.voice_id = preset.voice_id
+                article.voice = "alloy"  # Reset to default for validation compatibility
+
             article.speed = preset.speed
         else:
             voice_id = form.cleaned_data.get("voice_id")
             speed = form.cleaned_data.get("speed")
             if voice_id:
-                article.voice_id = voice_id
-                article.voice = voice_id  # Set both voice and voice_id fields
+                # Apply single source of truth for voice fields
+                from text_to_audio.models import VOICE_CHOICES
+                standard_voices = [choice[0] for choice in VOICE_CHOICES]
+
+                if voice_id in standard_voices:
+                    article.voice = voice_id
+                    article.voice_id = None
+                else:
+                    article.voice_id = voice_id
+                    article.voice = "alloy"  # Reset to default for validation compatibility
             if speed:
                 article.speed = float(speed)
 
@@ -484,9 +512,9 @@ class RegenerateArticleView(LoginRequiredMixin, View):
             text_content=original_article.text_content,
             audio_uuid=uuid.uuid4(),  # Generate a new UUID
             status=Article.PROCESSING,
-            # Copy voice settings
+            # Copy voice settings using single source of truth
             voice_id=original_article.voice_id,
-            voice=original_article.voice_id,  # Set both voice and voice_id fields
+            voice=original_article.voice,  # Use the same voice field as original
             speed=original_article.speed,
             voice_preset=original_article.voice_preset,
             detected_tone=original_article.detected_tone,
@@ -532,9 +560,6 @@ class ArticleDetailView(LoginRequiredMixin, View):
                 source_url=original.source_url,
                 text_content=form.cleaned_data["text_content"],
                 summary=form.cleaned_data.get("summary"),
-                voice_id=form.cleaned_data.get("voice_id") or None,
-                # Set both voice and voice_id
-                voice=form.cleaned_data.get("voice_id") or None,
                 speed=(
                     float(form.cleaned_data.get("speed"))
                     if form.cleaned_data.get("speed")
@@ -543,6 +568,19 @@ class ArticleDetailView(LoginRequiredMixin, View):
                 audio_uuid=uuid.uuid4(),
                 status=Article.PROCESSING,
             )
+
+            # Apply single source of truth for voice fields
+            voice_id = form.cleaned_data.get("voice_id")
+            if voice_id:
+                from text_to_audio.models import VOICE_CHOICES
+                standard_voices = [choice[0] for choice in VOICE_CHOICES]
+
+                if voice_id in standard_voices:
+                    new_article.voice = voice_id
+                    new_article.voice_id = None
+                else:
+                    new_article.voice_id = voice_id
+                    new_article.voice = "alloy"  # Reset to default for validation compatibility
             new_article.save()
             task = process_article.delay(new_article.pk)
             new_article.celery_task_id = task.id

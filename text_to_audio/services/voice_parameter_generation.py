@@ -98,12 +98,21 @@ class VoiceParameterGenerationService:
         article.detected_genre = genre
         article.voice_parameters = voice_parameters
 
-        # Set the primary voice from the parameters
+        # Set the primary voice from the parameters using single source of truth
         if "voice_id" in voice_parameters:
-            article.voice_id = voice_parameters["voice_id"]
-            article.voice = voice_parameters[
-                "voice_id"
-            ]  # Ensure both voice and voice_id are in sync
+            voice_value = voice_parameters["voice_id"]
+            # Determine if this is a standard voice or custom voice
+            from text_to_audio.models import VOICE_CHOICES
+            standard_voices = [choice[0] for choice in VOICE_CHOICES]
+
+            if voice_value in standard_voices:
+                # Use standard voice field for predefined voices
+                article.voice = voice_value
+                article.voice_id = None  # Clear the custom field
+            else:
+                # Use voice_id field for custom voices
+                article.voice_id = voice_value
+                article.voice = "alloy"  # Reset to default for validation compatibility
 
         # Set the speed from the parameters
         if "speed" in voice_parameters:
@@ -115,7 +124,7 @@ class VoiceParameterGenerationService:
                 "detected_genre",
                 "voice_parameters",
                 "voice_id",
-                "voice",  # Add voice to update_fields
+                "voice",
                 "speed",
             ]
         )

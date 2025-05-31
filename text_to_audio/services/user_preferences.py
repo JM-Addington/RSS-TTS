@@ -83,31 +83,57 @@ class UserPreferencesService:
             Updated Article object
         """
         if voice_preset is not None:
-            from text_to_audio.models import UserVoicePreset
+            from text_to_audio.models import UserVoicePreset, VOICE_CHOICES
+
+            standard_voices = [choice[0] for choice in VOICE_CHOICES]
 
             if isinstance(voice_preset, int) or isinstance(voice_preset, str):
                 try:
                     preset = UserVoicePreset.objects.get(id=voice_preset)
                     article.voice_preset = preset
-                    article.voice_id = preset.voice_id
-                    article.voice = (
-                        preset.voice_id
-                    )  # Set both voice and voice_id fields
+
+                    # Apply single source of truth for voice fields
+                    if preset.voice_id in standard_voices:
+                        # Use standard voice field for predefined voices
+                        article.voice = preset.voice_id
+                        article.voice_id = None
+                    else:
+                        # Use voice_id field for custom voices
+                        article.voice_id = preset.voice_id
+                        article.voice = "alloy"  # Reset to default for validation compatibility
+
                     article.speed = preset.speed
                 except (UserVoicePreset.DoesNotExist, ValueError):
                     # If preset doesn't exist, ignore it
                     pass
             else:
                 article.voice_preset = voice_preset
-                article.voice_id = voice_preset.voice_id
-                article.voice = (
-                    voice_preset.voice_id
-                )  # Set both voice and voice_id fields
+
+                # Apply single source of truth for voice fields
+                if voice_preset.voice_id in standard_voices:
+                    # Use standard voice field for predefined voices
+                    article.voice = voice_preset.voice_id
+                    article.voice_id = None
+                else:
+                    # Use voice_id field for custom voices
+                    article.voice_id = voice_preset.voice_id
+                    article.voice = "alloy"  # Reset to default for validation compatibility
+
                 article.speed = voice_preset.speed
         else:
             if voice is not None:
-                article.voice_id = voice
-                article.voice = voice  # Set both voice and voice_id fields
+                from text_to_audio.models import VOICE_CHOICES
+                standard_voices = [choice[0] for choice in VOICE_CHOICES]
+
+                # Apply single source of truth for voice fields
+                if voice in standard_voices:
+                    # Use standard voice field for predefined voices
+                    article.voice = voice
+                    article.voice_id = None
+                else:
+                    # Use voice_id field for custom voices
+                    article.voice_id = voice
+                    article.voice = "alloy"  # Reset to default for validation compatibility
 
             if speed is not None:
                 article.speed = float(speed)
