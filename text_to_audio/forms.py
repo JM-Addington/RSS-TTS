@@ -87,6 +87,16 @@ class ArticleSubmissionForm(forms.ModelForm):
         if not source_url and not text_content:
             raise ValidationError("You must provide either a URL or text content.")
 
+        # Enforce 30,000-word limit for pasted text content
+        if text_content:
+            word_count = len(text_content.split())
+            if word_count > 30000:
+                raise ValidationError(
+                    f"Text content is too long ({word_count:,} words). "
+                    f"Please limit to 30,000 words or less. "
+                    f"Consider using a URL instead for longer articles."
+                )
+
         voice_preset = cleaned_data.get("voice_preset")
         voice_id = cleaned_data.get("voice_id")
         speed = cleaned_data.get("speed")

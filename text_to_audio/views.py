@@ -171,13 +171,22 @@ class SignUpView(CreateView):
         return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
-        """Make the first user a superuser."""
+        """Make the first user a superuser and create their first feed."""
         response = super().form_valid(form)
         # Make the first user a superuser
         user = self.object
         user.is_superuser = True
         user.is_staff = True
         user.save(update_fields=["is_superuser", "is_staff"])
+
+        # Create the user's first feed to improve onboarding experience
+        Feed.objects.create(
+            user=user,
+            name="My Articles",
+            voice_mode=Feed.VOICE_MODE_AUTO
+        )
+        logger.info(f"Created first feed 'My Articles' for new user {user.username}")
+
         return response
 
 

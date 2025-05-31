@@ -173,13 +173,28 @@ class UserFeed(Feed):
 
     def item_enclosure_length(self, item: Article) -> int:
         """Get the size of the MP3 file."""
+        import logging
+        logger = logging.getLogger(__name__)
+
         # Try to get actual file size using canonical path
         try:
             canonical_path = item.get_canonical_audio_path()
             if os.path.exists(canonical_path):
                 return os.path.getsize(canonical_path)
-        except (OSError, ValueError):
-            pass
+            else:
+                # File doesn't exist - log warning
+                logger.warning(
+                    f"Audio file missing for article {item.pk} (audio_uuid: {item.audio_uuid}). "
+                    f"Expected path: {canonical_path}. "
+                    f"Using 1MB fallback size for RSS enclosure."
+                )
+        except (OSError, ValueError) as e:
+            # Log warning when file size calculation fails
+            logger.warning(
+                f"Failed to get file size for article {item.pk} (audio_uuid: {item.audio_uuid}): {e}. "
+                f"Expected path: {canonical_path if 'canonical_path' in locals() else 'N/A'}. "
+                f"Using 1MB fallback size for RSS enclosure."
+            )
 
         # Fall back to a default size if file can't be found
         return 1000000  # 1MB default

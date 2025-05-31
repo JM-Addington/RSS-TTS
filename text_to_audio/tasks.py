@@ -395,6 +395,23 @@ def process_article(self, article_id: int) -> str:
                 f"from URL for Article ID: {article_id}"
             )
 
+        # Enforce 30,000-word limit after URL extraction (applies to both URL and pasted content)
+        if article.text_content:
+            word_count = len(article.text_content.split())
+            if word_count > 30000:
+                error_msg = (
+                    f"Article content is too long ({word_count:,} words). "
+                    f"This system supports articles up to 30,000 words. "
+                    f"Please try a shorter article or excerpt."
+                )
+                logger.error(f"Word count limit exceeded for Article ID {article_id}: {error_msg}")
+
+                article.status = Article.FAILED
+                article.error_message = error_msg
+                article.save(update_fields=["status", "error_message"])
+
+                return f"Failed to process Article {article_id}: {error_msg}"
+
         if not article.text_content:  # This check is crucial
             logger.error(
                 f"Article {article_id} has no text_content after potential URL fetch."
@@ -538,10 +555,19 @@ def process_article(self, article_id: int) -> str:
                     f"ChunkToneService returned {len(chunk_tone_payload.chunks)} chunks for Article ID: {article_id}"
                 )
 
-                # Resolve speed using the same logic as single-voice fallback
+                # Resolve speed and instructions using the same logic as single-voice fallback
+                # This ensures ChunkTone reuses sophisticated analysis from AUTO mode when available
+                # (voice_parameters populated by VoiceParameterGenerationService in AUTO feeds)
+                enhanced_voice_prompt = None
                 if article.voice_parameters:
                     resolved_speed = (
                         article.voice_parameters.get("speed") or article.speed or 1.0
+                    )
+
+                    # Generate enhanced prompt if available
+                    parameter_service = VoiceParameterGenerationService()
+                    enhanced_voice_prompt = parameter_service.generate_enhanced_prompt(
+                        article.voice_parameters
                     )
                 else:
                     resolved_speed = article.speed or 1.0
@@ -557,8 +583,11 @@ def process_article(self, article_id: int) -> str:
                     )
                     start_time = time.monotonic()
 
-                    # Generate voice prompt for chunk tone
-                    chunk_voice_prompt = "Speak in a clear, engaging manner with appropriate expression for the content."
+                    # Use enhanced prompt if available, otherwise fall back to generic prompt
+                    chunk_voice_prompt = (
+                        enhanced_voice_prompt
+                        or "Speak in a clear, engaging manner with appropriate expression for the content."
+                    )
 
                     # Prepare TTS request data for logging
                     tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
@@ -571,11 +600,12 @@ def process_article(self, article_id: int) -> str:
                     }
 
                     # Log TTS API call details
+                    prompt_type = "enhanced" if enhanced_voice_prompt else "generic"
                     logger.info(
-                        f"TTS API Call - Article {article_id}, chunk {chunk_idx}: "
+                        f"ChunkTone TTS API Call - Article {article_id}, chunk {chunk_idx}: "
                         f"model={tts_model}, voice={chunk_data.voice.voice}, "
                         f"speed={resolved_speed}, text_length={len(chunk_data.text)} chars, "
-                        f"instructions='{chunk_voice_prompt}'"
+                        f"prompt_type={prompt_type}, instructions='{chunk_voice_prompt}'"
                     )
 
                     # Call TTS API with detailed logging
@@ -1266,6 +1296,10 @@ def _combine_chunk_analyses(chunk_analyses: list[dict]) -> dict:
     Takes a list of analysis results from different chunks and merges them into one
     comprehensive analysis while preserving voice definitions and concatenating segments.
 
+    Note: When multiple chunks define voices with the same name, later definitions
+    override earlier ones. Voice collisions are logged for debugging and potential
+    future improvements (e.g., making voice names unique per chunk).
+
     Args:
         chunk_analyses: List of analysis results, each containing 'voices' and 'audio_segments'
 
@@ -1287,6 +1321,18 @@ def _combine_chunk_analyses(chunk_analyses: list[dict]) -> dict:
         for voice in voices:
             voice_name = voice.get("name")
             if voice_name:
+                if voice_name in all_voices:
+                    # Log voice collision for debugging and future improvements
+                    existing_voice = all_voices[voice_name]
+                    logger.warning(
+                        f"Voice collision detected for '{voice_name}' in chunk analysis merge. "
+                        f"Overwriting previous definition (tone: '{existing_voice.get('tone', 'N/A')}', "
+                        f"model: '{existing_voice.get('tts_model', 'N/A')}', "
+                        f"speed: {existing_voice.get('tts_speed', 'N/A')}) "
+                        f"with new definition (tone: '{voice.get('tone', 'N/A')}', "
+                        f"model: '{voice.get('tts_model', 'N/A')}', "
+                        f"speed: {voice.get('tts_speed', 'N/A')})"
+                    )
                 all_voices[voice_name] = voice
 
         # Add all segments
