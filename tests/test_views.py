@@ -297,7 +297,7 @@ class ArticleDetailViewTests(TestCase):
             title="Original",
             text_content="hello",
             summary="sum",
-            voice_id="alloy",
+            voice="alloy",  # Standard voice should be in voice field
             speed=1.0,
             status=Article.COMPLETED,
             audio_uuid=uuid.uuid4(),
@@ -322,7 +322,7 @@ class ArticleDetailViewTests(TestCase):
             "title": "New",
             "text_content": "new text",
             "summary": "new sum",
-            "voice_id": "echo",
+            "voice": "echo",  # Standard voice should be in voice field
             "speed": "1.1",
         }
         response = self.client.post(
@@ -337,7 +337,7 @@ class ArticleDetailViewTests(TestCase):
         self.assertEqual(new_article.title, "New")
         self.assertEqual(new_article.text_content, "new text")
         self.assertEqual(new_article.summary, "new sum")
-        self.assertEqual(new_article.voice_id, "echo")
+        self.assertEqual(new_article.voice, "echo")  # Check voice field instead
         self.assertEqual(new_article.speed, 1.1)
         mock_delay.assert_called_once_with(new_article.pk)
 

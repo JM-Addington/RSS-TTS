@@ -190,7 +190,6 @@ class VoiceConfigurationServiceTest(TestCase):
             "nova",
             "sage",
             "shimmer",
-            "verse",
         }
         self.assertEqual(set(voices.keys()), expected)
 

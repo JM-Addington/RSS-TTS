@@ -21,7 +21,6 @@ VOICE_ONYX = "onyx"
 VOICE_NOVA = "nova"
 VOICE_SAGE = "sage"
 VOICE_SHIMMER = "shimmer"
-VOICE_VERSE = "verse"
 
 VOICE_CHOICES = [
     (VOICE_ALLOY, "Alloy"),
@@ -34,7 +33,6 @@ VOICE_CHOICES = [
     (VOICE_NOVA, "Nova"),
     (VOICE_SAGE, "Sage"),
     (VOICE_SHIMMER, "Shimmer"),
-    (VOICE_VERSE, "Verse"),
 ]
 
 
@@ -370,41 +368,29 @@ class Article(models.Model):
     )
 
     def clean(self) -> None:
-        """Validate Article model fields for consistency.
+        """Validate and enforce single source of truth for voice fields.
 
-        Ensures single source of truth for voice fields:
-        - Only one of 'voice' or 'voice_id' should be set at a time
-        - Empty strings and whitespace-only values are treated as unset
-        - Default 'alloy' value is treated as unset when voice_id is provided
-        - Provides clear error messages for conflicts
-
-        Raises:
-            ValidationError: When both voice and voice_id are set with values
+        Enforces single source of truth for voice fields:
+        - Standard OpenAI voices ⇒ `voice` field only
+        - Custom voices ⇒ `voice_id` field only (with `voice` reset to default "alloy")
+        - When both provided, voice_id takes precedence and voice is reset to default
+        - Neither provided ⇒ sets default voice
         """
         super().clean()
 
-        # Normalize values - treat empty strings and whitespace as unset
-        voice_id_is_set = bool(self.voice_id and str(self.voice_id).strip())
+        # Enhanced voice field validation with single source of truth
+        voice_provided = bool(self.voice and self.voice.strip())
+        voice_id_provided = bool(self.voice_id and self.voice_id.strip())
 
-        # Special handling for voice field:
-        # - Treat default "alloy" as "unset" when voice_id is provided
-        # - This allows objects with custom voice_id to work without conflicts
-        voice_value = str(self.voice).strip() if self.voice else ""
-        voice_is_set = bool(
-            voice_value and not (voice_value == VOICE_ALLOY and voice_id_is_set)
-        )
-
-        # Check if both fields are set
-        if voice_is_set and voice_id_is_set:
-            from django.core.exceptions import ValidationError
-
-            raise ValidationError(
-                {
-                    "voice": f"Only one voice field should be set at a time. "
-                    f"Found voice='{self.voice}' and voice_id='{self.voice_id}'. "
-                    f"Please use either 'voice' for standard voices or 'voice_id' for custom voices, but not both."
-                }
-            )
+        if voice_provided and voice_id_provided:
+            # Single source of truth: if voice_id is provided, reset voice to default
+            self.voice = "alloy"  # Default OpenAI voice
+        elif voice_id_provided and not voice_provided:
+            # Custom voice provided, ensure voice has default value
+            self.voice = "alloy"
+        elif not voice_provided and not voice_id_provided:
+            # Neither provided - set default
+            self.voice = "alloy"
 
     def __str__(self) -> str:
         """Return a string representation of the article."""

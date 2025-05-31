@@ -322,6 +322,69 @@ class OpenAIUsageStatsModelTests(TestCase):
         self.assertEqual(str(stats), expected_str)
 
 
+class ArticleVoiceFieldTests(TestCase):
+    """Tests for Article voice field validation and single source of truth logic."""
+
+    def setUp(self):
+        """Set up test data."""
+        self.user = User.objects.create_user(  # type: ignore
+            username="voiceuser", email="voice@example.com", password="testpass123"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Voice Feed")
+
+    def test_article_voice_validation_both_provided(self):
+        """Test Article with both voice and voice_id provided - voice_id takes precedence."""
+        article = Article.objects.create(
+            title="Test Article",
+            text_content="Test content",
+            voice="nova",
+            voice_id="custom_voice_123",
+            feed=self.feed
+        )
+        article.clean()
+        # Single source of truth: voice_id provided resets voice to default
+        self.assertEqual(article.voice, "alloy")
+        self.assertEqual(article.voice_id, "custom_voice_123")
+
+    def test_article_voice_validation_voice_only(self):
+        """Test Article with only voice provided."""
+        article = Article.objects.create(
+            title="Test Article",
+            text_content="Test content",
+            voice="nova",
+            feed=self.feed
+        )
+        article.clean()
+        # Should keep voice, voice_id should remain None or empty
+        self.assertEqual(article.voice, "nova")
+        self.assertIn(article.voice_id, [None, ""])
+
+    def test_article_voice_validation_voice_id_only(self):
+        """Test Article with only voice_id provided."""
+        article = Article.objects.create(
+            title="Test Article",
+            text_content="Test content",
+            voice_id="custom_voice_123",
+            feed=self.feed
+        )
+        article.clean()
+        # Should set default voice when voice_id is provided
+        self.assertEqual(article.voice, "alloy")
+        self.assertEqual(article.voice_id, "custom_voice_123")
+
+    def test_article_voice_validation_neither_provided(self):
+        """Test Article with neither voice nor voice_id provided."""
+        article = Article.objects.create(
+            title="Test Article",
+            text_content="Test content",
+            feed=self.feed
+        )
+        article.clean()
+        # Should set default voice
+        self.assertEqual(article.voice, "alloy")
+        self.assertIn(article.voice_id, [None, ""])
+
+
 # For pytest compatibility
 if __name__ == "__main__":
     # Models are already imported at the top level

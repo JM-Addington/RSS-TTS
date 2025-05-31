@@ -23,11 +23,17 @@ class MultipleFeedsTestCase(TestCase):
     def test_create_multiple_feeds(self):
         """Test that a user can create multiple feeds."""
         # Create first feed
-        response = self.client.post(reverse("feed-create"), {"name": "Business News"})
+        response = self.client.post(
+            reverse("feed-create"),
+            {"name": "Business News", "voice_mode": Feed.VOICE_MODE_AUTO}
+        )
         self.assertEqual(response.status_code, 302)
 
         # Create second feed
-        response = self.client.post(reverse("feed-create"), {"name": "Kids Stories"})
+        response = self.client.post(
+            reverse("feed-create"),
+            {"name": "Kids Stories", "voice_mode": Feed.VOICE_MODE_AUTO}
+        )
         self.assertEqual(response.status_code, 302)
 
         # Verify both feeds exist
@@ -93,7 +99,7 @@ class MultipleFeedsTestCase(TestCase):
 
         response = self.client.post(
             reverse("feed-update", kwargs={"feed_id": feed.pk}),
-            {"name": "Updated Name"},
+            {"name": "Updated Name", "voice_mode": feed.voice_mode},
         )
         self.assertEqual(response.status_code, 302)
 

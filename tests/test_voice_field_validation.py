@@ -61,26 +61,22 @@ class VoiceFieldValidationTests(TestCase):
             )
 
     def test_article_clean_rejects_both_fields_set(self):
-        """Test that Article.clean() rejects when both voice and voice_id are set."""
-        # Use a non-default voice to ensure conflict detection
+        """Test that Article.clean() enforces single source of truth when both fields are set."""
+        # When both voice and voice_id are set, voice_id takes precedence
         article = Article(
             feed=self.feed,
             title="Test Article",
             text_content="Test content",
-            voice=VOICE_NOVA,  # Use nova instead of alloy to avoid default handling
+            voice=VOICE_NOVA,  # Use nova instead of alloy
             voice_id="custom_voice_123",
         )
 
-        with self.assertRaises(ValidationError) as context:
-            article.clean()
+        # Should not raise ValidationError - instead enforces single source of truth
+        article.clean()
 
-        # Check that the error message is clear and helpful
-        error_dict = context.exception.error_dict
-        self.assertIn("voice", error_dict)
-        error_message = str(error_dict["voice"][0])
-        self.assertIn("Only one voice field should be set", error_message)
-        self.assertIn("voice", error_message)
-        self.assertIn("voice_id", error_message)
+        # Check that voice was reset to default when voice_id is present
+        self.assertEqual(article.voice, VOICE_ALLOY)
+        self.assertEqual(article.voice_id, "custom_voice_123")
 
     def test_article_clean_allows_neither_field_set(self):
         """Test that Article.clean() allows neither field to be set (uses default)."""
@@ -156,27 +152,22 @@ class VoiceFieldValidationTests(TestCase):
             )
 
     def test_article_clean_error_message_format(self):
-        """Test that validation error message has proper format and information."""
-        # Use a non-default voice to ensure conflict detection
+        """Test that single source of truth is enforced correctly."""
+        # When both voice and voice_id are set, voice_id takes precedence
         article = Article(
             feed=self.feed,
             title="Test Article",
             text_content="Test content",
-            voice=VOICE_NOVA,  # Use nova instead of alloy to avoid default handling
+            voice=VOICE_NOVA,  # Use nova instead of alloy
             voice_id="custom_voice_456",
         )
 
-        with self.assertRaises(ValidationError) as context:
-            article.clean()
+        # No error should be raised - single source of truth is enforced
+        article.clean()
 
-        error_dict = context.exception.error_dict
-        self.assertIn("voice", error_dict)
-        error_message = str(error_dict["voice"][0])
-
-        # Check message contains helpful information
-        self.assertIn("Only one voice field should be set", error_message)
-        self.assertIn("voice='nova'", error_message)
-        self.assertIn("voice_id='custom_voice_456'", error_message)
+        # Verify the enforcement happened correctly
+        self.assertEqual(article.voice, VOICE_ALLOY)  # Reset to default
+        self.assertEqual(article.voice_id, "custom_voice_456")  # Preserved
 
     def test_article_clean_preserves_other_validation(self):
         """Test that voice validation doesn't interfere with other model validation."""

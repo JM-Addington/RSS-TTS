@@ -305,7 +305,9 @@ class FeedVoiceModeTest(TestCase):
 
         # Mock voice parameter generation
         def fake_generate_params(article):
-            article.voice_id = "alloy"
+            # Use voice field for standard OpenAI voice
+            article.voice = "alloy"
+            article.voice_id = None
             article.speed = 1.0
             article.voice_parameters = {
                 "voice_id": "alloy",
@@ -328,7 +330,8 @@ class FeedVoiceModeTest(TestCase):
         self.article.refresh_from_db()
 
         # Should use the formal tone mapping
-        self.assertEqual(self.article.voice_id, "onyx")
+        self.assertEqual(self.article.voice, "onyx")
+        self.assertIsNone(self.article.voice_id)  # Should be None for standard voices
 
         # Test single_custom mode
         self.feed.voice_mode = Feed.VOICE_MODE_SINGLE_CUSTOM
@@ -336,6 +339,7 @@ class FeedVoiceModeTest(TestCase):
         self.feed.save()
 
         # Reset article
+        self.article.voice = "alloy"  # Reset to default
         self.article.voice_id = None
         self.article.speed = None
         self.article.save()
@@ -343,8 +347,9 @@ class FeedVoiceModeTest(TestCase):
         self.voice_config_service.configure_article_voice(self.article)
         self.article.refresh_from_db()
 
-        # Should use the preset
-        self.assertEqual(self.article.voice_id, "echo")
+        # Should use the preset - echo is a standard voice so should use voice field
+        self.assertEqual(self.article.voice, "echo")
+        self.assertIsNone(self.article.voice_id)  # Should be None for standard voices
         self.assertEqual(self.article.speed, 0.9)
 
         # Test auto mode
@@ -352,6 +357,7 @@ class FeedVoiceModeTest(TestCase):
         self.feed.save()
 
         # Reset article
+        self.article.voice = "alloy"  # Reset to default
         self.article.voice_id = None
         self.article.speed = None
         self.article.save()
@@ -363,7 +369,8 @@ class FeedVoiceModeTest(TestCase):
 
         # Article fields should be persisted from auto generation
         self.article.refresh_from_db()
-        self.assertEqual(self.article.voice_id, "alloy")
+        self.assertEqual(self.article.voice, "alloy")
+        self.assertIsNone(self.article.voice_id)  # Should be None for standard voices
         self.assertEqual(self.article.speed, 1.0)
         self.assertEqual(
             self.article.voice_parameters,

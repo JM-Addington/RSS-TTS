@@ -45,7 +45,9 @@ class TestArticleSubmissionFlow(TestCase):
             self.assertEqual(article.feed, self.feed)
             self.assertEqual(article.status, Article.PROCESSING)
             self.assertEqual(article.celery_task_id, task_id)
-            self.assertEqual(article.voice_id, "nova")
+            # nova is a standard voice, should be in voice field not voice_id
+            self.assertEqual(article.voice, "nova")
+            self.assertIsNone(article.voice_id)
             self.assertEqual(article.speed, 1.25)
             mock_delay.assert_called_once_with(article.id)
 
