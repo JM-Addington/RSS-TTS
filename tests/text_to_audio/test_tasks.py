@@ -20,7 +20,7 @@ from django.test import TestCase, override_settings
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
-from text_to_audio.tasks import _legacy_chunk_text, process_article
+from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
 
 User = get_user_model()
 
@@ -1419,6 +1419,135 @@ class ProcessArticleTests(TestCase):
 
         # Verify TTS was called for both segments (may be chunked further by _legacy_chunk_text)
         self.assertGreater(mock_speech_create.call_count, 0)
+
+
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    def test_process_article_speed_clamping_single_voice(
+        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+    ):
+        """Test that speed is clamped correctly in single-voice fallback path."""
+        # Test different speed values to ensure clamping works
+        test_cases = [
+            (0.1, 0.25),    # Below minimum
+            (0.25, 0.25),   # At minimum
+            (1.0, 1.0),     # Normal speed
+            (4.0, 4.0),     # At maximum
+            (5.0, 4.0),     # Above maximum
+        ]
+
+        for input_speed, expected_speed in test_cases:
+            with self.subTest(input_speed=input_speed, expected_speed=expected_speed):
+                # Set article speed
+                self.article.speed = input_speed
+                self.article.save()
+
+                # Configure mocks
+                mock_openai_instance = MockOpenAIClient.return_value
+                mock_speech_create = mock_openai_instance.audio.speech.create
+                mock_tts_response = MagicMock()
+                mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+                mock_speech_create.return_value = mock_tts_response
+
+                mock_audio_segment = MagicMock()
+                mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+                mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
+                mock_audio_from_mp3.return_value = mock_audio_segment
+                mock_audio_empty.return_value = MagicMock()
+
+                # Process article
+                with patch("text_to_audio.tasks._save_openai_usage_stats"):
+                    process_article(self.article.id)
+
+                # Verify speed was clamped correctly
+                call_args = mock_speech_create.call_args[1]
+                self.assertEqual(call_args["speed"], expected_speed)
+
+                # Reset mocks for next iteration
+                MockOpenAIClient.reset_mock()
+
+    @patch("text_to_audio.tasks.ChunkToneService")
+    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.empty")
+    @override_settings(ENABLE_CHUNK_TONE_LLM=True)
+    def test_process_article_speed_clamping_chunk_tone(
+        self, mock_audio_empty, mock_audio_from_mp3, MockChunkToneService, MockOpenAIClient
+    ):
+        """Test that speed is clamped correctly in ChunkTone path."""
+        # Test boundary values
+        test_cases = [
+            (0.2, 0.25),    # Below minimum
+            (4.5, 4.0),     # Above maximum
+            (2.5, 2.5),     # In range
+        ]
+
+        for input_speed, expected_speed in test_cases:
+            with self.subTest(input_speed=input_speed, expected_speed=expected_speed):
+                # Set article speed
+                self.article.speed = input_speed
+                self.article.save()
+
+                # Configure ChunkToneService mock
+                from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoice
+
+                mock_chunk_tone_instance = MockChunkToneService.return_value
+                mock_chunk_tone_instance.get_payload.return_value = ChunkTonePayload(
+                    chunks=[
+                        ChunkData(
+                            text="Test chunk text",
+                            voice=TTSVoice(voice="alloy")
+                        )
+                    ]
+                )
+
+                # Configure OpenAI mocks
+                mock_openai_instance = MockOpenAIClient.return_value
+                mock_speech_create = mock_openai_instance.audio.speech.create
+                mock_tts_response = MagicMock()
+                mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+                mock_speech_create.return_value = mock_tts_response
+
+                mock_audio_segment = MagicMock()
+                mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
+                mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
+                mock_audio_from_mp3.return_value = mock_audio_segment
+                mock_audio_empty.return_value = MagicMock()
+
+                # Process article
+                with patch("text_to_audio.tasks._save_openai_usage_stats"):
+                    process_article(self.article.id)
+
+                # Verify speed was clamped correctly
+                call_args = mock_speech_create.call_args[1]
+                self.assertEqual(call_args["speed"], expected_speed)
+
+                # Reset mocks for next iteration
+                MockOpenAIClient.reset_mock()
+                MockChunkToneService.reset_mock()
+
+
+class SpeedClampingUnitTests(TestCase):
+    """Unit tests for the _clamp_tts_speed function."""
+
+    def test_clamp_tts_speed_below_minimum(self):
+        """Test clamping speeds below minimum."""
+        self.assertEqual(_clamp_tts_speed(0.0), 0.25)
+        self.assertEqual(_clamp_tts_speed(0.1), 0.25)
+        self.assertEqual(_clamp_tts_speed(0.24), 0.25)
+        self.assertEqual(_clamp_tts_speed(-1.0), 0.25)
+
+    def test_clamp_tts_speed_above_maximum(self):
+        """Test clamping speeds above maximum."""
+        self.assertEqual(_clamp_tts_speed(4.1), 4.0)
+        self.assertEqual(_clamp_tts_speed(5.0), 4.0)
+        self.assertEqual(_clamp_tts_speed(10.0), 4.0)
+
+    def test_clamp_tts_speed_in_range(self):
+        """Test speeds within valid range remain unchanged."""
+        self.assertEqual(_clamp_tts_speed(0.25), 0.25)  # Min boundary
+        self.assertEqual(_clamp_tts_speed(1.0), 1.0)     # Normal speed
+        self.assertEqual(_clamp_tts_speed(2.5), 2.5)     # Mid-range
+        self.assertEqual(_clamp_tts_speed(4.0), 4.0)     # Max boundary
 
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks

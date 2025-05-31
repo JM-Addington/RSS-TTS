@@ -33,6 +33,18 @@ from .utils import process_url_to_text
 logger = logging.getLogger(__name__)
 
 
+def _clamp_tts_speed(speed: float) -> float:
+    """Clamp TTS speed to valid range [0.25, 4.0].
+
+    Args:
+        speed: The desired TTS speed
+
+    Returns:
+        Speed clamped to valid range
+    """
+    return max(0.25, min(speed, 4.0))
+
+
 def _save_openai_usage_stats(
     user,
     article,
@@ -470,6 +482,9 @@ def process_article(self, article_id: int) -> str:
                 else:
                     resolved_speed = article.speed or 1.0
 
+                # Clamp speed to valid range
+                resolved_speed = _clamp_tts_speed(resolved_speed)
+
                 # Process each chunk with TTS
                 for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
                     chunk_temp_file_path = (
@@ -776,6 +791,9 @@ def process_article(self, article_id: int) -> str:
                     or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
                 )
                 fallback_speed = article.speed or 1.0
+
+            # Clamp speed to valid range
+            fallback_speed = _clamp_tts_speed(fallback_speed)
 
             # Note: article.voice_id and article.speed might not be populated if the primary analysis
             # path only sets multi_voice_data. These fields should ideally be populated by user preferences

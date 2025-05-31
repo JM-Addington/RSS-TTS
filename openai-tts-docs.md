@@ -263,6 +263,28 @@ The RSS-TTS system implements a single source of truth strategy for voice inform
 
 This approach eliminates the "single source of truth for voice fields" validation errors while maintaining full compatibility with both standard OpenAI voices and future custom voice implementations.
 
+### Speed Clamping Consistency
+
+The RSS-TTS system ensures consistent speed clamping across all TTS generation paths to prevent API errors:
+
+- **Valid Range**: All TTS speeds are automatically clamped to the OpenAI API valid range of 0.25 to 4.0
+- **Universal Application**: Speed clamping is applied before every `client.audio.speech.create()` call
+- **Path Coverage**:
+  - ChunkTone service path: Clamps `resolved_speed` before processing chunks
+  - Single-voice fallback path: Clamps `fallback_speed` before processing
+  - Multi-voice path: Already includes clamping for `tts_speed` values
+- **Centralized Logic**: Uses a dedicated `_clamp_tts_speed()` helper function for consistency
+- **No User Action Required**: Clamping happens automatically regardless of the speed value source
+
+**Benefits:**
+
+- **API Error Prevention**: Prevents OpenAI API errors from invalid speed values
+- **User Experience**: Users can set any speed value and the system will automatically adjust to valid bounds
+- **Consistency**: Same clamping behavior across all voice generation paths
+- **Maintainability**: Centralized clamping logic makes future updates easier
+
+This ensures that all TTS generation requests succeed regardless of the speed values provided by users, voice presets, or automatic voice parameter generation.
+
 Customization and ownership
 ---------------------------
 
