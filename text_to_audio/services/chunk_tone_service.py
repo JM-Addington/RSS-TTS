@@ -171,26 +171,31 @@ The JSON must be valid and parseable. Do not include any other text or explanati
                         "index": choice.index,
                         "message": {
                             "role": choice.message.role,
-                            "content": choice.message.content
+                            "content": choice.message.content,
                         },
-                        "finish_reason": choice.finish_reason
+                        "finish_reason": choice.finish_reason,
                     }
                     for choice in response.choices
                 ],
-                "usage": {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                } if response.usage else None
+                "usage": (
+                    {
+                        "prompt_tokens": response.usage.prompt_tokens,
+                        "completion_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens,
+                    }
+                    if response.usage
+                    else None
+                ),
             }
 
             # Log successful API call
             from ..utils import log_openai_api_call
+
             log_openai_api_call(
                 operation="Chunk Tone Analysis",
                 request_data=request_data,
                 response_data=response_data,
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
             )
 
             response_text = response.choices[0].message.content.strip()
@@ -209,11 +214,12 @@ The JSON must be valid and parseable. Do not include any other text or explanati
 
             # Log failed API call
             from ..utils import log_openai_api_call
+
             log_openai_api_call(
                 operation="Chunk Tone Analysis",
                 request_data=request_data,
                 error=e,
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
             )
 
             logger.error(f"OpenAI API call failed: {e}")

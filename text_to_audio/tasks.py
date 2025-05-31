@@ -271,26 +271,31 @@ def _generate_title(client, text: str) -> str:
                     "index": choice.index,
                     "message": {
                         "role": choice.message.role,
-                        "content": choice.message.content
+                        "content": choice.message.content,
                     },
-                    "finish_reason": choice.finish_reason
+                    "finish_reason": choice.finish_reason,
                 }
                 for choice in response.choices
             ],
-            "usage": {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens
-            } if response.usage else None
+            "usage": (
+                {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+                if response.usage
+                else None
+            ),
         }
 
         # Log successful API call
         from .utils import log_openai_api_call
+
         log_openai_api_call(
             operation="Title Generation",
             request_data=request_data,
             response_data=response_data,
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
         )
 
         title = response.choices[0].message.content.strip()
@@ -301,11 +306,12 @@ def _generate_title(client, text: str) -> str:
 
         # Log failed API call
         from .utils import log_openai_api_call
+
         log_openai_api_call(
             operation="Title Generation",
             request_data=request_data,
             error=e,
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
         )
 
         logger.error(f"Failed to generate title: {e}")
@@ -592,11 +598,12 @@ def process_article(self, article_id: int) -> str:
 
                         # Log successful TTS API call
                         from .utils import log_openai_api_call
+
                         log_openai_api_call(
                             operation=f"TTS Generation (ChunkTone) - Article {article_id}, chunk {chunk_idx}",
                             request_data=tts_request_data,
                             response_data=tts_response_data,
-                            duration_ms=processing_time_ms
+                            duration_ms=processing_time_ms,
                         )
 
                     except Exception as e:
@@ -605,11 +612,12 @@ def process_article(self, article_id: int) -> str:
 
                         # Log failed TTS API call
                         from .utils import log_openai_api_call
+
                         log_openai_api_call(
                             operation=f"TTS Generation (ChunkTone) - Article {article_id}, chunk {chunk_idx}",
                             request_data=tts_request_data,
                             error=e,
-                            duration_ms=processing_time_ms
+                            duration_ms=processing_time_ms,
                         )
                         raise
 
@@ -783,11 +791,12 @@ def process_article(self, article_id: int) -> str:
 
                             # Log successful TTS API call
                             from .utils import log_openai_api_call
+
                             log_openai_api_call(
                                 operation=f"TTS Generation (Multi-voice) - Article {article_id}, segment {segment_idx}, chunk {chunk_idx}",
                                 request_data=tts_request_data,
                                 response_data=tts_response_data,
-                                duration_ms=processing_time_ms
+                                duration_ms=processing_time_ms,
                             )
 
                         except Exception as e:
@@ -796,11 +805,12 @@ def process_article(self, article_id: int) -> str:
 
                             # Log failed TTS API call
                             from .utils import log_openai_api_call
+
                             log_openai_api_call(
                                 operation=f"TTS Generation (Multi-voice) - Article {article_id}, segment {segment_idx}, chunk {chunk_idx}",
                                 request_data=tts_request_data,
                                 error=e,
-                                duration_ms=processing_time_ms
+                                duration_ms=processing_time_ms,
                             )
                             raise
 
@@ -1005,11 +1015,12 @@ def process_article(self, article_id: int) -> str:
 
                     # Log successful TTS API call
                     from .utils import log_openai_api_call
+
                     log_openai_api_call(
                         operation=f"TTS Generation (Fallback) - Article {article_id}, chunk {i}",
                         request_data=tts_args,
                         response_data=tts_response_data,
-                        duration_ms=processing_time_ms
+                        duration_ms=processing_time_ms,
                     )
 
                 except Exception as e:
@@ -1018,11 +1029,12 @@ def process_article(self, article_id: int) -> str:
 
                     # Log failed TTS API call
                     from .utils import log_openai_api_call
+
                     log_openai_api_call(
                         operation=f"TTS Generation (Fallback) - Article {article_id}, chunk {i}",
                         request_data=tts_args,
                         error=e,
-                        duration_ms=processing_time_ms
+                        duration_ms=processing_time_ms,
                     )
                     raise
 

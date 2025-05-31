@@ -394,7 +394,7 @@ def redact_api_key(data: Any) -> Any:
         for key, value in data.items():
             if isinstance(key, str) and any(
                 sensitive in key.lower()
-                for sensitive in ['api_key', 'authorization', 'token', 'secret']
+                for sensitive in ["api_key", "authorization", "token", "secret"]
             ):
                 redacted[key] = "[REDACTED]"
             else:
@@ -406,12 +406,12 @@ def redact_api_key(data: Any) -> Any:
         # Redact bearer tokens and API keys in strings
         redacted_text = re.sub(
             r'(Bearer\s+|api[_-]?key["\s]*[:=]\s*["\']?)([a-zA-Z0-9_-]+)',
-            r'\1[REDACTED]',
+            r"\1[REDACTED]",
             data,
-            flags=re.IGNORECASE
+            flags=re.IGNORECASE,
         )
         # Redact sk- prefixed tokens (OpenAI format)
-        redacted_text = re.sub(r'sk-[a-zA-Z0-9_-]+', '[REDACTED]', redacted_text)
+        redacted_text = re.sub(r"sk-[a-zA-Z0-9_-]+", "[REDACTED]", redacted_text)
         return redacted_text
     else:
         return data
@@ -422,7 +422,7 @@ def log_openai_api_call(
     request_data: Dict[str, Any],
     response_data: Optional[Dict[str, Any]] = None,
     error: Optional[Exception] = None,
-    duration_ms: Optional[int] = None
+    duration_ms: Optional[int] = None,
 ) -> None:
     """Log OpenAI API calls with sensitive data redaction.
 
@@ -458,5 +458,5 @@ def log_openai_api_call(
     # Log with structured format
     logger.log(
         log_level,
-        f"OpenAI API Call [{status}] - {operation}: {json.dumps(log_entry, default=str, indent=2)}"
+        f"OpenAI API Call [{status}] - {operation}: {json.dumps(log_entry, default=str, indent=2)}",
     )

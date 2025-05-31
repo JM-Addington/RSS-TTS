@@ -186,26 +186,31 @@ class ContentAnalysisService:
                         "index": choice.index,
                         "message": {
                             "role": choice.message.role,
-                            "content": choice.message.content
+                            "content": choice.message.content,
                         },
-                        "finish_reason": choice.finish_reason
+                        "finish_reason": choice.finish_reason,
                     }
                     for choice in response.choices
                 ],
-                "usage": {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                } if response.usage else None
+                "usage": (
+                    {
+                        "prompt_tokens": response.usage.prompt_tokens,
+                        "completion_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens,
+                    }
+                    if response.usage
+                    else None
+                ),
             }
 
             # Log successful API call
             from ..utils import log_openai_api_call
+
             log_openai_api_call(
                 operation="Content Analysis",
                 request_data=request_data,
                 response_data=response_data,
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
             )
 
         except Exception as e:
@@ -214,11 +219,12 @@ class ContentAnalysisService:
 
             # Log failed API call
             from ..utils import log_openai_api_call
+
             log_openai_api_call(
                 operation="Content Analysis",
                 request_data=request_data,
                 error=e,
-                duration_ms=duration_ms
+                duration_ms=duration_ms,
             )
             raise
 
