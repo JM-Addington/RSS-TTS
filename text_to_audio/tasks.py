@@ -425,11 +425,23 @@ def process_article(self, article_id: int) -> str:
             article.title = _generate_title(client, article.text_content)
             article.save(update_fields=["title"])
 
-        # Analyze content to get multi-voice data first to avoid duplicate LLM calls.
-        # This is done before voice configuration and TTS generation.
-        # The result will be stored in article.multi_voice_data and can be reused by voice parameter generation.
-        # If this step fails or if the data is invalid, we will fall back to single-voice generation.
-        if article.text_content:  # Only proceed if there's text content
+        # Configure article voice based on feed preferences (auto-voice if enabled)
+        # This may trigger content analysis internally for AUTO mode feeds
+        try:
+            logger.info(f"Configuring voice settings for Article ID: {article_id}")
+            voice_config_service = VoiceConfigurationService()
+            voice_config_service.configure_article_voice(article)
+            logger.info(f"Voice configuration complete for Article ID: {article_id}")
+        except Exception as voice_config_exc:
+            logger.error(
+                f"Voice configuration failed for Article ID {article_id}: {voice_config_exc}"
+            )
+            logger.debug(traceback.format_exc())
+            # Continue with existing voice settings as fallback
+
+        # Perform content analysis for multi-voice generation if not already done during voice configuration
+        # This is mainly for non-AUTO feeds that still want multi-voice capability
+        if article.text_content and not article.multi_voice_data:
             try:
                 logger.info(
                     f"Performing content analysis for Article ID: {article_id} to get multi-voice data."
@@ -513,26 +525,6 @@ def process_article(self, article_id: int) -> str:
                 article.multi_voice_data = None  # Ensure it's None on failure
                 article.save(update_fields=["multi_voice_data"])
                 # Do not re-raise here; allow fallback to single voice processing later.
-        else:
-            logger.warning(
-                f"Article ID: {article_id} has no text_content. Skipping content analysis."
-            )
-            article.multi_voice_data = None
-            # No need to save here if it was already None or if text_content was missing from start
-
-        # Configure article voice based on feed preferences (auto-voice if enabled)
-        # This now happens after content analysis so voice parameter generation can reuse analysis results
-        try:
-            logger.info(f"Configuring voice settings for Article ID: {article_id}")
-            voice_config_service = VoiceConfigurationService()
-            voice_config_service.configure_article_voice(article)
-            logger.info(f"Voice configuration complete for Article ID: {article_id}")
-        except Exception as voice_config_exc:
-            logger.error(
-                f"Voice configuration failed for Article ID {article_id}: {voice_config_exc}"
-            )
-            logger.debug(traceback.format_exc())
-            # Continue with existing voice settings as fallback
 
         # --- ChunkTone LLM Service (New) or Multi-Voice TTS Generation (Legacy) ---
         chunk_tone_generation_successful = False
@@ -598,8 +590,11 @@ def process_article(self, article_id: int) -> str:
                         "voice": chunk_data.voice.voice,
                         "input": chunk_data.text,
                         "speed": resolved_speed,
-                        "instructions": chunk_voice_prompt,
                     }
+
+                    # Add instructions parameter only for supported models
+                    if tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+                        tts_request_data["instructions"] = chunk_voice_prompt
 
                     # Log TTS API call details
                     prompt_type = "enhanced" if enhanced_voice_prompt else "generic"
@@ -789,8 +784,11 @@ def process_article(self, article_id: int) -> str:
                             "voice": tts_api_voice,  # This is 'alloy', 'echo', etc.
                             "input": chunk_text,
                             "speed": tts_speed,
-                            "instructions": segment_voice_prompt,
                         }
+
+                        # Add instructions parameter only for supported models
+                        if tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+                            tts_request_data["instructions"] = segment_voice_prompt
 
                         # Log multi-voice TTS API call details
                         logger.info(
@@ -1008,15 +1006,16 @@ def process_article(self, article_id: int) -> str:
                 start_time = time.monotonic()
 
                 # Create TTS request
+                tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
                 tts_args = {
-                    "model": getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
+                    "model": tts_model,
                     "voice": fallback_voice,
                     "input": chunk,
                     "speed": fallback_speed,
                 }
 
-                # Add voice prompt instructions if available
-                if voice_prompt:
+                # Add voice prompt instructions if available and model supports it
+                if voice_prompt and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
                     tts_args["instructions"] = voice_prompt
 
                 # Log fallback TTS API call details

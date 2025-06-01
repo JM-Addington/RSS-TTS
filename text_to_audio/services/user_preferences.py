@@ -100,9 +100,7 @@ class UserPreferencesService:
                     else:
                         # Use voice_id field for custom voices
                         article.voice_id = preset.voice_id
-                        article.voice = (
-                            "alloy"  # Reset to default for validation compatibility
-                        )
+                        # Don't set voice field - let clean() method handle it
 
                     article.speed = preset.speed
                 except (UserVoicePreset.DoesNotExist, ValueError):
@@ -119,9 +117,7 @@ class UserPreferencesService:
                 else:
                     # Use voice_id field for custom voices
                     article.voice_id = voice_preset.voice_id
-                    article.voice = (
-                        "alloy"  # Reset to default for validation compatibility
-                    )
+                    # Don't set voice field - let clean() method handle it
 
                 article.speed = voice_preset.speed
         else:
@@ -138,9 +134,7 @@ class UserPreferencesService:
                 else:
                     # Use voice_id field for custom voices
                     article.voice_id = voice
-                    article.voice = (
-                        "alloy"  # Reset to default for validation compatibility
-                    )
+                    # Don't set voice field - let clean() method handle it
 
             if speed is not None:
                 article.speed = float(speed)

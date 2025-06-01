@@ -113,7 +113,7 @@ class VoiceParameterGenerationService:
             else:
                 # Use voice_id field for custom voices
                 article.voice_id = voice_value
-                article.voice = "alloy"  # Reset to default for validation compatibility
+                # Don't set voice field - let clean() method handle it
 
         # Set the speed from the parameters
         if "speed" in voice_parameters:
