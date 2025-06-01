@@ -74,6 +74,7 @@ class ChunkData(BaseModel):
     text: str
     voice: TTSVoice
     character_name: Optional[str] = None
+    instructions: Optional[str] = None
 
 
 class ChunkTonePayload(BaseModel):

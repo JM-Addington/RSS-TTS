@@ -82,7 +82,10 @@ class ChunkToneService:
         return ChunkTonePayload(
             chunks=[
                 ChunkData(
-                    text=text, voice=TTSVoice(voice="alloy"), character_name="narrator"
+                    text=text,
+                    voice=TTSVoice(voice="alloy"),
+                    character_name="narrator",
+                    instructions="Speak in a clear, engaging manner with appropriate expression for the content.",
                 )
             ]
         )
@@ -103,6 +106,7 @@ Requirements:
 3. Use these available voices: alloy, echo, fable, onyx, nova, shimmer
 4. For narrative text, use character_name "narrator"
 5. For dialogue or quotes, use appropriate character names
+6. Provide detailed TTS instructions for each chunk to guide tone, pacing, and delivery style
 
 Return ONLY a JSON object with this exact structure:
 {{
@@ -110,10 +114,17 @@ Return ONLY a JSON object with this exact structure:
     {{
       "text": "chunk text here",
       "voice": {{"voice": "voice_name"}},
-      "character_name": "narrator_or_character_name"
+      "character_name": "narrator_or_character_name",
+      "instructions": "Detailed TTS instructions describing affect, tone, pacing, pitch variation, and speaking style for this specific chunk"
     }}
   ]
 }}
+
+Example instructions:
+- "Speak with enthusiasm and energy. Use an upbeat tone with varied pitch. Moderate pace for clarity."
+- "Use a calm, authoritative tone. Steady pace with clear enunciation. Professional news delivery style."
+- "Convey emotion and intimacy. Slower pace with gentle inflection. Personal storytelling style."
+- "Use dramatic emphasis. Varied pacing to build tension. Dynamic pitch variation for engagement."
 
 The JSON must be valid and parseable. Do not include any other text or explanations."""
 

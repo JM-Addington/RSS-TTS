@@ -17,6 +17,9 @@ First, which are problems, and how can we fix them?
 
 Second, what is a good plan for implementing the new features?
 
+Third -- unreleated, _is all legacy code removed_?
+I want to make sure that the codebase is clean and modern.
+
 The latest docs for the TTS API are here: openai-tts-docs.md
 "
 

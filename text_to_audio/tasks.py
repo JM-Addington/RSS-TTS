@@ -592,9 +592,10 @@ def process_article(self, article_id: int) -> str:
                     )
                     start_time = time.monotonic()
 
-                    # Use enhanced prompt if available, otherwise fall back to generic prompt
+                    # Use per-chunk instructions if available, then enhanced prompt, then generic prompt
                     chunk_voice_prompt = (
-                        enhanced_voice_prompt
+                        chunk_data.instructions
+                        or enhanced_voice_prompt
                         or "Speak in a clear, engaging manner with appropriate expression for the content."
                     )
 
@@ -612,7 +613,13 @@ def process_article(self, article_id: int) -> str:
                         tts_request_data["instructions"] = chunk_voice_prompt
 
                     # Log TTS API call details
-                    prompt_type = "enhanced" if enhanced_voice_prompt else "generic"
+                    if chunk_data.instructions:
+                        prompt_type = "per_chunk"
+                    elif enhanced_voice_prompt:
+                        prompt_type = "enhanced"
+                    else:
+                        prompt_type = "generic"
+
                     logger.info(
                         f"ChunkTone TTS API Call - Article {article_id}, chunk {chunk_idx}: "
                         f"model={tts_model}, voice={chunk_data.voice.voice}, "

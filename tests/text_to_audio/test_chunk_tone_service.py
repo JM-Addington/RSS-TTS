@@ -34,11 +34,13 @@ class TestChunkToneService:
                     "text": "Once upon a time, there was a brave knight.",
                     "voice": {"voice": "alloy"},
                     "character_name": "narrator",
+                    "instructions": "Use a calm, storytelling tone. Moderate pace with clear enunciation. Classic narrative style.",
                 },
                 {
                     "text": "I shall save the kingdom!",
                     "voice": {"voice": "onyx"},
                     "character_name": "knight",
+                    "instructions": "Speak with determination and heroic energy. Use a bold, confident tone with emphasis.",
                 },
             ]
         }
@@ -50,8 +52,9 @@ class TestChunkToneService:
             "chunks": [
                 {
                     "text": "Some text",
-                    "voice": {"voice": "invalid@voice"},  # Invalid characters
+                    "voice": "invalid_structure",  # Wrong structure - should be {"voice": "name"}
                     "character_name": "narrator",
+                    "instructions": "Some instructions",
                 }
             ]
         }
@@ -79,9 +82,11 @@ class TestChunkToneService:
         assert result.chunks[0].text == "Once upon a time, there was a brave knight."
         assert result.chunks[0].voice.voice == "alloy"
         assert result.chunks[0].character_name == "narrator"
+        assert "storytelling tone" in result.chunks[0].instructions
         assert result.chunks[1].text == "I shall save the kingdom!"
         assert result.chunks[1].voice.voice == "onyx"
         assert result.chunks[1].character_name == "knight"
+        assert "determination" in result.chunks[1].instructions
 
         # Verify API was called once
         assert mock_client.chat.completions.create.call_count == 1
@@ -149,6 +154,7 @@ class TestChunkToneService:
         assert result.chunks[0].text == sample_text
         assert result.chunks[0].voice.voice == "alloy"
         assert result.chunks[0].character_name == "narrator"
+        assert "clear, engaging manner" in result.chunks[0].instructions
 
         # Verify API was called twice
         assert mock_client.chat.completions.create.call_count == 2
@@ -173,6 +179,7 @@ class TestChunkToneService:
         assert result.chunks[0].text == sample_text
         assert result.chunks[0].voice.voice == "alloy"
         assert result.chunks[0].character_name == "narrator"
+        assert "clear, engaging manner" in result.chunks[0].instructions
 
     def test_get_payload_invalid_json_fallback(self, service, sample_text, monkeypatch):
         """Test fallback when OpenAI returns invalid JSON."""
@@ -194,6 +201,9 @@ class TestChunkToneService:
         assert isinstance(result, ChunkTonePayload)
         assert len(result.chunks) == 1
         assert result.chunks[0].text == sample_text
+        assert result.chunks[0].voice.voice == "alloy"
+        assert result.chunks[0].character_name == "narrator"
+        assert "clear, engaging manner" in result.chunks[0].instructions
 
     def test_create_fallback_payload(self, service):
         """Test create_fallback_payload method."""
@@ -205,6 +215,7 @@ class TestChunkToneService:
         assert result.chunks[0].text == text
         assert result.chunks[0].voice.voice == "alloy"
         assert result.chunks[0].character_name == "narrator"
+        assert "clear, engaging manner" in result.chunks[0].instructions
 
     def test_build_prompt(self, service):
         """Test prompt building."""
@@ -219,42 +230,51 @@ class TestChunkToneService:
         assert "1000" in prompt
         assert "JSON" in prompt
         assert "chunks" in prompt
+        assert "instructions" in prompt
+        assert "tone, pacing, and delivery style" in prompt
 
     def test_voice_validation(self):
         """Test TTSVoice validation."""
-        # Valid voices
+        # Valid standard voices
         valid_voice = TTSVoice(voice="alloy")
         assert valid_voice.voice == "alloy"
 
-        valid_voice_with_underscore = TTSVoice(voice="test_voice")
-        assert valid_voice_with_underscore.voice == "test_voice"
+        # Test voice mapping for logical names
+        narrator_voice = TTSVoice(voice="narrator")
+        assert narrator_voice.voice == "nova"  # Maps to nova
 
-        valid_voice_with_hyphen = TTSVoice(voice="test-voice")
-        assert valid_voice_with_hyphen.voice == "test-voice"
+        expert_voice = TTSVoice(voice="expert")
+        assert expert_voice.voice == "echo"  # Maps to echo
 
-        # Invalid voices
-        with pytest.raises(ValidationError):
-            TTSVoice(voice="invalid@voice")
+        # Test fallback behavior for unrecognized voices
+        unrecognized_voice = TTSVoice(voice="test_voice")
+        assert unrecognized_voice.voice == "nova"  # Falls back to nova
 
-        with pytest.raises(ValidationError):
-            TTSVoice(voice="invalid voice")  # Space not allowed
+        unrecognized_voice_with_hyphen = TTSVoice(voice="test-voice")
+        assert unrecognized_voice_with_hyphen.voice == "nova"  # Falls back to nova
 
-        with pytest.raises(ValidationError):
-            TTSVoice(voice="invalid.voice")  # Dot not allowed
+        # Test that all voices eventually resolve to valid OpenAI voices
+        invalid_chars_voice = TTSVoice(voice="invalid@voice")
+        assert invalid_chars_voice.voice == "nova"  # Falls back to nova
 
     def test_chunk_data_validation(self):
         """Test ChunkData validation."""
         valid_chunk = ChunkData(
-            text="Test text", voice=TTSVoice(voice="alloy"), character_name="narrator"
+            text="Test text",
+            voice=TTSVoice(voice="alloy"),
+            character_name="narrator",
+            instructions="Speak clearly and calmly.",
         )
         assert valid_chunk.text == "Test text"
         assert valid_chunk.character_name == "narrator"
+        assert valid_chunk.instructions == "Speak clearly and calmly."
 
-        # character_name is optional
-        chunk_without_character = ChunkData(
+        # character_name and instructions are optional
+        chunk_without_optional = ChunkData(
             text="Test text", voice=TTSVoice(voice="alloy")
         )
-        assert chunk_without_character.character_name is None
+        assert chunk_without_optional.character_name is None
+        assert chunk_without_optional.instructions is None
 
     def test_chunk_tone_payload_validation(self):
         """Test ChunkTonePayload validation."""
