@@ -33,6 +33,9 @@ OPENAI_CLASSIFICATION_MODEL = os.environ.get(
 # ChunkTone LLM Service Feature Flag
 ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "true").lower() == "true"
 
+# Parallel TTS Processing Feature Flag
+ENABLE_PARALLEL_TTS = os.getenv("ENABLE_PARALLEL_TTS", "true").lower() == "true"
+
 ALLOWED_HOSTS: list[str] = []
 ALLOWED_HOSTS += (
     os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
@@ -262,3 +265,12 @@ SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection
 ARTICLE_PROCESSING_TIMEOUT_SECONDS = 3600  # 1 hour
 # Maximum number of words to analyze for content analysis (reduced from 750k for cost/performance)
 MAX_ANALYSIS_WORDS = int(os.environ.get("MAX_ANALYSIS_WORDS", "8000"))
+
+# Parallel TTS Processing Settings
+# Maximum concurrent TTS chunks per article
+CELERY_TTS_CHUNK_CONCURRENCY = int(os.environ.get("CELERY_TTS_CHUNK_CONCURRENCY", "4"))
+# Rate limiting for OpenAI API calls
+OPENAI_TTS_RATE_LIMIT_PER_MINUTE = int(os.environ.get("OPENAI_TTS_RATE_LIMIT_PER_MINUTE", "50"))
+OPENAI_TTS_RATE_LIMIT_PER_SECOND = int(os.environ.get("OPENAI_TTS_RATE_LIMIT_PER_SECOND", "3"))
+# Worker configuration
+CELERY_TTS_WORKER_CONCURRENCY = int(os.environ.get("CELERY_TTS_WORKER_CONCURRENCY", "2"))

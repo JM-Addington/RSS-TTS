@@ -21,6 +21,7 @@ from django.utils import timezone
 from pydub import AudioSegment  # type: ignore
 
 from rss_tts.celery import app as celery_app  # For task revocation
+from celery import group, chord
 
 from .models import Article  # Import OpenAIUsageStats in helper method
 from .services.chunk_tone_service import ChunkToneService
@@ -28,6 +29,7 @@ from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisServic
 from .services.voice_configuration import VoiceConfigurationService
 from .services.voice_parameter_generation import VoiceParameterGenerationService
 from .utils import process_url_to_text
+from .parallel_tasks import generate_tts_for_chunk, stitch_audio_and_finalize
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -584,129 +586,206 @@ def process_article(self, article_id: int) -> str:
                 # Clamp speed to valid range
                 resolved_speed = _clamp_tts_speed(resolved_speed)
 
-                # Process each chunk with TTS
-                for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
-                    chunk_temp_file_path = (
-                        article_media_dir
-                        / f"temp_article_{article.audio_uuid}_chunk_{chunk_idx}_{uuid.uuid4()}.mp3"
-                    )
-                    start_time = time.monotonic()
+                # Check if parallel processing is enabled
+                if getattr(settings, 'ENABLE_PARALLEL_TTS', True) and len(chunk_tone_payload.chunks) > 1:
+                    # Use parallel processing for multiple chunks
+                    logger.info(f"Starting parallel TTS processing for {len(chunk_tone_payload.chunks)} chunks")
 
-                    # Use per-chunk instructions if available, then enhanced prompt, then generic prompt
-                    chunk_voice_prompt = (
-                        chunk_data.instructions
-                        or enhanced_voice_prompt
-                        or "Speak in a clear, engaging manner with appropriate expression for the content."
-                    )
-
-                    # Prepare TTS request data for logging
-                    tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
-                    tts_request_data = {
-                        "model": tts_model,
-                        "voice": chunk_data.voice.voice,
-                        "input": chunk_data.text,
+                    # Prepare voice configuration for all chunks
+                    voice_config = {
                         "speed": resolved_speed,
+                        "instructions": enhanced_voice_prompt,
+                        "voice": article.voice or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
                     }
 
-                    # Add instructions parameter only for supported models
-                    if tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
-                        tts_request_data["instructions"] = chunk_voice_prompt
+                    # Create chunk tasks (limit concurrency to prevent overwhelming the API)
+                    max_concurrent = getattr(settings, 'CELERY_TTS_CHUNK_CONCURRENCY', 4)
+                    chunk_tasks = []
 
-                    # Log TTS API call details
-                    if chunk_data.instructions:
-                        prompt_type = "per_chunk"
-                    elif enhanced_voice_prompt:
-                        prompt_type = "enhanced"
-                    else:
-                        prompt_type = "generic"
-
-                    logger.info(
-                        f"ChunkTone TTS API Call - Article {article_id}, chunk {chunk_idx}: "
-                        f"model={tts_model}, voice={chunk_data.voice.voice}, "
-                        f"speed={resolved_speed}, text_length={len(chunk_data.text)} chars, "
-                        f"prompt_type={prompt_type}, instructions='{chunk_voice_prompt}'"
-                    )
-
-                    # Call TTS API with detailed logging
-                    try:
-                        response = client.audio.speech.create(**tts_request_data)  # type: ignore
-                        response.stream_to_file(chunk_temp_file_path)
-                        end_time = time.monotonic()
-                        processing_time_ms = int((end_time - start_time) * 1000)
-
-                        # Extract response data for logging (TTS doesn't return JSON, but has headers)
-                        tts_response_data = {
-                            "status": "success",
-                            "audio_file_generated": True,
-                            "file_path": str(chunk_temp_file_path),
+                    for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
+                        chunk_data_dict = {
+                            "text": chunk_data.text,
+                            "voice": chunk_data.voice.voice if hasattr(chunk_data.voice, 'voice') else str(chunk_data.voice),
+                            "instructions": chunk_data.instructions,
                         }
 
-                        # Add response headers if available
-                        if hasattr(response, "headers"):
-                            tts_response_data["headers"] = dict(response.headers)
-
-                        # Log successful TTS API call
-                        from .utils import log_openai_api_call
-
-                        log_openai_api_call(
-                            operation=f"TTS Generation (ChunkTone) - Article {article_id}, chunk {chunk_idx}",
-                            request_data=tts_request_data,
-                            response_data=tts_response_data,
-                            duration_ms=processing_time_ms,
+                        task = generate_tts_for_chunk.s(
+                            article_id=article.id,
+                            chunk_data=chunk_data_dict,
+                            chunk_idx=chunk_idx,
+                            voice_config=voice_config
                         )
+                        chunk_tasks.append(task)
 
-                    except Exception as e:
-                        end_time = time.monotonic()
-                        processing_time_ms = int((end_time - start_time) * 1000)
+                    # Execute tasks with concurrency control
+                    if len(chunk_tasks) <= max_concurrent:
+                        # Execute all chunks in parallel
+                        callback = stitch_audio_and_finalize.s(article.id, str(article.audio_uuid))
+                        chord_result = chord(group(chunk_tasks))(callback)
 
-                        # Log failed TTS API call
-                        from .utils import log_openai_api_call
-
-                        log_openai_api_call(
-                            operation=f"TTS Generation (ChunkTone) - Article {article_id}, chunk {chunk_idx}",
-                            request_data=tts_request_data,
-                            error=e,
-                            duration_ms=processing_time_ms,
-                        )
-                        raise
-
-                    tokens_used = 0
-                    if hasattr(response, "usage") and hasattr(
-                        response.usage, "total_tokens"
-                    ):
+                        # Wait for completion (this makes the task synchronous from the perspective of process_article)
                         try:
-                            tokens_used = int(response.usage.total_tokens)
-                        except (ValueError, TypeError):
-                            tokens_used = 0
-                    elif hasattr(response, "headers"):
-                        header_value = response.headers.get("x-openai-tokens-used")
-                        if header_value is not None:
+                            finalization_result = chord_result.get(timeout=3600)  # 1 hour timeout
+                            chunk_tone_generation_successful = "successful" in finalization_result.lower()
+                            logger.info(f"Parallel TTS completed: {finalization_result}")
+                        except Exception as parallel_exc:
+                            logger.error(f"Parallel TTS failed: {parallel_exc}")
+                            chunk_tone_generation_successful = False
+                    else:
+                        # Process in batches to respect concurrency limits
+                        logger.info(f"Processing {len(chunk_tasks)} chunks in batches of {max_concurrent}")
+                        batch_results = []
+
+                        for i in range(0, len(chunk_tasks), max_concurrent):
+                            batch = chunk_tasks[i:i+max_concurrent]
+                            batch_group = group(batch)
+                            batch_result = batch_group.apply_async()
+
                             try:
-                                tokens_used = int(header_value)
+                                batch_results.extend(batch_result.get(timeout=1800))  # 30 min per batch
+                            except Exception as batch_exc:
+                                logger.error(f"Batch {i//max_concurrent + 1} failed: {batch_exc}")
+                                chunk_tone_generation_successful = False
+                                break
+
+                        if batch_results:
+                            # Finalize with all batch results
+                            finalize_task = stitch_audio_and_finalize.s(batch_results, article.id, str(article.audio_uuid))
+                            try:
+                                finalization_result = finalize_task.apply_async().get(timeout=300)
+                                chunk_tone_generation_successful = "successful" in finalization_result.lower()
+                                logger.info(f"Batched parallel TTS completed: {finalization_result}")
+                            except Exception as finalize_exc:
+                                logger.error(f"Finalization failed: {finalize_exc}")
+                                chunk_tone_generation_successful = False
+
+                else:
+                    # Fall back to sequential processing for single chunks or when parallel is disabled
+                    logger.info(f"Using sequential TTS processing for {len(chunk_tone_payload.chunks)} chunks")
+
+                    # Process each chunk with TTS sequentially (original code)
+                    for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
+                        chunk_temp_file_path = (
+                            article_media_dir
+                            / f"temp_article_{article.audio_uuid}_chunk_{chunk_idx}_{uuid.uuid4()}.mp3"
+                        )
+                        start_time = time.monotonic()
+
+                        # Use per-chunk instructions if available, then enhanced prompt, then generic prompt
+                        chunk_voice_prompt = (
+                            chunk_data.instructions
+                            or enhanced_voice_prompt
+                            or "Speak in a clear, engaging manner with appropriate expression for the content."
+                        )
+
+                        # Prepare TTS request data for logging
+                        tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
+                        tts_request_data = {
+                            "model": tts_model,
+                            "voice": chunk_data.voice.voice,
+                            "input": chunk_data.text,
+                            "speed": resolved_speed,
+                        }
+
+                        # Add instructions parameter only for supported models
+                        if tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+                            tts_request_data["instructions"] = chunk_voice_prompt
+
+                        # Log TTS API call details
+                        if chunk_data.instructions:
+                            prompt_type = "per_chunk"
+                        elif enhanced_voice_prompt:
+                            prompt_type = "enhanced"
+                        else:
+                            prompt_type = "generic"
+
+                        logger.info(
+                            f"ChunkTone TTS API Call - Article {article_id}, chunk {chunk_idx}: "
+                            f"model={tts_model}, voice={chunk_data.voice.voice}, "
+                            f"speed={resolved_speed}, text_length={len(chunk_data.text)} chars, "
+                            f"prompt_type={prompt_type}, instructions='{chunk_voice_prompt}'"
+                        )
+
+                        # Call TTS API with detailed logging
+                        try:
+                            response = client.audio.speech.create(**tts_request_data)  # type: ignore
+                            response.stream_to_file(chunk_temp_file_path)
+                            end_time = time.monotonic()
+                            processing_time_ms = int((end_time - start_time) * 1000)
+
+                            # Extract response data for logging (TTS doesn't return JSON, but has headers)
+                            tts_response_data = {
+                                "status": "success",
+                                "audio_file_generated": True,
+                                "file_path": str(chunk_temp_file_path),
+                            }
+
+                            # Add response headers if available
+                            if hasattr(response, "headers"):
+                                tts_response_data["headers"] = dict(response.headers)
+
+                            # Log successful TTS API call
+                            from .utils import log_openai_api_call
+
+                            log_openai_api_call(
+                                operation=f"TTS Generation (ChunkTone) - Article {article_id}, chunk {chunk_idx}",
+                                request_data=tts_request_data,
+                                response_data=tts_response_data,
+                                duration_ms=processing_time_ms,
+                            )
+
+                        except Exception as e:
+                            end_time = time.monotonic()
+                            processing_time_ms = int((end_time - start_time) * 1000)
+
+                            # Log failed TTS API call
+                            from .utils import log_openai_api_call
+
+                            log_openai_api_call(
+                                operation=f"TTS Generation (ChunkTone) - Article {article_id}, chunk {chunk_idx}",
+                                request_data=tts_request_data,
+                                error=e,
+                                duration_ms=processing_time_ms,
+                            )
+                            raise
+
+                        tokens_used = 0
+                        if hasattr(response, "usage") and hasattr(
+                            response.usage, "total_tokens"
+                        ):
+                            try:
+                                tokens_used = int(response.usage.total_tokens)
                             except (ValueError, TypeError):
                                 tokens_used = 0
+                        elif hasattr(response, "headers"):
+                            header_value = response.headers.get("x-openai-tokens-used")
+                            if header_value is not None:
+                                try:
+                                    tokens_used = int(header_value)
+                                except (ValueError, TypeError):
+                                    tokens_used = 0
 
-                    generated_audio_files.append(chunk_temp_file_path)
-                    word_count = len(chunk_data.text.split())
-                    _save_openai_usage_stats(
-                        user=user,
-                        article=article,
-                        article_id=article_id,
-                        chunk_index=f"chunk_tone_{chunk_idx}",
-                        tokens_used=tokens_used,
-                        processing_time_ms=processing_time_ms,
-                        word_count=word_count,
-                    )
+                        generated_audio_files.append(chunk_temp_file_path)
+                        word_count = len(chunk_data.text.split())
+                        _save_openai_usage_stats(
+                            user=user,
+                            article=article,
+                            article_id=article_id,
+                            chunk_index=f"chunk_tone_{chunk_idx}",
+                            tokens_used=tokens_used,
+                            processing_time_ms=processing_time_ms,
+                            word_count=word_count,
+                        )
 
-                if generated_audio_files:
-                    chunk_tone_generation_successful = True
-                    logger.info(
-                        f"ChunkToneService generation successful for Article ID: {article_id}, {len(generated_audio_files)} audio pieces generated."
-                    )
-                else:
-                    logger.warning(
-                        f"ChunkToneService attempted for Article ID {article_id}, but no audio files were generated."
-                    )
+                    if generated_audio_files:
+                        chunk_tone_generation_successful = True
+                        logger.info(
+                            f"ChunkToneService generation successful for Article ID: {article_id}, {len(generated_audio_files)} audio pieces generated."
+                        )
+                    else:
+                        logger.warning(
+                            f"ChunkToneService attempted for Article ID {article_id}, but no audio files were generated."
+                        )
 
             except Exception as ct_exc:
                 logger.error(

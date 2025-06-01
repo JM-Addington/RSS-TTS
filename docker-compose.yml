@@ -33,14 +33,16 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       SQLITE_DATA_DIR: /data
     depends_on:
-      - worker
+      - worker_main
+      - worker_tts
       - redis
     networks:
       - rsstts
 
-  worker:
+  # Main worker for article processing and maintenance tasks
+  worker_main:
     build: .
-    command: /app/start-worker.sh celery -A rss_tts worker --loglevel=info
+    command: /app/start-worker.sh celery -A rss_tts worker -Q article_processing,maintenance,audio_processing -c 2 --loglevel=info
     volumes:
       - .:/app
       - ../data/sqlite-data/:/data
@@ -53,6 +55,30 @@ services:
       DJANGO_DEBUG: "True"
       CELERY_BROKER_URL: redis://redis:6379/0
       SQLITE_DATA_DIR: /data
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    networks:
+      - rsstts
+
+  # Dedicated worker pool for TTS chunk processing
+  worker_tts:
+    build: .
+    command: /app/start-worker.sh celery -A rss_tts worker -Q tts_chunks -c ${CELERY_TTS_WORKER_CONCURRENCY:-2} --loglevel=info
+    volumes:
+      - .:/app
+      - ../data/sqlite-data/:/data
+      - ./media:/app/media  # Bind mount for saving MP3 files
+      - ./logs:/app/logs    # Bind mount for log files
+      # For Docker volume instead of bind mount, uncomment the following:
+      # - media-data:/app/media
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
+      DJANGO_DEBUG: "True"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      SQLITE_DATA_DIR: /data
+      CELERY_TTS_WORKER_CONCURRENCY: ${CELERY_TTS_WORKER_CONCURRENCY:-2}
     env_file:
       - .env
     depends_on:
