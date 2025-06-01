@@ -23,6 +23,9 @@ class TTSRateLimiter:
 
     def __init__(self):
         """Initialize rate limiter with Redis connection."""
+        # Rate-limited warning tracking for Redis failures
+        self._last_redis_warning = 0
+        self._redis_warning_interval = 60  # Warn once per minute maximum
         # Get Redis connection from Celery broker URL or default
         broker_url = getattr(settings, "CELERY_BROKER_URL", "redis://localhost:6379/0")
 
@@ -124,7 +127,18 @@ class TTSRateLimiter:
             return True
 
         except redis.RedisError as e:
-            logger.error(f"Redis error in rate limiter: {e}")
+            # Rate-limited warning to prevent log flooding
+            current_time = time.time()
+            if current_time - self._last_redis_warning >= self._redis_warning_interval:
+                logger.warning(
+                    f"Redis rate limiter failed, allowing requests (fail-open mode): {e}. "
+                    f"Rate limiting is disabled until Redis is restored."
+                )
+                self._last_redis_warning = current_time
+            else:
+                # Log debug-level messages for subsequent failures within the interval
+                logger.debug(f"Redis error in rate limiter (suppressed warning): {e}")
+
             # Fall back to allowing the request if Redis is unavailable
             # This prevents Redis outages from blocking all TTS generation
             return True

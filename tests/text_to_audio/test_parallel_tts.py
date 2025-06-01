@@ -460,3 +460,114 @@ class TestParallelTTSIntegration(TestCase):
 
         # This would fall back to sequential processing
         self.assertFalse(mock_settings.ENABLE_PARALLEL_TTS)
+
+
+class TestProcessingNotesFeature(TestCase):
+    """Test the processing notes feature for partial failures."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.user = User.objects.create_user(username="testuser", password="password")
+        self.feed = Feed.objects.create(
+            user=self.user,
+            name="Test Feed",
+            url="https://example.com/feed.xml"
+        )
+        self.article = Article.objects.create(
+            feed=self.feed,
+            title="Test Article",
+            text_content="This is test content.",
+            status=Article.PROCESSING,
+            audio_uuid=uuid.uuid4()
+        )
+
+        # Create temporary media directory
+        self.temp_dir = tempfile.mkdtemp()
+        self.media_dir = Path(self.temp_dir) / "articles"
+        self.media_dir.mkdir(exist_ok=True)
+
+    def tearDown(self):
+        """Clean up test fixtures."""
+        import shutil
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def _create_mock_audio_file(self, file_path: Path) -> None:
+        """Create a mock MP3 file for testing."""
+        # Create a simple 1-second audio segment
+        audio_segment = AudioSegment.silent(duration=1000)  # 1 second
+        audio_segment.export(str(file_path), format="mp3")
+
+    @override_settings(MEDIA_ROOT=None)
+    def test_processing_notes_with_partial_failure(self):
+        """Test that processing notes are stored when some chunks fail."""
+        with self.settings(MEDIA_ROOT=self.temp_dir):
+            # Create mock audio files for successful chunks
+            temp_file_1 = self.media_dir / "test_chunk_0.mp3"
+            temp_file_2 = self.media_dir / "test_chunk_1.mp3"
+            self._create_mock_audio_file(temp_file_1)
+            self._create_mock_audio_file(temp_file_2)
+
+            # Test data: 2 successful chunks, 1 failed chunk
+            chunk_results = [
+                (0, str(temp_file_1), None),  # Success
+                (1, str(temp_file_2), None),  # Success
+                (2, None, "API rate limit exceeded"),  # Failure
+            ]
+
+            mock_task = MagicMock()
+
+            result = stitch_audio_and_finalize(
+                mock_task,
+                chunk_results=chunk_results,
+                article_id=self.article.id,
+                final_audio_uuid=str(self.article.audio_uuid)
+            )
+
+            # Verify success (majority succeeded)
+            self.assertIn("successful", result.lower())
+
+            # Verify article status updated to COMPLETED
+            self.article.refresh_from_db()
+            self.assertEqual(self.article.status, Article.COMPLETED)
+
+            # Verify processing notes are set
+            self.assertIsNotNone(self.article.processing_notes)
+            self.assertIn("Audio may be incomplete", self.article.processing_notes)
+            self.assertIn("1 of 3 chunks failed", self.article.processing_notes)
+            self.assertIn("Missing chunk indices: [2]", self.article.processing_notes)
+            self.assertIn("API rate limit exceeded", self.article.processing_notes)
+
+    @override_settings(MEDIA_ROOT=None)
+    def test_no_processing_notes_with_complete_success(self):
+        """Test that processing notes are not set when all chunks succeed."""
+        with self.settings(MEDIA_ROOT=self.temp_dir):
+            # Create mock audio files for all chunks
+            temp_file_1 = self.media_dir / "test_chunk_0.mp3"
+            temp_file_2 = self.media_dir / "test_chunk_1.mp3"
+            self._create_mock_audio_file(temp_file_1)
+            self._create_mock_audio_file(temp_file_2)
+
+            # Test data: all chunks successful
+            chunk_results = [
+                (0, str(temp_file_1), None),  # Success
+                (1, str(temp_file_2), None),  # Success
+            ]
+
+            mock_task = MagicMock()
+
+            result = stitch_audio_and_finalize(
+                mock_task,
+                chunk_results=chunk_results,
+                article_id=self.article.id,
+                final_audio_uuid=str(self.article.audio_uuid)
+            )
+
+            # Verify success
+            self.assertIn("successful", result.lower())
+
+            # Verify article status updated to COMPLETED
+            self.article.refresh_from_db()
+            self.assertEqual(self.article.status, Article.COMPLETED)
+
+            # Verify processing notes are None
+            self.assertIsNone(self.article.processing_notes)

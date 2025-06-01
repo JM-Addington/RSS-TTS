@@ -22,7 +22,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 # Model used when generating titles with GPT
 OPENAI_TITLE_MODEL = os.environ.get("OPENAI_TITLE_MODEL", "gpt-4o-mini")
 # TTS model and voice settings
-OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "tts-1")
+OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
 OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "alloy")
 # Models used for content analysis and genre classification
 OPENAI_ANALYSIS_MODEL = os.environ.get("OPENAI_ANALYSIS_MODEL", "gpt-4.1")
@@ -274,3 +274,7 @@ OPENAI_TTS_RATE_LIMIT_PER_MINUTE = int(os.environ.get("OPENAI_TTS_RATE_LIMIT_PER
 OPENAI_TTS_RATE_LIMIT_PER_SECOND = int(os.environ.get("OPENAI_TTS_RATE_LIMIT_PER_SECOND", "3"))
 # Worker configuration
 CELERY_TTS_WORKER_CONCURRENCY = int(os.environ.get("CELERY_TTS_WORKER_CONCURRENCY", "2"))
+
+# Parallel TTS timeout configuration (in seconds)
+PARALLEL_TTS_CHORD_TIMEOUT = int(os.environ.get("PARALLEL_TTS_CHORD_TIMEOUT", "3600"))  # 1 hour
+PARALLEL_TTS_FINALIZE_TIMEOUT = int(os.environ.get("PARALLEL_TTS_FINALIZE_TIMEOUT", "300"))  # 5 minutes

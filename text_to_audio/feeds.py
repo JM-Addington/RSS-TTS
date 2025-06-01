@@ -130,6 +130,10 @@ class UserFeed(Feed):
                 f"Audio version of <a href='{item.source_url}'>{item.title}</a>"
             )
 
+        # Add warning for incomplete audio
+        if item.processing_notes:
+            description = f"{description}<br><br><strong>⚠️ Note:</strong> This audio may be incomplete due to processing issues."
+
         # Add the summary if available
         if item.summary:
             description = f"{description}<br><br>{item.summary}"

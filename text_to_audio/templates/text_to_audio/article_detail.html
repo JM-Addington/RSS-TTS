@@ -12,6 +12,12 @@
                     <h2 class="mb-0">Article Details</h2>
                 </div>
                 <div class="card-body">
+                    {% if article.processing_notes %}
+                    <div class="alert alert-warning mb-3">
+                        <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Processing Warning</h6>
+                        <p class="mb-0">{{ article.processing_notes|linebreaks }}</p>
+                    </div>
+                    {% endif %}
                     <form method="post">
                         {% csrf_token %}
                         <div class="mb-3">

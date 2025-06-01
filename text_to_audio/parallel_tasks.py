@@ -8,6 +8,7 @@ This module contains the new tasks for handling parallel TTS generation:
 
 import logging
 import os
+import tempfile
 import time
 import traceback
 import uuid
@@ -25,7 +26,7 @@ from .rate_limiter import get_rate_limiter
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=30, rate_limit='3/s')
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
 def generate_tts_for_chunk(
     self,
     article_id: int,
@@ -100,7 +101,15 @@ def generate_tts_for_chunk(
         articles_dir = media_root / "articles"
         articles_dir.mkdir(exist_ok=True)
 
-        temp_file_path = articles_dir / f"temp_chunk_{article.audio_uuid}_{chunk_idx}_{uuid.uuid4()}.mp3"
+        # Use tempfile for better hygiene and collision avoidance
+        temp_file = tempfile.NamedTemporaryFile(
+            dir=str(articles_dir),
+            suffix=".mp3",
+            prefix=f"chunk_{article.audio_uuid}_{chunk_idx}_",
+            delete=False
+        )
+        temp_file_path = Path(temp_file.name)
+        temp_file.close()  # Close so we can write to it with TTS
 
         # Initialize OpenAI client
         client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -382,14 +391,27 @@ def stitch_audio_and_finalize(
 
         # Include any warnings about failed chunks
         if failed_chunks:
-            warning_msg = f"Completed with {len(failed_chunks)} failed chunks: {[idx for idx, _ in failed_chunks]}"
+            failed_chunk_indices = [idx for idx, _ in failed_chunks]
+            failed_chunk_errors = [error for _, error in failed_chunks]
+            warning_msg = f"Completed with {len(failed_chunks)} failed chunks: {failed_chunk_indices}"
+
+            # Store detailed processing notes for user visibility
+            article.processing_notes = (
+                f"⚠️ Audio may be incomplete - {len(failed_chunks)} of {len(chunk_results)} chunks failed to process.\n"
+                f"Missing chunk indices: {failed_chunk_indices}\n"
+                f"Errors: {'; '.join(failed_chunk_errors[:3])}"  # Limit error details to prevent huge text
+                + ("..." if len(failed_chunk_errors) > 3 else "")
+            )
+
             logger.warning(f"Article {article_id}: {warning_msg}")
-            # Don't set error_message since the article completed successfully
+        else:
+            article.processing_notes = None
 
         article.save(update_fields=[
             "audio_file_path",
             "status",
             "error_message",
+            "processing_notes",
             "multi_voice_data",
             "voice_parameters",
             "detected_genre",

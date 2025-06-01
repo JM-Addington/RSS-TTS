@@ -371,6 +371,11 @@ class Article(models.Model):
         default="",
         help_text="Computed TTS prompt for audit/debugging purposes.",
     )
+    processing_notes: models.TextField = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Notes about processing warnings, such as failed chunks in parallel TTS.",
+    )
 
     def clean(self) -> None:
         """Validate and enforce single source of truth for voice fields.

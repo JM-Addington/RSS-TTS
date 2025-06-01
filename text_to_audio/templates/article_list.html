@@ -97,6 +97,11 @@
                         <td class="status-badge">
                             {% if article.status == 'COMPLETED' %}
                                 <span class="badge bg-success">Completed</span>
+                                {% if article.processing_notes %}
+                                    <span class="badge bg-warning text-dark ms-1" title="{{ article.processing_notes }}">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                    </span>
+                                {% endif %}
                             {% elif article.status == 'PROCESSING' %}
                                 <span class="badge bg-warning text-dark">Processing</span>
                             {% elif article.status == 'FAILED' %}

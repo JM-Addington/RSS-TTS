@@ -16,12 +16,12 @@ from pathlib import Path
 
 import openai
 from celery import shared_task  # type: ignore
+from celery import group, chord
 from django.conf import settings
 from django.utils import timezone
 from pydub import AudioSegment  # type: ignore
 
 from rss_tts.celery import app as celery_app  # For task revocation
-from celery import group, chord
 
 from .models import Article  # Import OpenAIUsageStats in helper method
 from .services.chunk_tone_service import ChunkToneService
@@ -625,7 +625,7 @@ def process_article(self, article_id: int) -> str:
 
                         # Wait for completion (this makes the task synchronous from the perspective of process_article)
                         try:
-                            finalization_result = chord_result.get(timeout=3600)  # 1 hour timeout
+                            finalization_result = chord_result.get(timeout=getattr(settings, 'PARALLEL_TTS_CHORD_TIMEOUT', 3600))
                             chunk_tone_generation_successful = "successful" in finalization_result.lower()
                             logger.info(f"Parallel TTS completed: {finalization_result}")
                         except Exception as parallel_exc:
@@ -652,7 +652,7 @@ def process_article(self, article_id: int) -> str:
                             # Finalize with all batch results
                             finalize_task = stitch_audio_and_finalize.s(batch_results, article.id, str(article.audio_uuid))
                             try:
-                                finalization_result = finalize_task.apply_async().get(timeout=300)
+                                finalization_result = finalize_task.apply_async().get(timeout=getattr(settings, 'PARALLEL_TTS_FINALIZE_TIMEOUT', 300))
                                 chunk_tone_generation_successful = "successful" in finalization_result.lower()
                                 logger.info(f"Batched parallel TTS completed: {finalization_result}")
                             except Exception as finalize_exc:
