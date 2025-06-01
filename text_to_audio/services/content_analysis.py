@@ -425,10 +425,11 @@ class ContentAnalysisService:
         Quotes and Dialogue**: For direct quotes or dialogue, create distinct voices that match the character or speaker's tone. Use descriptive names like "expert_quote" or "character_jane" to differentiate them. For quotes longer than a few words, switch between the narrator and the quoted speaker's voice.
 
         Example:
-        "Jim is the smartest character in the book. It's a mistake to assume he's there to be ridiculed. In fact, he becomes a father to Huck," says Fishkin, who wrote the 1993 literature critic classic,
+        "Jim is the smartest character in the book. It's a mistake to assume he's there to be ridiculed. In fact, he becomes a father to Huck," says Fishkin, who wrote the 1993 literature critic classic.
 
-        {"text":" Jim is the smartest character in the book. It's a mistake to assume he's there to be ridiculed. In fact, he becomes a father to Huck.", "voice_name":"expert_quote",
-        "text":" says Fishkin, who wrote the 1993 literature critic classic.", "voice_name":"narrator"}
+        This should be segmented as:
+        [{{"text":"Jim is the smartest character in the book. It's a mistake to assume he's there to be ridiculed. In fact, he becomes a father to Huck,", "voice_name":"expert_quote"}},
+        {{"text":" says Fishkin, who wrote the 1993 literature critic classic.", "voice_name":"narrator"}}]
 
         Article Text to Analyze:
         {text}
