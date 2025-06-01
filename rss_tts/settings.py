@@ -270,11 +270,21 @@ MAX_ANALYSIS_WORDS = int(os.environ.get("MAX_ANALYSIS_WORDS", "8000"))
 # Maximum concurrent TTS chunks per article
 CELERY_TTS_CHUNK_CONCURRENCY = int(os.environ.get("CELERY_TTS_CHUNK_CONCURRENCY", "4"))
 # Rate limiting for OpenAI API calls
-OPENAI_TTS_RATE_LIMIT_PER_MINUTE = int(os.environ.get("OPENAI_TTS_RATE_LIMIT_PER_MINUTE", "50"))
-OPENAI_TTS_RATE_LIMIT_PER_SECOND = int(os.environ.get("OPENAI_TTS_RATE_LIMIT_PER_SECOND", "3"))
+OPENAI_TTS_RATE_LIMIT_PER_MINUTE = int(
+    os.environ.get("OPENAI_TTS_RATE_LIMIT_PER_MINUTE", "50")
+)
+OPENAI_TTS_RATE_LIMIT_PER_SECOND = int(
+    os.environ.get("OPENAI_TTS_RATE_LIMIT_PER_SECOND", "3")
+)
 # Worker configuration
-CELERY_TTS_WORKER_CONCURRENCY = int(os.environ.get("CELERY_TTS_WORKER_CONCURRENCY", "2"))
+CELERY_TTS_WORKER_CONCURRENCY = int(
+    os.environ.get("CELERY_TTS_WORKER_CONCURRENCY", "2")
+)
 
 # Parallel TTS timeout configuration (in seconds)
-PARALLEL_TTS_CHORD_TIMEOUT = int(os.environ.get("PARALLEL_TTS_CHORD_TIMEOUT", "3600"))  # 1 hour
-PARALLEL_TTS_FINALIZE_TIMEOUT = int(os.environ.get("PARALLEL_TTS_FINALIZE_TIMEOUT", "300"))  # 5 minutes
+PARALLEL_TTS_CHORD_TIMEOUT = int(
+    os.environ.get("PARALLEL_TTS_CHORD_TIMEOUT", "3600")
+)  # 1 hour
+PARALLEL_TTS_FINALIZE_TIMEOUT = int(
+    os.environ.get("PARALLEL_TTS_FINALIZE_TIMEOUT", "300")
+)  # 5 minutes

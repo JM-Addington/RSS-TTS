@@ -11,7 +11,6 @@ import os
 import tempfile
 import time
 import traceback
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -26,13 +25,91 @@ from .rate_limiter import get_rate_limiter
 logger = logging.getLogger(__name__)
 
 
+def _prepare_tts_request(
+    chunk_data: Dict[str, Any], voice_config: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Prepare TTS request data from chunk and voice configuration."""
+    # Extract voice configuration
+    voice_name = chunk_data.get("voice", voice_config.get("voice", "alloy"))
+    if isinstance(voice_name, dict):
+        voice_name = voice_name.get("voice", "alloy")
+
+    instructions = chunk_data.get("instructions") or voice_config.get("instructions")
+    speed = voice_config.get("speed", 1.0)
+
+    # Clamp speed to valid range
+    speed = max(0.25, min(speed, 4.0))
+
+    # Prepare TTS request
+    tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
+    tts_request_data = {
+        "model": tts_model,
+        "voice": voice_name,
+        "input": chunk_data.get("text", ""),
+        "speed": speed,
+    }
+
+    # Add instructions parameter for supported models
+    if instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+        tts_request_data["instructions"] = instructions
+
+    return tts_request_data
+
+
+def _handle_tts_api_call(
+    client,
+    tts_request_data: Dict[str, Any],
+    temp_file_path: Path,
+    article_id: int,
+    chunk_idx: int,
+) -> int:
+    """Handle the TTS API call and return processing time in milliseconds."""
+    tts_start_time = time.monotonic()
+
+    # Log TTS API call details
+    instructions = tts_request_data.get("instructions", "")
+    logger.info(
+        f"TTS API Call - Article {article_id}, chunk {chunk_idx}: "
+        f"model={tts_request_data['model']}, voice={tts_request_data['voice']}, "
+        f"speed={tts_request_data['speed']}, text_length={len(tts_request_data['input'])} chars"
+        + (f", instructions='{instructions}'" if instructions else "")
+    )
+
+    # Call TTS API with detailed logging
+    response = client.audio.speech.create(**tts_request_data)
+    response.stream_to_file(str(temp_file_path))
+
+    tts_end_time = time.monotonic()
+    tts_duration_ms = int((tts_end_time - tts_start_time) * 1000)
+
+    # Log successful TTS API call
+    from .utils import log_openai_api_call
+
+    tts_response_data = {
+        "status": "success",
+        "audio_file_generated": True,
+        "file_path": str(temp_file_path),
+    }
+    if hasattr(response, "headers"):
+        tts_response_data["headers"] = dict(response.headers)
+
+    log_openai_api_call(
+        operation=f"TTS Generation (Parallel) - Article {article_id}, chunk {chunk_idx}",
+        request_data=tts_request_data,
+        response_data=tts_response_data,
+        duration_ms=tts_duration_ms,
+    )
+
+    return tts_duration_ms, response
+
+
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
-def generate_tts_for_chunk(
+def generate_tts_for_chunk(  # noqa: C901
     self,
     article_id: int,
     chunk_data: Dict[str, Any],
     chunk_idx: int,
-    voice_config: Dict[str, Any]
+    voice_config: Dict[str, Any],
 ) -> Tuple[int, Optional[str], Optional[str]]:
     """
     Generate TTS audio for a single text chunk.
@@ -62,7 +139,9 @@ def generate_tts_for_chunk(
 
         # Ensure article is still processing (not cancelled)
         if article.status != Article.PROCESSING:
-            error_msg = f"Article {article_id} no longer processing (status: {article.status})"
+            error_msg = (
+                f"Article {article_id} no longer processing (status: {article.status})"
+            )
             logger.warning(error_msg)
             return (chunk_idx, None, error_msg)
 
@@ -78,7 +157,9 @@ def generate_tts_for_chunk(
         if isinstance(voice_name, dict):
             voice_name = voice_name.get("voice", "alloy")
 
-        instructions = chunk_data.get("instructions") or voice_config.get("instructions")
+        instructions = chunk_data.get("instructions") or voice_config.get(
+            "instructions"
+        )
         speed = voice_config.get("speed", 1.0)
 
         # Clamp speed to valid range
@@ -87,12 +168,16 @@ def generate_tts_for_chunk(
         # Rate limiting
         rate_limiter = get_rate_limiter()
         if not rate_limiter.acquire_tts_token(timeout=60.0):
-            error_msg = f"Rate limit timeout for article {article_id}, chunk {chunk_idx}"
+            error_msg = (
+                f"Rate limit timeout for article {article_id}, chunk {chunk_idx}"
+            )
             logger.error(error_msg)
             # Retry with exponential backoff
             if self.request.retries < self.max_retries:
-                countdown = 60 * (2 ** self.request.retries)
-                logger.info(f"Retrying chunk {chunk_idx} in {countdown}s due to rate limiting")
+                countdown = 60 * (2**self.request.retries)
+                logger.info(
+                    f"Retrying chunk {chunk_idx} in {countdown}s due to rate limiting"
+                )
                 raise self.retry(countdown=countdown)
             return (chunk_idx, None, error_msg)
 
@@ -106,7 +191,7 @@ def generate_tts_for_chunk(
             dir=str(articles_dir),
             suffix=".mp3",
             prefix=f"chunk_{article.audio_uuid}_{chunk_idx}_",
-            delete=False
+            delete=False,
         )
         temp_file_path = Path(temp_file.name)
         temp_file.close()  # Close so we can write to it with TTS
@@ -181,6 +266,7 @@ def generate_tts_for_chunk(
             # Save usage statistics
             try:
                 from django.db import transaction
+
                 from .models import OpenAIUsageStats
 
                 user = article.feed.user
@@ -194,9 +280,13 @@ def generate_tts_for_chunk(
                         processing_time_ms=tts_duration_ms,
                         word_count=word_count,
                     )
-                    logger.debug(f"Usage stats saved for article {article_id}, chunk {chunk_idx}")
+                    logger.debug(
+                        f"Usage stats saved for article {article_id}, chunk {chunk_idx}"
+                    )
             except Exception as stats_exc:
-                logger.error(f"Failed to save usage stats for chunk {chunk_idx}: {stats_exc}")
+                logger.error(
+                    f"Failed to save usage stats for chunk {chunk_idx}: {stats_exc}"
+                )
 
         except Exception as tts_exc:
             tts_end_time = time.monotonic()
@@ -214,10 +304,15 @@ def generate_tts_for_chunk(
 
             # Check if this is a retryable error
             error_str = str(tts_exc).lower()
-            if any(term in error_str for term in ["rate limit", "quota", "timeout", "503", "502"]):
+            if any(
+                term in error_str
+                for term in ["rate limit", "quota", "timeout", "503", "502"]
+            ):
                 if self.request.retries < self.max_retries:
-                    countdown = 60 * (2 ** self.request.retries)
-                    logger.info(f"Retrying chunk {chunk_idx} in {countdown}s due to: {tts_exc}")
+                    countdown = 60 * (2**self.request.retries)
+                    logger.info(
+                        f"Retrying chunk {chunk_idx} in {countdown}s due to: {tts_exc}"
+                    )
                     raise self.retry(exc=tts_exc, countdown=countdown)
 
             raise tts_exc
@@ -245,7 +340,9 @@ def generate_tts_for_chunk(
             try:
                 os.remove(temp_file_path)
             except OSError as cleanup_exc:
-                logger.error(f"Failed to cleanup temp file {temp_file_path}: {cleanup_exc}")
+                logger.error(
+                    f"Failed to cleanup temp file {temp_file_path}: {cleanup_exc}"
+                )
 
         return (chunk_idx, None, error_msg)
 
@@ -255,7 +352,7 @@ def stitch_audio_and_finalize(
     self,
     chunk_results: List[Tuple[int, Optional[str], Optional[str]]],
     article_id: int,
-    final_audio_uuid: str
+    final_audio_uuid: str,
 ) -> str:
     """
     Combine audio chunks and finalize article processing.
@@ -282,7 +379,9 @@ def stitch_audio_and_finalize(
 
         # Validate article status
         if article.status != Article.PROCESSING:
-            error_msg = f"Article {article_id} no longer processing (status: {article.status})"
+            error_msg = (
+                f"Article {article_id} no longer processing (status: {article.status})"
+            )
             logger.warning(error_msg)
             return error_msg
 
@@ -312,14 +411,18 @@ def stitch_audio_and_finalize(
             logger.error(error_msg)
 
             article.status = Article.FAILED
-            article.error_message = f"Majority of chunks failed. Failed: {failed_chunks}"
+            article.error_message = (
+                f"Majority of chunks failed. Failed: {failed_chunks}"
+            )
             article.save(update_fields=["status", "error_message"])
 
             return error_msg
 
         # Log warnings for failed chunks but continue
         if failed_chunks:
-            logger.warning(f"Some chunks failed for article {article_id}: {failed_chunks}")
+            logger.warning(
+                f"Some chunks failed for article {article_id}: {failed_chunks}"
+            )
 
         # Collect temp files for cleanup
         temp_files_to_cleanup = [path for _, path in successful_chunks]
@@ -365,7 +468,9 @@ def stitch_audio_and_finalize(
                     combined_audio += segment_audio
                     logger.debug(f"Added chunk {chunk_idx} to combined audio")
                 except Exception as segment_exc:
-                    logger.error(f"Failed to process chunk {chunk_idx} ({temp_file_path}): {segment_exc}")
+                    logger.error(
+                        f"Failed to process chunk {chunk_idx} ({temp_file_path}): {segment_exc}"
+                    )
                     # Continue with other segments
 
             if combined_audio.duration_seconds > 0:
@@ -407,20 +512,24 @@ def stitch_audio_and_finalize(
         else:
             article.processing_notes = None
 
-        article.save(update_fields=[
-            "audio_file_path",
-            "status",
-            "error_message",
-            "processing_notes",
-            "multi_voice_data",
-            "voice_parameters",
-            "detected_genre",
-        ])
+        article.save(
+            update_fields=[
+                "audio_file_path",
+                "status",
+                "error_message",
+                "processing_notes",
+                "multi_voice_data",
+                "voice_parameters",
+                "detected_genre",
+            ]
+        )
 
         end_time = time.monotonic()
         total_duration_ms = int((end_time - start_time) * 1000)
 
-        success_msg = f"Article {article_id} finalized successfully in {total_duration_ms}ms"
+        success_msg = (
+            f"Article {article_id} finalized successfully in {total_duration_ms}ms"
+        )
         logger.info(success_msg)
 
         return success_msg
@@ -440,7 +549,9 @@ def stitch_audio_and_finalize(
             article.error_message = f"Finalization failed: {e}"
             article.save(update_fields=["status", "error_message"])
         except Exception as save_exc:
-            logger.error(f"Failed to update article {article_id} with error: {save_exc}")
+            logger.error(
+                f"Failed to update article {article_id} with error: {save_exc}"
+            )
 
         return error_msg
 
@@ -452,4 +563,6 @@ def stitch_audio_and_finalize(
                     os.remove(temp_file_path)
                     logger.debug(f"Cleaned up temp file: {temp_file_path}")
                 except OSError as cleanup_exc:
-                    logger.error(f"Failed to cleanup temp file {temp_file_path}: {cleanup_exc}")
+                    logger.error(
+                        f"Failed to cleanup temp file {temp_file_path}: {cleanup_exc}"
+                    )

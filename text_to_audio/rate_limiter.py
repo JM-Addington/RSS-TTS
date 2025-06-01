@@ -43,14 +43,20 @@ class TTSRateLimiter:
                 host = host_port
                 port = 6379
 
-            self.redis_client = redis.Redis(host=host, port=port, db=db, decode_responses=True)
+            self.redis_client = redis.Redis(
+                host=host, port=port, db=db, decode_responses=True
+            )
         else:
             # Fallback to localhost
-            self.redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+            self.redis_client = redis.Redis(
+                host="localhost", port=6379, db=0, decode_responses=True
+            )
 
         # Rate limiting configuration
         self.per_second_limit = getattr(settings, "OPENAI_TTS_RATE_LIMIT_PER_SECOND", 3)
-        self.per_minute_limit = getattr(settings, "OPENAI_TTS_RATE_LIMIT_PER_MINUTE", 50)
+        self.per_minute_limit = getattr(
+            settings, "OPENAI_TTS_RATE_LIMIT_PER_MINUTE", 50
+        )
 
         # Redis keys for rate limiting
         self.per_second_key = "tts_rate_limit:per_second"
@@ -108,11 +114,15 @@ class TTSRateLimiter:
 
             # Check if we're within limits
             if second_count >= self.per_second_limit:
-                logger.debug(f"Per-second rate limit hit: {second_count}/{self.per_second_limit}")
+                logger.debug(
+                    f"Per-second rate limit hit: {second_count}/{self.per_second_limit}"
+                )
                 return False
 
             if minute_count >= self.per_minute_limit:
-                logger.debug(f"Per-minute rate limit hit: {minute_count}/{self.per_minute_limit}")
+                logger.debug(
+                    f"Per-minute rate limit hit: {minute_count}/{self.per_minute_limit}"
+                )
                 return False
 
             # Acquire tokens atomically
@@ -123,7 +133,9 @@ class TTSRateLimiter:
             pipe.expire(minute_key, 120)  # Keep for 2 minutes to handle clock skew
             pipe.execute()
 
-            logger.debug(f"Rate limiter token acquired: second={second_count+1}/{self.per_second_limit}, minute={minute_count+1}/{self.per_minute_limit}")
+            logger.debug(
+                f"Rate limiter token acquired: second={second_count+1}/{self.per_second_limit}, minute={minute_count+1}/{self.per_minute_limit}"
+            )
             return True
 
         except redis.RedisError as e:
@@ -167,18 +179,18 @@ class TTSRateLimiter:
             return {
                 "per_second": {
                     "current": int(results[0]) if results[0] else 0,
-                    "limit": self.per_second_limit
+                    "limit": self.per_second_limit,
                 },
                 "per_minute": {
                     "current": int(results[1]) if results[1] else 0,
-                    "limit": self.per_minute_limit
-                }
+                    "limit": self.per_minute_limit,
+                },
             }
         except redis.RedisError as e:
             logger.error(f"Redis error getting usage: {e}")
             return {
                 "per_second": {"current": 0, "limit": self.per_second_limit},
-                "per_minute": {"current": 0, "limit": self.per_minute_limit}
+                "per_minute": {"current": 0, "limit": self.per_minute_limit},
             }
 
 

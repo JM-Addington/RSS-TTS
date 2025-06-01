@@ -16,10 +16,12 @@ app.conf.timezone = getattr(settings, "TIME_ZONE", "UTC")
 
 # Task routing for different types of work
 app.conf.task_routes = {
-    'text_to_audio.parallel_tasks.generate_tts_for_chunk': {'queue': 'tts_chunks'},
-    'text_to_audio.parallel_tasks.stitch_audio_and_finalize': {'queue': 'audio_processing'},
-    'text_to_audio.tasks.process_article': {'queue': 'article_processing'},
-    'text_to_audio.tasks.check_stale_articles': {'queue': 'maintenance'},
+    "text_to_audio.parallel_tasks.generate_tts_for_chunk": {"queue": "tts_chunks"},
+    "text_to_audio.parallel_tasks.stitch_audio_and_finalize": {
+        "queue": "audio_processing"
+    },
+    "text_to_audio.tasks.process_article": {"queue": "article_processing"},
+    "text_to_audio.tasks.check_stale_articles": {"queue": "maintenance"},
 }
 
 # Worker configuration

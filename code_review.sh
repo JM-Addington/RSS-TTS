@@ -7,18 +7,121 @@ JOE_MODEL="o3"
 MARKDOWN_ROOT="./"
 CODE_ROOT="./"
 EXTRA_MESSAGE="
+You're reviewing some work to make API calls concurrent, here are the notes from the dev:
+
+This is what you are to focus your review on.
+
+======
+  Parallel TTS Processing Implementation Summary
+
+  I have successfully implemented a comprehensive parallel TTS processing system on the parallel-tts-processing branch.
+   Here's what was delivered:
+
+  🚀 Key Features
+
+  1. Parallel Processing Architecture
+  - 4x speed improvement for multi-chunk articles (configurable)
+  - Celery group/chord pattern for orchestrating parallel tasks
+  - Intelligent batching for articles with many chunks
+  - Graceful fallback to sequential processing
+
+  2. Distributed Rate Limiting
+  - Redis-based sliding window rate limiter
+  - Two-level limiting (per-second burst + per-minute sustained)
+  - Prevents OpenAI API throttling across multiple workers
+  - Configurable limits with sensible defaults
+
+  3. Enhanced Worker Configuration
+  - Dedicated TTS worker pool (worker_tts)
+  - Separate queues for different task types
+  - Configurable concurrency per worker type
+  - Task routing for optimal resource utilization
+
+  📁 New Files Created
+
+  1. text_to_audio/rate_limiter.py - Redis-based distributed rate limiting
+  2. text_to_audio/parallel_tasks.py - Parallel TTS tasks (chunk generation + stitching)
+  3. tests/text_to_audio/test_parallel_tts.py - Comprehensive test coverage
+  4. PARALLEL_TTS_README.md - Detailed documentation and deployment guide
+
+  ⚙️ Configuration Options
+
+  # Feature flags
+  ENABLE_PARALLEL_TTS=true
+
+  # Concurrency control
+  CELERY_TTS_CHUNK_CONCURRENCY=4
+  CELERY_TTS_WORKER_CONCURRENCY=2
+
+  # Rate limiting
+  OPENAI_TTS_RATE_LIMIT_PER_MINUTE=50
+  OPENAI_TTS_RATE_LIMIT_PER_SECOND=3
+
+  🏗️ Architecture Changes
+
+  Docker Compose Updates:
+  - Split worker into worker_main and worker_tts
+  - Dedicated queues: tts_chunks, audio_processing, article_processing, maintenance
+  - Environment-based worker scaling
+
+  Celery Configuration:
+  - Task routing by queue type
+  - Worker optimization settings
+  - Prefetch and task lifecycle management
+
+  🔄 Processing Flow
+
+  process_article → ChunkTone Analysis → Parallel Execution
+                                      ↓
+      generate_tts_for_chunk × N (parallel) → stitch_audio_and_finalize
+                                      ↓
+                              Final MP3 + Article Completion
+
+  🛡️ Error Handling & Resilience
+
+  - Chunk-level retries with exponential backoff
+  - Partial failure tolerance (continues with successful chunks)
+  - Rate limit handling with intelligent retry delays
+  - Automatic fallback to sequential processing when needed
+
+  📊 Performance Benefits
+
+  - Multi-chunk articles: Up to 4x faster (default concurrency=4)
+  - Single chunks: No performance degradation
+  - Configurable scaling: Adjust concurrency based on API limits and hardware
+  - Resource efficiency: Dedicated workers prevent blocking
+
+  🧪 Testing Coverage
+
+  - Rate limiter tests: Token acquisition, limits, Redis interactions
+  - Task tests: Success/failure scenarios, error handling
+  - Integration tests: End-to-end parallel processing
+  - Audio stitching tests: Multiple chunks, partial failures
+
+  🔧 Deployment Ready
+
+  The implementation is production-ready with:
+  - Backward compatibility - existing articles work unchanged
+  - Feature flags - can be disabled for rollback
+  - Environment configuration - all settings externalized
+  - Monitoring hooks - comprehensive logging and metrics
+
+  Next Steps
+
+  The parallel TTS system is ready for:
+  1. Testing in your development environment
+  2. Gradual rollout using feature flags
+  3. Performance tuning based on your API limits and usage patterns
+  4. Monitoring to optimize concurrency settings
+
+  The implementation follows the plan exactly as discussed, providing configurable parallel processing with robust rate
+   limiting and error handling while maintaining full backward compatibility.
+
+======
+
 Keep in mind, that as of now this is a single-instance app that runs in my basement
 for personal use. I'll probably extend it to some family and friends, and eventually
 a limited set of customers, but this is never gonna be a huge platform. It's my hobby,.
-
-For today's review please focus on giving color to the contents of issues.md
-
-First, which are problems, and how can we fix them?
-
-Second, what is a good plan for implementing the new features?
-
-Third -- unreleated, _is all legacy code removed_?
-I want to make sure that the codebase is clean and modern.
 
 The latest docs for the TTS API are here: openai-tts-docs.md
 "

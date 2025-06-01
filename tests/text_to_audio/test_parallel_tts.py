@@ -2,20 +2,20 @@
 Tests for parallel TTS processing functionality.
 """
 
-import os
 import tempfile
 import uuid
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from pydub import AudioSegment
 
 from text_to_audio.models import Article, Feed
-from text_to_audio.parallel_tasks import generate_tts_for_chunk, stitch_audio_and_finalize
+from text_to_audio.parallel_tasks import (
+    generate_tts_for_chunk,
+    stitch_audio_and_finalize,
+)
 from text_to_audio.rate_limiter import TTSRateLimiter
 
 
@@ -27,7 +27,7 @@ class TestTTSRateLimiter(TestCase):
         # Use a mock Redis client for testing
         self.redis_mock = MagicMock()
 
-    @patch('text_to_audio.rate_limiter.redis.Redis')
+    @patch("text_to_audio.rate_limiter.redis.Redis")
     def test_rate_limiter_initialization(self, mock_redis):
         """Test TTSRateLimiter initialization."""
         mock_redis.return_value = self.redis_mock
@@ -38,7 +38,7 @@ class TestTTSRateLimiter(TestCase):
         self.assertEqual(rate_limiter.per_second_limit, 3)
         self.assertEqual(rate_limiter.per_minute_limit, 50)
 
-    @patch('text_to_audio.rate_limiter.redis.Redis')
+    @patch("text_to_audio.rate_limiter.redis.Redis")
     def test_acquire_token_success(self, mock_redis):
         """Test successful token acquisition."""
         mock_redis.return_value = self.redis_mock
@@ -46,7 +46,7 @@ class TestTTSRateLimiter(TestCase):
         # Mock Redis responses for under-limit scenario
         self.redis_mock.pipeline.return_value.execute.side_effect = [
             [None, None],  # Current counts (get)
-            [1, 1]         # After increment
+            [1, 1],  # After increment
         ]
 
         rate_limiter = TTSRateLimiter()
@@ -54,7 +54,7 @@ class TestTTSRateLimiter(TestCase):
 
         self.assertTrue(result)
 
-    @patch('text_to_audio.rate_limiter.redis.Redis')
+    @patch("text_to_audio.rate_limiter.redis.Redis")
     def test_acquire_token_rate_limited(self, mock_redis):
         """Test token acquisition when rate limited."""
         mock_redis.return_value = self.redis_mock
@@ -62,7 +62,7 @@ class TestTTSRateLimiter(TestCase):
         # Mock Redis responses for over-limit scenario
         self.redis_mock.pipeline.return_value.execute.return_value = [
             "5",  # Over per-second limit
-            "30"  # Under per-minute limit
+            "30",  # Under per-minute limit
         ]
 
         rate_limiter = TTSRateLimiter()
@@ -70,7 +70,7 @@ class TestTTSRateLimiter(TestCase):
 
         self.assertFalse(result)
 
-    @patch('text_to_audio.rate_limiter.redis.Redis')
+    @patch("text_to_audio.rate_limiter.redis.Redis")
     def test_get_current_usage(self, mock_redis):
         """Test getting current usage statistics."""
         mock_redis.return_value = self.redis_mock
@@ -92,16 +92,14 @@ class TestGenerateTTSForChunk(TestCase):
         """Set up test fixtures."""
         self.user = User.objects.create_user(username="testuser", password="password")
         self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed",
-            url="https://example.com/feed.xml"
+            user=self.user, name="Test Feed", url="https://example.com/feed.xml"
         )
         self.article = Article.objects.create(
             feed=self.feed,
             title="Test Article",
             text_content="This is test content for TTS processing.",
             status=Article.PROCESSING,
-            audio_uuid=uuid.uuid4()
+            audio_uuid=uuid.uuid4(),
         )
 
         # Create temporary media directory
@@ -113,10 +111,11 @@ class TestGenerateTTSForChunk(TestCase):
         """Clean up test fixtures."""
         # Clean up temp files
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @patch('text_to_audio.parallel_tasks.get_rate_limiter')
-    @patch('text_to_audio.parallel_tasks.openai.OpenAI')
+    @patch("text_to_audio.parallel_tasks.get_rate_limiter")
+    @patch("text_to_audio.parallel_tasks.openai.OpenAI")
     @override_settings(MEDIA_ROOT=None)  # Will be set in test
     def test_generate_tts_chunk_success(self, mock_openai, mock_get_rate_limiter):
         """Test successful TTS chunk generation."""
@@ -138,12 +137,12 @@ class TestGenerateTTSForChunk(TestCase):
             chunk_data = {
                 "text": "Hello, this is a test chunk.",
                 "voice": "alloy",
-                "instructions": "Speak clearly and slowly."
+                "instructions": "Speak clearly and slowly.",
             }
             voice_config = {
                 "speed": 1.0,
                 "instructions": "Default instructions",
-                "voice": "alloy"
+                "voice": "alloy",
             }
 
             # Create a mock task context
@@ -151,13 +150,16 @@ class TestGenerateTTSForChunk(TestCase):
             mock_task.request.retries = 0
             mock_task.max_retries = 2
 
-            with patch('text_to_audio.parallel_tasks.generate_tts_for_chunk.request', mock_task.request):
+            with patch(
+                "text_to_audio.parallel_tasks.generate_tts_for_chunk.request",
+                mock_task.request,
+            ):
                 result = generate_tts_for_chunk(
                     mock_task,
                     article_id=self.article.id,
                     chunk_data=chunk_data,
                     chunk_idx=0,
-                    voice_config=voice_config
+                    voice_config=voice_config,
                 )
 
             # Verify result
@@ -172,7 +174,7 @@ class TestGenerateTTSForChunk(TestCase):
             # Verify rate limiter was used
             mock_rate_limiter.acquire_tts_token.assert_called_once()
 
-    @patch('text_to_audio.parallel_tasks.get_rate_limiter')
+    @patch("text_to_audio.parallel_tasks.get_rate_limiter")
     def test_generate_tts_chunk_rate_limited(self, mock_get_rate_limiter):
         """Test TTS chunk generation when rate limited."""
         with self.settings(MEDIA_ROOT=self.temp_dir):
@@ -189,13 +191,16 @@ class TestGenerateTTSForChunk(TestCase):
             mock_task.request.retries = 3  # Max retries reached
             mock_task.max_retries = 2
 
-            with patch('text_to_audio.parallel_tasks.generate_tts_for_chunk.request', mock_task.request):
+            with patch(
+                "text_to_audio.parallel_tasks.generate_tts_for_chunk.request",
+                mock_task.request,
+            ):
                 result = generate_tts_for_chunk(
                     mock_task,
                     article_id=self.article.id,
                     chunk_data=chunk_data,
                     chunk_idx=0,
-                    voice_config=voice_config
+                    voice_config=voice_config,
                 )
 
             # Verify rate limit error
@@ -217,7 +222,7 @@ class TestGenerateTTSForChunk(TestCase):
                 article_id=99999,  # Non-existent article
                 chunk_data=chunk_data,
                 chunk_idx=0,
-                voice_config=voice_config
+                voice_config=voice_config,
             )
 
             # Verify error
@@ -234,16 +239,14 @@ class TestStitchAudioAndFinalize(TestCase):
         """Set up test fixtures."""
         self.user = User.objects.create_user(username="testuser", password="password")
         self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed",
-            url="https://example.com/feed.xml"
+            user=self.user, name="Test Feed", url="https://example.com/feed.xml"
         )
         self.article = Article.objects.create(
             feed=self.feed,
             title="Test Article",
             text_content="This is test content.",
             status=Article.PROCESSING,
-            audio_uuid=uuid.uuid4()
+            audio_uuid=uuid.uuid4(),
         )
 
         # Create temporary media directory
@@ -254,6 +257,7 @@ class TestStitchAudioAndFinalize(TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def _create_mock_audio_file(self, file_path: Path) -> None:
@@ -271,9 +275,7 @@ class TestStitchAudioAndFinalize(TestCase):
             self._create_mock_audio_file(temp_file)
 
             # Test data: single successful chunk
-            chunk_results = [
-                (0, str(temp_file), None)  # (chunk_idx, file_path, error)
-            ]
+            chunk_results = [(0, str(temp_file), None)]  # (chunk_idx, file_path, error)
 
             mock_task = MagicMock()
 
@@ -281,7 +283,7 @@ class TestStitchAudioAndFinalize(TestCase):
                 mock_task,
                 chunk_results=chunk_results,
                 article_id=self.article.id,
-                final_audio_uuid=str(self.article.audio_uuid)
+                final_audio_uuid=str(self.article.audio_uuid),
             )
 
             # Verify success
@@ -319,7 +321,7 @@ class TestStitchAudioAndFinalize(TestCase):
                 mock_task,
                 chunk_results=chunk_results,
                 article_id=self.article.id,
-                final_audio_uuid=str(self.article.audio_uuid)
+                final_audio_uuid=str(self.article.audio_uuid),
             )
 
             # Verify success
@@ -344,7 +346,7 @@ class TestStitchAudioAndFinalize(TestCase):
                 mock_task,
                 chunk_results=chunk_results,
                 article_id=self.article.id,
-                final_audio_uuid=str(self.article.audio_uuid)
+                final_audio_uuid=str(self.article.audio_uuid),
             )
 
             # Verify failure
@@ -364,7 +366,7 @@ class TestStitchAudioAndFinalize(TestCase):
             # Test data: mixed success/failure (more success than failure)
             chunk_results = [
                 (0, str(temp_file), None),  # Success
-                (1, None, "TTS failed"),    # Failure
+                (1, None, "TTS failed"),  # Failure
             ]
 
             mock_task = MagicMock()
@@ -373,7 +375,7 @@ class TestStitchAudioAndFinalize(TestCase):
                 mock_task,
                 chunk_results=chunk_results,
                 article_id=self.article.id,
-                final_audio_uuid=str(self.article.audio_uuid)
+                final_audio_uuid=str(self.article.audio_uuid),
             )
 
             # Should succeed despite partial failure
@@ -393,7 +395,7 @@ class TestStitchAudioAndFinalize(TestCase):
             # Test data: majority failure
             chunk_results = [
                 (0, str(temp_file), None),  # Success
-                (1, None, "TTS failed"),    # Failure
+                (1, None, "TTS failed"),  # Failure
                 (2, None, "Rate limited"),  # Failure
             ]
 
@@ -403,7 +405,7 @@ class TestStitchAudioAndFinalize(TestCase):
                 mock_task,
                 chunk_results=chunk_results,
                 article_id=self.article.id,
-                final_audio_uuid=str(self.article.audio_uuid)
+                final_audio_uuid=str(self.article.audio_uuid),
             )
 
             # Should fail due to majority failure
@@ -417,7 +419,7 @@ class TestStitchAudioAndFinalize(TestCase):
 @override_settings(
     ENABLE_PARALLEL_TTS=True,
     CELERY_TTS_CHUNK_CONCURRENCY=2,
-    CELERY_TASK_ALWAYS_EAGER=True  # Run tasks synchronously for testing
+    CELERY_TASK_ALWAYS_EAGER=True,  # Run tasks synchronously for testing
 )
 class TestParallelTTSIntegration(TestCase):
     """Integration tests for parallel TTS processing."""
@@ -426,9 +428,7 @@ class TestParallelTTSIntegration(TestCase):
         """Set up test fixtures."""
         self.user = User.objects.create_user(username="testuser", password="password")
         self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed",
-            url="https://example.com/feed.xml"
+            user=self.user, name="Test Feed", url="https://example.com/feed.xml"
         )
 
         # Create temporary media directory
@@ -437,9 +437,10 @@ class TestParallelTTSIntegration(TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @patch('text_to_audio.tasks.settings')
+    @patch("text_to_audio.tasks.settings")
     def test_parallel_processing_enabled(self, mock_settings):
         """Test that parallel processing is used when enabled."""
         # Configure mock settings
@@ -453,7 +454,7 @@ class TestParallelTTSIntegration(TestCase):
         # and Celery group/chord functionality. For now, we verify the setting is checked.
         self.assertTrue(mock_settings.ENABLE_PARALLEL_TTS)
 
-    @patch('text_to_audio.tasks.settings')
+    @patch("text_to_audio.tasks.settings")
     def test_sequential_fallback_when_disabled(self, mock_settings):
         """Test that sequential processing is used when parallel is disabled."""
         mock_settings.ENABLE_PARALLEL_TTS = False
@@ -469,16 +470,14 @@ class TestProcessingNotesFeature(TestCase):
         """Set up test fixtures."""
         self.user = User.objects.create_user(username="testuser", password="password")
         self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed",
-            url="https://example.com/feed.xml"
+            user=self.user, name="Test Feed", url="https://example.com/feed.xml"
         )
         self.article = Article.objects.create(
             feed=self.feed,
             title="Test Article",
             text_content="This is test content.",
             status=Article.PROCESSING,
-            audio_uuid=uuid.uuid4()
+            audio_uuid=uuid.uuid4(),
         )
 
         # Create temporary media directory
@@ -489,6 +488,7 @@ class TestProcessingNotesFeature(TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def _create_mock_audio_file(self, file_path: Path) -> None:
@@ -520,7 +520,7 @@ class TestProcessingNotesFeature(TestCase):
                 mock_task,
                 chunk_results=chunk_results,
                 article_id=self.article.id,
-                final_audio_uuid=str(self.article.audio_uuid)
+                final_audio_uuid=str(self.article.audio_uuid),
             )
 
             # Verify success (majority succeeded)
@@ -559,7 +559,7 @@ class TestProcessingNotesFeature(TestCase):
                 mock_task,
                 chunk_results=chunk_results,
                 article_id=self.article.id,
-                final_audio_uuid=str(self.article.audio_uuid)
+                final_audio_uuid=str(self.article.audio_uuid),
             )
 
             # Verify success

@@ -16,7 +16,7 @@ from pathlib import Path
 
 import openai
 from celery import shared_task  # type: ignore
-from celery import group, chord
+from celery import chord, group
 from django.conf import settings
 from django.utils import timezone
 from pydub import AudioSegment  # type: ignore
@@ -24,12 +24,12 @@ from pydub import AudioSegment  # type: ignore
 from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
+from .parallel_tasks import generate_tts_for_chunk, stitch_audio_and_finalize
 from .services.chunk_tone_service import ChunkToneService
 from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
 from .services.voice_configuration import VoiceConfigurationService
 from .services.voice_parameter_generation import VoiceParameterGenerationService
 from .utils import process_url_to_text
-from .parallel_tasks import generate_tts_for_chunk, stitch_audio_and_finalize
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -587,25 +587,37 @@ def process_article(self, article_id: int) -> str:
                 resolved_speed = _clamp_tts_speed(resolved_speed)
 
                 # Check if parallel processing is enabled
-                if getattr(settings, 'ENABLE_PARALLEL_TTS', True) and len(chunk_tone_payload.chunks) > 1:
+                if (
+                    getattr(settings, "ENABLE_PARALLEL_TTS", True)
+                    and len(chunk_tone_payload.chunks) > 1
+                ):
                     # Use parallel processing for multiple chunks
-                    logger.info(f"Starting parallel TTS processing for {len(chunk_tone_payload.chunks)} chunks")
+                    logger.info(
+                        f"Starting parallel TTS processing for {len(chunk_tone_payload.chunks)} chunks"
+                    )
 
                     # Prepare voice configuration for all chunks
                     voice_config = {
                         "speed": resolved_speed,
                         "instructions": enhanced_voice_prompt,
-                        "voice": article.voice or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
+                        "voice": article.voice
+                        or getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
                     }
 
                     # Create chunk tasks (limit concurrency to prevent overwhelming the API)
-                    max_concurrent = getattr(settings, 'CELERY_TTS_CHUNK_CONCURRENCY', 4)
+                    max_concurrent = getattr(
+                        settings, "CELERY_TTS_CHUNK_CONCURRENCY", 4
+                    )
                     chunk_tasks = []
 
                     for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
                         chunk_data_dict = {
                             "text": chunk_data.text,
-                            "voice": chunk_data.voice.voice if hasattr(chunk_data.voice, 'voice') else str(chunk_data.voice),
+                            "voice": (
+                                chunk_data.voice.voice
+                                if hasattr(chunk_data.voice, "voice")
+                                else str(chunk_data.voice)
+                            ),
                             "instructions": chunk_data.instructions,
                         }
 
@@ -613,55 +625,83 @@ def process_article(self, article_id: int) -> str:
                             article_id=article.id,
                             chunk_data=chunk_data_dict,
                             chunk_idx=chunk_idx,
-                            voice_config=voice_config
+                            voice_config=voice_config,
                         )
                         chunk_tasks.append(task)
 
                     # Execute tasks with concurrency control
                     if len(chunk_tasks) <= max_concurrent:
                         # Execute all chunks in parallel
-                        callback = stitch_audio_and_finalize.s(article.id, str(article.audio_uuid))
+                        callback = stitch_audio_and_finalize.s(
+                            article.id, str(article.audio_uuid)
+                        )
                         chord_result = chord(group(chunk_tasks))(callback)
 
                         # Wait for completion (this makes the task synchronous from the perspective of process_article)
                         try:
-                            finalization_result = chord_result.get(timeout=getattr(settings, 'PARALLEL_TTS_CHORD_TIMEOUT', 3600))
-                            chunk_tone_generation_successful = "successful" in finalization_result.lower()
-                            logger.info(f"Parallel TTS completed: {finalization_result}")
+                            finalization_result = chord_result.get(
+                                timeout=getattr(
+                                    settings, "PARALLEL_TTS_CHORD_TIMEOUT", 3600
+                                )
+                            )
+                            chunk_tone_generation_successful = (
+                                "successful" in finalization_result.lower()
+                            )
+                            logger.info(
+                                f"Parallel TTS completed: {finalization_result}"
+                            )
                         except Exception as parallel_exc:
                             logger.error(f"Parallel TTS failed: {parallel_exc}")
                             chunk_tone_generation_successful = False
                     else:
                         # Process in batches to respect concurrency limits
-                        logger.info(f"Processing {len(chunk_tasks)} chunks in batches of {max_concurrent}")
+                        logger.info(
+                            f"Processing {len(chunk_tasks)} chunks in batches of {max_concurrent}"
+                        )
                         batch_results = []
 
                         for i in range(0, len(chunk_tasks), max_concurrent):
-                            batch = chunk_tasks[i:i+max_concurrent]
+                            batch = chunk_tasks[i : i + max_concurrent]
                             batch_group = group(batch)
                             batch_result = batch_group.apply_async()
 
                             try:
-                                batch_results.extend(batch_result.get(timeout=1800))  # 30 min per batch
+                                batch_results.extend(
+                                    batch_result.get(timeout=1800)
+                                )  # 30 min per batch
                             except Exception as batch_exc:
-                                logger.error(f"Batch {i//max_concurrent + 1} failed: {batch_exc}")
+                                logger.error(
+                                    f"Batch {i//max_concurrent + 1} failed: {batch_exc}"
+                                )
                                 chunk_tone_generation_successful = False
                                 break
 
                         if batch_results:
                             # Finalize with all batch results
-                            finalize_task = stitch_audio_and_finalize.s(batch_results, article.id, str(article.audio_uuid))
+                            finalize_task = stitch_audio_and_finalize.s(
+                                batch_results, article.id, str(article.audio_uuid)
+                            )
                             try:
-                                finalization_result = finalize_task.apply_async().get(timeout=getattr(settings, 'PARALLEL_TTS_FINALIZE_TIMEOUT', 300))
-                                chunk_tone_generation_successful = "successful" in finalization_result.lower()
-                                logger.info(f"Batched parallel TTS completed: {finalization_result}")
+                                finalization_result = finalize_task.apply_async().get(
+                                    timeout=getattr(
+                                        settings, "PARALLEL_TTS_FINALIZE_TIMEOUT", 300
+                                    )
+                                )
+                                chunk_tone_generation_successful = (
+                                    "successful" in finalization_result.lower()
+                                )
+                                logger.info(
+                                    f"Batched parallel TTS completed: {finalization_result}"
+                                )
                             except Exception as finalize_exc:
                                 logger.error(f"Finalization failed: {finalize_exc}")
                                 chunk_tone_generation_successful = False
 
                 else:
                     # Fall back to sequential processing for single chunks or when parallel is disabled
-                    logger.info(f"Using sequential TTS processing for {len(chunk_tone_payload.chunks)} chunks")
+                    logger.info(
+                        f"Using sequential TTS processing for {len(chunk_tone_payload.chunks)} chunks"
+                    )
 
                     # Process each chunk with TTS sequentially (original code)
                     for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
