@@ -130,7 +130,7 @@ The JSON must be valid and parseable. Do not include any other text or explanati
         Raises:
             ValidationError: If response cannot be parsed or validated
         """
-        model = getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4o-mini")
+        model = getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4.1")
 
         # Prepare request data for logging
         request_data = {
