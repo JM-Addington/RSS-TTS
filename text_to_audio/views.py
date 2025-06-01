@@ -54,6 +54,12 @@ class HomeView(TemplateView):
 
     template_name = "index.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        """Redirect logged-in users to feeds page."""
+        if request.user.is_authenticated:
+            return redirect("feed-list")
+        return super().dispatch(request, *args, **kwargs)
+
 
 class ArticleCreateView(LoginRequiredMixin, CreateView):
     """View for submitting new articles (redirects to feed-based system)."""

@@ -2,8 +2,7 @@
 Pydantic schemas for ChunkToneService LLM responses.
 """
 
-import re
-from typing import List, Optional
+from typing import ClassVar, Dict, List, Optional, Set
 
 from pydantic import BaseModel, field_validator
 
@@ -14,12 +13,20 @@ class TTSVoice(BaseModel):
     voice: str
 
     # Valid OpenAI TTS voice names
-    VALID_VOICES = {
-        "alloy", "echo", "fable", "onyx", "nova", "shimmer", "ash", "sage", "coral"
+    VALID_VOICES: ClassVar[Set[str]] = {
+        "alloy",
+        "echo",
+        "fable",
+        "onyx",
+        "nova",
+        "shimmer",
+        "ash",
+        "sage",
+        "coral",
     }
 
     # Mapping for common logical names to OpenAI voices
-    VOICE_MAPPING = {
+    VOICE_MAPPING: ClassVar[Dict[str, str]] = {
         "narrator": "nova",
         "male_narrator": "onyx",
         "female_narrator": "nova",
@@ -34,7 +41,7 @@ class TTSVoice(BaseModel):
         "elderly": "sage",
         "young": "coral",
         "serious": "onyx",
-        "friendly": "nova"
+        "friendly": "nova",
     }
 
     @field_validator("voice")

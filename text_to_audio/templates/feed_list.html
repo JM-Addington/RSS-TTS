@@ -36,7 +36,10 @@
                                         </div>
                                     </div>
 
-                                    <div class="d-flex gap-2">
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <a href="{% url 'feed-article-create' feed.id %}" class="btn btn-sm btn-success">
+                                            <i class="bi bi-plus-circle"></i> Add Article
+                                        </a>
                                         <a href="{% url 'feed-articles' feed.id %}" class="btn btn-sm btn-primary">
                                             <i class="bi bi-eye"></i> View Articles
                                         </a>
