@@ -245,11 +245,12 @@ def _generate_title(client, text: str) -> str:
             {
                 "role": "user",
                 "content": (
-                    "Provide a concise title for this article:\n\n" + text[:5000]
+                    "Provide a descriptive title (approximately 10-20 words, under 150 characters) for this article:\n\n"
+                    + text[:5000]
                 ),
             }
         ],
-        "max_tokens": 10,
+        "max_tokens": 50,
         "temperature": 0.5,
     }
 
@@ -299,6 +300,20 @@ def _generate_title(client, text: str) -> str:
         )
 
         title = response.choices[0].message.content.strip()
+
+        # Validate title length and truncate at word boundary if needed
+        if len(title) > 150:
+            # Find last space before character 150
+            truncated = title[:150]
+            last_space = truncated.rfind(" ")
+            if last_space > 100:  # Ensure we don't truncate too aggressively
+                title = truncated[:last_space] + "..."
+            else:
+                title = truncated + "..."
+            logger.warning(
+                f"Generated title was too long ({len(response.choices[0].message.content.strip())} chars), truncated to: {title}"
+            )
+
         return str(title)
     except Exception as e:  # pragma: no cover - safeguard
         end_time = time.monotonic()
