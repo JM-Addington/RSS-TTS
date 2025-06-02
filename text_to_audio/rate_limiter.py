@@ -89,6 +89,12 @@ class TTSRateLimiter:
         Check if we can make a TTS call within rate limits and acquire token if possible.
 
         Uses sliding window counters for both per-second and per-minute limits.
+
+        TODO: This implementation has a potential race condition between the GET and INCR
+        operations. For true atomicity, this should be converted to a Lua script that
+        performs the check-and-increment as a single atomic operation. The current
+        implementation is acceptable for hobby-scale usage but should be upgraded
+        if scaling requirements increase.
         """
         current_time = time.time()
 

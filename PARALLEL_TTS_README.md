@@ -22,7 +22,7 @@ The parallel TTS system replaces sequential chunk processing with a distributed 
      - Maximum recommended text: 8,000 words (configurable via `MAX_ANALYSIS_WORDS`)
      - Articles exceeding this limit use automatic fallback chunking
      - Token limit validation prevents OpenAI context window overflow
-     - Model used: `OPENAI_CHUNK_TONE_MODEL` (default: `gpt-4.1`) - separate from legacy `OPENAI_ANALYSIS_MODEL`
+     - Model used: `OPENAI_CHUNK_TONE_MODEL` (default: `gpt-4.1`) - separate from `OPENAI_CONTENT_ANALYSIS_MODEL`
    - Fallback: `_legacy_chunk_text` provides simple text splitting when ChunkTone is disabled or fails
 
 2. **TTSRateLimiter** (`text_to_audio/rate_limiter.py`)
@@ -92,6 +92,7 @@ graph TD
 - `ChunkToneService` produces structured chunks: `{text, voice, instructions, character_name}`
 - `generate_tts_for_chunk` prioritizes per-chunk voice/instructions over global settings
 - `_legacy_chunk_text` provides simple text splitting as fallback only
+- **Legacy ContentAnalysisService**: Optional path (via `ENABLE_LEGACY_MULTIVOICE=true`) for explicit multi-voice data population - disabled by default as ChunkToneService is preferred
 - **Batch mode**: Articles with more chunks than `CELERY_TTS_CHUNK_CONCURRENCY` are processed in sequential batches to prevent overwhelming the task queue
 
 ## Configuration
@@ -162,10 +163,13 @@ The following settings are automatically configured from environment variables:
 
 - `ENABLE_CHUNK_TONE_LLM`: Feature flag for intelligent chunking (ChunkToneService)
 - `ENABLE_PARALLEL_TTS`: Feature flag for parallel processing
+- `ENABLE_LEGACY_MULTIVOICE`: Feature flag for legacy ContentAnalysisService multi-voice path (default: false)
 - `CELERY_TTS_CHUNK_CONCURRENCY`: Max chunks submitted per batch (for very large articles)
 - `OPENAI_TTS_RATE_LIMIT_PER_MINUTE`: API rate limit per minute
 - `OPENAI_TTS_RATE_LIMIT_PER_SECOND`: API rate limit per second
 - `CELERY_TTS_WORKER_CONCURRENCY`: TTS worker pool size
+- `PARALLEL_TTS_CHORD_TIMEOUT`: Timeout for parallel TTS completion (default: 3600 seconds / 1 hour)
+- `PARALLEL_TTS_FINALIZE_TIMEOUT`: Timeout for audio finalization (default: 300 seconds / 5 minutes)
 
 ## Deployment
 
@@ -252,8 +256,8 @@ if rate_limiter.acquire_tts_token(timeout=60.0):
 
 ### Speed Improvements
 
-- **4x faster** for articles with 4+ chunks (with default concurrency=4)
-- Scales with `CELERY_TTS_CHUNK_CONCURRENCY` setting
+- **Up to 4x faster** for articles with 4+ chunks **when** `CELERY_TTS_WORKER_CONCURRENCY` ≥ `CELERY_TTS_CHUNK_CONCURRENCY` (defaults: 2 workers vs 4 chunk concurrency)
+- Actual speedup depends on TTS worker pool size (`CELERY_TTS_WORKER_CONCURRENCY`)
 - Maintains sequential performance for short articles
 
 ### Resource Usage

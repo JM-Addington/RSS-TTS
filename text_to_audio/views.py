@@ -96,7 +96,15 @@ class ArticleMediaView(View):
             logger.error(
                 f"Error resolving canonical path for article {article.id}: {e}"
             )
-            return None
+
+        # Fallback: check legacy audio_file_path if canonical path not found
+        if article.audio_file_path:
+            legacy_path = os.path.join(settings.MEDIA_ROOT, article.audio_file_path)
+            if os.path.exists(legacy_path):
+                logger.warning(
+                    f"Using legacy audio_file_path for article {article.id}: {legacy_path}"
+                )
+                return legacy_path
 
         return None
 

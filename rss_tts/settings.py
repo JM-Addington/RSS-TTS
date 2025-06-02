@@ -26,8 +26,8 @@ OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
 OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "alloy")
 # Model used for ChunkToneService (intelligent text chunking and voice analysis)
 OPENAI_CHUNK_TONE_MODEL = os.environ.get("OPENAI_CHUNK_TONE_MODEL", "gpt-4.1")
-# Model used for legacy ContentAnalysisService (multi-voice content analysis)
-OPENAI_ANALYSIS_MODEL = os.environ.get("OPENAI_ANALYSIS_MODEL", "gpt-4.1")
+# Model used for ContentAnalysisService (multi-voice content analysis and AUTO voice mode)
+OPENAI_CONTENT_ANALYSIS_MODEL = os.environ.get("OPENAI_CONTENT_ANALYSIS_MODEL", "gpt-4.1")
 # Model used for genre classification
 OPENAI_CLASSIFICATION_MODEL = os.environ.get(
     "OPENAI_CLASSIFICATION_MODEL", "gpt-4o-mini"
@@ -38,6 +38,11 @@ ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "true").lower() == "t
 
 # Parallel TTS Processing Feature Flag
 ENABLE_PARALLEL_TTS = os.getenv("ENABLE_PARALLEL_TTS", "true").lower() == "true"
+
+# Legacy Multi-Voice Generation Feature Flag
+# Controls whether to use ContentAnalysisService for explicit multi-voice data population
+# ChunkToneService is the preferred method, so this defaults to False
+ENABLE_LEGACY_MULTIVOICE = os.getenv("ENABLE_LEGACY_MULTIVOICE", "false").lower() == "true"
 
 ALLOWED_HOSTS: list[str] = []
 ALLOWED_HOSTS += (

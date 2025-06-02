@@ -146,4 +146,4 @@ class GenreClassificationService:
         """Get the model to use for genre classification."""
         from django.conf import settings
 
-        return getattr(settings, "OPENAI_CLASSIFICATION_MODEL", "o4-mini")
+        return getattr(settings, "OPENAI_CLASSIFICATION_MODEL", "gpt-4o-mini")

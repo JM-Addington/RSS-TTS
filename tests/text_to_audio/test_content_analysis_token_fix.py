@@ -11,7 +11,7 @@ from text_to_audio.services.content_analysis import ContentAnalysisService
 @override_settings(
     OPENAI_API_KEY="test_api_key",
     MAX_ANALYSIS_WORDS=8000,
-    OPENAI_ANALYSIS_MODEL="gpt-4o-mini",
+    OPENAI_CONTENT_ANALYSIS_MODEL="gpt-4o-mini",
 )
 class ContentAnalysisTokenFixTest(TestCase):
     """Test dynamic token sizing in ContentAnalysisService."""

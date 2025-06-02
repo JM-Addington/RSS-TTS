@@ -436,4 +436,4 @@ class ContentAnalysisService:
         """Get the model to use for content analysis."""
         from django.conf import settings
 
-        return getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4.1")
+        return getattr(settings, "OPENAI_CONTENT_ANALYSIS_MODEL", "gpt-4.1")

@@ -18,6 +18,7 @@ import openai
 from celery import shared_task  # type: ignore
 from celery import chord, group
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 from pydub import AudioSegment  # type: ignore
 
@@ -341,8 +342,10 @@ def process_article(self, article_id: int) -> str:
 
     Handles text chunking, TTS conversion via OpenAI, and audio stitching.
     """
+    # Lock the article row for the duration of the task to prevent race conditions
     try:
-        article = Article.objects.get(id=article_id)
+        with transaction.atomic():
+            article = Article.objects.select_for_update().get(id=article_id)
     except Article.DoesNotExist:
         logger.error(f"Article with ID {article_id} not found.")
         return f"Article {article_id} not found."
@@ -458,7 +461,8 @@ def process_article(self, article_id: int) -> str:
 
         # Perform content analysis for multi-voice generation if not already done during voice configuration
         # This is mainly for non-AUTO feeds that still want multi-voice capability
-        if article.text_content and not article.multi_voice_data:
+        # LEGACY PATH: Only enabled when ENABLE_LEGACY_MULTIVOICE is True
+        if settings.ENABLE_LEGACY_MULTIVOICE and article.text_content and not article.multi_voice_data:
             try:
                 logger.info(
                     f"Performing content analysis for Article ID: {article_id} to get multi-voice data."
@@ -684,6 +688,10 @@ def process_article(self, article_id: int) -> str:
                                 queue="audio_processing",
                             )
 
+                            # Store the batched task ID for potential cancellation/monitoring by stale-article checker
+                            article.celery_task_id = batched_task.id
+                            article.save(update_fields=["celery_task_id"])
+
                             logger.info(
                                 f"Batched processing dispatched for article {article.id} (task_id: {batched_task.id}). "
                                 f"Process_article will return early - batched task handles completion."
@@ -889,12 +897,8 @@ def process_article(self, article_id: int) -> str:
                         )
 
                     tts_speed = float(voice_definition.get("tts_speed", 1.0))
-                    # Basic validation for speed to prevent API errors
-                    if not (0.25 <= tts_speed <= 4.0):
-                        logger.warning(
-                            f"Invalid TTS speed {tts_speed} for voice {voice_name}. Clamping to range [0.25, 4.0]."
-                        )
-                        tts_speed = max(0.25, min(tts_speed, 4.0))
+                    # Clamp speed to valid range to prevent API errors
+                    tts_speed = _clamp_tts_speed(tts_speed)
 
                     # Chunk the segment's text if necessary
                     _, segment_text_chunks = _legacy_chunk_text(segment_text)

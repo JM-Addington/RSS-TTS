@@ -112,18 +112,22 @@ class CheckStaleArticlesTests(TestCase):
         # Verify the return message
         self.assertIn("Checked for stale articles", result)
 
-    @override_settings()  # Remove ARTICLE_PROCESSING_TIMEOUT_SECONDS setting
     @patch("text_to_audio.tasks.celery_app.control.revoke")
     def test_check_stale_articles_with_missing_setting(self, mock_revoke):
         """Test that a default timeout is used if the setting is not defined."""
-        # Remove the setting from settings if it exists
-        from django.conf import settings
+        import os
+        import importlib
 
-        original_timeout = getattr(settings, "ARTICLE_PROCESSING_TIMEOUT_SECONDS", None)
-        if hasattr(settings, "ARTICLE_PROCESSING_TIMEOUT_SECONDS"):
-            delattr(settings._wrapped, "ARTICLE_PROCESSING_TIMEOUT_SECONDS")
+        # Temporarily remove the environment variable to test default behavior
+        original_env_value = os.environ.get("ARTICLE_PROCESSING_TIMEOUT_SECONDS")
+        if "ARTICLE_PROCESSING_TIMEOUT_SECONDS" in os.environ:
+            del os.environ["ARTICLE_PROCESSING_TIMEOUT_SECONDS"]
 
         try:
+            # Reload settings to reflect the environment change
+            import rss_tts.settings
+            importlib.reload(rss_tts.settings)
+
             # Call the task
             result = check_stale_articles()
 
@@ -138,6 +142,10 @@ class CheckStaleArticlesTests(TestCase):
             self.assertIn("Checked for stale articles", result)
 
         finally:
-            # Restore the original setting if it existed
-            if original_timeout is not None:
-                settings._wrapped.ARTICLE_PROCESSING_TIMEOUT_SECONDS = original_timeout
+            # Restore the original environment variable if it existed
+            if original_env_value is not None:
+                os.environ["ARTICLE_PROCESSING_TIMEOUT_SECONDS"] = original_env_value
+
+            # Reload settings again to restore original state
+            import rss_tts.settings
+            importlib.reload(rss_tts.settings)

@@ -12,6 +12,7 @@ from django.conf import settings
 from pydantic import ValidationError
 
 from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoice
+from text_to_audio.tasks import _legacy_chunk_text
 
 logger = logging.getLogger(__name__)
 
@@ -136,8 +137,8 @@ class ChunkToneService:
                 )
             ]
         else:
-            # Split long text into chunks using simple sentence-aware splitting
-            text_chunks = self._simple_text_split(text, max_chunk_chars)
+            # Split long text into chunks using sophisticated sentence-aware splitting
+            _, text_chunks = _legacy_chunk_text(text, max_chunk_chars)
             for chunk_text in text_chunks:
                 chunks.append(
                     ChunkData(
@@ -311,62 +312,3 @@ The JSON must be valid and parseable. Do not include any other text or explanati
         """
         # Conservative estimate: ~4 characters per token for English text
         return len(text) // 4
-
-    def _simple_text_split(self, text: str, max_chars: int) -> list[str]:
-        """
-        Simple text splitting with sentence boundary awareness.
-
-        Args:
-            text: Text to split
-            max_chars: Maximum characters per chunk
-
-        Returns:
-            List of text chunks
-        """
-        if len(text) <= max_chars:
-            return [text]
-
-        chunks = []
-        current_chunk = ""
-
-        # Split by sentences first
-        sentences = (
-            text.replace(". ", ".\\n")
-            .replace("! ", "!\\n")
-            .replace("? ", "?\\n")
-            .split("\\n")
-        )
-
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if not sentence:
-                continue
-
-            # If adding this sentence would exceed the limit
-            if len(current_chunk) + len(sentence) + 1 > max_chars:
-                if current_chunk:
-                    chunks.append(current_chunk.strip())
-                    current_chunk = ""
-
-                # If the sentence itself is too long, split it by words
-                if len(sentence) > max_chars:
-                    words = sentence.split()
-                    word_chunk = ""
-                    for word in words:
-                        if len(word_chunk) + len(word) + 1 > max_chars:
-                            if word_chunk:
-                                chunks.append(word_chunk.strip())
-                                word_chunk = ""
-                        word_chunk += (" " if word_chunk else "") + word
-
-                    if word_chunk:
-                        current_chunk = word_chunk
-                else:
-                    current_chunk = sentence
-            else:
-                current_chunk += (" " if current_chunk else "") + sentence
-
-        if current_chunk:
-            chunks.append(current_chunk.strip())
-
-        return chunks

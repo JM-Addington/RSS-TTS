@@ -1,7 +1,15 @@
 # Issues
 
-[ ] Titles cut short. The auto-generated titles in the UI (and the rest??) are getting cut short at some absurd length, like 32 or 64. We should max out at 1000 chars.
-[ ] Parallel processing of audio. We should support at least 4 parallel API calls to the TTS API to increase our speed. This will require some refactoring of code, I think, to monitor the queue until all texts are processed.
+[ ] Fix: we should move to the tts-hd model.
+
+[ ] Bug: presets should not use multi-voice, or at least, multiple voices should not be applied. We can still chunk for tone.
+
+[ ] Critical bug: editing voice presets brings up the voice preset page with no content in input elements, potentially leading to wiping out the preset.
+
+[ ] Bug: Presets fail. In prod, choosing a preset, like "test echo" initially shows on the UI. However, post-processing the voice is nova, every time.
+
+[ ] feat: estimated cost. We should have an internal table that tracks the cost per 1m tokens per model, and then display the total cost of the article in the UI, so that users can see how much it  cost them to process the article. We will only show actual costs, we will not worry about predictive costs for now.
+
 [ ] Text extraction. I want to change how we handle text extraction for URLs. Instead of picking what text to use, I want to remove obviously wrong text such as:
 
 script tags
@@ -17,13 +25,3 @@ From there, the text can enter the rest of the pipeline.
 We should just drf and drf-spectacular to generate the API docs.
 
 [ ] pupeeter or playwright fallback. If a basic request to a site is blocked, we should fallback asyncounsly to a headless browser like Puppeteer or Playwright to get the text. We will only change this one step in the pipeline, so that the rest of the pipeline can remain unchanged. This will allow us to handle sites that block requests from our servers, such as news sites that block requests from known bots or scrapers.
-
-[ ] Fix: we should move to the tts-hd model.
-
-[ ] Bug: presets should not use multi-voice, or at least, multiple voices should not be applied. We can still chunk for tone.
-
-[ ] Critical bug: editing voice presets brings up the voice preset page with no content in input elements, potentially leading to wiping out the preset.
-
-[ ] Bug: Presets fail. In prod, choosing a preset, like "test echo" initially shows on the UI. However, post-processing the voice is nova, every time.
-
-[ ] feat: estimated cost. We should have an internal table that tracks the cost per 1m tokens per model, and then display the total cost of the article in the UI, so that users can see how much it  cost them to process the article. We will only show actual costs, we will not worry about predictive costs for now.

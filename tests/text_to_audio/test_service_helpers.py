@@ -18,7 +18,7 @@ class ServiceHelperFunctionTests(TestCase):
         self.assertIn("sample text", prompt)
         self.assertIn("My Title", prompt)
 
-    @override_settings(OPENAI_ANALYSIS_MODEL="custom-model")
+    @override_settings(OPENAI_CONTENT_ANALYSIS_MODEL="custom-model")
     def test_get_analysis_model_uses_setting(self):
         """Analysis model pulled from settings."""
         service = ContentAnalysisService()
