@@ -60,3 +60,7 @@ RUN mkdir -p /home/$USERNAME/.npm-global \
     && npm config set prefix "/home/$USERNAME/.npm-global" \
     && echo "export PATH=/home/$USERNAME/.npm-global/bin:\$PATH" >> /home/$USERNAME/.bashrc \
     && echo "export PATH=/home/$USERNAME/.npm-global/bin:\$PATH" >> /home/$USERNAME/.profile
+
+# Install MCP servers
+RUN npm install -g @playwright/mcp@latest tavily-mcp \
+    && npx playwright install chromium --with-deps

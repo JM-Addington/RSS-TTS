@@ -573,7 +573,10 @@ def process_article(self, article_id: int) -> str:
 
                 # Resolve speed with proper precedence (consistent with fallback path)
                 resolved_speed = (
-                    (article.voice_parameters and article.voice_parameters.get("speed"))  # AI-generated speed
+                    (
+                        article.voice_parameters
+                        and article.voice_parameters.get("speed")
+                    )  # AI-generated speed
                     or article.speed  # User/legacy speed
                     or 1.0  # Default speed
                 )
@@ -672,8 +675,13 @@ def process_article(self, article_id: int) -> str:
 
                             # Dispatch to audio_processing queue and don't wait for result
                             batched_task = process_large_article_batched.apply_async(
-                                args=[chunk_tasks, article.id, str(article.audio_uuid), max_concurrent],
-                                queue='audio_processing'
+                                args=[
+                                    chunk_tasks,
+                                    article.id,
+                                    str(article.audio_uuid),
+                                    max_concurrent,
+                                ],
+                                queue="audio_processing",
                             )
 
                             logger.info(
@@ -685,7 +693,9 @@ def process_article(self, article_id: int) -> str:
                             return f"Article {article_id} dispatched for batched parallel processing (task: {batched_task.id})"
 
                         except Exception as dispatch_exc:
-                            logger.error(f"Failed to dispatch batched processing: {dispatch_exc}")
+                            logger.error(
+                                f"Failed to dispatch batched processing: {dispatch_exc}"
+                            )
                             chunk_tone_generation_successful = False
 
                 else:
@@ -1097,14 +1107,19 @@ def process_article(self, article_id: int) -> str:
             # Resolve voice with proper precedence
             fallback_voice = (
                 article.voice  # Explicit user choice
-                or (article.voice_parameters and article.voice_parameters.get("voice_id"))  # AI-generated choice
+                or (
+                    article.voice_parameters
+                    and article.voice_parameters.get("voice_id")
+                )  # AI-generated choice
                 or article.voice_id  # Legacy field
                 or getattr(settings, "OPENAI_TTS_VOICE", "alloy")  # Global default
             )
 
             # Resolve speed with proper precedence
             fallback_speed = (
-                (article.voice_parameters and article.voice_parameters.get("speed"))  # AI-generated speed
+                (
+                    article.voice_parameters and article.voice_parameters.get("speed")
+                )  # AI-generated speed
                 or article.speed  # User/legacy speed
                 or 1.0  # Default speed
             )

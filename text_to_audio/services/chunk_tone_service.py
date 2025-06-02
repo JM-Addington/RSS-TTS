@@ -330,7 +330,12 @@ The JSON must be valid and parseable. Do not include any other text or explanati
         current_chunk = ""
 
         # Split by sentences first
-        sentences = text.replace(". ", ".\\n").replace("! ", "!\\n").replace("? ", "?\\n").split("\\n")
+        sentences = (
+            text.replace(". ", ".\\n")
+            .replace("! ", "!\\n")
+            .replace("? ", "?\\n")
+            .split("\\n")
+        )
 
         for sentence in sentences:
             sentence = sentence.strip()

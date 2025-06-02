@@ -25,9 +25,13 @@ from .rate_limiter import get_rate_limiter
 logger = logging.getLogger(__name__)
 
 
-
-
-@shared_task(bind=True, max_retries=2, default_retry_delay=30, soft_time_limit=150, time_limit=180)
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=30,
+    soft_time_limit=150,
+    time_limit=180,
+)
 def generate_tts_for_chunk(  # noqa: C901
     self,
     article_id: int,
@@ -330,10 +334,13 @@ def stitch_audio_and_finalize(
 
             # Use race-safe update for failure case
             from django.db import transaction
+
             with transaction.atomic():
                 locked_article = Article.objects.select_for_update().get(id=article_id)
                 locked_article.status = Article.FAILED
-                locked_article.error_message = f"All TTS chunks failed. Errors: {failed_chunks}"
+                locked_article.error_message = (
+                    f"All TTS chunks failed. Errors: {failed_chunks}"
+                )
                 locked_article.save(update_fields=["status", "error_message"])
 
             return error_msg
@@ -344,6 +351,7 @@ def stitch_audio_and_finalize(
 
             # Use race-safe update for failure case
             from django.db import transaction
+
             with transaction.atomic():
                 locked_article = Article.objects.select_for_update().get(id=article_id)
                 locked_article.status = Article.FAILED
@@ -406,7 +414,9 @@ def stitch_audio_and_finalize(
                 try:
                     segment_audio = AudioSegment.from_mp3(temp_file_path)
                     combined_audio += segment_audio
-                    logger.debug(f"Added chunk {chunk_idx} to combined audio (chronological order)")
+                    logger.debug(
+                        f"Added chunk {chunk_idx} to combined audio (chronological order)"
+                    )
                 except Exception as segment_exc:
                     logger.error(
                         f"Failed to process chunk {chunk_idx} ({temp_file_path}): {segment_exc}"
@@ -492,6 +502,7 @@ def stitch_audio_and_finalize(
         # Update article with error using race-safe locking
         try:
             from django.db import transaction
+
             with transaction.atomic():
                 locked_article = Article.objects.select_for_update().get(id=article_id)
                 locked_article.status = Article.FAILED
@@ -517,7 +528,7 @@ def stitch_audio_and_finalize(
                     )
 
 
-@shared_task(bind=True, queue='audio_processing')
+@shared_task(bind=True, queue="audio_processing")
 def process_large_article_batched(
     self,
     chunk_task_signatures: list,
@@ -599,7 +610,7 @@ def process_large_article_batched(
 
             finalize_result = stitch_audio_and_finalize.apply_async(
                 args=[all_results, article_id, final_audio_uuid],
-                queue='audio_processing'
+                queue="audio_processing",
             ).get(timeout=getattr(settings, "PARALLEL_TTS_FINALIZE_TIMEOUT", 300))
 
             return finalize_result
@@ -612,6 +623,7 @@ def process_large_article_batched(
         # Mark article as failed using race-safe locking
         try:
             from django.db import transaction
+
             from .models import Article
 
             with transaction.atomic():
@@ -620,6 +632,8 @@ def process_large_article_batched(
                 locked_article.error_message = f"Batched processing failed: {e}"
                 locked_article.save(update_fields=["status", "error_message"])
         except Exception as save_exc:
-            logger.error(f"Failed to update article {article_id} with error: {save_exc}")
+            logger.error(
+                f"Failed to update article {article_id} with error: {save_exc}"
+            )
 
         return f"Failed to process article {article_id}: {e}"

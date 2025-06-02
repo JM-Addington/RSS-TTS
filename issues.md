@@ -25,3 +25,5 @@ We should just drf and drf-spectacular to generate the API docs.
 [ ] Critical bug: editing voice presets brings up the voice preset page with no content in input elements, potentially leading to wiping out the preset.
 
 [ ] Bug: Presets fail. In prod, choosing a preset, like "test echo" initially shows on the UI. However, post-processing the voice is nova, every time.
+
+[ ] feat: estimated cost. We should have an internal table that tracks the cost per 1m tokens per model, and then display the total cost of the article in the UI, so that users can see how much it  cost them to process the article. We will only show actual costs, we will not worry about predictive costs for now.

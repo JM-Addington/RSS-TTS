@@ -621,6 +621,7 @@ class TestProcessingNotesFeature(TestCase):
             # Load the final audio and verify it has content from both chunks
             try:
                 from pydub import AudioSegment
+
                 final_audio = AudioSegment.from_mp3(str(final_path))
 
                 # Should be roughly 2 seconds (2 chunks × 1 second each)
