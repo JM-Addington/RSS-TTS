@@ -4,7 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
-from django.urls import path
+from django.urls import path, include
 
 from text_to_audio.feeds import UserFeed
 from text_to_audio.views import (
@@ -34,9 +34,15 @@ from text_to_audio.views import (
     voice_preset_edit,
     voice_preset_list,
 )
+from text_to_audio.views_cost import (
+    UsageDashboardView,
+    ArticleCostDetailView,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # API endpoints
+    path("api/v1/", include("text_to_audio.api.urls")),
     path("accounts/login/", auth_views.LoginView.as_view(), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("accounts/signup/", SignUpView.as_view(), name="signup"),
@@ -116,6 +122,13 @@ urlpatterns = [
         "presets/voice/<int:preset_id>/delete/",
         voice_preset_delete,
         name="voice_preset_delete",
+    ),
+    # Usage and cost tracking URLs
+    path("usage/", UsageDashboardView.as_view(), name="usage-dashboard"),
+    path(
+        "articles/<int:article_id>/costs/",
+        ArticleCostDetailView.as_view(),
+        name="article-cost-detail",
     ),
     path("", HomeView.as_view(), name="home"),
 ]

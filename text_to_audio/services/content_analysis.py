@@ -34,10 +34,11 @@ logger = logging.getLogger(__name__)
 class ContentAnalysisService:
     """Service for analyzing article content."""
 
-    def __init__(self, openai_api_key=None):
-        """Initialize with optional API key override."""
+    def __init__(self, openai_api_key=None, usage_logger=None):
+        """Initialize with optional API key override and usage logger."""
         self.openai_api_key = openai_api_key
         self._client = None
+        self.usage_logger = usage_logger
 
     @property
     def client(self):
@@ -209,6 +210,17 @@ class ContentAnalysisService:
                 response_data=response_data,
                 duration_ms=duration_ms,
             )
+
+            # Log usage statistics if usage logger is available
+            if self.usage_logger and response.usage:
+                tokens_used = response.usage.total_tokens
+                word_count = len(text_sample.split())
+                self.usage_logger.log_llm_usage(
+                    operation="Content Analysis",
+                    tokens_used=tokens_used,
+                    processing_time_ms=duration_ms,
+                    word_count=word_count
+                )
 
         except Exception as e:
             end_time = time.monotonic()

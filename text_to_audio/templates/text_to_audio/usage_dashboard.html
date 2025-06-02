@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Usage Dashboard - RSS TTS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">OpenAI Usage Dashboard</h1>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ current_month_name }}</h5>
+                            <h3 class="mb-0">{{ current_month_stats.total_cost }}</h3>
+                            <small>{{ current_month_stats.total_requests }} requests</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ last_month_name }}</h5>
+                            <h3 class="mb-0">{{ last_month_stats.total_cost }}</h3>
+                            <small>{{ last_month_stats.total_requests }} requests</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">Last 30 Days</h5>
+                            <h3 class="mb-0">{{ last_30_days_stats.total_cost }}</h3>
+                            <small>{{ last_30_days_stats.total_requests }} requests</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-secondary text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">All Time</h5>
+                            <h3 class="mb-0">{{ all_time_stats.total_cost }}</h3>
+                            <small>{{ all_time_stats.total_requests }} requests</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Month Details -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">{{ current_month_name }} Breakdown</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="text-center">
+                                        <h4 class="text-primary">{{ current_month_stats.llm_requests }}</h4>
+                                        <small class="text-muted">LLM Requests</small>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-center">
+                                        <h4 class="text-info">{{ current_month_stats.tts_requests }}</h4>
+                                        <small class="text-muted">TTS Requests</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="text-center">
+                                <h5>Total Tokens: {{ current_month_stats.total_tokens|floatformat:0 }}</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Operation Type Breakdown -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Usage by Operation Type</h5>
+                        </div>
+                        <div class="card-body">
+                            {% for operation in operation_usage %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge badge-{% if operation.operation_type == 'LLM' %}primary{% else %}info{% endif %}">
+                                    {{ operation.operation_type }}
+                                </span>
+                                <span class="font-weight-bold">{{ operation.total_cost }}</span>
+                            </div>
+                            <div class="small text-muted mb-3">
+                                {{ operation.request_count }} requests, {{ operation.total_tokens|floatformat:0 }} tokens
+                            </div>
+                            {% empty %}
+                            <p class="text-muted">No usage data available.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Usage Breakdown -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Usage by Model</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Model</th>
+                                            <th>Cost</th>
+                                            <th>Tokens</th>
+                                            <th>Requests</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for model in model_usage %}
+                                        <tr>
+                                            <td><code>{{ model.model_name }}</code></td>
+                                            <td class="font-weight-bold">{{ model.total_cost }}</td>
+                                            <td>{{ model.total_tokens|floatformat:0 }}</td>
+                                            <td>{{ model.request_count }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="4" class="text-muted text-center">No usage data available.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Most Expensive Articles -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Most Expensive Articles</h5>
+                        </div>
+                        <div class="card-body">
+                            {% for article in article_costs %}
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div>
+                                    <a href="{% url 'article-cost-detail' article.article__id %}"
+                                       class="text-decoration-none">
+                                        {{ article.article__title|truncatechars:40 }}
+                                    </a>
+                                    <div class="small text-muted">
+                                        {{ article.request_count }} requests, {{ article.total_tokens|floatformat:0 }} tokens
+                                    </div>
+                                </div>
+                                <span class="font-weight-bold">{{ article.total_cost }}</span>
+                            </div>
+                            {% empty %}
+                            <p class="text-muted">No articles with usage data found.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Recent Activity</h5>
+                        </div>
+                        <div class="card-body">
+                            {% for usage in recent_usage %}
+                            <div class="mb-3 border-bottom pb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span class="badge badge-{% if usage.operation_type == 'LLM' %}primary{% else %}info{% endif %}">
+                                        {{ usage.operation_type }}
+                                    </span>
+                                    <span class="font-weight-bold">
+                                        {% if usage.estimated_cost %}{{ usage.estimated_cost|floatformat:6 }}{% else %}N/A{% endif %}
+                                    </span>
+                                </div>
+                                <div class="small text-muted">
+                                    <code>{{ usage.model_name }}</code> •
+                                    {{ usage.tokens_used }} tokens •
+                                    {{ usage.request_timestamp|timesince }} ago
+                                </div>
+                                {% if usage.article %}
+                                <div class="small">
+                                    <a href="{% url 'article-cost-detail' usage.article.id %}"
+                                       class="text-decoration-none">
+                                        {{ usage.article.title|truncatechars:30 }}
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% empty %}
+                            <p class="text-muted">No recent activity.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost Estimation Notice -->
+            <div class="alert alert-info">
+                <h6 class="alert-heading">About Cost Estimates</h6>
+                <p class="mb-0">
+                    Costs are estimated based on current OpenAI pricing and may not reflect exact billing.
+                    TTS costs are approximate. For precise billing information, please check your OpenAI dashboard.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

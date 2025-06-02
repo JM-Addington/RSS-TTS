@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+{% if article %}Article Cost Details: {{ article.title }}{% else %}Article Not Found{% endif %} - RSS TTS
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+            <a href="{% url 'usage-dashboard' %}" class="btn btn-primary">← Back to Dashboard</a>
+            {% elif article %}
+
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1>Cost Details</h1>
+                    <h5 class="text-muted">{{ article.title }}</h5>
+                </div>
+                <div>
+                    <a href="{% url 'usage-dashboard' %}" class="btn btn-outline-primary">
+                        ← Back to Dashboard
+                    </a>
+                    <a href="{% url 'article-detail' article.id %}" class="btn btn-primary">
+                        View Article
+                    </a>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-md-2">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <h4 class="mb-0">{{ totals.total_cost }}</h4>
+                            <small>Total Cost</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h4 class="mb-0">{{ totals.total_requests }}</h4>
+                            <small>API Calls</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h4 class="mb-0">{{ totals.total_tokens|floatformat:0 }}</h4>
+                            <small>Total Tokens</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body text-center">
+                            <h5 class="mb-0">{{ totals.llm_requests }} LLM</h5>
+                            <h5 class="mb-0">{{ totals.tts_requests }} TTS</h5>
+                            <small>Request Types</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-secondary text-white">
+                        <div class="card-body text-center">
+                            <h6 class="mb-0">Status:
+                                <span class="badge badge-{% if article.status == 'completed' %}success{% elif article.status == 'processing' %}warning{% else %}danger{% endif %}">
+                                    {{ article.get_status_display }}
+                                </span>
+                            </h6>
+                            <small>{{ article.created_at|date:"M d, Y H:i" }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Breakdown Tables -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Cost by Operation Type</h5>
+                        </div>
+                        <div class="card-body">
+                            {% for operation in operation_breakdown %}
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <span class="badge badge-{% if operation.operation_type == 'LLM' %}primary{% else %}info{% endif %} mr-2">
+                                        {{ operation.operation_type }}
+                                    </span>
+                                    <span class="text-muted">{{ operation.request_count }} requests</span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-weight-bold">{{ operation.total_cost }}</div>
+                                    <small class="text-muted">{{ operation.total_tokens|floatformat:0 }} tokens</small>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <p class="text-muted">No usage data available.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Cost by Model</h5>
+                        </div>
+                        <div class="card-body">
+                            {% for model in model_breakdown %}
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <code class="mr-2">{{ model.model_name }}</code>
+                                    <span class="text-muted">{{ model.request_count }} requests</span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="font-weight-bold">{{ model.total_cost }}</div>
+                                    <small class="text-muted">{{ model.total_tokens|floatformat:0 }} tokens</small>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <p class="text-muted">No usage data available.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Usage Log -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Detailed Usage Log</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Type</th>
+                                    <th>Model</th>
+                                    <th>Tokens</th>
+                                    <th>Input</th>
+                                    <th>Output</th>
+                                    <th>Cost</th>
+                                    <th>Processing Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for usage in usage_records %}
+                                <tr>
+                                    <td class="text-nowrap">
+                                        <small>{{ usage.request_timestamp|date:"M d, H:i:s" }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{% if usage.operation_type == 'LLM' %}primary{% else %}info{% endif %} badge-sm">
+                                            {{ usage.operation_type }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <code class="small">{{ usage.model_name }}</code>
+                                    </td>
+                                    <td class="text-right">{{ usage.tokens_used|floatformat:0 }}</td>
+                                    <td class="text-right">
+                                        {% if usage.input_tokens %}{{ usage.input_tokens|floatformat:0 }}{% else %}-{% endif %}
+                                    </td>
+                                    <td class="text-right">
+                                        {% if usage.output_tokens %}{{ usage.output_tokens|floatformat:0 }}{% else %}-{% endif %}
+                                    </td>
+                                    <td class="text-right font-weight-bold">
+                                        {% if usage.estimated_cost %}${{ usage.estimated_cost|floatformat:6 }}{% else %}N/A{% endif %}
+                                    </td>
+                                    <td class="text-right text-muted">
+                                        <small>{{ usage.processing_time_ms }}ms</small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted">No usage records found for this article.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost Estimation Notice -->
+            <div class="alert alert-info mt-4">
+                <h6 class="alert-heading">About These Cost Estimates</h6>
+                <p class="mb-0">
+                    Costs are estimated based on current OpenAI pricing (as of January 2025) and may not reflect exact billing.
+                    Input/output token breakdowns are only available for newer requests.
+                    For precise billing information, please check your OpenAI dashboard.
+                </p>
+            </div>
+
+            {% else %}
+            <div class="alert alert-warning">Article data could not be loaded.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

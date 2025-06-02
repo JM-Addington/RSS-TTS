@@ -17,11 +17,12 @@ def _is_mock_object(obj):
 class VoiceParameterGenerationService:
     """Service for generating detailed voice parameters for text-to-speech."""
 
-    def __init__(self, openai_api_key=None):
-        """Initialize with optional API key override and required services."""
+    def __init__(self, openai_api_key=None, usage_logger=None):
+        """Initialize with optional API key override, usage logger, and required services."""
         self.openai_api_key = openai_api_key
-        self.genre_service = GenreClassificationService(openai_api_key=openai_api_key)
-        self.content_service = ContentAnalysisService(openai_api_key=openai_api_key)
+        self.usage_logger = usage_logger
+        self.genre_service = GenreClassificationService(openai_api_key=openai_api_key, usage_logger=usage_logger)
+        self.content_service = ContentAnalysisService(openai_api_key=openai_api_key, usage_logger=usage_logger)
         self.template_service = VoiceGenreTemplateService()
         self._client = None
 

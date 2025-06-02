@@ -21,10 +21,11 @@ class GenreClassificationService:
         "instructional",
     ]
 
-    def __init__(self, openai_api_key=None):
-        """Initialize with optional API key override."""
+    def __init__(self, openai_api_key=None, usage_logger=None):
+        """Initialize with optional API key override and usage logger."""
         self.openai_api_key = openai_api_key
         self._client = None
+        self.usage_logger = usage_logger
 
     @property
     def client(self):
@@ -59,7 +60,9 @@ class GenreClassificationService:
         # Create the genre classification prompt
         prompt = self._create_classification_prompt(text_sample, title)
 
-        # Call OpenAI API with JSON mode
+        # Call OpenAI API with JSON mode and timing
+        import time
+        start_time = time.monotonic()
         response = self.client.chat.completions.create(
             model=self._get_classification_model(),
             messages=[
@@ -70,6 +73,19 @@ class GenreClassificationService:
             temperature=0.3,
             response_format={"type": "json_object"},
         )
+        end_time = time.monotonic()
+        processing_time_ms = int((end_time - start_time) * 1000)
+
+        # Log usage statistics if usage logger is available
+        if self.usage_logger and response.usage:
+            tokens_used = response.usage.total_tokens
+            word_count = len(text_sample.split())
+            self.usage_logger.log_llm_usage(
+                operation="Genre Classification",
+                tokens_used=tokens_used,
+                processing_time_ms=processing_time_ms,
+                word_count=word_count
+            )
 
         # Parse the response
         try:

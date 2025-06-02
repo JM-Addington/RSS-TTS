@@ -30,10 +30,11 @@ class VoiceConfigurationService:
         "neutral": {"voice": "alloy", "speed": 1.0},
     }
 
-    def __init__(self, voice_mappings=None, openai_api_key=None):
-        """Initialize with optional voice mappings override."""
+    def __init__(self, voice_mappings=None, openai_api_key=None, usage_logger=None):
+        """Initialize with optional voice mappings override and usage logger."""
         self.voice_mappings = voice_mappings or self.DEFAULT_VOICE_MAPPINGS
         self.openai_api_key = openai_api_key
+        self.usage_logger = usage_logger
         self.parameter_service = None  # Lazy initialization
 
     @property
@@ -41,7 +42,8 @@ class VoiceConfigurationService:
         """Lazily initialize voice parameter generation service."""
         if self.parameter_service is None:
             self.parameter_service = VoiceParameterGenerationService(
-                openai_api_key=self.openai_api_key
+                openai_api_key=self.openai_api_key,
+                usage_logger=self.usage_logger
             )
         return self.parameter_service
 
@@ -97,10 +99,17 @@ class VoiceConfigurationService:
             if article_preferences.get("speed"):
                 base_config["speed"] = article_preferences["speed"]
 
-        # Validate and constrain values
+        # Validate and constrain values - always convert speed to float
         speed = base_config.get("speed", 1.0)
-        if isinstance(speed, (int, float)):
-            base_config["speed"] = max(0.75, min(1.5, float(speed)))
+        try:
+            # Convert speed to float regardless of input type (string, int, float)
+            speed_float = float(speed)
+            # Clamp to valid range
+            base_config["speed"] = max(0.75, min(1.5, speed_float))
+        except (ValueError, TypeError):
+            # If conversion fails, use default speed
+            logger.warning(f"Invalid speed value '{speed}', using default 1.0")
+            base_config["speed"] = 1.0
 
         return base_config
 
@@ -213,11 +222,18 @@ class VoiceConfigurationService:
                     voice_parameters = None
 
                 # Generate enhanced TTS prompt if needed
-                update_fields = ["voice_id", "speed", "voice_parameters", "detected_genre"]
+                update_fields = [
+                    "voice_id",
+                    "speed",
+                    "voice_parameters",
+                    "detected_genre",
+                ]
 
                 if voice_parameters:
-                    enhanced_prompt = self.voice_parameter_service.generate_enhanced_prompt(
-                        voice_parameters
+                    enhanced_prompt = (
+                        self.voice_parameter_service.generate_enhanced_prompt(
+                            voice_parameters
+                        )
                     )
                     if enhanced_prompt:
                         article.prompt = enhanced_prompt

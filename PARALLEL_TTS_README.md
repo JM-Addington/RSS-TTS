@@ -131,6 +131,75 @@ PARALLEL_TTS_FINALIZE_TIMEOUT=300  # Maximum time for audio finalization (5 minu
 - Both settings work independently: you can have intelligent chunking with sequential processing
 - Default TTS model is `gpt-4o-mini-tts` to support per-chunk instructions; use `tts-1` if instructions aren't needed
 
+## TTS Model Selection and Capabilities
+
+### Recommended Model: `gpt-4o-mini-tts` (Default)
+
+The system defaults to `gpt-4o-mini-tts` for optimal functionality:
+
+- **✅ Instructions Support**: Supports the `instructions` parameter for intelligent voice control
+- **✅ ChunkTone Compatibility**: Per-chunk instructions from ChunkToneService work correctly
+- **✅ Speed Control**: Speed is controlled via instructions (e.g., "Speak at 1.25x speed")
+- **✅ Dynamic Voice Control**: Supports accent, emotional range, intonation, impressions, tone, whispering
+- **✅ Latest Technology**: OpenAI's newest and most reliable text-to-speech model
+
+### Alternative Models: `tts-1` and `tts-1-hd`
+
+While supported, these older models have significant limitations:
+
+#### `tts-1` Model:
+- **❌ No Instructions Support**: Cannot use per-chunk instructions from ChunkToneService
+- **❌ Limited Voice Control**: Only supports global `speed` parameter (0.25-4.0)
+- **✅ Lower Latency**: Faster response times than other models
+- **❌ Lower Quality**: Basic audio quality compared to other options
+
+#### `tts-1-hd` Model:
+- **❌ No Instructions Support**: Cannot use per-chunk instructions from ChunkToneService
+- **❌ Limited Voice Control**: Only supports global `speed` parameter (0.25-4.0)
+- **⚠️ Quality vs Features Trade-off**: Higher quality than `tts-1` but loses intelligent features
+- **❌ ChunkTone Degradation**: Per-chunk voice assignments and instructions are silently ignored
+
+### Impact on ChunkToneService
+
+When using `tts-1` or `tts-1-hd` models:
+
+1. **Per-chunk Instructions Lost**: ChunkToneService generates sophisticated instructions like "Speak with excitement and energy" but these are ignored
+2. **Uniform Voice Control**: All chunks use the same global speed setting instead of per-chunk variation
+3. **Reduced Expression**: No accent, tone, or emotional control that makes articles more engaging
+4. **Silent Degradation**: System continues working but produces less dynamic audio
+
+### Model Selection Guidelines
+
+**Choose `gpt-4o-mini-tts` (recommended) when:**
+- Using ChunkToneService for intelligent multi-voice articles
+- Want dynamic voice control and expression
+- Quality and features are more important than latency
+
+**Choose `tts-1` only when:**
+- Minimal latency is critical
+- Content is simple and doesn't benefit from voice instructions
+- Cost optimization is the primary concern
+- You've disabled ChunkToneService (`ENABLE_CHUNK_TONE_LLM=false`)
+
+**Choose `tts-1-hd` only when:**
+- You need better quality than `tts-1` but can't use `gpt-4o-mini-tts`
+- You understand and accept the loss of intelligent voice features
+- Simple, uniform voice output is acceptable
+
+### Verifying Your Configuration
+
+To check if your model supports instructions, look for log entries like:
+```
+INFO: ChunkTone TTS API Call - Article 123, chunk 0: model=gpt-4o-mini-tts, voice=alloy, speed=via instructions, instructions='Speak with enthusiasm and energy. Speak at 1.1x speed.'
+```
+
+If using `tts-1` or `tts-1-hd`, you'll see:
+```
+INFO: ChunkTone TTS API Call - Article 123, chunk 0: model=tts-1-hd, voice=alloy, speed=1.1
+```
+
+Notice the missing `instructions` field in the second example.
+
 ### Understanding `CELERY_TTS_CHUNK_CONCURRENCY`
 
 This setting controls **client-side batch submission** for very large articles, NOT the overall system concurrency. The actual parallelism is determined by your `worker_tts` configuration.

@@ -62,6 +62,41 @@ class TTSRateLimiter:
         self.per_second_key = "tts_rate_limit:per_second"
         self.per_minute_key = "tts_rate_limit:per_minute"
 
+        # Lua script for atomic rate limiting check-and-acquire
+        self._lua_script = """
+            local second_key = KEYS[1]
+            local minute_key = KEYS[2]
+            local second_limit = tonumber(ARGV[1])
+            local minute_limit = tonumber(ARGV[2])
+            local second_ttl = tonumber(ARGV[3])
+            local minute_ttl = tonumber(ARGV[4])
+
+            -- Get current counts
+            local second_count = tonumber(redis.call('GET', second_key) or 0)
+            local minute_count = tonumber(redis.call('GET', minute_key) or 0)
+
+            -- Check if we're within limits
+            if second_count >= second_limit then
+                return {0, second_count, minute_count}  -- Rate limited by second
+            end
+
+            if minute_count >= minute_limit then
+                return {0, second_count, minute_count}  -- Rate limited by minute
+            end
+
+            -- Increment counters and set expiration
+            local new_second_count = redis.call('INCR', second_key)
+            redis.call('EXPIRE', second_key, second_ttl)
+
+            local new_minute_count = redis.call('INCR', minute_key)
+            redis.call('EXPIRE', minute_key, minute_ttl)
+
+            return {1, new_second_count, new_minute_count}  -- Success
+        """
+
+        # Initialize script SHA as None - will be loaded lazily on first use
+        self._script_sha = None
+
     def acquire_tts_token(self, timeout: float = 30.0) -> bool:
         """
         Acquire a token to make a TTS API call, blocking until available.
@@ -88,61 +123,90 @@ class TTSRateLimiter:
         """
         Check if we can make a TTS call within rate limits and acquire token if possible.
 
-        Uses sliding window counters for both per-second and per-minute limits.
-
-        TODO: This implementation has a potential race condition between the GET and INCR
-        operations. For true atomicity, this should be converted to a Lua script that
-        performs the check-and-increment as a single atomic operation. The current
-        implementation is acceptable for hobby-scale usage but should be upgraded
-        if scaling requirements increase.
+        Uses an atomic Lua script to perform check-and-increment as a single operation,
+        eliminating race conditions that could occur with separate GET and INCR operations.
         """
         current_time = time.time()
 
         try:
-            # Use Redis pipeline for atomic operations
-            pipe = self.redis_client.pipeline()
-
-            # Check per-second limit using sliding window
+            # Calculate sliding window keys
             second_window_start = int(current_time)
             second_key = f"{self.per_second_key}:{second_window_start}"
 
-            # Check per-minute limit using sliding window
             minute_window_start = int(current_time // 60) * 60
             minute_key = f"{self.per_minute_key}:{minute_window_start}"
 
-            # Get current counts
-            pipe.get(second_key)
-            pipe.get(minute_key)
-            results = pipe.execute()
+            # Execute atomic Lua script
+            try:
+                # Try to load script if not already loaded
+                if self._script_sha is None:
+                    try:
+                        self._script_sha = self.redis_client.script_load(self._lua_script)
+                    except Exception:
+                        # If script loading fails, fall back to eval
+                        pass
 
-            second_count = int(results[0]) if results[0] else 0
-            minute_count = int(results[1]) if results[1] else 0
+                if self._script_sha:
+                    # Try to use pre-loaded script first (more efficient)
+                    result = self.redis_client.evalsha(
+                        self._script_sha,
+                        2,  # Number of keys
+                        second_key,
+                        minute_key,
+                        self.per_second_limit,
+                        self.per_minute_limit,
+                        2,   # second TTL
+                        120  # minute TTL
+                    )
+                else:
+                    # Fall back to eval if script wasn't loaded
+                    result = self.redis_client.eval(
+                        self._lua_script,
+                        2,  # Number of keys
+                        second_key,
+                        minute_key,
+                        self.per_second_limit,
+                        self.per_minute_limit,
+                        2,   # second TTL
+                        120  # minute TTL
+                    )
+            except redis.ResponseError as e:
+                if "NOSCRIPT" in str(e) and self._script_sha:
+                    # Script was evicted from Redis, reload it and try again
+                    logger.debug("Rate limiter Lua script evicted, reloading")
+                    self._script_sha = self.redis_client.script_load(self._lua_script)
+                    result = self.redis_client.evalsha(
+                        self._script_sha,
+                        2,  # Number of keys
+                        second_key,
+                        minute_key,
+                        self.per_second_limit,
+                        self.per_minute_limit,
+                        2,   # second TTL
+                        120  # minute TTL
+                    )
+                else:
+                    raise
 
-            # Check if we're within limits
-            if second_count >= self.per_second_limit:
+            # Parse result: [success_flag, second_count, minute_count]
+            success, second_count, minute_count = result
+
+            if success:
                 logger.debug(
-                    f"Per-second rate limit hit: {second_count}/{self.per_second_limit}"
+                    f"Rate limiter token acquired: second={second_count}/{self.per_second_limit}, minute={minute_count}/{self.per_minute_limit}"
                 )
+                return True
+            else:
+                # Determine which limit was hit for better logging
+                if second_count >= self.per_second_limit:
+                    logger.debug(
+                        f"Per-second rate limit hit: {second_count}/{self.per_second_limit}"
+                    )
+                else:
+                    logger.debug(
+                        f"Per-minute rate limit hit: {minute_count}/{self.per_minute_limit}"
+                    )
                 return False
-
-            if minute_count >= self.per_minute_limit:
-                logger.debug(
-                    f"Per-minute rate limit hit: {minute_count}/{self.per_minute_limit}"
-                )
-                return False
-
-            # Acquire tokens atomically
-            pipe = self.redis_client.pipeline()
-            pipe.incr(second_key)
-            pipe.expire(second_key, 2)  # Keep for 2 seconds to handle clock skew
-            pipe.incr(minute_key)
-            pipe.expire(minute_key, 120)  # Keep for 2 minutes to handle clock skew
-            pipe.execute()
-
-            logger.debug(
-                f"Rate limiter token acquired: second={second_count+1}/{self.per_second_limit}, minute={minute_count+1}/{self.per_minute_limit}"
-            )
-            return True
 
         except redis.RedisError as e:
             # Rate-limited warning to prevent log flooding

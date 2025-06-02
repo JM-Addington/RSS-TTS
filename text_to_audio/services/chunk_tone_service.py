@@ -12,7 +12,7 @@ from django.conf import settings
 from pydantic import ValidationError
 
 from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoice
-from text_to_audio.tasks import _legacy_chunk_text
+from text_to_audio.tts_utils import _legacy_chunk_text
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,11 @@ class ChunkToneService:
 
     # Maximum reasonable text length for analysis (in words) - now uses Django setting
 
-    def __init__(self, openai_api_key: Optional[str] = None):
-        """Initialize with optional OpenAI API key override."""
+    def __init__(self, openai_api_key: Optional[str] = None, usage_logger=None):
+        """Initialize with optional OpenAI API key override and usage logger."""
         self.openai_api_key = openai_api_key
         self._client: Optional[openai.OpenAI] = None
+        self.usage_logger = usage_logger
 
     @property
     def client(self):
@@ -269,6 +270,23 @@ The JSON must be valid and parseable. Do not include any other text or explanati
                 response_data=response_data,
                 duration_ms=duration_ms,
             )
+
+            # Log usage statistics if usage logger is available
+            if self.usage_logger and response.usage:
+                tokens_used = response.usage.total_tokens
+                input_tokens = getattr(response.usage, 'prompt_tokens', None)
+                output_tokens = getattr(response.usage, 'completion_tokens', None)
+                # Estimate word count from prompt (conservative estimate)
+                word_count = len(prompt.split())
+                self.usage_logger.log_llm_usage(
+                    operation="Text Analysis",
+                    tokens_used=tokens_used,
+                    processing_time_ms=duration_ms,
+                    word_count=word_count,
+                    model_name=model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens
+                )
 
             response_text = response.choices[0].message.content.strip()
 

@@ -16,7 +16,7 @@
 - [x] **Repository hygiene**: .pytest_cache/ already properly ignored in .gitignore
 
 ### 🎯 Feature Requests (P2)
-- [ ] Fix: we should move to the tts-hd model.
+- [ ] ~~Fix: we should move to the tts-hd model.~~ **CLARIFIED**: Default is already `gpt-4o-mini-tts` which is the newest and most capable model. If users want to optionally use `tts-1-hd` for higher quality than `tts-1`, they should understand it doesn't support per-chunk `instructions` and will lose ChunkToneService's intelligent voice control capabilities.
 
 [ ] feat: estimated cost. We should have an internal table that tracks the cost per 1m tokens per model, and then display the total cost of the article in the UI, so that users can see how much it  cost them to process the article. We will only show actual costs, we will not worry about predictive costs for now.
 

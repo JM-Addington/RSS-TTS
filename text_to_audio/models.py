@@ -477,7 +477,12 @@ class Article(models.Model):
 
 
 class OpenAIUsageStats(models.Model):
-    """Model to track OpenAI API usage statistics."""
+    """Model to track OpenAI API usage statistics with cost tracking."""
+
+    OPERATION_TYPE_CHOICES = [
+        ('LLM', 'Language Model'),
+        ('TTS', 'Text-to-Speech'),
+    ]
 
     user: models.ForeignKey = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -493,9 +498,40 @@ class OpenAIUsageStats(models.Model):
         blank=True,
         help_text="The article associated with this usage, if any.",
     )
+
+    # Token usage fields
     tokens_used: models.IntegerField = models.IntegerField(
-        null=False, help_text="Number of tokens used in the request."
+        null=False, help_text="Number of tokens used in the request (for backwards compatibility)."
     )
+    input_tokens: models.IntegerField = models.IntegerField(
+        null=True, blank=True, help_text="Number of input tokens used."
+    )
+    output_tokens: models.IntegerField = models.IntegerField(
+        null=True, blank=True, help_text="Number of output tokens generated."
+    )
+
+    # Cost and model tracking
+    model_name: models.CharField = models.CharField(
+        max_length=100,
+        default="gpt-4o-mini",
+        blank=True,
+        help_text="The OpenAI model used for this operation."
+    )
+    operation_type: models.CharField = models.CharField(
+        max_length=10,
+        choices=OPERATION_TYPE_CHOICES,
+        default="LLM",
+        help_text="Type of operation performed."
+    )
+    estimated_cost: models.DecimalField = models.DecimalField(
+        max_digits=10,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Estimated cost in USD for this operation."
+    )
+
+    # Original fields
     processing_time_ms: models.IntegerField = models.IntegerField(
         null=False, help_text="Processing time for the request in milliseconds."
     )
@@ -508,6 +544,14 @@ class OpenAIUsageStats(models.Model):
         help_text="Timestamp of when the usage was recorded.",
     )
 
+    class Meta:
+        ordering = ['-request_timestamp']
+        indexes = [
+            models.Index(fields=['user', 'request_timestamp']),
+            models.Index(fields=['article']),
+            models.Index(fields=['operation_type']),
+        ]
+
     def __str__(self) -> str:
         """Return a string representation of the usage stat."""
         timestamp_fmt = ""  # Default empty string
@@ -515,7 +559,30 @@ class OpenAIUsageStats(models.Model):
             timestamp_fmt = self.request_timestamp.strftime("%Y-%m-%d %H:%M:%S")
         # Use getattr to safely access username attribute - for better type checking
         username = getattr(self.user, "username", "unknown")
-        return f"Usage for {username} at {timestamp_fmt}"
+        cost_str = f" (${self.estimated_cost})" if self.estimated_cost else ""
+        return f"{self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
+
+    def calculate_cost(self) -> None:
+        """Calculate and save the estimated cost for this usage record."""
+        from .services.cost_calculator import calculate_llm_cost, estimate_cost_from_total_tokens
+
+        if self.operation_type == 'LLM':
+            if self.input_tokens is not None and self.output_tokens is not None:
+                # Use precise input/output token counts
+                self.estimated_cost = calculate_llm_cost(
+                    self.model_name,
+                    self.input_tokens,
+                    self.output_tokens
+                )
+            elif self.tokens_used:
+                # Fall back to estimation from total tokens
+                self.estimated_cost = estimate_cost_from_total_tokens(
+                    self.model_name,
+                    self.tokens_used
+                )
+        # TODO: Add TTS cost calculation when we have character counts
+
+        self.save(update_fields=['estimated_cost'])
 
 
 class UserVoiceProfile(models.Model):

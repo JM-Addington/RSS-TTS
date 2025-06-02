@@ -21,7 +21,7 @@ from pydub import AudioSegment
 
 from .models import Article
 from .rate_limiter import get_rate_limiter
-from .tasks import _clamp_tts_speed, _configure_model_aware_speed
+from .tts_utils import _clamp_tts_speed, _configure_model_aware_speed
 
 logger = logging.getLogger(__name__)
 
@@ -144,8 +144,8 @@ def generate_tts_for_chunk(  # noqa: C901
         # Apply speed configuration updates
         tts_request_data.update(speed_updates)
 
-        # Add instructions parameter for supported models
-        if final_instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+        # Add instructions parameter only for gpt-4o models (tts-1 models don't support instructions)
+        if final_instructions and tts_model.startswith("gpt-4o"):
             tts_request_data["instructions"] = final_instructions
 
         # Log TTS API call details with model-aware speed handling
@@ -617,12 +617,34 @@ def process_large_article_batched(
                 f"Finalizing article {article_id} with {len(all_results)} chunks"
             )
 
-            finalize_result = stitch_audio_and_finalize.apply_async(
-                args=[all_results, article_id, final_audio_uuid],
-                queue="audio_processing",
-            ).get(timeout=getattr(settings, "PARALLEL_TTS_FINALIZE_TIMEOUT", 300))
+            try:
+                finalize_result = stitch_audio_and_finalize.apply_async(
+                    args=[all_results, article_id, final_audio_uuid],
+                    queue="audio_processing",
+                ).get(timeout=getattr(settings, "PARALLEL_TTS_FINALIZE_TIMEOUT", 300))
 
-            return finalize_result
+                return finalize_result
+            except Exception as finalize_exc:
+                logger.error(f"Finalization failed for article {article_id}: {finalize_exc}")
+
+                # Ensure article is marked as failed immediately
+                try:
+                    from django.db import transaction
+                    from .models import Article
+
+                    with transaction.atomic():
+                        locked_article = Article.objects.select_for_update().get(id=article_id)
+                        locked_article.status = Article.FAILED
+                        locked_article.error_message = f"Audio finalization failed: {finalize_exc}"
+                        locked_article.save(update_fields=["status", "error_message"])
+                        logger.info(f"Article {article_id} marked as FAILED due to finalization failure")
+                except Exception as save_exc:
+                    logger.error(
+                        f"Failed to mark article {article_id} as failed after finalization error: {save_exc}"
+                    )
+
+                # Re-raise the exception to ensure Celery sees this as a task failure
+                raise finalize_exc
         else:
             raise ValueError("No successful chunks to process")
 
