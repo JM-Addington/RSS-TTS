@@ -256,8 +256,10 @@ if rate_limiter.acquire_tts_token(timeout=60.0):
 
 ### Speed Improvements
 
-- **Up to 4x faster** for articles with 4+ chunks **when** `CELERY_TTS_WORKER_CONCURRENCY` ≥ `CELERY_TTS_CHUNK_CONCURRENCY` (defaults: 2 workers vs 4 chunk concurrency)
-- Actual speedup depends on TTS worker pool size (`CELERY_TTS_WORKER_CONCURRENCY`)
+- **Max speedup is approximately equal to `CELERY_TTS_WORKER_CONCURRENCY`** (defaults to 2x with 2 TTS workers)
+- For articles with 4+ chunks, expect up to 2x speedup with default configuration (2 TTS workers)
+- To achieve 4x speedup, increase `CELERY_TTS_WORKER_CONCURRENCY=4` (requires more resources)
+- `CELERY_TTS_CHUNK_CONCURRENCY` controls batch submission for large articles, not overall parallelism
 - Maintains sequential performance for short articles
 
 ### Resource Usage

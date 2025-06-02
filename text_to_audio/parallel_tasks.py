@@ -21,7 +21,7 @@ from pydub import AudioSegment
 
 from .models import Article
 from .rate_limiter import get_rate_limiter
-from .tasks import _clamp_tts_speed
+from .tasks import _clamp_tts_speed, _configure_model_aware_speed
 
 logger = logging.getLogger(__name__)
 
@@ -128,25 +128,33 @@ def generate_tts_for_chunk(  # noqa: C901
         # Initialize OpenAI client
         client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
 
-        # Prepare TTS request
+        # Prepare TTS request with model-aware speed handling
         tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
         tts_request_data = {
             "model": tts_model,
             "voice": voice_name,
             "input": chunk_text,
-            "speed": speed,
         }
 
-        # Add instructions parameter for supported models
-        if instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
-            tts_request_data["instructions"] = instructions
+        # Configure model-aware speed and instructions
+        speed_updates, final_instructions = _configure_model_aware_speed(
+            tts_model, speed, instructions or ""
+        )
 
-        # Log TTS API call details
+        # Apply speed configuration updates
+        tts_request_data.update(speed_updates)
+
+        # Add instructions parameter for supported models
+        if final_instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+            tts_request_data["instructions"] = final_instructions
+
+        # Log TTS API call details with model-aware speed handling
+        speed_param = tts_request_data.get("speed", "via instructions")
         logger.info(
             f"TTS Chunk {chunk_idx} API Call - Article {article_id}: "
-            f"model={tts_model}, voice={voice_name}, speed={speed}, "
+            f"model={tts_model}, voice={voice_name}, speed={speed_param}, "
             f"text_length={len(chunk_text)} chars"
-            + (f", instructions='{instructions}'" if instructions else "")
+            + (f", instructions='{final_instructions}'" if final_instructions else "")
         )
 
         # Call TTS API with detailed logging

@@ -384,38 +384,34 @@ class Article(models.Model):
 
         Enforces single source of truth for voice fields:
         - Standard OpenAI voices ⇒ `voice` field only
-        - Custom voices ⇒ `voice_id` field only (with `voice` reset to default "alloy")
-        - When both provided, voice_id takes precedence. Only reset voice to "alloy"
-          if it was already "alloy", otherwise log a warning about the conflict
+        - Custom voices ⇒ `voice_id` field only (with `voice` reset to default)
+        - When voice_id is provided, voice must be reset to default regardless of previous value
         - Neither provided ⇒ sets default voice
         """
+        from django.conf import settings
+
         super().clean()
 
         # Enhanced voice field validation with single source of truth
         voice_provided = bool(self.voice and self.voice.strip())
         voice_id_provided = bool(self.voice_id and self.voice_id.strip())
 
-        if voice_provided and voice_id_provided:
-            # Single source of truth: voice_id takes precedence
-            # Only reset voice to alloy if it was already the default, otherwise warn
-            if self.voice == "alloy":
-                # Voice was already default, safe to reset
-                self.voice = "alloy"
-            else:
-                # Voice was set to a non-default standard voice, log warning but keep voice_id
-                logger.warning(
-                    "Article %s has both voice='%s' and voice_id='%s' set. "
-                    "voice_id takes precedence, but voice was not reset to avoid data loss.",
+        if voice_id_provided:
+            # If voice_id is set, enforce single source of truth by resetting voice to default
+            # regardless of what voice was previously set to
+            if voice_provided and self.voice != settings.OPENAI_TTS_VOICE:
+                logger.info(
+                    "Article %s: voice_id='%s' is set, resetting voice from '%s' to default '%s' "
+                    "to enforce single source of truth.",
                     self.id or "new",
-                    self.voice,
                     self.voice_id,
+                    self.voice,
+                    settings.OPENAI_TTS_VOICE,
                 )
-        elif voice_id_provided and not voice_provided:
-            # Custom voice provided, ensure voice has default value
-            self.voice = "alloy"
+            self.voice = settings.OPENAI_TTS_VOICE
         elif not voice_provided and not voice_id_provided:
             # Neither provided - set default
-            self.voice = "alloy"
+            self.voice = settings.OPENAI_TTS_VOICE
 
     def __str__(self) -> str:
         """Return a string representation of the article."""

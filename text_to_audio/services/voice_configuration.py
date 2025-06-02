@@ -189,31 +189,42 @@ class VoiceConfigurationService:
             )
 
         elif voice_mode == Feed.VOICE_MODE_AUTO:
-            # Generate AI-driven voice parameters
-            try:
-                voice_parameters = (
-                    self.voice_parameter_service.generate_voice_parameters(article)
+            # Short-circuit if article already has a voice preset - respect user's explicit choice
+            if article.voice_preset:
+                logger.info(
+                    f"Article {article.id} has voice_preset '{article.voice_preset.name}' set. "
+                    "Skipping AI voice generation to preserve preset configuration."
                 )
-                # Validate that we got actual data, not a mock
-                if _is_mock_object(voice_parameters):
+                # Apply the preset configuration instead of AI generation
+                preferences_service.save_article_preferences(
+                    article=article, voice_preset=article.voice_preset
+                )
+            else:
+                # Generate AI-driven voice parameters only if no preset is set
+                try:
+                    voice_parameters = (
+                        self.voice_parameter_service.generate_voice_parameters(article)
+                    )
+                    # Validate that we got actual data, not a mock
+                    if _is_mock_object(voice_parameters):
+                        voice_parameters = None
+                except Exception as e:
+                    logger.error(f"Voice parameter generation failed: {e}")
                     voice_parameters = None
-            except Exception as e:
-                logger.error(f"Voice parameter generation failed: {e}")
-                voice_parameters = None
 
-            # Generate enhanced TTS prompt if needed
-            update_fields = ["voice_id", "speed", "voice_parameters", "detected_genre"]
+                # Generate enhanced TTS prompt if needed
+                update_fields = ["voice_id", "speed", "voice_parameters", "detected_genre"]
 
-            if voice_parameters:
-                enhanced_prompt = self.voice_parameter_service.generate_enhanced_prompt(
-                    voice_parameters
-                )
-                if enhanced_prompt:
-                    article.prompt = enhanced_prompt
-                    update_fields.append("prompt")
+                if voice_parameters:
+                    enhanced_prompt = self.voice_parameter_service.generate_enhanced_prompt(
+                        voice_parameters
+                    )
+                    if enhanced_prompt:
+                        article.prompt = enhanced_prompt
+                        update_fields.append("prompt")
 
-            # Persist generated parameters on the article
-            article.save(update_fields=update_fields)
+                # Persist generated parameters on the article
+                article.save(update_fields=update_fields)
 
         else:
             # Use default tone-based voice mapping

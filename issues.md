@@ -1,12 +1,22 @@
 # Issues
 
-[ ] Fix: we should move to the tts-hd model.
+## Progress Update (2025-06-02)
 
-[ ] Bug: presets should not use multi-voice, or at least, multiple voices should not be applied. We can still chunk for tone.
+### ✅ Completed Critical Fixes (P0)
+- [x] **Critical bug: editing voice presets brings up the voice preset page with no content in input elements** - FIXED: Modified voice_preset_edit view to preserve existing voice_id/speed when POST data is empty
+- [x] **Article.clean() dual-voice field enforcement** - FIXED: Now enforces single source of truth by always resetting voice to default when voice_id is set, with proper logging
+- [x] **Universal TTS speed clamping** - FIXED: _clamp_tts_speed() now called before every client.audio.speech.create() call
+- [x] **Bug: Presets fail. In prod, choosing a preset, like "test echo" initially shows on the UI. However, post-processing the voice is nova, every time.** - FIXED: VoiceConfigurationService now short-circuits AI generation when preset is active
+- [x] **Bug: presets should not use multi-voice, or at least, multiple voices should not be applied. We can still chunk for tone.** - FIXED: ChunkToneService now uses preset voice for all chunks when preset is active
 
-[ ] Critical bug: editing voice presets brings up the voice preset page with no content in input elements, potentially leading to wiping out the preset.
+### ✅ Completed High Priority Fixes (P1)
+- [x] **TTS Speed Control**: Model-aware speed handling implemented - gpt-4o-mini-tts uses instructions, tts-1 uses speed param
+- [x] **Celery Task ID**: Robust handling in batched dispatch - saves cleared task_id before dispatch, restores on failure
+- [x] **Documentation**: Fixed misleading performance claims in PARALLEL_TTS_README.md - clarified speedup equals worker concurrency
+- [x] **Repository hygiene**: .pytest_cache/ already properly ignored in .gitignore
 
-[ ] Bug: Presets fail. In prod, choosing a preset, like "test echo" initially shows on the UI. However, post-processing the voice is nova, every time.
+### 🎯 Feature Requests (P2)
+- [ ] Fix: we should move to the tts-hd model.
 
 [ ] feat: estimated cost. We should have an internal table that tracks the cost per 1m tokens per model, and then display the total cost of the article in the UI, so that users can see how much it  cost them to process the article. We will only show actual costs, we will not worry about predictive costs for now.
 

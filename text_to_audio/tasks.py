@@ -48,6 +48,40 @@ def _clamp_tts_speed(speed: float) -> float:
     return max(0.25, min(speed, 4.0))
 
 
+def _configure_model_aware_speed(tts_model, speed, instructions=""):
+    """
+    Configure speed parameter based on TTS model capabilities.
+
+    For gpt-4o-mini-tts: Speed is controlled via instructions parameter.
+    For tts-1 and tts-1-hd: Speed is controlled via direct speed parameter.
+
+    Args:
+        tts_model: The TTS model being used
+        speed: The desired speed multiplier
+        instructions: Existing instructions text
+
+    Returns:
+        Tuple of (tts_request_updates, final_instructions)
+        where tts_request_updates is a dict to merge into the TTS request
+    """
+    # Clamp speed to valid range
+    clamped_speed = _clamp_tts_speed(speed)
+
+    if tts_model.startswith("gpt-4o"):
+        # For gpt-4o models, use instructions for speed control
+        speed_instruction = f"Speak at {clamped_speed}x speed."
+        if instructions:
+            final_instructions = f"{instructions} {speed_instruction}"
+        else:
+            final_instructions = speed_instruction
+
+        # Do not include the speed parameter for gpt-4o models
+        return {}, final_instructions
+    else:
+        # For tts-1 and tts-1-hd models, use direct speed parameter
+        return {"speed": clamped_speed}, instructions
+
+
 def _save_openai_usage_stats(
     user,
     article,
@@ -624,13 +658,26 @@ def process_article(self, article_id: int) -> str:
                     chunk_tasks = []
 
                     for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
-                        chunk_data_dict = {
-                            "text": chunk_data.text,
-                            "voice": (
+                        # Detect if voice preset is active - if so, use preset voice for all chunks
+                        # to maintain single-voice consistency rather than ChunkToneService's per-chunk assignments
+                        if article.voice_preset:
+                            # Use the preset voice for all chunks to maintain consistency
+                            chunk_voice = voice_config.get("voice", "alloy")
+                            logger.debug(
+                                f"Article {article.id} using preset '{article.voice_preset.name}' "
+                                f"voice '{chunk_voice}' for chunk {chunk_idx} (overriding ChunkTone assignment)"
+                            )
+                        else:
+                            # No preset active - allow ChunkToneService to assign per-chunk voices
+                            chunk_voice = (
                                 chunk_data.voice.voice
                                 if hasattr(chunk_data.voice, "voice")
                                 else str(chunk_data.voice)
-                            ),
+                            )
+
+                        chunk_data_dict = {
+                            "text": chunk_data.text,
+                            "voice": chunk_voice,
                             "instructions": chunk_data.instructions,
                         }
 
@@ -677,6 +724,9 @@ def process_article(self, article_id: int) -> str:
                         from .parallel_tasks import process_large_article_batched
 
                         try:
+                            # Store current task ID before clearing for potential restoration
+                            current_task_id = article.celery_task_id
+
                             # Store the task ID for potential cancellation/monitoring
                             article.celery_task_id = None  # Clear the current task ID
                             article.save(update_fields=["celery_task_id"])
@@ -708,6 +758,12 @@ def process_article(self, article_id: int) -> str:
                             logger.error(
                                 f"Failed to dispatch batched processing: {dispatch_exc}"
                             )
+
+                            # Restore the original task ID since batched dispatch failed
+                            # and this task will continue processing
+                            article.celery_task_id = current_task_id
+                            article.save(update_fields=["celery_task_id"])
+
                             chunk_tone_generation_successful = False
 
                 else:
@@ -731,18 +787,25 @@ def process_article(self, article_id: int) -> str:
                             or "Speak in a clear, engaging manner with appropriate expression for the content."
                         )
 
-                        # Prepare TTS request data for logging
+                        # Prepare TTS request data with model-aware speed handling
                         tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
                         tts_request_data = {
                             "model": tts_model,
                             "voice": chunk_data.voice.voice,
                             "input": chunk_data.text,
-                            "speed": resolved_speed,
                         }
 
+                        # Configure model-aware speed and instructions
+                        speed_updates, final_instructions = _configure_model_aware_speed(
+                            tts_model, resolved_speed, chunk_voice_prompt
+                        )
+
+                        # Apply speed configuration updates
+                        tts_request_data.update(speed_updates)
+
                         # Add instructions parameter only for supported models
-                        if tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
-                            tts_request_data["instructions"] = chunk_voice_prompt
+                        if final_instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+                            tts_request_data["instructions"] = final_instructions
 
                         # Log TTS API call details
                         if chunk_data.instructions:
@@ -752,11 +815,12 @@ def process_article(self, article_id: int) -> str:
                         else:
                             prompt_type = "generic"
 
+                        speed_param = tts_request_data.get("speed", "via instructions")
                         logger.info(
                             f"ChunkTone TTS API Call - Article {article_id}, chunk {chunk_idx}: "
                             f"model={tts_model}, voice={chunk_data.voice.voice}, "
-                            f"speed={resolved_speed}, text_length={len(chunk_data.text)} chars, "
-                            f"prompt_type={prompt_type}, instructions='{chunk_voice_prompt}'"
+                            f"speed={speed_param}, text_length={len(chunk_data.text)} chars, "
+                            f"prompt_type={prompt_type}, instructions='{final_instructions}'"
                         )
 
                         # Call TTS API with detailed logging
@@ -927,26 +991,34 @@ def process_article(self, article_id: int) -> str:
                         voice_tone = voice_definition.get("tone", "neutral")
                         segment_voice_prompt = f"Use a {voice_tone} tone. Speak in a clear, engaging manner."
 
-                        # Prepare TTS request data for logging
+                        # Prepare TTS request data with model-aware speed handling
                         tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
                         tts_request_data = {
                             "model": tts_model,  # tts-1 or tts-1-hd
                             "voice": tts_api_voice,  # This is 'alloy', 'echo', etc.
                             "input": chunk_text,
-                            "speed": tts_speed,
                         }
 
-                        # Add instructions parameter only for supported models
-                        if tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
-                            tts_request_data["instructions"] = segment_voice_prompt
+                        # Configure model-aware speed and instructions
+                        speed_updates, final_instructions = _configure_model_aware_speed(
+                            tts_model, tts_speed, segment_voice_prompt
+                        )
 
-                        # Log multi-voice TTS API call details
+                        # Apply speed configuration updates
+                        tts_request_data.update(speed_updates)
+
+                        # Add instructions parameter only for supported models
+                        if final_instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+                            tts_request_data["instructions"] = final_instructions
+
+                        # Log multi-voice TTS API call details with model-aware speed handling
+                        speed_param = tts_request_data.get("speed", "via instructions")
                         logger.info(
                             f"Multi-voice TTS API Call - Article {article_id}, segment {segment_idx}: "
                             f"model={tts_model}, voice={tts_api_voice}, "
-                            f"speed={tts_speed}, text_length={len(chunk_text)} chars, "
+                            f"speed={speed_param}, text_length={len(chunk_text)} chars, "
                             f"voice_name='{voice_name}', tone='{voice_tone}', "
-                            f"instructions='{segment_voice_prompt}'"
+                            f"instructions='{final_instructions}'"
                         )
 
                         # Call TTS API with detailed logging
@@ -1157,25 +1229,33 @@ def process_article(self, article_id: int) -> str:
                 )
                 start_time = time.monotonic()
 
-                # Create TTS request
+                # Create TTS request with model-aware speed handling
                 tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
                 tts_args = {
                     "model": tts_model,
                     "voice": fallback_voice,
                     "input": chunk,
-                    "speed": fallback_speed,
                 }
 
-                # Add voice prompt instructions if available and model supports it
-                if voice_prompt and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
-                    tts_args["instructions"] = voice_prompt
+                # Configure model-aware speed and instructions
+                speed_updates, final_instructions = _configure_model_aware_speed(
+                    tts_model, fallback_speed, voice_prompt or ""
+                )
 
-                # Log fallback TTS API call details
+                # Apply speed configuration updates
+                tts_args.update(speed_updates)
+
+                # Add voice prompt instructions if available and model supports it
+                if final_instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+                    tts_args["instructions"] = final_instructions
+
+                # Log fallback TTS API call details with model-aware speed handling
+                speed_param = tts_args.get("speed", "via instructions")
                 logger.info(
                     f"Fallback TTS API Call - Article {article_id}, chunk {i}: "
                     f"model={tts_args['model']}, voice={fallback_voice}, "
-                    f"speed={fallback_speed}, text_length={len(chunk)} chars"
-                    + (f", instructions='{voice_prompt}'" if voice_prompt else "")
+                    f"speed={speed_param}, text_length={len(chunk)} chars"
+                    + (f", instructions='{final_instructions}'" if final_instructions else "")
                 )
 
                 # Call TTS API with detailed logging
