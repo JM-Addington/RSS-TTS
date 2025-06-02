@@ -37,8 +37,7 @@ class ChunkToneService:
     # Reserve tokens for response and system messages
     RESPONSE_TOKEN_RESERVE = 4500  # max_tokens=4000 + system prompt + formatting
 
-    # Maximum reasonable text length for analysis (in words)
-    MAX_ANALYSIS_WORDS = 8000  # Conservative limit for good performance
+    # Maximum reasonable text length for analysis (in words) - now uses Django setting
 
     def __init__(self, openai_api_key: Optional[str] = None):
         """Initialize with optional OpenAI API key override."""
@@ -71,9 +70,10 @@ class ChunkToneService:
         """
         # Check if text is too large for analysis
         word_count = len(text.split())
-        if word_count > self.MAX_ANALYSIS_WORDS:
+        max_analysis_words = getattr(settings, "MAX_ANALYSIS_WORDS", 8000)
+        if word_count > max_analysis_words:
             logger.warning(
-                f"Text too large for ChunkToneService analysis ({word_count:,} words > {self.MAX_ANALYSIS_WORDS:,} limit). "
+                f"Text too large for ChunkToneService analysis ({word_count:,} words > {max_analysis_words:,} limit). "
                 f"Using fallback chunking."
             )
             return self.create_fallback_payload(text)

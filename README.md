@@ -201,7 +201,7 @@ The application includes an advanced LLM-driven text chunking and voice assignme
 
 **Configuration:**
 ```bash
-# Enable ChunkToneService (default: false)
+# Enable ChunkToneService (default: true)
 ENABLE_CHUNK_TONE_LLM=true
 ```
 

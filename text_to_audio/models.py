@@ -4,11 +4,14 @@ This module defines the data models used for the RSS-to-TTS system, including
 Feed and Article models for podcast feed generation.
 """
 
+import logging
 import uuid
 
 from django.conf import settings
 from django.db import models
 from django.db.models import JSONField
+
+logger = logging.getLogger(__name__)
 
 # Available voice options for TTS (shared across models)
 VOICE_ALLOY = "alloy"
@@ -246,8 +249,7 @@ class Article(models.Model):
         (FAILED, "Failed"),
     ]
 
-    # Use module-level voice choices as single source of truth
-    VOICE_CHOICES = VOICE_CHOICES
+    # Voice choices are now accessed via module-level VOICE_CHOICES constant
 
     feed: models.ForeignKey = models.ForeignKey(
         Feed,
@@ -383,7 +385,8 @@ class Article(models.Model):
         Enforces single source of truth for voice fields:
         - Standard OpenAI voices ⇒ `voice` field only
         - Custom voices ⇒ `voice_id` field only (with `voice` reset to default "alloy")
-        - When both provided, voice_id takes precedence and voice is reset to default
+        - When both provided, voice_id takes precedence. Only reset voice to "alloy"
+          if it was already "alloy", otherwise log a warning about the conflict
         - Neither provided ⇒ sets default voice
         """
         super().clean()
@@ -393,8 +396,20 @@ class Article(models.Model):
         voice_id_provided = bool(self.voice_id and self.voice_id.strip())
 
         if voice_provided and voice_id_provided:
-            # Single source of truth: if voice_id is provided, reset voice to default
-            self.voice = "alloy"  # Default OpenAI voice
+            # Single source of truth: voice_id takes precedence
+            # Only reset voice to alloy if it was already the default, otherwise warn
+            if self.voice == "alloy":
+                # Voice was already default, safe to reset
+                self.voice = "alloy"
+            else:
+                # Voice was set to a non-default standard voice, log warning but keep voice_id
+                logger.warning(
+                    "Article %s has both voice='%s' and voice_id='%s' set. "
+                    "voice_id takes precedence, but voice was not reset to avoid data loss.",
+                    self.id or "new",
+                    self.voice,
+                    self.voice_id,
+                )
         elif voice_id_provided and not voice_provided:
             # Custom voice provided, ensure voice has default value
             self.voice = "alloy"

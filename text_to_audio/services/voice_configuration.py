@@ -111,9 +111,9 @@ class VoiceConfigurationService:
         Returns:
             List of tuples: [(voice_id, display_name), ...]
         """
-        from text_to_audio.models import Article
+        from text_to_audio.models import VOICE_CHOICES
 
-        return Article.VOICE_CHOICES
+        return VOICE_CHOICES
 
     def get_available_speeds(self):
         """

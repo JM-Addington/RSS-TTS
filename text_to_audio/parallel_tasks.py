@@ -21,6 +21,7 @@ from pydub import AudioSegment
 
 from .models import Article
 from .rate_limiter import get_rate_limiter
+from .tasks import _clamp_tts_speed
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ def generate_tts_for_chunk(  # noqa: C901
         speed = voice_config.get("speed", 1.0)
 
         # Clamp speed to valid range
-        speed = max(0.25, min(speed, 4.0))
+        speed = _clamp_tts_speed(speed)
 
         # Rate limiting
         rate_limiter = get_rate_limiter()

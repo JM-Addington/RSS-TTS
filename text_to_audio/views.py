@@ -790,7 +790,16 @@ def voice_preset_edit(request, preset_id):
     preset = get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
 
     if request.method == "POST":
-        form = VoicePresetForm(request.POST, instance=preset)
+        # Create a copy of POST data to preserve existing values if fields are empty
+        post_data = request.POST.copy()
+
+        # Preserve existing values if critical fields are empty in POST data
+        if not post_data.get("voice_id"):
+            post_data["voice_id"] = preset.voice_id
+        if not post_data.get("speed"):
+            post_data["speed"] = str(preset.speed)
+
+        form = VoicePresetForm(post_data, instance=preset)
         if form.is_valid():
             # Update preset
             form.save()

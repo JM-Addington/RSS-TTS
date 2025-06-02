@@ -27,10 +27,10 @@ The service consists of three main components:
 The service is controlled by the `ENABLE_CHUNK_TONE_LLM` environment variable:
 
 ```bash
-# Enable the new service
+# Enable the new service (default)
 ENABLE_CHUNK_TONE_LLM=true
 
-# Disable (default) - uses legacy pipeline
+# Disable - uses legacy pipeline
 ENABLE_CHUNK_TONE_LLM=false
 ```
 
