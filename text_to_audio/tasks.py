@@ -462,7 +462,11 @@ def process_article(self, article_id: int) -> str:
         # Perform content analysis for multi-voice generation if not already done during voice configuration
         # This is mainly for non-AUTO feeds that still want multi-voice capability
         # LEGACY PATH: Only enabled when ENABLE_LEGACY_MULTIVOICE is True
-        if settings.ENABLE_LEGACY_MULTIVOICE and article.text_content and not article.multi_voice_data:
+        if (
+            settings.ENABLE_LEGACY_MULTIVOICE
+            and article.text_content
+            and not article.multi_voice_data
+        ):
             try:
                 logger.info(
                     f"Performing content analysis for Article ID: {article_id} to get multi-voice data."

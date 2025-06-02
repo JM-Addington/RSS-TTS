@@ -115,8 +115,8 @@ class CheckStaleArticlesTests(TestCase):
     @patch("text_to_audio.tasks.celery_app.control.revoke")
     def test_check_stale_articles_with_missing_setting(self, mock_revoke):
         """Test that a default timeout is used if the setting is not defined."""
-        import os
         import importlib
+        import os
 
         # Temporarily remove the environment variable to test default behavior
         original_env_value = os.environ.get("ARTICLE_PROCESSING_TIMEOUT_SECONDS")
@@ -126,6 +126,7 @@ class CheckStaleArticlesTests(TestCase):
         try:
             # Reload settings to reflect the environment change
             import rss_tts.settings
+
             importlib.reload(rss_tts.settings)
 
             # Call the task
@@ -148,4 +149,5 @@ class CheckStaleArticlesTests(TestCase):
 
             # Reload settings again to restore original state
             import rss_tts.settings
+
             importlib.reload(rss_tts.settings)

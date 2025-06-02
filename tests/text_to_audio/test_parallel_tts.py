@@ -86,11 +86,11 @@ class TestTTSRateLimiter(TestCase):
 
     @patch("text_to_audio.rate_limiter.redis.Redis")
     @patch("text_to_audio.rate_limiter.time.time")
-    def test_redis_error_fail_open_with_rate_limited_warnings(self, mock_time, mock_redis):
+    def test_redis_error_fail_open_with_rate_limited_warnings(
+        self, mock_time, mock_redis
+    ):
         """Test that Redis errors fail open and warnings are rate-limited to once per minute."""
         import redis
-        import logging
-        from unittest.mock import patch
 
         mock_redis.return_value = self.redis_mock
 
@@ -101,13 +101,15 @@ class TestTTSRateLimiter(TestCase):
 
         # Mock time to control warning rate limiting
         mock_time.side_effect = [
-            0,    # First call - warning should be logged
-            30,   # Second call (30s later) - warning should be suppressed
-            70,   # Third call (70s later) - warning should be logged again
+            0,  # First call - warning should be logged
+            30,  # Second call (30s later) - warning should be suppressed
+            70,  # Third call (70s later) - warning should be logged again
         ]
 
         # Capture log messages
-        with self.assertLogs('text_to_audio.rate_limiter', level='WARNING') as log_output:
+        with self.assertLogs(
+            "text_to_audio.rate_limiter", level="WARNING"
+        ) as log_output:
             # First call - should log WARNING
             result1 = rate_limiter._check_and_acquire()
 
@@ -123,7 +125,7 @@ class TestTTSRateLimiter(TestCase):
         self.assertTrue(result3)
 
         # Should have exactly 2 WARNING messages (first and third calls)
-        warning_messages = [msg for msg in log_output.output if 'WARNING' in msg]
+        warning_messages = [msg for msg in log_output.output if "WARNING" in msg]
         self.assertEqual(len(warning_messages), 2)
 
         # Both warnings should mention fail-open mode
