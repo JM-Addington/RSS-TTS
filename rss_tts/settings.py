@@ -24,8 +24,11 @@ OPENAI_TITLE_MODEL = os.environ.get("OPENAI_TITLE_MODEL", "gpt-4o-mini")
 # TTS model and voice settings
 OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
 OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "alloy")
-# Models used for content analysis and genre classification
+# Model used for ChunkToneService (intelligent text chunking and voice analysis)
+OPENAI_CHUNK_TONE_MODEL = os.environ.get("OPENAI_CHUNK_TONE_MODEL", "gpt-4.1")
+# Model used for legacy ContentAnalysisService (multi-voice content analysis)
 OPENAI_ANALYSIS_MODEL = os.environ.get("OPENAI_ANALYSIS_MODEL", "gpt-4.1")
+# Model used for genre classification
 OPENAI_CLASSIFICATION_MODEL = os.environ.get(
     "OPENAI_CLASSIFICATION_MODEL", "gpt-4o-mini"
 )

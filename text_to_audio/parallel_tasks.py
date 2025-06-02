@@ -25,85 +25,9 @@ from .rate_limiter import get_rate_limiter
 logger = logging.getLogger(__name__)
 
 
-def _prepare_tts_request(
-    chunk_data: Dict[str, Any], voice_config: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Prepare TTS request data from chunk and voice configuration."""
-    # Extract voice configuration
-    voice_name = chunk_data.get("voice", voice_config.get("voice", "alloy"))
-    if isinstance(voice_name, dict):
-        voice_name = voice_name.get("voice", "alloy")
-
-    instructions = chunk_data.get("instructions") or voice_config.get("instructions")
-    speed = voice_config.get("speed", 1.0)
-
-    # Clamp speed to valid range
-    speed = max(0.25, min(speed, 4.0))
-
-    # Prepare TTS request
-    tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
-    tts_request_data = {
-        "model": tts_model,
-        "voice": voice_name,
-        "input": chunk_data.get("text", ""),
-        "speed": speed,
-    }
-
-    # Add instructions parameter for supported models
-    if instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
-        tts_request_data["instructions"] = instructions
-
-    return tts_request_data
 
 
-def _handle_tts_api_call(
-    client,
-    tts_request_data: Dict[str, Any],
-    temp_file_path: Path,
-    article_id: int,
-    chunk_idx: int,
-) -> int:
-    """Handle the TTS API call and return processing time in milliseconds."""
-    tts_start_time = time.monotonic()
-
-    # Log TTS API call details
-    instructions = tts_request_data.get("instructions", "")
-    logger.info(
-        f"TTS API Call - Article {article_id}, chunk {chunk_idx}: "
-        f"model={tts_request_data['model']}, voice={tts_request_data['voice']}, "
-        f"speed={tts_request_data['speed']}, text_length={len(tts_request_data['input'])} chars"
-        + (f", instructions='{instructions}'" if instructions else "")
-    )
-
-    # Call TTS API with detailed logging
-    response = client.audio.speech.create(**tts_request_data)
-    response.stream_to_file(str(temp_file_path))
-
-    tts_end_time = time.monotonic()
-    tts_duration_ms = int((tts_end_time - tts_start_time) * 1000)
-
-    # Log successful TTS API call
-    from .utils import log_openai_api_call
-
-    tts_response_data = {
-        "status": "success",
-        "audio_file_generated": True,
-        "file_path": str(temp_file_path),
-    }
-    if hasattr(response, "headers"):
-        tts_response_data["headers"] = dict(response.headers)
-
-    log_openai_api_call(
-        operation=f"TTS Generation (Parallel) - Article {article_id}, chunk {chunk_idx}",
-        request_data=tts_request_data,
-        response_data=tts_response_data,
-        duration_ms=tts_duration_ms,
-    )
-
-    return tts_duration_ms, response
-
-
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+@shared_task(bind=True, max_retries=2, default_retry_delay=30, soft_time_limit=150, time_limit=180)
 def generate_tts_for_chunk(  # noqa: C901
     self,
     article_id: int,
@@ -390,6 +314,10 @@ def stitch_audio_and_finalize(
         successful_chunks = [(idx, path) for idx, path, error in chunk_results if path]
         failed_chunks = [(idx, error) for idx, path, error in chunk_results if not path]
 
+        # Create ordered mapping of chunk indices to file paths
+        # This ensures we process chunks in correct chronological order even with gaps
+        successful_chunks_map = {idx: path for idx, path in successful_chunks}
+
         logger.info(
             f"Finalizing article {article_id}: {len(successful_chunks)} successful chunks, "
             f"{len(failed_chunks)} failed chunks"
@@ -400,9 +328,13 @@ def stitch_audio_and_finalize(
             error_msg = f"No successful TTS chunks for article {article_id}"
             logger.error(error_msg)
 
-            article.status = Article.FAILED
-            article.error_message = f"All TTS chunks failed. Errors: {failed_chunks}"
-            article.save(update_fields=["status", "error_message"])
+            # Use race-safe update for failure case
+            from django.db import transaction
+            with transaction.atomic():
+                locked_article = Article.objects.select_for_update().get(id=article_id)
+                locked_article.status = Article.FAILED
+                locked_article.error_message = f"All TTS chunks failed. Errors: {failed_chunks}"
+                locked_article.save(update_fields=["status", "error_message"])
 
             return error_msg
 
@@ -410,11 +342,15 @@ def stitch_audio_and_finalize(
             error_msg = f"Too many failed chunks ({len(failed_chunks)}/{len(chunk_results)}) for article {article_id}"
             logger.error(error_msg)
 
-            article.status = Article.FAILED
-            article.error_message = (
-                f"Majority of chunks failed. Failed: {failed_chunks}"
-            )
-            article.save(update_fields=["status", "error_message"])
+            # Use race-safe update for failure case
+            from django.db import transaction
+            with transaction.atomic():
+                locked_article = Article.objects.select_for_update().get(id=article_id)
+                locked_article.status = Article.FAILED
+                locked_article.error_message = (
+                    f"Majority of chunks failed. Failed: {failed_chunks}"
+                )
+                locked_article.save(update_fields=["status", "error_message"])
 
             return error_msg
 
@@ -424,8 +360,8 @@ def stitch_audio_and_finalize(
                 f"Some chunks failed for article {article_id}: {failed_chunks}"
             )
 
-        # Collect temp files for cleanup
-        temp_files_to_cleanup = [path for _, path in successful_chunks]
+        # Collect temp files for cleanup (from ordered mapping)
+        temp_files_to_cleanup = list(successful_chunks_map.values())
 
         # Prepare final audio file path
         final_audio_path = Path(article.get_canonical_audio_path())
@@ -446,7 +382,9 @@ def stitch_audio_and_finalize(
         # Stitch audio files
         if len(successful_chunks) == 1:
             # Single file - just copy with tags
-            single_audio_path = successful_chunks[0][1]
+            single_chunk_idx = list(successful_chunks_map.keys())[0]
+            single_audio_path = successful_chunks_map[single_chunk_idx]
+            logger.info(f"Processing single audio file from chunk {single_chunk_idx}")
             audio_segment = AudioSegment.from_mp3(single_audio_path)
             audio_segment = audio_segment.set_frame_rate(44100)
             audio_segment.export(
@@ -459,14 +397,16 @@ def stitch_audio_and_finalize(
             logger.info(f"Processed single audio file for article {article_id}")
 
         else:
-            # Multiple files - combine them
+            # Multiple files - combine them in correct chronological order
             combined_audio = AudioSegment.empty()
 
-            for chunk_idx, temp_file_path in successful_chunks:
+            # Process chunks in sorted order by original index
+            for chunk_idx in sorted(successful_chunks_map.keys()):
+                temp_file_path = successful_chunks_map[chunk_idx]
                 try:
                     segment_audio = AudioSegment.from_mp3(temp_file_path)
                     combined_audio += segment_audio
-                    logger.debug(f"Added chunk {chunk_idx} to combined audio")
+                    logger.debug(f"Added chunk {chunk_idx} to combined audio (chronological order)")
                 except Exception as segment_exc:
                     logger.error(
                         f"Failed to process chunk {chunk_idx} ({temp_file_path}): {segment_exc}"
@@ -489,40 +429,47 @@ def stitch_audio_and_finalize(
             else:
                 raise ValueError("Combined audio has zero duration")
 
-        # Update article status
-        article.set_canonical_audio_path()
-        article.status = Article.COMPLETED
-        article.error_message = None
+        # Update article status with race-safe locking
+        from django.db import transaction
 
-        # Include any warnings about failed chunks
-        if failed_chunks:
-            failed_chunk_indices = [idx for idx, _ in failed_chunks]
-            failed_chunk_errors = [error for _, error in failed_chunks]
-            warning_msg = f"Completed with {len(failed_chunks)} failed chunks: {failed_chunk_indices}"
+        with transaction.atomic():
+            # Use select_for_update to prevent race conditions on processing_notes
+            locked_article = Article.objects.select_for_update().get(id=article_id)
 
-            # Store detailed processing notes for user visibility
-            article.processing_notes = (
-                f"⚠️ Audio may be incomplete - {len(failed_chunks)} of {len(chunk_results)} chunks failed to process.\n"
-                f"Missing chunk indices: {failed_chunk_indices}\n"
-                f"Errors: {'; '.join(failed_chunk_errors[:3])}"  # Limit error details to prevent huge text
-                + ("..." if len(failed_chunk_errors) > 3 else "")
+            # Update article fields
+            locked_article.set_canonical_audio_path()
+            locked_article.status = Article.COMPLETED
+            locked_article.error_message = None
+
+            # Include any warnings about failed chunks
+            if failed_chunks:
+                failed_chunk_indices = [idx for idx, _ in failed_chunks]
+                failed_chunk_errors = [error for _, error in failed_chunks]
+                warning_msg = f"Completed with {len(failed_chunks)} failed chunks: {failed_chunk_indices}"
+
+                # Store detailed processing notes for user visibility
+                locked_article.processing_notes = (
+                    f"⚠️ Audio may be incomplete - {len(failed_chunks)} of {len(chunk_results)} chunks failed to process.\n"
+                    f"Missing chunk indices: {failed_chunk_indices}\n"
+                    f"Errors: {'; '.join(failed_chunk_errors[:3])}"  # Limit error details to prevent huge text
+                    + ("..." if len(failed_chunk_errors) > 3 else "")
+                )
+
+                logger.warning(f"Article {article_id}: {warning_msg}")
+            else:
+                locked_article.processing_notes = None
+
+            locked_article.save(
+                update_fields=[
+                    "audio_file_path",
+                    "status",
+                    "error_message",
+                    "processing_notes",
+                    "multi_voice_data",
+                    "voice_parameters",
+                    "detected_genre",
+                ]
             )
-
-            logger.warning(f"Article {article_id}: {warning_msg}")
-        else:
-            article.processing_notes = None
-
-        article.save(
-            update_fields=[
-                "audio_file_path",
-                "status",
-                "error_message",
-                "processing_notes",
-                "multi_voice_data",
-                "voice_parameters",
-                "detected_genre",
-            ]
-        )
 
         end_time = time.monotonic()
         total_duration_ms = int((end_time - start_time) * 1000)
@@ -542,12 +489,14 @@ def stitch_audio_and_finalize(
         logger.error(f"{error_msg} (duration: {total_duration_ms}ms)")
         logger.debug(traceback.format_exc())
 
-        # Update article with error
+        # Update article with error using race-safe locking
         try:
-            article = Article.objects.get(id=article_id)
-            article.status = Article.FAILED
-            article.error_message = f"Finalization failed: {e}"
-            article.save(update_fields=["status", "error_message"])
+            from django.db import transaction
+            with transaction.atomic():
+                locked_article = Article.objects.select_for_update().get(id=article_id)
+                locked_article.status = Article.FAILED
+                locked_article.error_message = f"Finalization failed: {e}"
+                locked_article.save(update_fields=["status", "error_message"])
         except Exception as save_exc:
             logger.error(
                 f"Failed to update article {article_id} with error: {save_exc}"
@@ -566,3 +515,111 @@ def stitch_audio_and_finalize(
                     logger.error(
                         f"Failed to cleanup temp file {temp_file_path}: {cleanup_exc}"
                     )
+
+
+@shared_task(bind=True, queue='audio_processing')
+def process_large_article_batched(
+    self,
+    chunk_task_signatures: list,
+    article_id: int,
+    final_audio_uuid: str,
+    max_concurrent: int,
+) -> str:
+    """
+    Process large articles with batch coordination on audio_processing queue.
+
+    This task runs on the audio_processing queue (not article_processing)
+    to avoid blocking the main article processing worker pool.
+
+    Args:
+        chunk_task_signatures: Serialized chunk task signatures
+        article_id: ID of the article being processed
+        final_audio_uuid: UUID for the final audio file
+        max_concurrent: Maximum chunks to process per batch
+
+    Returns:
+        Success/failure message
+    """
+    from celery import group
+    from django.conf import settings
+
+    try:
+        logger.info(
+            f"Starting batched processing for article {article_id}: "
+            f"{len(chunk_task_signatures)} total chunks, max_concurrent={max_concurrent}"
+        )
+
+        all_results = []
+
+        # Process chunks in batches
+        for i in range(0, len(chunk_task_signatures), max_concurrent):
+            batch = chunk_task_signatures[i : i + max_concurrent]
+            batch_num = (i // max_concurrent) + 1
+
+            logger.info(
+                f"Processing batch {batch_num} for article {article_id}: "
+                f"{len(batch)} chunks"
+            )
+
+            # Create group for this batch
+            batch_group = group(batch)
+            batch_result = batch_group.apply_async()
+
+            try:
+                batch_chunk_results = batch_result.get(
+                    timeout=getattr(settings, "PARALLEL_TTS_CHORD_TIMEOUT", 3600)
+                )
+                all_results.extend(batch_chunk_results)
+
+                logger.info(
+                    f"Batch {batch_num} completed for article {article_id}: "
+                    f"{len(batch_chunk_results)} results"
+                )
+
+            except Exception as batch_exc:
+                logger.error(
+                    f"Batch {batch_num} failed for article {article_id}: {batch_exc}"
+                )
+
+                # If we have no results at all, fail completely
+                if not all_results:
+                    raise batch_exc
+
+                # Otherwise, try to continue with partial results
+                logger.warning(
+                    f"Continuing with {len(all_results)} results from previous batches"
+                )
+                break
+
+        # Finalize with all accumulated results
+        if all_results:
+            logger.info(
+                f"Finalizing article {article_id} with {len(all_results)} chunks"
+            )
+
+            finalize_result = stitch_audio_and_finalize.apply_async(
+                args=[all_results, article_id, final_audio_uuid],
+                queue='audio_processing'
+            ).get(timeout=getattr(settings, "PARALLEL_TTS_FINALIZE_TIMEOUT", 300))
+
+            return finalize_result
+        else:
+            raise ValueError("No successful chunks to process")
+
+    except Exception as e:
+        logger.error(f"Batched processing failed for article {article_id}: {e}")
+
+        # Mark article as failed using race-safe locking
+        try:
+            from django.db import transaction
+            from .models import Article
+
+            with transaction.atomic():
+                locked_article = Article.objects.select_for_update().get(id=article_id)
+                locked_article.status = Article.FAILED
+                locked_article.error_message = f"Batched processing failed: {e}"
+                locked_article.save(update_fields=["status", "error_message"])
+        except Exception as save_exc:
+            logger.error(f"Failed to update article {article_id} with error: {save_exc}")
+
+        return f"Failed to process article {article_id}: {e}"

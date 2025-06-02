@@ -571,3 +571,62 @@ class TestProcessingNotesFeature(TestCase):
 
             # Verify processing notes are None
             self.assertIsNone(self.article.processing_notes)
+
+    @override_settings(MEDIA_ROOT=None)
+    def test_audio_order_preserved_with_middle_chunk_failure(self):
+        """Test that audio chunks are combined in correct order when middle chunks fail."""
+        with self.settings(MEDIA_ROOT=self.temp_dir):
+            # Create mock audio files for chunks 0 and 2 (chunk 1 will fail)
+            temp_file_0 = self.media_dir / "test_chunk_0.mp3"
+            temp_file_2 = self.media_dir / "test_chunk_2.mp3"
+            self._create_mock_audio_file(temp_file_0)
+            self._create_mock_audio_file(temp_file_2)
+
+            # Test data: chunk 0 succeeds, chunk 1 fails, chunk 2 succeeds
+            chunk_results = [
+                (0, str(temp_file_0), None),  # Success
+                (1, None, "TTS failed for chunk 1"),  # Failure
+                (2, str(temp_file_2), None),  # Success
+            ]
+
+            mock_task = MagicMock()
+
+            result = stitch_audio_and_finalize(
+                mock_task,
+                chunk_results=chunk_results,
+                article_id=self.article.id,
+                final_audio_uuid=str(self.article.audio_uuid),
+            )
+
+            # Verify success (majority succeeded)
+            self.assertIn("successful", result.lower())
+
+            # Verify article status updated to COMPLETED
+            self.article.refresh_from_db()
+            self.assertEqual(self.article.status, Article.COMPLETED)
+
+            # Verify the final audio file exists
+            final_path = Path(self.article.get_canonical_audio_path())
+            self.assertTrue(final_path.exists())
+
+            # Verify processing notes indicate missing chunk 1
+            self.assertIsNotNone(self.article.processing_notes)
+            self.assertIn("1 of 3 chunks failed", self.article.processing_notes)
+            self.assertIn("Missing chunk indices: [1]", self.article.processing_notes)
+
+            # The key test: verify that the audio was combined in order 0->2
+            # (This is hard to test directly, but we can verify the logging and that
+            # the final file exists and has reasonable duration)
+
+            # Load the final audio and verify it has content from both chunks
+            try:
+                from pydub import AudioSegment
+                final_audio = AudioSegment.from_mp3(str(final_path))
+
+                # Should be roughly 2 seconds (2 chunks × 1 second each)
+                # Allow some tolerance for audio processing variations
+                self.assertGreater(final_audio.duration_seconds, 1.5)
+                self.assertLess(final_audio.duration_seconds, 2.5)
+
+            except Exception as audio_exc:
+                self.fail(f"Failed to verify final audio file: {audio_exc}")

@@ -570,18 +570,20 @@ def process_article(self, article_id: int) -> str:
                 # This ensures ChunkTone reuses sophisticated analysis from AUTO mode when available
                 # (voice_parameters populated by VoiceParameterGenerationService in AUTO feeds)
                 enhanced_voice_prompt = None
-                if article.voice_parameters:
-                    resolved_speed = (
-                        article.voice_parameters.get("speed") or article.speed or 1.0
-                    )
 
-                    # Generate enhanced prompt if available
+                # Resolve speed with proper precedence (consistent with fallback path)
+                resolved_speed = (
+                    (article.voice_parameters and article.voice_parameters.get("speed"))  # AI-generated speed
+                    or article.speed  # User/legacy speed
+                    or 1.0  # Default speed
+                )
+
+                # Generate enhanced prompt if voice_parameters available
+                if article.voice_parameters:
                     parameter_service = VoiceParameterGenerationService()
                     enhanced_voice_prompt = parameter_service.generate_enhanced_prompt(
                         article.voice_parameters
                     )
-                else:
-                    resolved_speed = article.speed or 1.0
 
                 # Clamp speed to valid range
                 resolved_speed = _clamp_tts_speed(resolved_speed)
@@ -654,48 +656,37 @@ def process_article(self, article_id: int) -> str:
                             logger.error(f"Parallel TTS failed: {parallel_exc}")
                             chunk_tone_generation_successful = False
                     else:
-                        # Process in batches to respect concurrency limits
+                        # Dispatch to batched processing task on audio_processing queue
+                        # This prevents blocking the article_processing worker
                         logger.info(
-                            f"Processing {len(chunk_tasks)} chunks in batches of {max_concurrent}"
+                            f"Dispatching {len(chunk_tasks)} chunks to batched processing (max_concurrent={max_concurrent})"
                         )
-                        batch_results = []
 
-                        for i in range(0, len(chunk_tasks), max_concurrent):
-                            batch = chunk_tasks[i : i + max_concurrent]
-                            batch_group = group(batch)
-                            batch_result = batch_group.apply_async()
+                        # Import the batched processing task
+                        from .parallel_tasks import process_large_article_batched
 
-                            try:
-                                batch_results.extend(
-                                    batch_result.get(timeout=1800)
-                                )  # 30 min per batch
-                            except Exception as batch_exc:
-                                logger.error(
-                                    f"Batch {i//max_concurrent + 1} failed: {batch_exc}"
-                                )
-                                chunk_tone_generation_successful = False
-                                break
+                        try:
+                            # Store the task ID for potential cancellation/monitoring
+                            article.celery_task_id = None  # Clear the current task ID
+                            article.save(update_fields=["celery_task_id"])
 
-                        if batch_results:
-                            # Finalize with all batch results
-                            finalize_task = stitch_audio_and_finalize.s(
-                                batch_results, article.id, str(article.audio_uuid)
+                            # Dispatch to audio_processing queue and don't wait for result
+                            batched_task = process_large_article_batched.apply_async(
+                                args=[chunk_tasks, article.id, str(article.audio_uuid), max_concurrent],
+                                queue='audio_processing'
                             )
-                            try:
-                                finalization_result = finalize_task.apply_async().get(
-                                    timeout=getattr(
-                                        settings, "PARALLEL_TTS_FINALIZE_TIMEOUT", 300
-                                    )
-                                )
-                                chunk_tone_generation_successful = (
-                                    "successful" in finalization_result.lower()
-                                )
-                                logger.info(
-                                    f"Batched parallel TTS completed: {finalization_result}"
-                                )
-                            except Exception as finalize_exc:
-                                logger.error(f"Finalization failed: {finalize_exc}")
-                                chunk_tone_generation_successful = False
+
+                            logger.info(
+                                f"Batched processing dispatched for article {article.id} (task_id: {batched_task.id}). "
+                                f"Process_article will return early - batched task handles completion."
+                            )
+
+                            # Return early - the batched task will handle article finalization
+                            return f"Article {article_id} dispatched for batched parallel processing (task: {batched_task.id})"
+
+                        except Exception as dispatch_exc:
+                            logger.error(f"Failed to dispatch batched processing: {dispatch_exc}")
+                            chunk_tone_generation_successful = False
 
                 else:
                     # Fall back to sequential processing for single chunks or when parallel is disabled
@@ -1102,31 +1093,28 @@ def process_article(self, article_id: int) -> str:
 
             # Use enhanced voice parameters if available (from auto-voice)
             voice_prompt = None
-            if article.voice_parameters:
-                # Check voice field first, then voice_id, then voice_parameters, then default
-                fallback_voice = (
-                    article.voice
-                    or article.voice_parameters.get("voice_id")
-                    or article.voice_id
-                    or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
-                )
-                fallback_speed = (
-                    article.voice_parameters.get("speed") or article.speed or 1.0
-                )
 
-                # Generate enhanced prompt if available
+            # Resolve voice with proper precedence
+            fallback_voice = (
+                article.voice  # Explicit user choice
+                or (article.voice_parameters and article.voice_parameters.get("voice_id"))  # AI-generated choice
+                or article.voice_id  # Legacy field
+                or getattr(settings, "OPENAI_TTS_VOICE", "alloy")  # Global default
+            )
+
+            # Resolve speed with proper precedence
+            fallback_speed = (
+                (article.voice_parameters and article.voice_parameters.get("speed"))  # AI-generated speed
+                or article.speed  # User/legacy speed
+                or 1.0  # Default speed
+            )
+
+            # Generate enhanced prompt if voice_parameters available
+            if article.voice_parameters:
                 parameter_service = VoiceParameterGenerationService()
                 voice_prompt = parameter_service.generate_enhanced_prompt(
                     article.voice_parameters
                 )
-            else:
-                # Check voice field first, then voice_id, then default
-                fallback_voice = (
-                    article.voice
-                    or article.voice_id
-                    or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
-                )
-                fallback_speed = article.speed or 1.0
 
             # Clamp speed to valid range
             fallback_speed = _clamp_tts_speed(fallback_speed)

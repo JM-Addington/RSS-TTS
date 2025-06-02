@@ -18,6 +18,11 @@ The parallel TTS system replaces sequential chunk processing with a distributed 
      - Per-chunk voice assignments (character-specific voices)
      - Detailed instructions for tone and delivery
      - Character names and context awareness
+   - **Input Size Limitations:**
+     - Maximum recommended text: 8,000 words (configurable via `MAX_ANALYSIS_WORDS`)
+     - Articles exceeding this limit use automatic fallback chunking
+     - Token limit validation prevents OpenAI context window overflow
+     - Model used: `OPENAI_CHUNK_TONE_MODEL` (default: `gpt-4.1`) - separate from legacy `OPENAI_ANALYSIS_MODEL`
    - Fallback: `_legacy_chunk_text` provides simple text splitting when ChunkTone is disabled or fails
 
 2. **TTSRateLimiter** (`text_to_audio/rate_limiter.py`)
@@ -33,6 +38,34 @@ The parallel TTS system replaces sequential chunk processing with a distributed 
    - Coordinator task that orchestrates parallel processing
    - Integrates with ChunkToneService to get structured chunks
    - Falls back to sequential processing when appropriate
+
+### Input Size Handling
+
+The system implements multiple safeguards for handling very long articles:
+
+#### ChunkToneService Analysis Limits
+
+- **Word Count Guard**: Articles with >8,000 words automatically use fallback chunking
+- **Token Estimation**: Prompts are validated against model context windows before API calls
+- **Model-Specific Limits**: Conservative token limits for different OpenAI models:
+  - `gpt-4.1`: 128,000 tokens
+  - `gpt-4o-mini`: 128,000 tokens
+  - `gpt-4`: 8,000 tokens
+  - `gpt-3.5-turbo`: 4,000 tokens
+
+#### Fallback Behavior
+
+When articles exceed analysis limits:
+1. **Automatic Fallback**: Uses sentence-aware text splitting instead of LLM analysis
+2. **Multiple Chunks**: Long texts are split into ~4,000 character chunks
+3. **Consistent Voice**: All fallback chunks use "alloy" voice with narrator instructions
+4. **No Manual Intervention**: Process continues seamlessly without user impact
+
+#### Error Prevention
+
+- **Pre-API Validation**: Context window overflow detected before expensive API calls
+- **Clear Logging**: Detailed warnings when fallback chunking is used
+- **Cost Protection**: Prevents accidental high-cost API calls for extremely long prompts
 
 ### Task Flow
 
@@ -84,6 +117,11 @@ CELERY_TTS_WORKER_CONCURRENCY=2
 
 # TTS model (gpt-4o-mini-tts supports per-chunk instructions from ChunkToneService)
 OPENAI_TTS_MODEL=gpt-4o-mini-tts
+
+# Task timeout configuration (in seconds)
+PARALLEL_TTS_CHORD_TIMEOUT=3600    # Maximum time for entire chord operation (1 hour)
+PARALLEL_TTS_FINALIZE_TIMEOUT=300  # Maximum time for audio finalization (5 minutes)
+# Note: Individual chunk tasks have built-in timeouts (150s soft, 180s hard limit)
 ```
 
 **Important Configuration Notes:**
@@ -104,13 +142,18 @@ Article with 8 chunks:
 
 Flow:
 1. Article splits into 8 chunks from ChunkToneService
-2. Client submits chunks in batches of 4 (due to CELERY_TTS_CHUNK_CONCURRENCY=4)
-3. Batch 1: chunks 0,1,2,3 → sent to tts_chunks queue
-4. Batch 2: chunks 4,5,6,7 → sent to tts_chunks queue after batch 1 completes
-5. The 2 worker_tts processes handle actual parallel execution (up to 2 chunks simultaneously)
-6. Final stitching combines all 8 chunks in order
+2. process_article dispatches batched processing to audio_processing queue (non-blocking)
+3. process_large_article_batched handles batch coordination:
+   - Batch 1: chunks 0,1,2,3 → sent to tts_chunks queue
+   - Batch 2: chunks 4,5,6,7 → sent to tts_chunks queue after batch 1 completes
+4. The 2 worker_tts processes handle actual parallel execution (up to 2 chunks simultaneously)
+5. Final stitching combines all 8 chunks in order
+6. Article marked as COMPLETED by the batched processing task
 
-The limiting factor for parallelism is the number of worker_tts processes, not CELERY_TTS_CHUNK_CONCURRENCY.
+Benefits:
+- article_processing workers are not blocked during long TTS operations
+- Batch coordination happens on audio_processing queue
+- System can handle many concurrent large articles without worker starvation
 ```
 
 ### Django Settings
@@ -161,6 +204,18 @@ The rate limiter uses Redis sliding window counters to enforce limits:
 - **Distributed**: Works across multiple worker instances
 - **Single source of truth**: Redis-based rate limiting replaces Celery task-level rate limits for better coordination
 - **Fail-open behavior**: If Redis is unavailable, requests are allowed to prevent service outage (warnings logged once per minute)
+
+### Redis Memory Usage
+
+The sliding window rate limiter creates temporary keys in Redis with automatic expiration:
+
+- **Per-second keys**: Expire after 2 seconds (low memory impact)
+- **Per-minute keys**: Expire after 120 seconds (2 minutes)
+- **Key volume**: At 50 requests/minute, approximately 100 per-minute keys are active at any time
+- **Memory footprint**: Each key uses minimal memory (~100 bytes), total overhead is typically <10KB
+- **Automatic cleanup**: Redis handles key expiration automatically, no manual cleanup needed
+
+For high-volume deployments (>200 requests/minute), monitor Redis memory usage. The current implementation is optimized for typical personal/small-scale usage.
 
 ### Usage
 
