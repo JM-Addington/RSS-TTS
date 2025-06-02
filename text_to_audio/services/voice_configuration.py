@@ -213,11 +213,18 @@ class VoiceConfigurationService:
                     voice_parameters = None
 
                 # Generate enhanced TTS prompt if needed
-                update_fields = ["voice_id", "speed", "voice_parameters", "detected_genre"]
+                update_fields = [
+                    "voice_id",
+                    "speed",
+                    "voice_parameters",
+                    "detected_genre",
+                ]
 
                 if voice_parameters:
-                    enhanced_prompt = self.voice_parameter_service.generate_enhanced_prompt(
-                        voice_parameters
+                    enhanced_prompt = (
+                        self.voice_parameter_service.generate_enhanced_prompt(
+                            voice_parameters
+                        )
                     )
                     if enhanced_prompt:
                         article.prompt = enhanced_prompt

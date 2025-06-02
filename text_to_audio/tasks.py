@@ -796,15 +796,20 @@ def process_article(self, article_id: int) -> str:
                         }
 
                         # Configure model-aware speed and instructions
-                        speed_updates, final_instructions = _configure_model_aware_speed(
-                            tts_model, resolved_speed, chunk_voice_prompt
+                        speed_updates, final_instructions = (
+                            _configure_model_aware_speed(
+                                tts_model, resolved_speed, chunk_voice_prompt
+                            )
                         )
 
                         # Apply speed configuration updates
                         tts_request_data.update(speed_updates)
 
                         # Add instructions parameter only for supported models
-                        if final_instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+                        if final_instructions and tts_model in {
+                            "gpt-4o-mini-tts",
+                            "tts-1-hd",
+                        }:
                             tts_request_data["instructions"] = final_instructions
 
                         # Log TTS API call details
@@ -1000,15 +1005,20 @@ def process_article(self, article_id: int) -> str:
                         }
 
                         # Configure model-aware speed and instructions
-                        speed_updates, final_instructions = _configure_model_aware_speed(
-                            tts_model, tts_speed, segment_voice_prompt
+                        speed_updates, final_instructions = (
+                            _configure_model_aware_speed(
+                                tts_model, tts_speed, segment_voice_prompt
+                            )
                         )
 
                         # Apply speed configuration updates
                         tts_request_data.update(speed_updates)
 
                         # Add instructions parameter only for supported models
-                        if final_instructions and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+                        if final_instructions and tts_model in {
+                            "gpt-4o-mini-tts",
+                            "tts-1-hd",
+                        }:
                             tts_request_data["instructions"] = final_instructions
 
                         # Log multi-voice TTS API call details with model-aware speed handling
@@ -1255,7 +1265,11 @@ def process_article(self, article_id: int) -> str:
                     f"Fallback TTS API Call - Article {article_id}, chunk {i}: "
                     f"model={tts_args['model']}, voice={fallback_voice}, "
                     f"speed={speed_param}, text_length={len(chunk)} chars"
-                    + (f", instructions='{final_instructions}'" if final_instructions else "")
+                    + (
+                        f", instructions='{final_instructions}'"
+                        if final_instructions
+                        else ""
+                    )
                 )
 
                 # Call TTS API with detailed logging
