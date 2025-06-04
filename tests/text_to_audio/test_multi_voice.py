@@ -208,14 +208,12 @@ class MultiVoiceProcessingTest(TestCase):
         mock_content_service.return_value = mock_service_instance
 
         # Mock further processing to prevent actual API calls
-        with patch("openai.OpenAI") as mock_openai, patch(
-            "text_to_audio.tasks.openai.OpenAI"
-        ) as mock_tasks_openai, patch(
-            "text_to_audio.tasks.AudioSegment"
-        ) as mock_audio_segment, patch(
-            "text_to_audio.tasks.os.path.exists"
-        ) as mock_exists, patch(
-            "text_to_audio.tasks.os.remove"
+        with (
+            patch("openai.OpenAI") as mock_openai,
+            patch("text_to_audio.tasks.openai.OpenAI") as mock_tasks_openai,
+            patch("text_to_audio.tasks.AudioSegment") as mock_audio_segment,
+            patch("text_to_audio.tasks.os.path.exists") as mock_exists,
+            patch("text_to_audio.tasks.os.remove"),
         ):
             # Mock audio file generation
             mock_exists.return_value = True

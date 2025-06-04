@@ -31,8 +31,9 @@ class GenreClassificationService:
     def client(self):
         """Lazily initialize OpenAI client."""
         if self._client is None:
-            import openai
             from django.conf import settings
+
+            import openai
 
             self._client = openai.OpenAI(
                 api_key=self.openai_api_key or settings.OPENAI_API_KEY
@@ -62,6 +63,7 @@ class GenreClassificationService:
 
         # Call OpenAI API with JSON mode and timing
         import time
+
         start_time = time.monotonic()
         response = self.client.chat.completions.create(
             model=self._get_classification_model(),
@@ -84,7 +86,7 @@ class GenreClassificationService:
                 operation="Genre Classification",
                 tokens_used=tokens_used,
                 processing_time_ms=processing_time_ms,
-                word_count=word_count
+                word_count=word_count,
             )
 
         # Parse the response

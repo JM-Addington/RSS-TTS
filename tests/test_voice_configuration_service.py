@@ -23,7 +23,7 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
         # This tests the critical bug fix - string speeds should be converted to float
         config = self.service.get_voice_config(
             detected_tone="formal",
-            user_preferences={"speed": "1.25"}  # String speed from form
+            user_preferences={"speed": "1.25"},  # String speed from form
         )
 
         # Speed should be converted to float and properly clamped
@@ -34,28 +34,29 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
         """Test various numeric string speeds are handled correctly."""
         test_cases = [
             ("0.75", 0.75),  # Minimum valid speed
-            ("1.0", 1.0),    # Normal speed
+            ("1.0", 1.0),  # Normal speed
             ("1.25", 1.25),  # Fast speed
-            ("1.5", 1.5),    # Maximum valid speed
-            ("0.5", 0.75),   # Below minimum, should be clamped
-            ("2.0", 1.5),    # Above maximum, should be clamped
+            ("1.5", 1.5),  # Maximum valid speed
+            ("0.5", 0.75),  # Below minimum, should be clamped
+            ("2.0", 1.5),  # Above maximum, should be clamped
         ]
 
         for string_speed, expected_float in test_cases:
             with self.subTest(string_speed=string_speed):
                 config = self.service.get_voice_config(
-                    detected_tone="neutral",
-                    user_preferences={"speed": string_speed}
+                    detected_tone="neutral", user_preferences={"speed": string_speed}
                 )
                 self.assertIsInstance(config["speed"], float)
                 self.assertEqual(config["speed"], expected_float)
 
     def test_get_voice_config_handles_invalid_string_speeds(self):
         """Test that invalid string speeds default to 1.0."""
-        with self.assertLogs(logger=logging.getLogger('text_to_audio.services.voice_configuration'), level='WARNING'):
+        with self.assertLogs(
+            logger=logging.getLogger("text_to_audio.services.voice_configuration"),
+            level="WARNING",
+        ):
             config = self.service.get_voice_config(
-                detected_tone="neutral",
-                user_preferences={"speed": "invalid"}
+                detected_tone="neutral", user_preferences={"speed": "invalid"}
             )
 
         # Invalid speed should default to 1.0
@@ -65,8 +66,7 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
     def test_get_voice_config_handles_none_speed(self):
         """Test that None speed values are handled gracefully."""
         config = self.service.get_voice_config(
-            detected_tone="neutral",
-            user_preferences={"speed": None}
+            detected_tone="neutral", user_preferences={"speed": None}
         )
 
         # None speed should use default from tone mapping
@@ -77,7 +77,7 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
         """Test that article-specific speed preferences are converted."""
         config = self.service.get_voice_config(
             detected_tone="formal",
-            article_preferences={"speed": "1.1"}  # String from article form
+            article_preferences={"speed": "1.1"},  # String from article form
         )
 
         self.assertIsInstance(config["speed"], float)
@@ -87,7 +87,7 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
         """Test that AI-recommended speeds are converted."""
         config = self.service.get_voice_config(
             detected_tone="formal",
-            voice_recommendation={"speed": "0.9"}  # String from AI recommendation
+            voice_recommendation={"speed": "0.9"},  # String from AI recommendation
         )
 
         self.assertIsInstance(config["speed"], float)
@@ -101,8 +101,7 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
         mock_preset.speed = "1.25"  # String speed stored in preset
 
         config = self.service.get_voice_config(
-            detected_tone="formal",
-            voice_preset=mock_preset
+            detected_tone="formal", voice_preset=mock_preset
         )
 
         self.assertIsInstance(config["speed"], float)
@@ -119,7 +118,7 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
             user_preferences={"speed": "1.1"},  # Lower precedence
             voice_recommendation={"speed": "1.3"},  # Lower precedence
             voice_preset=mock_preset,  # Lower precedence
-            article_preferences={"speed": "1.2"}  # Highest precedence
+            article_preferences={"speed": "1.2"},  # Highest precedence
         )
 
         # Should use article preference speed (highest precedence)
@@ -132,7 +131,7 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
         config = self.service.get_voice_config(
             detected_tone="formal",
             user_preferences={"speed": 1.1},  # float
-            article_preferences={"speed": "1.25"}  # string (highest precedence)
+            article_preferences={"speed": "1.25"},  # string (highest precedence)
         )
 
         # Should use article preference and convert to float
@@ -142,8 +141,7 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
     def test_get_voice_config_preserves_other_fields(self):
         """Test that speed conversion doesn't affect other configuration fields."""
         config = self.service.get_voice_config(
-            detected_tone="formal",
-            user_preferences={"voice": "nova", "speed": "1.25"}
+            detected_tone="formal", user_preferences={"voice": "nova", "speed": "1.25"}
         )
 
         # Voice should be preserved
@@ -158,7 +156,7 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
         # So they don't reach the conversion logic - this is actually correct behavior
         config = self.service.get_voice_config(
             detected_tone="neutral",
-            user_preferences={"speed": ""}  # Empty string gets filtered out
+            user_preferences={"speed": ""},  # Empty string gets filtered out
         )
 
         # Empty string should use default from tone mapping (1.0 for neutral)
@@ -168,10 +166,13 @@ class VoiceConfigurationServiceSpeedTests(TestCase):
     def test_get_voice_config_whitespace_string_speed(self):
         """Test that whitespace-only string speeds are handled gracefully."""
         # Whitespace-only strings pass the truthiness test so they reach conversion
-        with self.assertLogs(logger=logging.getLogger('text_to_audio.services.voice_configuration'), level='WARNING'):
+        with self.assertLogs(
+            logger=logging.getLogger("text_to_audio.services.voice_configuration"),
+            level="WARNING",
+        ):
             config = self.service.get_voice_config(
                 detected_tone="neutral",
-                user_preferences={"speed": "   "}  # Whitespace only
+                user_preferences={"speed": "   "},  # Whitespace only
             )
 
         # Whitespace string should default to 1.0

@@ -144,12 +144,12 @@ class SpeedControlChunkToneTests(TestCase):
         mock_audio_empty.return_value = combined_audio
 
         # Mock content analysis and voice configuration to avoid interference
-        with patch(
-            "text_to_audio.tasks.ContentAnalysisService"
-        ) as MockContentAnalysisService, patch(
-            "text_to_audio.tasks.VoiceConfigurationService"
-        ), patch(
-            "text_to_audio.tasks._save_openai_usage_stats"
+        with (
+            patch(
+                "text_to_audio.tasks.ContentAnalysisService"
+            ) as MockContentAnalysisService,
+            patch("text_to_audio.tasks.VoiceConfigurationService"),
+            patch("text_to_audio.tasks._save_openai_usage_stats"),
         ):
 
             # Configure ContentAnalysisService to return None to skip multi-voice analysis
@@ -269,12 +269,12 @@ class SpeedControlChunkToneTests(TestCase):
         mock_audio_empty.return_value = combined_audio
 
         # Mock content analysis and voice configuration to avoid interference
-        with patch(
-            "text_to_audio.tasks.ContentAnalysisService"
-        ) as MockContentAnalysisService, patch(
-            "text_to_audio.tasks.VoiceConfigurationService"
-        ), patch(
-            "text_to_audio.tasks._save_openai_usage_stats"
+        with (
+            patch(
+                "text_to_audio.tasks.ContentAnalysisService"
+            ) as MockContentAnalysisService,
+            patch("text_to_audio.tasks.VoiceConfigurationService"),
+            patch("text_to_audio.tasks._save_openai_usage_stats"),
         ):
 
             # Configure ContentAnalysisService to return None to skip multi-voice analysis
@@ -369,12 +369,12 @@ class SpeedControlChunkToneTests(TestCase):
         mock_audio_empty.return_value = combined_audio
 
         # Mock content analysis and voice configuration to avoid interference
-        with patch(
-            "text_to_audio.tasks.ContentAnalysisService"
-        ) as MockContentAnalysisService, patch(
-            "text_to_audio.tasks.VoiceConfigurationService"
-        ), patch(
-            "text_to_audio.tasks._save_openai_usage_stats"
+        with (
+            patch(
+                "text_to_audio.tasks.ContentAnalysisService"
+            ) as MockContentAnalysisService,
+            patch("text_to_audio.tasks.VoiceConfigurationService"),
+            patch("text_to_audio.tasks._save_openai_usage_stats"),
         ):
 
             # Configure ContentAnalysisService to return None to skip multi-voice analysis

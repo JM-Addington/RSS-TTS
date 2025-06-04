@@ -16,7 +16,7 @@ def log_openai_usage(
     operation_type: str = "LLM",
     model_name: str = "gpt-4o-mini",
     input_tokens: Optional[int] = None,
-    output_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None,
 ):
     """
     Log OpenAI API usage to the OpenAIUsageStats model with cost calculation.
@@ -38,6 +38,7 @@ def log_openai_usage(
     """
     try:
         from django.db import transaction
+
         from ..models import OpenAIUsageStats
         from .cost_calculator import calculate_llm_cost, estimate_cost_from_total_tokens
 
@@ -45,9 +46,13 @@ def log_openai_usage(
         estimated_cost = None
         if operation_type == "LLM":
             if input_tokens is not None and output_tokens is not None:
-                estimated_cost = calculate_llm_cost(model_name, input_tokens, output_tokens)
+                estimated_cost = calculate_llm_cost(
+                    model_name, input_tokens, output_tokens
+                )
             elif tokens_used:
-                estimated_cost = estimate_cost_from_total_tokens(model_name, tokens_used)
+                estimated_cost = estimate_cost_from_total_tokens(
+                    model_name, tokens_used
+                )
 
         # Use transaction.atomic to ensure DB operations are isolated
         with transaction.atomic():
@@ -75,9 +80,7 @@ def log_openai_usage(
             return usage_stats
 
     except Exception as exc:
-        logger.error(
-            f"Failed to log {operation_type} usage for {operation}: {exc}"
-        )
+        logger.error(f"Failed to log {operation_type} usage for {operation}: {exc}")
 
 
 class UsageLogger:
@@ -109,7 +112,7 @@ class UsageLogger:
         word_count: int,
         model_name: str = "gpt-4o-mini",
         input_tokens: Optional[int] = None,
-        output_tokens: Optional[int] = None
+        output_tokens: Optional[int] = None,
     ):
         """Log LLM API usage with cost tracking."""
         full_operation = f"{self.operation_prefix} {operation}"
@@ -123,7 +126,7 @@ class UsageLogger:
             operation_type="LLM",
             model_name=model_name,
             input_tokens=input_tokens,
-            output_tokens=output_tokens
+            output_tokens=output_tokens,
         )
 
     def log_tts_usage(
@@ -131,7 +134,7 @@ class UsageLogger:
         operation: str,
         character_count: int,
         processing_time_ms: int,
-        model_name: str = "tts-1"
+        model_name: str = "tts-1",
     ):
         """Log TTS API usage with cost tracking."""
         full_operation = f"{self.operation_prefix} {operation}"
@@ -143,5 +146,5 @@ class UsageLogger:
             processing_time_ms=processing_time_ms,
             word_count=0,  # TTS doesn't have word count
             operation_type="TTS",
-            model_name=model_name
+            model_name=model_name,
         )

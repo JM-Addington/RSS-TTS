@@ -14,9 +14,10 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from django.conf import settings
+
 import openai
 from celery import shared_task
-from django.conf import settings
 from pydub import AudioSegment
 
 from .models import Article
@@ -560,8 +561,9 @@ def process_large_article_batched(
     Returns:
         Success/failure message
     """
-    from celery import group
     from django.conf import settings
+
+    from celery import group
 
     try:
         logger.info(
@@ -625,19 +627,28 @@ def process_large_article_batched(
 
                 return finalize_result
             except Exception as finalize_exc:
-                logger.error(f"Finalization failed for article {article_id}: {finalize_exc}")
+                logger.error(
+                    f"Finalization failed for article {article_id}: {finalize_exc}"
+                )
 
                 # Ensure article is marked as failed immediately
                 try:
                     from django.db import transaction
+
                     from .models import Article
 
                     with transaction.atomic():
-                        locked_article = Article.objects.select_for_update().get(id=article_id)
+                        locked_article = Article.objects.select_for_update().get(
+                            id=article_id
+                        )
                         locked_article.status = Article.FAILED
-                        locked_article.error_message = f"Audio finalization failed: {finalize_exc}"
+                        locked_article.error_message = (
+                            f"Audio finalization failed: {finalize_exc}"
+                        )
                         locked_article.save(update_fields=["status", "error_message"])
-                        logger.info(f"Article {article_id} marked as FAILED due to finalization failure")
+                        logger.info(
+                            f"Article {article_id} marked as FAILED due to finalization failure"
+                        )
                 except Exception as save_exc:
                     logger.error(
                         f"Failed to mark article {article_id} as failed after finalization error: {save_exc}"

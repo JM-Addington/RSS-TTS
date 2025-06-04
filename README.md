@@ -30,21 +30,6 @@ Run the development server:
 python manage.py runserver
 ```
 
-### Environment Configuration
-
-The project uses environment variables for configuration. Copy the example file and adjust as needed:
-
-```bash
-cp .env.example .env
-# Edit .env with your settings
-```
-
-Key environment variables:
-- `DJANGO_SECRET_KEY`: Secret key for Django (required)
-- `DJANGO_DEBUG`: Set to "True" for development
-- `SQLITE_DATA_DIR`: Directory to store SQLite database (optional)
-- `CELERY_BROKER_URL`: Redis URL for Celery
-- `SITE_URL`: Full URL of your site (e.g., "https://example.com") for RSS feed links
 
 ### Database Configuration
 
@@ -97,7 +82,7 @@ docker-compose down
 
 # For production
 # First, ensure you've set up your .env file with appropriate production values
-cp .env.example .env
+cp .env.sample .env
 # Edit .env with production settings
 docker-compose -f docker-compose.prod.yml up -d
 ```
@@ -161,7 +146,7 @@ We use several tools to maintain code quality:
 - **Flake8**: For linting
 - **mypy**: For type checking
 
-Configuration for these tools lives in `setup.cfg`. Flake8 enforces a McCabe
+Configuration for these tools lives in `pyproject.toml`. Flake8 enforces a McCabe
 complexity limit of 20, and mypy reads its options from the same file.
 
 Install pre-commit hooks to automatically run these tools. You can run the

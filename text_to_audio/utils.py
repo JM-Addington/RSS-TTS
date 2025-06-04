@@ -10,6 +10,8 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+from django.conf import settings
+
 import requests
 from bs4 import BeautifulSoup, Tag
 
@@ -286,13 +288,88 @@ def extract_article_text(html: str) -> Tuple[bool, str, Optional[str]]:
         return False, "", error_message
 
 
-def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
+def extract_article_text_with_gpt(
+    html: str, url: str, usage_logger=None
+) -> Tuple[bool, str, Optional[str]]:
+    """
+    Extract article text from HTML using GPT-4.1 for intelligent content selection.
+
+    This function uses OpenAI's GPT-4.1 to intelligently identify and extract
+    only the main article content, filtering out navigation, ads, comments, and
+    other non-essential content.
+
+    Args:
+        html: The HTML content to extract text from.
+        url: The source URL for context and logging.
+        usage_logger: Optional usage logger for tracking API costs.
+
+    Returns:
+        Tuple of (success, extracted_text, error_message).
+        If successful, error_message will be None.
+    """
+    try:
+        # Check if GPT content selection is enabled
+        enable_gpt_selection = getattr(settings, "ENABLE_GPT_CONTENT_SELECTION", True)
+
+        if not enable_gpt_selection:
+            logger.info(
+                f"GPT content selection disabled, falling back to basic "
+                f"extraction for {url}"
+            )
+            return extract_article_text(html)
+
+        # Check if OpenAI API key is available
+        if not getattr(settings, "OPENAI_API_KEY", None):
+            logger.warning(
+                f"No OpenAI API key available, falling back to basic "
+                f"extraction for {url}"
+            )
+            return extract_article_text(html)
+
+        # Import and use the ContentSelectionService
+        from .services.content_selection import ContentSelectionService
+
+        service = ContentSelectionService(usage_logger=usage_logger)
+        success, content, error = service.extract_content_with_gpt(html, url)
+
+        if success:
+            logger.info(f"Successfully extracted content using GPT for {url}")
+            return True, content, None
+        else:
+            logger.warning(
+                f"GPT content selection failed for {url}: {error}, falling back "
+                f"to basic extraction"
+            )
+            # Fall back to basic extraction on GPT failure
+            return extract_article_text(html)
+
+    except Exception as e:
+        error_message = f"Error in GPT content extraction for {url}: {str(e)}"
+        logger.warning(f"{error_message}, falling back to basic extraction")
+        # Fall back to basic extraction on any error
+        try:
+            return extract_article_text(html)
+        except Exception as fallback_error:
+            logger.error(
+                f"Both GPT and basic extraction failed for {url}: {fallback_error}"
+            )
+            return (
+                False,
+                "",
+                f"All extraction methods failed: GPT error: {error_message}, "
+                f"Basic error: {str(fallback_error)}",
+            )
+
+
+def process_url_to_text(url: str, usage_logger=None) -> Tuple[bool, str, Optional[str]]:
     """Process a URL to extract its textual content.
 
-    Combines fetch_url_content and extract_article_text functions.
+    Combines fetch_url_content and enhanced GPT-powered content extraction.
+    Falls back to basic extraction if GPT fails or is disabled.
 
     Args:
         url: The URL to process.
+        usage_logger: Optional usage logger for tracking API costs.
 
     Returns:
         Tuple of (success, extracted_text, error_message).
@@ -303,8 +380,8 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
     if not success:
         return False, "", error
 
-    # Extract the article text
-    success, text, error = extract_article_text(html)
+    # Extract the article text using GPT-enhanced extraction
+    success, text, error = extract_article_text_with_gpt(html, url, usage_logger)
     if not success:
         return False, "", error
 
@@ -436,7 +513,8 @@ def log_openai_api_call(
     """Log OpenAI API calls with sensitive data redaction.
 
     Args:
-        operation: Description of the operation (e.g., "TTS Generation", "Content Analysis")
+        operation: Description of the operation (e.g., "TTS Generation",
+                   "Content Analysis")
         request_data: The request data sent to OpenAI
         response_data: The response data from OpenAI (if successful)
         error: Exception if the call failed
@@ -467,5 +545,6 @@ def log_openai_api_call(
     # Log with structured format
     logger.log(
         log_level,
-        f"OpenAI API Call [{status}] - {operation}: {json.dumps(log_entry, default=str, indent=2)}",
+        f"OpenAI API Call [{status}] - {operation}: "
+        f"{json.dumps(log_entry, default=str, indent=2)}",
     )

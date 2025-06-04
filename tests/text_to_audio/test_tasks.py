@@ -17,6 +17,7 @@ from django.contrib.auth import get_user_model
 
 # Transaction import is used by decorator
 from django.test import TestCase, override_settings
+
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
@@ -463,12 +464,10 @@ class ProcessArticleTests(TestCase):
         chunks_data = ["Chunk 1 content.", "Second chunk here."]  # 3 words, 3 words
 
         # Create a patch to force return of multiple chunks and to mock audio processing
-        with patch(
-            "text_to_audio.tasks._legacy_chunk_text"
-        ) as mock_legacy_chunk_text, patch(
-            "text_to_audio.tasks.AudioSegment"
-        ), patch.object(
-            Path, "rename"
+        with (
+            patch("text_to_audio.tasks._legacy_chunk_text") as mock_legacy_chunk_text,
+            patch("text_to_audio.tasks.AudioSegment"),
+            patch.object(Path, "rename"),
         ):  # Prevent file rename attempts
 
             # Return 2 chunks to force multi-chunk processing
@@ -723,13 +722,16 @@ class ProcessArticleTests(TestCase):
                 mock_audio_empty.return_value = mock_combined_audio
 
                 # Simulate a pydub error during combination
-                with patch(
-                    "text_to_audio.tasks.AudioSegment.from_mp3",
-                    side_effect=Exception("Pydub test error"),
-                ), patch(
-                    "text_to_audio.tasks.process_article.retry",
-                    side_effect=Exception("Celery Pydub error retry"),
-                ) as mock_retry:
+                with (
+                    patch(
+                        "text_to_audio.tasks.AudioSegment.from_mp3",
+                        side_effect=Exception("Pydub test error"),
+                    ),
+                    patch(
+                        "text_to_audio.tasks.process_article.retry",
+                        side_effect=Exception("Celery Pydub error retry"),
+                    ) as mock_retry,
+                ):
 
                     with self.assertRaises(Exception) as cm:
                         process_article(self.article.id)
@@ -804,12 +806,15 @@ class ProcessArticleTests(TestCase):
 
                     mock_audio_segment = MagicMock()  # Mock for the segments themselves
 
-                    with patch(
-                        "text_to_audio.tasks.AudioSegment.empty",
-                        return_value=mock_combined_audio,
-                    ), patch(
-                        "text_to_audio.tasks.AudioSegment.from_mp3",
-                        return_value=mock_audio_segment,
+                    with (
+                        patch(
+                            "text_to_audio.tasks.AudioSegment.empty",
+                            return_value=mock_combined_audio,
+                        ),
+                        patch(
+                            "text_to_audio.tasks.AudioSegment.from_mp3",
+                            return_value=mock_audio_segment,
+                        ),
                     ):
                         process_article(self.article.id)
 
@@ -843,20 +848,27 @@ class ProcessArticleTests(TestCase):
         ]
 
         # Skip stats creation to avoid transaction issues
-        with patch("text_to_audio.tasks._save_openai_usage_stats"), patch(
-            "text_to_audio.tasks.ContentAnalysisService"
-        ) as MockContentAnalysisService:
+        with (
+            patch("text_to_audio.tasks._save_openai_usage_stats"),
+            patch(
+                "text_to_audio.tasks.ContentAnalysisService"
+            ) as MockContentAnalysisService,
+        ):
 
             # Mock content analysis to return None, forcing single voice path initially
             mock_analysis_instance = MockContentAnalysisService.return_value
             mock_analysis_instance.analyze_content.return_value = None
 
             # Mock os.remove to verify calls and patch _legacy_chunk_text for 2 chunks
-            with patch("text_to_audio.tasks.os.remove") as mock_os_remove, patch(
-                "text_to_audio.tasks._legacy_chunk_text"
-            ) as mock_legacy_chunk_text, patch(
-                "text_to_audio.tasks.process_article.retry",
-                side_effect=Exception("Celery failure cleanup retry"),
+            with (
+                patch("text_to_audio.tasks.os.remove") as mock_os_remove,
+                patch(
+                    "text_to_audio.tasks._legacy_chunk_text"
+                ) as mock_legacy_chunk_text,
+                patch(
+                    "text_to_audio.tasks.process_article.retry",
+                    side_effect=Exception("Celery failure cleanup retry"),
+                ),
             ):
 
                 # Force the function to process 2 chunks
@@ -929,9 +941,10 @@ class ProcessArticleTests(TestCase):
 
         # Mock _is_valid_multi_voice_data to return True
         # to ensure multi-voice path is taken
-        with patch(
-            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=True
-        ), patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
+        with (
+            patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=True),
+            patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats,
+        ):
             result = process_article(self.article.id)
 
         self.article.refresh_from_db()
@@ -998,9 +1011,10 @@ class ProcessArticleTests(TestCase):
         self.article.save()
 
         # Mock _is_valid_multi_voice_data to return False to ensure fallback path
-        with patch(
-            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=False
-        ), patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
+        with (
+            patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=False),
+            patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats,
+        ):
             result = process_article(self.article.id)
 
         self.article.refresh_from_db()
@@ -1103,11 +1117,11 @@ class ProcessArticleTests(TestCase):
         self.article.save()
 
         # Let's spy on _legacy_chunk_text to verify its calls
-        with patch(
-            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=True
-        ), patch("text_to_audio.tasks._legacy_chunk_text"), patch(
-            "text_to_audio.tasks._save_openai_usage_stats"
-        ) as mock_save_stats:
+        with (
+            patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=True),
+            patch("text_to_audio.tasks._legacy_chunk_text"),
+            patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats,
+        ):
 
             # Make _legacy_chunk_text behave normally for the first call (long segment)
             # and return 1 chunk for the second call (short segment)
@@ -1223,10 +1237,13 @@ class ProcessArticleTests(TestCase):
 
         mock_audio_empty.return_value = DummyAudio()
 
-        with patch(
-            "text_to_audio.tasks._is_valid_multi_voice_data",
-            return_value=True,
-        ), patch("text_to_audio.tasks._save_openai_usage_stats"):
+        with (
+            patch(
+                "text_to_audio.tasks._is_valid_multi_voice_data",
+                return_value=True,
+            ),
+            patch("text_to_audio.tasks._save_openai_usage_stats"),
+        ):
             result = process_article(self.article.id)
 
         self.article.refresh_from_db()
@@ -1320,8 +1337,9 @@ class ProcessArticleTests(TestCase):
         mock_voice_config_instance.configure_article_voice.return_value = self.article
 
         # Mock other services to avoid interference and skip stats
-        with patch("text_to_audio.tasks._save_openai_usage_stats"), patch(
-            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=False
+        with (
+            patch("text_to_audio.tasks._save_openai_usage_stats"),
+            patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=False),
         ):
 
             result = process_article(self.article.id)
@@ -1411,9 +1429,10 @@ class ProcessArticleTests(TestCase):
         mock_analysis_instance.analyze_content.side_effect = analysis_side_effect
 
         # Mock _is_valid_multi_voice_data to return True for combined result
-        with patch(
-            "text_to_audio.tasks._is_valid_multi_voice_data", return_value=True
-        ), patch("text_to_audio.tasks._save_openai_usage_stats"):
+        with (
+            patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=True),
+            patch("text_to_audio.tasks._save_openai_usage_stats"),
+        ):
             result = process_article(self.article.id)
 
         # Verify the article was processed successfully

@@ -132,7 +132,10 @@ class UserFeed(Feed):
 
         # Add warning for incomplete audio
         if item.processing_notes:
-            description = f"{description}<br><br><strong>⚠️ Note:</strong> This audio may be incomplete due to processing issues."
+            description = (
+                f"{description}<br><br><strong>⚠️ Note:</strong> This audio may be "
+                f"incomplete due to processing issues."
+            )
 
         # Add the summary if available
         if item.summary:
@@ -189,15 +192,18 @@ class UserFeed(Feed):
             else:
                 # File doesn't exist - log warning
                 logger.warning(
-                    f"Audio file missing for article {item.pk} (audio_uuid: {item.audio_uuid}). "
+                    f"Audio file missing for article {item.pk} "
+                    f"(audio_uuid: {item.audio_uuid}). "
                     f"Expected path: {canonical_path}. "
                     f"Using 1MB fallback size for RSS enclosure."
                 )
         except (OSError, ValueError) as e:
             # Log warning when file size calculation fails
             logger.warning(
-                f"Failed to get file size for article {item.pk} (audio_uuid: {item.audio_uuid}): {e}. "
-                f"Expected path: {canonical_path if 'canonical_path' in locals() else 'N/A'}. "
+                f"Failed to get file size for article {item.pk} "
+                f"(audio_uuid: {item.audio_uuid}): {e}. "
+                f"Expected path: "
+                f"{canonical_path if 'canonical_path' in locals() else 'N/A'}. "
                 f"Using 1MB fallback size for RSS enclosure."
             )
 

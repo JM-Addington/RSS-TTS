@@ -1,17 +1,29 @@
 #!/usr/bin/env python
-"""Run all tests with mocks for audio dependencies."""
+"""Run all tests with mocks for audio dependencies.
+
+This script explicitly enables audio dependency mocking by setting
+MOCK_AUDIO_DEPENDENCIES=true before importing the test configuration.
+"""
 
 import os
 import sys
 from pathlib import Path
 
+# Enable audio mocking explicitly
+os.environ["MOCK_AUDIO_DEPENDENCIES"] = "true"
+
 from django.conf import settings
 from django.test.runner import DiscoverRunner
 
-# Import the mock configuration before any other imports
+# Import the mock configuration after setting the environment variable
 import tests.conftest_mock  # noqa
 
 if __name__ == "__main__":
+    print("🎭 RSS-TTS Test Runner with Audio Mocking")
+    print("===========================================")
+    print(f"Audio mocking enabled: {os.environ.get('MOCK_AUDIO_DEPENDENCIES')}")
+    print()
+
     # Set up the test environment
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "rss_tts.settings")
     settings.TESTING = True

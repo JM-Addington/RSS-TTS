@@ -44,8 +44,9 @@ class ContentAnalysisService:
     def client(self):
         """Lazily initialize OpenAI client."""
         if self._client is None:
-            import openai
             from django.conf import settings
+
+            import openai
 
             self._client = openai.OpenAI(
                 api_key=self.openai_api_key or settings.OPENAI_API_KEY
@@ -219,7 +220,7 @@ class ContentAnalysisService:
                     operation="Content Analysis",
                     tokens_used=tokens_used,
                     processing_time_ms=duration_ms,
-                    word_count=word_count
+                    word_count=word_count,
                 )
 
         except Exception as e:

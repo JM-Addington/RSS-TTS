@@ -2,8 +2,9 @@
 
 import os
 
-from celery import Celery  # type: ignore
 from django.conf import settings
+
+from celery import Celery  # type: ignore
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "rss_tts.settings")
 

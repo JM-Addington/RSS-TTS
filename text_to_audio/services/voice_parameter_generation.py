@@ -21,8 +21,12 @@ class VoiceParameterGenerationService:
         """Initialize with optional API key override, usage logger, and required services."""
         self.openai_api_key = openai_api_key
         self.usage_logger = usage_logger
-        self.genre_service = GenreClassificationService(openai_api_key=openai_api_key, usage_logger=usage_logger)
-        self.content_service = ContentAnalysisService(openai_api_key=openai_api_key, usage_logger=usage_logger)
+        self.genre_service = GenreClassificationService(
+            openai_api_key=openai_api_key, usage_logger=usage_logger
+        )
+        self.content_service = ContentAnalysisService(
+            openai_api_key=openai_api_key, usage_logger=usage_logger
+        )
         self.template_service = VoiceGenreTemplateService()
         self._client = None
 
@@ -30,8 +34,9 @@ class VoiceParameterGenerationService:
     def client(self):
         """Lazily initialize OpenAI client."""
         if self._client is None:
-            import openai
             from django.conf import settings
+
+            import openai
 
             self._client = openai.OpenAI(
                 api_key=self.openai_api_key or settings.OPENAI_API_KEY

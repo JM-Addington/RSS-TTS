@@ -5,11 +5,11 @@ from unittest.mock import Mock, patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from text_to_audio.models import Feed, Article, OpenAIUsageStats
-from text_to_audio.services.usage_logging import UsageLogger
+from text_to_audio.models import Article, Feed, OpenAIUsageStats
 from text_to_audio.services.chunk_tone_service import ChunkToneService
-from text_to_audio.services.genre_classification import GenreClassificationService
 from text_to_audio.services.content_analysis import ContentAnalysisService
+from text_to_audio.services.genre_classification import GenreClassificationService
+from text_to_audio.services.usage_logging import UsageLogger
 
 User = get_user_model()
 
@@ -41,7 +41,7 @@ class UsageLoggingIntegrationTests(TestCase):
             operation="Test Operation",
             tokens_used=100,
             processing_time_ms=1500,
-            word_count=20
+            word_count=20,
         )
 
         # Verify usage was logged
@@ -53,7 +53,7 @@ class UsageLoggingIntegrationTests(TestCase):
         self.assertEqual(stats.processing_time_ms, 1500)
         self.assertEqual(stats.word_count, 20)
 
-    @patch('text_to_audio.services.chunk_tone_service.openai.OpenAI')
+    @patch("text_to_audio.services.chunk_tone_service.openai.OpenAI")
     def test_chunk_tone_service_logs_usage(self, mock_openai_class):
         """Test that ChunkToneService logs usage when usage_logger is provided."""
         # Set up mock response
@@ -62,7 +62,9 @@ class UsageLoggingIntegrationTests(TestCase):
 
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = """{
+        mock_response.choices[
+            0
+        ].message.content = """{
             "chunks": [
                 {
                     "text": "Test chunk",
@@ -91,7 +93,7 @@ class UsageLoggingIntegrationTests(TestCase):
         self.assertEqual(OpenAIUsageStats.objects.count(), 0)
 
         # Call service
-        result = service.get_payload("Test text content", "Test Title", 4000)
+        _result = service.get_payload("Test text content", "Test Title", 4000)
 
         # Verify API was called
         mock_client.chat.completions.create.assert_called_once()
@@ -110,7 +112,9 @@ class UsageLoggingIntegrationTests(TestCase):
 
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = """{
+        mock_response.choices[
+            0
+        ].message.content = """{
             "genre": "news",
             "confidence": 0.85,
             "voice_suggestions": {
@@ -134,7 +138,7 @@ class UsageLoggingIntegrationTests(TestCase):
         self.assertEqual(OpenAIUsageStats.objects.count(), 0)
 
         # Call service
-        result = service.classify_genre("Test article content", "Test Title")
+        _result = service.classify_genre("Test article content", "Test Title")
 
         # Verify API was called
         mock_client.chat.completions.create.assert_called_once()
@@ -153,7 +157,9 @@ class UsageLoggingIntegrationTests(TestCase):
 
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = """{
+        mock_response.choices[
+            0
+        ].message.content = """{
             "voices": [
                 {
                     "name": "narrator",
@@ -191,7 +197,7 @@ class UsageLoggingIntegrationTests(TestCase):
         self.assertEqual(OpenAIUsageStats.objects.count(), 0)
 
         # Call service
-        result = service.analyze_content("Test article content", "Test Title")
+        _result = service.analyze_content("Test article content", "Test Title")
 
         # Verify API was called
         mock_client.chat.completions.create.assert_called_once()
@@ -205,13 +211,17 @@ class UsageLoggingIntegrationTests(TestCase):
 
     def test_services_work_without_usage_logger(self):
         """Test that services still work when no usage_logger is provided."""
-        with patch('text_to_audio.services.chunk_tone_service.openai.OpenAI') as mock_openai:
+        with patch(
+            "text_to_audio.services.chunk_tone_service.openai.OpenAI"
+        ) as mock_openai:
             mock_client = Mock()
             mock_openai.return_value = mock_client
 
             mock_response = Mock()
             mock_response.choices = [Mock()]
-            mock_response.choices[0].message.content = """{
+            mock_response.choices[
+                0
+            ].message.content = """{
                 "chunks": [
                     {
                         "text": "Test chunk",
@@ -234,21 +244,25 @@ class UsageLoggingIntegrationTests(TestCase):
             service = ChunkToneService()
 
             # Should not crash
-            result = service.get_payload("Test text content", "Test Title", 4000)
+            _result = service.get_payload("Test text content", "Test Title", 4000)
 
             # No usage should be logged
             self.assertEqual(OpenAIUsageStats.objects.count(), 0)
 
     def test_multiple_services_log_separate_usage(self):
         """Test that different services log separate usage entries."""
-        with patch('text_to_audio.services.chunk_tone_service.openai.OpenAI') as mock_chunk_openai:
+        with patch(
+            "text_to_audio.services.chunk_tone_service.openai.OpenAI"
+        ) as mock_chunk_openai:
 
             # Set up ChunkToneService mock
             mock_chunk_client = Mock()
             mock_chunk_openai.return_value = mock_chunk_client
             mock_chunk_response = Mock()
             mock_chunk_response.choices = [Mock()]
-            mock_chunk_response.choices[0].message.content = """{
+            mock_chunk_response.choices[
+                0
+            ].message.content = """{
                 "chunks": [{"text": "Test", "voice": {"voice": "alloy"}, "instructions": "Test", "character_name": "narrator"}]
             }"""
             mock_chunk_response.usage = Mock()
@@ -263,7 +277,9 @@ class UsageLoggingIntegrationTests(TestCase):
             mock_genre_client = Mock()
             mock_genre_response = Mock()
             mock_genre_response.choices = [Mock()]
-            mock_genre_response.choices[0].message.content = """{
+            mock_genre_response.choices[
+                0
+            ].message.content = """{
                 "genre": "news", "confidence": 0.85, "voice_suggestions": {}
             }"""
             mock_genre_response.usage = Mock()
@@ -288,6 +304,8 @@ class UsageLoggingIntegrationTests(TestCase):
             self.assertEqual(OpenAIUsageStats.objects.count(), 2)
 
             # Verify different token counts
-            token_counts = list(OpenAIUsageStats.objects.values_list('tokens_used', flat=True))
+            token_counts = list(
+                OpenAIUsageStats.objects.values_list("tokens_used", flat=True)
+            )
             self.assertIn(50, token_counts)  # ChunkTone
             self.assertIn(25, token_counts)  # Genre

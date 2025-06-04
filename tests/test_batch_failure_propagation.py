@@ -27,9 +27,11 @@ class BatchFailurePropagationTests(TestCase):
             status=Article.PROCESSING,
         )
 
-    @patch('text_to_audio.parallel_tasks.stitch_audio_and_finalize')
-    @patch('celery.group')
-    def test_finalization_failure_propagates_as_exception(self, mock_group, mock_stitch):
+    @patch("text_to_audio.parallel_tasks.stitch_audio_and_finalize")
+    @patch("celery.group")
+    def test_finalization_failure_propagates_as_exception(
+        self, mock_group, mock_stitch
+    ):
         """Test that finalization failures raise exceptions and mark article as FAILED."""
         # Mock successful batch processing
         mock_batch_result = Mock()
@@ -55,9 +57,9 @@ class BatchFailurePropagationTests(TestCase):
             process_large_article_batched.__func__(
                 mock_task_self,
                 chunk_signatures,  # positional
-                self.article.id,   # positional
-                "test-uuid",       # positional
-                2                  # positional
+                self.article.id,  # positional
+                "test-uuid",  # positional
+                2,  # positional
             )
 
         # Verify the correct exception is raised
@@ -69,8 +71,8 @@ class BatchFailurePropagationTests(TestCase):
         self.assertIn("Audio finalization failed", self.article.error_message)
         self.assertIn("disk full", self.article.error_message)
 
-    @patch('text_to_audio.parallel_tasks.stitch_audio_and_finalize')
-    @patch('celery.group')
+    @patch("text_to_audio.parallel_tasks.stitch_audio_and_finalize")
+    @patch("celery.group")
     def test_successful_finalization_returns_message(self, mock_group, mock_stitch):
         """Test that successful finalization returns the success message."""
         # Mock successful batch processing
@@ -95,9 +97,9 @@ class BatchFailurePropagationTests(TestCase):
         result = process_large_article_batched.__func__(
             mock_task_self,
             chunk_signatures,  # positional
-            self.article.id,   # positional
-            "test-uuid",       # positional
-            2                  # positional
+            self.article.id,  # positional
+            "test-uuid",  # positional
+            2,  # positional
         )
 
         # Verify success message is returned
@@ -105,10 +107,12 @@ class BatchFailurePropagationTests(TestCase):
 
         # Verify article was not marked as failed (stitch_audio_and_finalize would update it to COMPLETED)
         self.article.refresh_from_db()
-        self.assertEqual(self.article.status, Article.PROCESSING)  # Still processing since we didn't mock the DB update
+        self.assertEqual(
+            self.article.status, Article.PROCESSING
+        )  # Still processing since we didn't mock the DB update
 
-    @patch('text_to_audio.parallel_tasks.stitch_audio_and_finalize')
-    @patch('celery.group')
+    @patch("text_to_audio.parallel_tasks.stitch_audio_and_finalize")
+    @patch("celery.group")
     def test_no_successful_chunks_raises_exception(self, mock_group, mock_stitch):
         """Test that having no successful chunks raises an exception."""
         # Mock batch processing with no results
@@ -125,9 +129,9 @@ class BatchFailurePropagationTests(TestCase):
             process_large_article_batched.__func__(
                 mock_task_self,
                 chunk_signatures,  # positional
-                self.article.id,   # positional
-                "test-uuid",       # positional
-                1                  # positional
+                self.article.id,  # positional
+                "test-uuid",  # positional
+                1,  # positional
             )
 
         # Verify the correct exception is raised

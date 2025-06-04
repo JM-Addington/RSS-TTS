@@ -26,7 +26,8 @@ OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
 OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "alloy")
 # Model used for ChunkToneService (intelligent text chunking and voice analysis)
 OPENAI_CHUNK_TONE_MODEL = os.environ.get("OPENAI_CHUNK_TONE_MODEL", "gpt-4.1")
-# Model used for ContentAnalysisService (multi-voice content analysis and AUTO voice mode)
+# Model used for ContentAnalysisService (multi-voice content analysis and
+# AUTO voice mode)
 OPENAI_CONTENT_ANALYSIS_MODEL = os.environ.get(
     "OPENAI_CONTENT_ANALYSIS_MODEL", "gpt-4.1"
 )
@@ -35,6 +36,12 @@ OPENAI_CLASSIFICATION_MODEL = os.environ.get(
     "OPENAI_CLASSIFICATION_MODEL", "gpt-4o-mini"
 )
 
+# GPT-powered content selection for URL extraction
+ENABLE_GPT_CONTENT_SELECTION = (
+    os.environ.get("ENABLE_GPT_CONTENT_SELECTION", "true").lower() == "true"
+)
+MAX_HTML_ANALYSIS_LENGTH = int(os.environ.get("MAX_HTML_ANALYSIS_LENGTH", "50000"))
+
 # ChunkTone LLM Service Feature Flag
 ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "true").lower() == "true"
 
@@ -42,7 +49,8 @@ ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "true").lower() == "t
 ENABLE_PARALLEL_TTS = os.getenv("ENABLE_PARALLEL_TTS", "true").lower() == "true"
 
 # Legacy Multi-Voice Generation Feature Flag
-# Controls whether to use ContentAnalysisService for explicit multi-voice data population
+# Controls whether to use ContentAnalysisService for explicit multi-voice
+# data population
 # ChunkToneService is the preferred method, so this defaults to False
 ENABLE_LEGACY_MULTIVOICE = (
     os.getenv("ENABLE_LEGACY_MULTIVOICE", "false").lower() == "true"
@@ -276,7 +284,8 @@ SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection
 
 # Article Processing Settings
 ARTICLE_PROCESSING_TIMEOUT_SECONDS = 3600  # 1 hour
-# Maximum number of words to analyze for content analysis (reduced from 750k for cost/performance)
+# Maximum number of words to analyze for content analysis (reduced from 750k
+# for cost/performance)
 MAX_ANALYSIS_WORDS = int(os.environ.get("MAX_ANALYSIS_WORDS", "8000"))
 
 # Parallel TTS Processing Settings

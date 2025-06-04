@@ -47,7 +47,7 @@ Here's a summary of key information from other files in the repository:
 *   Celery 6 + Redis
 *   SQLite
 *   OpenAI TTS (`tts-1` / `gpt-4o-mini-tts`)
-*   OpenAI o3-mini & GPT-4.1 for tone/extraction
+*   OpenAI gpt-4o-mini & GPT-4.1 for tone/extraction
 *   Docker Compose dev/prod
 *   Bootstrap 5 for UI
 

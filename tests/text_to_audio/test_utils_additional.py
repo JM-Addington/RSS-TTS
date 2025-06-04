@@ -4,8 +4,9 @@
 
 from unittest.mock import patch
 
-from bs4 import BeautifulSoup
 from django.test import TestCase
+
+from bs4 import BeautifulSoup
 
 from text_to_audio.utils import (
     _extract_image_descriptions,

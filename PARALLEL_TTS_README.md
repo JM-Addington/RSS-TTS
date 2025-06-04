@@ -379,14 +379,14 @@ INFO: Parallel TTS completed: Article 123 finalized successfully
 
 ### Future Monitoring Integration
 
-The parallel TTS system is designed to integrate with monitoring solutions:
+The parallel TTS system is designed to integrate with monitoring solutions. **Note: These are planned features that are not currently implemented:**
 
 1. **Prometheus/Grafana**
    - Custom metrics can be exposed via Django Prometheus exporter
    - Dashboard templates for visualizing TTS performance
    - Alerting on rate limit failures or chunk failure rates
 
-2. **Sentry Integration**
+2. **Sentry Integration** *(planned, not implemented)*
    - Error tracking for failed chunks and partial completions
    - Performance monitoring for slow TTS operations
    - Release tracking for parallel TTS feature rollouts
@@ -402,6 +402,18 @@ The parallel TTS system is designed to integrate with monitoring solutions:
    - Redis rate limiter consistently failing open
    - Worker pools becoming unavailable
    - Queue depths exceeding thresholds
+
+### Current Monitoring Implementation
+
+The system currently provides monitoring through **file-based logging**:
+
+- **Application Logs**: Detailed logging in `logs/django.log`, `logs/worker.log`, and `logs/tts_api.log`
+- **Error Tracking**: Failed articles stored with status and error messages in the database
+- **Processing Status**: Real-time article status tracking (PENDING, PROCESSING, COMPLETED, FAILED)
+- **Performance Logging**: TTS API call durations and token usage tracking
+- **Detailed Request/Response Logging**: Full OpenAI API request/response logging with sensitive data redaction
+
+For production deployments, these logs can be collected by standard log aggregation tools (e.g., ELK stack, Fluentd) for centralized monitoring.
 
 ## Testing
 

@@ -225,7 +225,8 @@ class Article(models.Model):
     - `voice`: CharField with predefined choices (canonical for standard voices)
     - `voice_id`: CharField for custom voice IDs (canonical for custom voices)
 
-    IMPORTANT: Only ONE of these fields should be set at a time to maintain data consistency.
+    IMPORTANT: Only ONE of these fields should be set at a time to maintain
+    data consistency.
     The clean() method enforces this constraint.
 
     Recommended Usage:
@@ -397,12 +398,13 @@ class Article(models.Model):
         voice_id_provided = bool(self.voice_id and self.voice_id.strip())
 
         if voice_id_provided:
-            # If voice_id is set, enforce single source of truth by resetting voice to default
+            # If voice_id is set, enforce single source of truth by resetting
+            # voice to default
             # regardless of what voice was previously set to
             if voice_provided and self.voice != settings.OPENAI_TTS_VOICE:
                 logger.info(
-                    "Article %s: voice_id='%s' is set, resetting voice from '%s' to default '%s' "
-                    "to enforce single source of truth.",
+                    "Article %s: voice_id='%s' is set, resetting voice from '%s' "
+                    "to default '%s' to enforce single source of truth.",
                     self.id or "new",
                     self.voice_id,
                     self.voice,
@@ -480,8 +482,8 @@ class OpenAIUsageStats(models.Model):
     """Model to track OpenAI API usage statistics with cost tracking."""
 
     OPERATION_TYPE_CHOICES = [
-        ('LLM', 'Language Model'),
-        ('TTS', 'Text-to-Speech'),
+        ("LLM", "Language Model"),
+        ("TTS", "Text-to-Speech"),
     ]
 
     user: models.ForeignKey = models.ForeignKey(
@@ -501,7 +503,8 @@ class OpenAIUsageStats(models.Model):
 
     # Token usage fields
     tokens_used: models.IntegerField = models.IntegerField(
-        null=False, help_text="Number of tokens used in the request (for backwards compatibility)."
+        null=False,
+        help_text="Number of tokens used in the request (for backwards compatibility).",
     )
     input_tokens: models.IntegerField = models.IntegerField(
         null=True, blank=True, help_text="Number of input tokens used."
@@ -515,20 +518,20 @@ class OpenAIUsageStats(models.Model):
         max_length=100,
         default="gpt-4o-mini",
         blank=True,
-        help_text="The OpenAI model used for this operation."
+        help_text="The OpenAI model used for this operation.",
     )
     operation_type: models.CharField = models.CharField(
         max_length=10,
         choices=OPERATION_TYPE_CHOICES,
         default="LLM",
-        help_text="Type of operation performed."
+        help_text="Type of operation performed.",
     )
     estimated_cost: models.DecimalField = models.DecimalField(
         max_digits=10,
         decimal_places=6,
         null=True,
         blank=True,
-        help_text="Estimated cost in USD for this operation."
+        help_text="Estimated cost in USD for this operation.",
     )
 
     # Original fields
@@ -545,11 +548,11 @@ class OpenAIUsageStats(models.Model):
     )
 
     class Meta:
-        ordering = ['-request_timestamp']
+        ordering = ["-request_timestamp"]
         indexes = [
-            models.Index(fields=['user', 'request_timestamp']),
-            models.Index(fields=['article']),
-            models.Index(fields=['operation_type']),
+            models.Index(fields=["user", "request_timestamp"]),
+            models.Index(fields=["article"]),
+            models.Index(fields=["operation_type"]),
         ]
 
     def __str__(self) -> str:
@@ -560,29 +563,31 @@ class OpenAIUsageStats(models.Model):
         # Use getattr to safely access username attribute - for better type checking
         username = getattr(self.user, "username", "unknown")
         cost_str = f" (${self.estimated_cost})" if self.estimated_cost else ""
-        return f"{self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
+        return (
+            f"{self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
+        )
 
     def calculate_cost(self) -> None:
         """Calculate and save the estimated cost for this usage record."""
-        from .services.cost_calculator import calculate_llm_cost, estimate_cost_from_total_tokens
+        from .services.cost_calculator import (
+            calculate_llm_cost,
+            estimate_cost_from_total_tokens,
+        )
 
-        if self.operation_type == 'LLM':
+        if self.operation_type == "LLM":
             if self.input_tokens is not None and self.output_tokens is not None:
                 # Use precise input/output token counts
                 self.estimated_cost = calculate_llm_cost(
-                    self.model_name,
-                    self.input_tokens,
-                    self.output_tokens
+                    self.model_name, self.input_tokens, self.output_tokens
                 )
             elif self.tokens_used:
                 # Fall back to estimation from total tokens
                 self.estimated_cost = estimate_cost_from_total_tokens(
-                    self.model_name,
-                    self.tokens_used
+                    self.model_name, self.tokens_used
                 )
         # TODO: Add TTS cost calculation when we have character counts
 
-        self.save(update_fields=['estimated_cost'])
+        self.save(update_fields=["estimated_cost"])
 
 
 class UserVoiceProfile(models.Model):

@@ -12,8 +12,9 @@ import logging
 import time
 from typing import Optional
 
-import redis
 from django.conf import settings
+
+import redis
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,9 @@ class TTSRateLimiter:
                 # Try to load script if not already loaded
                 if self._script_sha is None:
                     try:
-                        self._script_sha = self.redis_client.script_load(self._lua_script)
+                        self._script_sha = self.redis_client.script_load(
+                            self._lua_script
+                        )
                     except Exception:
                         # If script loading fails, fall back to eval
                         pass
@@ -155,8 +158,8 @@ class TTSRateLimiter:
                         minute_key,
                         self.per_second_limit,
                         self.per_minute_limit,
-                        2,   # second TTL
-                        120  # minute TTL
+                        2,  # second TTL
+                        120,  # minute TTL
                     )
                 else:
                     # Fall back to eval if script wasn't loaded
@@ -167,8 +170,8 @@ class TTSRateLimiter:
                         minute_key,
                         self.per_second_limit,
                         self.per_minute_limit,
-                        2,   # second TTL
-                        120  # minute TTL
+                        2,  # second TTL
+                        120,  # minute TTL
                     )
             except redis.ResponseError as e:
                 if "NOSCRIPT" in str(e) and self._script_sha:
@@ -182,8 +185,8 @@ class TTSRateLimiter:
                         minute_key,
                         self.per_second_limit,
                         self.per_minute_limit,
-                        2,   # second TTL
-                        120  # minute TTL
+                        2,  # second TTL
+                        120,  # minute TTL
                     )
                 else:
                     raise

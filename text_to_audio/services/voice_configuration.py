@@ -42,8 +42,7 @@ class VoiceConfigurationService:
         """Lazily initialize voice parameter generation service."""
         if self.parameter_service is None:
             self.parameter_service = VoiceParameterGenerationService(
-                openai_api_key=self.openai_api_key,
-                usage_logger=self.usage_logger
+                openai_api_key=self.openai_api_key, usage_logger=self.usage_logger
             )
         return self.parameter_service
 

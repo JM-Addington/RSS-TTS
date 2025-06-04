@@ -1,19 +1,39 @@
 #!/usr/bin/env python
-"""Run a specific test file with mocks for audio dependencies."""
+"""Run a specific test file with conditional mocks for audio dependencies.
+
+Usage:
+    # Run with audio mocking enabled
+    MOCK_AUDIO_DEPENDENCIES=true python run_single_test.py tests/test_models.py
+
+    # Run with real audio libraries (if available)
+    python run_single_test.py tests/test_models.py
+"""
 
 import os
 import sys
 
+# Set default mocking to true for this script (backwards compatibility)
+os.environ.setdefault("MOCK_AUDIO_DEPENDENCIES", "true")
+
 from django.conf import settings
 from django.test.runner import DiscoverRunner
 
-# Import the mock configuration before any other imports
+# Import the mock configuration after setting environment variables
 import tests.conftest_mock  # noqa
 
 if __name__ == "__main__":
+    print("🎭 RSS-TTS Single Test Runner")
+    print("==============================")
+    print(f"Audio mocking enabled: {os.environ.get('MOCK_AUDIO_DEPENDENCIES')}")
+    print()
+
     # Check arguments
     if len(sys.argv) < 2:
         print("Usage: python run_single_test.py <test_file_path>")
+        print("")
+        print("Examples:")
+        print("  python run_single_test.py tests/test_models.py")
+        print("  MOCK_AUDIO_DEPENDENCIES=false python run_single_test.py tests/test_models.py")
         sys.exit(1)
 
     test_path = sys.argv[1]

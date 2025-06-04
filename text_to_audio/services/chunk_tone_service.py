@@ -7,8 +7,9 @@ import logging
 import time
 from typing import Optional
 
-import openai
 from django.conf import settings
+
+import openai
 from pydantic import ValidationError
 
 from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoice
@@ -274,8 +275,8 @@ The JSON must be valid and parseable. Do not include any other text or explanati
             # Log usage statistics if usage logger is available
             if self.usage_logger and response.usage:
                 tokens_used = response.usage.total_tokens
-                input_tokens = getattr(response.usage, 'prompt_tokens', None)
-                output_tokens = getattr(response.usage, 'completion_tokens', None)
+                input_tokens = getattr(response.usage, "prompt_tokens", None)
+                output_tokens = getattr(response.usage, "completion_tokens", None)
                 # Estimate word count from prompt (conservative estimate)
                 word_count = len(prompt.split())
                 self.usage_logger.log_llm_usage(
@@ -285,7 +286,7 @@ The JSON must be valid and parseable. Do not include any other text or explanati
                     word_count=word_count,
                     model_name=model,
                     input_tokens=input_tokens,
-                    output_tokens=output_tokens
+                    output_tokens=output_tokens,
                 )
 
             response_text = response.choices[0].message.content.strip()

@@ -1,23 +1,20 @@
 """Tests for cost tracking functionality."""
 
-import uuid
 from decimal import Decimal
-from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase, Client
+from django.test import Client, TestCase
 from django.urls import reverse
-from django.utils import timezone
 
-from text_to_audio.models import Feed, Article, OpenAIUsageStats
+from text_to_audio.models import Article, Feed, OpenAIUsageStats
 from text_to_audio.services.cost_calculator import (
     calculate_llm_cost,
     calculate_tts_cost,
     estimate_cost_from_total_tokens,
     format_cost_display,
-    get_supported_models
+    get_supported_models,
 )
-from text_to_audio.services.usage_logging import log_openai_usage, UsageLogger
+from text_to_audio.services.usage_logging import UsageLogger, log_openai_usage
 
 User = get_user_model()
 
@@ -29,28 +26,28 @@ class CostCalculatorTests(TestCase):
         """Test cost calculation for gpt-4o-mini."""
         cost = calculate_llm_cost("gpt-4o-mini", 1000, 500)
         # (1000 * 0.150 + 500 * 0.600) / 1000000 = 0.000450
-        expected = Decimal('0.000450')
+        expected = Decimal("0.000450")
         self.assertEqual(cost, expected)
 
     def test_calculate_llm_cost_gpt_4o(self):
         """Test cost calculation for gpt-4o."""
         cost = calculate_llm_cost("gpt-4o", 1000, 500)
         # (1000 * 2.50 + 500 * 10.00) / 1000000 = 0.007500
-        expected = Decimal('0.007500')
+        expected = Decimal("0.007500")
         self.assertEqual(cost, expected)
 
     def test_calculate_llm_cost_unknown_model(self):
         """Test cost calculation for unknown model falls back to gpt-4o-mini."""
         cost = calculate_llm_cost("unknown-model", 1000, 500)
         # Should use gpt-4o-mini pricing
-        expected = Decimal('0.000450')
+        expected = Decimal("0.000450")
         self.assertEqual(cost, expected)
 
     def test_calculate_tts_cost(self):
         """Test TTS cost calculation."""
         cost = calculate_tts_cost("tts-1", 10000)  # 10k characters
         # 10000 * 15.00 / 1000000 = 0.150000
-        expected = Decimal('0.150000')
+        expected = Decimal("0.150000")
         self.assertEqual(cost, expected)
 
     def test_estimate_cost_from_total_tokens(self):
@@ -58,22 +55,22 @@ class CostCalculatorTests(TestCase):
         cost = estimate_cost_from_total_tokens("gpt-4o-mini", 1000, input_ratio=0.8)
         # 800 input tokens, 200 output tokens
         # (800 * 0.150 + 200 * 0.600) / 1000000 = 0.000240
-        expected = Decimal('0.000240')
+        expected = Decimal("0.000240")
         self.assertEqual(cost, expected)
 
     def test_format_cost_display(self):
         """Test cost formatting for display."""
-        self.assertEqual(format_cost_display(Decimal('0')), "$0.00")
-        self.assertEqual(format_cost_display(Decimal('0.001234')), "$0.001234")
-        self.assertEqual(format_cost_display(Decimal('1.23')), "$1.23")
-        self.assertEqual(format_cost_display(Decimal('0.100000')), "$0.10")
+        self.assertEqual(format_cost_display(Decimal("0")), "$0.00")
+        self.assertEqual(format_cost_display(Decimal("0.001234")), "$0.001234")
+        self.assertEqual(format_cost_display(Decimal("1.23")), "$1.23")
+        self.assertEqual(format_cost_display(Decimal("0.100000")), "$0.10")
 
     def test_get_supported_models(self):
         """Test getting list of supported models."""
         models = get_supported_models()
-        self.assertIn('gpt-4o-mini', models)
-        self.assertIn('gpt-4o', models)
-        self.assertIn('tts-1', models)
+        self.assertIn("gpt-4o-mini", models)
+        self.assertIn("gpt-4o", models)
+        self.assertIn("tts-1", models)
 
 
 class UsageLoggingTests(TestCase):
@@ -82,18 +79,11 @@ class UsageLoggingTests(TestCase):
     def setUp(self):
         """Set up test data."""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
-        self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed"
-        )
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
         self.article = Article.objects.create(
-            feed=self.feed,
-            title="Test Article",
-            text_content="This is a test article."
+            feed=self.feed, title="Test Article", text_content="This is a test article."
         )
 
     def test_log_openai_usage_with_precise_tokens(self):
@@ -107,7 +97,7 @@ class UsageLoggingTests(TestCase):
             word_count=100,
             model_name="gpt-4o-mini",
             input_tokens=1000,
-            output_tokens=500
+            output_tokens=500,
         )
 
         self.assertIsNotNone(usage_stats)
@@ -119,7 +109,7 @@ class UsageLoggingTests(TestCase):
         self.assertEqual(usage_stats.model_name, "gpt-4o-mini")
         self.assertEqual(usage_stats.operation_type, "LLM")
         self.assertIsNotNone(usage_stats.estimated_cost)
-        self.assertEqual(usage_stats.estimated_cost, Decimal('0.000450'))
+        self.assertEqual(usage_stats.estimated_cost, Decimal("0.000450"))
 
     def test_log_openai_usage_total_tokens_only(self):
         """Test logging usage with only total tokens."""
@@ -130,7 +120,7 @@ class UsageLoggingTests(TestCase):
             tokens_used=1000,
             processing_time_ms=1500,
             word_count=50,
-            model_name="gpt-4o-mini"
+            model_name="gpt-4o-mini",
         )
 
         self.assertIsNotNone(usage_stats)
@@ -139,7 +129,9 @@ class UsageLoggingTests(TestCase):
         self.assertIsNone(usage_stats.output_tokens)
         self.assertIsNotNone(usage_stats.estimated_cost)
         # Should estimate with 75% input, 25% output
-        expected = Decimal('0.000263')  # Actual calculation: (750*0.150 + 250*0.600)/1000000
+        expected = Decimal(
+            "0.000263"
+        )  # Actual calculation: (750*0.150 + 250*0.600)/1000000
         self.assertEqual(usage_stats.estimated_cost, expected)
 
     def test_usage_logger_log_llm_usage(self):
@@ -153,7 +145,7 @@ class UsageLoggingTests(TestCase):
             word_count=40,
             model_name="gpt-4o",
             input_tokens=600,
-            output_tokens=200
+            output_tokens=200,
         )
 
         self.assertIsNotNone(usage_stats)
@@ -161,7 +153,7 @@ class UsageLoggingTests(TestCase):
         self.assertEqual(usage_stats.input_tokens, 600)
         self.assertEqual(usage_stats.output_tokens, 200)
         # gpt-4o: (600 * 2.50 + 200 * 10.00) / 1000000 = 0.003500
-        self.assertEqual(usage_stats.estimated_cost, Decimal('0.003500'))
+        self.assertEqual(usage_stats.estimated_cost, Decimal("0.003500"))
 
     def test_usage_logger_log_tts_usage(self):
         """Test UsageLogger.log_tts_usage method."""
@@ -171,13 +163,15 @@ class UsageLoggingTests(TestCase):
             operation="Speech Generation",
             character_count=5000,
             processing_time_ms=3000,
-            model_name="tts-1"
+            model_name="tts-1",
         )
 
         self.assertIsNotNone(usage_stats)
         self.assertEqual(usage_stats.operation_type, "TTS")
         self.assertEqual(usage_stats.model_name, "tts-1")
-        self.assertEqual(usage_stats.tokens_used, 5000)  # Character count stored as tokens
+        self.assertEqual(
+            usage_stats.tokens_used, 5000
+        )  # Character count stored as tokens
         self.assertEqual(usage_stats.word_count, 0)  # No word count for TTS
 
 
@@ -187,18 +181,11 @@ class OpenAIUsageStatsModelTests(TestCase):
     def setUp(self):
         """Set up test data."""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
-        self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed"
-        )
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
         self.article = Article.objects.create(
-            feed=self.feed,
-            title="Test Article",
-            text_content="This is a test article."
+            feed=self.feed, title="Test Article", text_content="This is a test article."
         )
 
     def test_calculate_cost_with_precise_tokens(self):
@@ -212,14 +199,14 @@ class OpenAIUsageStatsModelTests(TestCase):
             processing_time_ms=1500,
             word_count=50,
             model_name="gpt-4o-mini",
-            operation_type="LLM"
+            operation_type="LLM",
         )
 
         usage.calculate_cost()
         usage.refresh_from_db()
 
         # (700 * 0.150 + 300 * 0.600) / 1000000 = 0.000285
-        expected = Decimal('0.000285')
+        expected = Decimal("0.000285")
         self.assertEqual(usage.estimated_cost, expected)
 
     def test_calculate_cost_fallback_to_total_tokens(self):
@@ -231,7 +218,7 @@ class OpenAIUsageStatsModelTests(TestCase):
             processing_time_ms=1500,
             word_count=50,
             model_name="gpt-4o-mini",
-            operation_type="LLM"
+            operation_type="LLM",
         )
 
         usage.calculate_cost()
@@ -250,7 +237,7 @@ class OpenAIUsageStatsModelTests(TestCase):
             word_count=50,
             model_name="gpt-4o-mini",
             operation_type="LLM",
-            estimated_cost=Decimal('0.001234')
+            estimated_cost=Decimal("0.001234"),
         )
 
         str_repr = str(usage)
@@ -265,24 +252,17 @@ class CostTrackingViewTests(TestCase):
     def setUp(self):
         """Set up test data."""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
-        self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed"
-        )
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
         self.article = Article.objects.create(
-            feed=self.feed,
-            title="Test Article",
-            text_content="This is a test article."
+            feed=self.feed, title="Test Article", text_content="This is a test article."
         )
         self.client = Client()
 
     def test_usage_dashboard_requires_login(self):
         """Test that usage dashboard requires authentication."""
-        url = reverse('usage-dashboard')
+        url = reverse("usage-dashboard")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 302)  # Redirect to login
 
@@ -299,10 +279,10 @@ class CostTrackingViewTests(TestCase):
             word_count=50,
             model_name="gpt-4o-mini",
             operation_type="LLM",
-            estimated_cost=Decimal('0.001000')
+            estimated_cost=Decimal("0.001000"),
         )
 
-        url = reverse('usage-dashboard')
+        url = reverse("usage-dashboard")
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
@@ -325,10 +305,10 @@ class CostTrackingViewTests(TestCase):
             word_count=50,
             model_name="gpt-4o-mini",
             operation_type="LLM",
-            estimated_cost=Decimal('0.000285')
+            estimated_cost=Decimal("0.000285"),
         )
 
-        url = reverse('article-cost-detail', kwargs={'article_id': self.article.id})
+        url = reverse("article-cost-detail", kwargs={"article_id": self.article.id})
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
@@ -340,13 +320,11 @@ class CostTrackingViewTests(TestCase):
     def test_article_cost_detail_unauthorized(self):
         """Test article cost detail view for unauthorized user."""
         other_user = User.objects.create_user(
-            username="otheruser",
-            email="other@example.com",
-            password="testpass123"
+            username="otheruser", email="other@example.com", password="testpass123"
         )
         self.client.force_login(other_user)
 
-        url = reverse('article-cost-detail', kwargs={'article_id': self.article.id})
+        url = reverse("article-cost-detail", kwargs={"article_id": self.article.id})
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, 200)
@@ -359,18 +337,11 @@ class CostTrackingIntegrationTests(TestCase):
     def setUp(self):
         """Set up test data."""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
-        self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed"
-        )
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
         self.article = Article.objects.create(
-            feed=self.feed,
-            title="Test Article",
-            text_content="This is a test article."
+            feed=self.feed, title="Test Article", text_content="This is a test article."
         )
 
     def test_end_to_end_cost_tracking(self):
@@ -386,7 +357,7 @@ class CostTrackingIntegrationTests(TestCase):
             word_count=100,
             model_name="gpt-4o",
             input_tokens=1500,
-            output_tokens=500
+            output_tokens=500,
         )
 
         # Log some TTS usage
@@ -394,7 +365,7 @@ class CostTrackingIntegrationTests(TestCase):
             operation="Speech Generation",
             character_count=8000,
             processing_time_ms=5000,
-            model_name="tts-1"
+            model_name="tts-1",
         )
 
         # Verify data was logged correctly
@@ -403,7 +374,7 @@ class CostTrackingIntegrationTests(TestCase):
         # Verify LLM cost calculation
         self.assertIsNotNone(llm_usage.estimated_cost)
         # gpt-4o: (1500 * 2.50 + 500 * 10.00) / 1000000 = 0.008750
-        self.assertEqual(llm_usage.estimated_cost, Decimal('0.008750'))
+        self.assertEqual(llm_usage.estimated_cost, Decimal("0.008750"))
 
         # Verify TTS record
         self.assertEqual(tts_usage.operation_type, "TTS")
@@ -411,12 +382,13 @@ class CostTrackingIntegrationTests(TestCase):
 
         # Test dashboard aggregation
         from django.db.models import Sum
+
         total_stats = OpenAIUsageStats.objects.filter(user=self.user).aggregate(
-            total_cost=Sum('estimated_cost')
+            total_cost=Sum("estimated_cost")
         )
 
         # Should include LLM cost (TTS cost calculation not yet implemented)
-        self.assertGreaterEqual(total_stats['total_cost'], Decimal('0.008750'))
+        self.assertGreaterEqual(total_stats["total_cost"], Decimal("0.008750"))
 
     def test_migration_of_existing_usage_records(self):
         """Test that existing usage records can have costs calculated."""
@@ -428,7 +400,7 @@ class CostTrackingIntegrationTests(TestCase):
             processing_time_ms=1500,
             word_count=50,
             model_name="gpt-4o-mini",
-            operation_type="LLM"
+            operation_type="LLM",
             # No estimated_cost, input_tokens, or output_tokens
         )
 
@@ -438,4 +410,4 @@ class CostTrackingIntegrationTests(TestCase):
 
         # Should now have estimated cost
         self.assertIsNotNone(old_usage.estimated_cost)
-        self.assertGreater(old_usage.estimated_cost, Decimal('0'))
+        self.assertGreater(old_usage.estimated_cost, Decimal("0"))

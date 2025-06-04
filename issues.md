@@ -34,4 +34,4 @@ From there, the text can enter the rest of the pipeline.
 
 We should just drf and drf-spectacular to generate the API docs.
 
-[ ] pupeeter or playwright fallback. If a basic request to a site is blocked, we should fallback asyncounsly to a headless browser like Puppeteer or Playwright to get the text. We will only change this one step in the pipeline, so that the rest of the pipeline can remain unchanged. This will allow us to handle sites that block requests from our servers, such as news sites that block requests from known bots or scrapers.
+[ ] Puppeteer or Playwright fallback. If a basic request to a site is blocked, we should fallback asynchronously to a headless browser like Puppeteer or Playwright to get the text. We will only change this one step in the pipeline, so that the rest of the pipeline can remain unchanged. This will allow us to handle sites that block requests from our servers, such as news sites that block requests from known bots or scrapers.
