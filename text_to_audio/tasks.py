@@ -14,12 +14,13 @@ import uuid
 from datetime import timedelta
 from pathlib import Path
 
-import openai
-from celery import shared_task  # type: ignore
-from celery import chord, group
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+
+import openai
+from celery import shared_task  # type: ignore
+from celery import chord, group
 from pydub import AudioSegment  # type: ignore
 
 from rss_tts.celery import app as celery_app  # For task revocation
@@ -30,12 +31,15 @@ from .services.chunk_tone_service import ChunkToneService
 from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
 from .services.voice_configuration import VoiceConfigurationService
 from .services.voice_parameter_generation import VoiceParameterGenerationService
-from .tts_utils import _clamp_tts_speed, _configure_model_aware_speed, _legacy_chunk_text
+from .tts_utils import (
+    _clamp_tts_speed,
+    _configure_model_aware_speed,
+    _legacy_chunk_text,
+)
 from .utils import process_url_to_text
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
 
 
 def _save_openai_usage_stats(
@@ -81,7 +85,6 @@ def _save_openai_usage_stats(
             f"Failed to save OpenAIUsageStats for article {article_id}, "
             f"chunk {chunk_index}: {stats_exc}"
         )
-
 
 
 def _generate_title(client, text: str) -> str:
@@ -231,7 +234,13 @@ def process_article(self, article_id: int) -> str:
                 f"Fetching content from URL: {article.source_url} "
                 f"for Article ID: {article_id}"
             )
-            success, extracted_text, error = process_url_to_text(article.source_url)
+            # Create usage logger for URL content extraction
+            from .services.usage_logging import UsageLogger
+
+            url_usage_logger = UsageLogger(user, article, "URLExtraction")
+            success, extracted_text, error = process_url_to_text(
+                article.source_url, url_usage_logger
+            )
 
             if not success or not extracted_text:
                 error_msg = error or "Unknown error during URL content extraction"
@@ -299,8 +308,11 @@ def process_article(self, article_id: int) -> str:
             logger.info(f"Configuring voice settings for Article ID: {article_id}")
             # Create usage logger for voice parameter generation
             from .services.usage_logging import UsageLogger
+
             voice_usage_logger = UsageLogger(user, article, "VoiceConfig")
-            voice_config_service = VoiceConfigurationService(usage_logger=voice_usage_logger)
+            voice_config_service = VoiceConfigurationService(
+                usage_logger=voice_usage_logger
+            )
             voice_config_service.configure_article_voice(article)
             logger.info(f"Voice configuration complete for Article ID: {article_id}")
         except Exception as voice_config_exc:
@@ -324,8 +336,11 @@ def process_article(self, article_id: int) -> str:
                 )
                 # Create usage logger for legacy content analysis
                 from .services.usage_logging import UsageLogger
+
                 content_usage_logger = UsageLogger(user, article, "LegacyContent")
-                content_service = ContentAnalysisService(usage_logger=content_usage_logger)
+                content_service = ContentAnalysisService(
+                    usage_logger=content_usage_logger
+                )
 
                 # For legacy multi-voice path, we need to ensure the entire article is processed
                 # Split into chunks if the article is longer than MAX_ANALYSIS_WORDS
@@ -412,6 +427,7 @@ def process_article(self, article_id: int) -> str:
                 logger.info(f"Using ChunkToneService for Article ID: {article_id}")
                 # Create usage logger for tracking LLM API usage
                 from .services.usage_logging import UsageLogger
+
                 usage_logger = UsageLogger(user, article, "ChunkTone")
                 chunk_tone_service = ChunkToneService(usage_logger=usage_logger)
 
@@ -628,8 +644,11 @@ def process_article(self, article_id: int) -> str:
                         # Apply speed configuration updates
                         tts_request_data.update(speed_updates)
 
-                        # Add instructions parameter only for gpt-4o models (tts-1 models don't support instructions)
-                        if final_instructions and tts_model.startswith("gpt-4o"):
+                        # Add instructions parameter only for supported models
+                        if final_instructions and tts_model in {
+                            "gpt-4o-mini-tts",
+                            "tts-1-hd",
+                        }:
                             tts_request_data["instructions"] = final_instructions
 
                         # Log TTS API call details
@@ -834,8 +853,11 @@ def process_article(self, article_id: int) -> str:
                         # Apply speed configuration updates
                         tts_request_data.update(speed_updates)
 
-                        # Add instructions parameter only for gpt-4o models (tts-1 models don't support instructions)
-                        if final_instructions and tts_model.startswith("gpt-4o"):
+                        # Add instructions parameter only for supported models
+                        if final_instructions and tts_model in {
+                            "gpt-4o-mini-tts",
+                            "tts-1-hd",
+                        }:
                             tts_request_data["instructions"] = final_instructions
 
                         # Log multi-voice TTS API call details with model-aware speed handling

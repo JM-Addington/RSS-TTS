@@ -22,7 +22,6 @@ repos:
     rev: 6.0.1
     hooks:
     -   id: isort
-        args: ["--profile", "black"]
         stages: [pre-push]
 
 # Basic linting without docstrings - less strict
@@ -30,7 +29,6 @@ repos:
     rev: 7.2.0
     hooks:
     -   id: flake8
-        args: ["--max-line-length=88", "--extend-ignore=E203,W503,E501"]
         stages: [pre-push]
 
 # Type checking only on manual run or CI
