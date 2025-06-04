@@ -33,7 +33,9 @@ if __name__ == "__main__":
         print("")
         print("Examples:")
         print("  python run_single_test.py tests/test_models.py")
-        print("  MOCK_AUDIO_DEPENDENCIES=false python run_single_test.py tests/test_models.py")
+        print(
+            "  MOCK_AUDIO_DEPENDENCIES=false python run_single_test.py tests/test_models.py"
+        )
         sys.exit(1)
 
     test_path = sys.argv[1]

@@ -5,57 +5,53 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('text_to_audio', '0025_add_processing_notes'),
+        ("text_to_audio", "0025_add_processing_notes"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='openaiusagestats',
-            name='model_name',
+            model_name="openaiusagestats",
+            name="model_name",
             field=models.CharField(
                 blank=True,
-                default='gpt-4o-mini',
-                help_text='The OpenAI model used for this operation',
-                max_length=100
+                default="gpt-4o-mini",
+                help_text="The OpenAI model used for this operation",
+                max_length=100,
             ),
         ),
         migrations.AddField(
-            model_name='openaiusagestats',
-            name='operation_type',
+            model_name="openaiusagestats",
+            name="operation_type",
             field=models.CharField(
-                choices=[('LLM', 'Language Model'), ('TTS', 'Text-to-Speech')],
-                default='LLM',
-                help_text='Type of operation performed',
-                max_length=10
+                choices=[("LLM", "Language Model"), ("TTS", "Text-to-Speech")],
+                default="LLM",
+                help_text="Type of operation performed",
+                max_length=10,
             ),
         ),
         migrations.AddField(
-            model_name='openaiusagestats',
-            name='input_tokens',
+            model_name="openaiusagestats",
+            name="input_tokens",
             field=models.IntegerField(
-                blank=True,
-                help_text='Number of input tokens used',
-                null=True
+                blank=True, help_text="Number of input tokens used", null=True
             ),
         ),
         migrations.AddField(
-            model_name='openaiusagestats',
-            name='output_tokens',
+            model_name="openaiusagestats",
+            name="output_tokens",
             field=models.IntegerField(
-                blank=True,
-                help_text='Number of output tokens generated',
-                null=True
+                blank=True, help_text="Number of output tokens generated", null=True
             ),
         ),
         migrations.AddField(
-            model_name='openaiusagestats',
-            name='estimated_cost',
+            model_name="openaiusagestats",
+            name="estimated_cost",
             field=models.DecimalField(
                 blank=True,
                 decimal_places=6,
-                help_text='Estimated cost in USD for this operation',
+                help_text="Estimated cost in USD for this operation",
                 max_digits=10,
-                null=True
+                null=True,
             ),
         ),
     ]

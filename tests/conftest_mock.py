@@ -89,7 +89,7 @@ def apply_audio_mocks():
         "pydub.audio_segment",
         "pydub.utils",
         "audioop",
-        "pyaudioop"
+        "pyaudioop",
     ]
 
     for module_name in modules_to_mock:
@@ -104,7 +104,7 @@ def apply_audio_mocks():
     sys.modules["pyaudioop"] = mock_audioop
 
     # Store original modules for potential cleanup
-    if not hasattr(apply_audio_mocks, '_original_modules'):
+    if not hasattr(apply_audio_mocks, "_original_modules"):
         apply_audio_mocks._original_modules = original_modules
 
 
@@ -112,7 +112,7 @@ def remove_audio_mocks():
     """Remove audio library mocks from sys.modules."""
     print("🔄 Removing audio dependency mocks...")
 
-    if hasattr(apply_audio_mocks, '_original_modules'):
+    if hasattr(apply_audio_mocks, "_original_modules"):
         # Restore original modules
         for module_name, original_module in apply_audio_mocks._original_modules.items():
             sys.modules[module_name] = original_module
@@ -123,7 +123,7 @@ def remove_audio_mocks():
             "pydub.audio_segment",
             "pydub.utils",
             "audioop",
-            "pyaudioop"
+            "pyaudioop",
         ]
 
         for module_name in modules_to_remove:
