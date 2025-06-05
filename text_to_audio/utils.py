@@ -11,7 +11,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-from bs4 import BeautifulSoup, Tag, Comment
+from bs4 import BeautifulSoup, Comment, Tag
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -353,13 +353,13 @@ def clean_html_minimal(html: str) -> str:
         for tag in soup.find_all(True):  # Find all tags
             # Keep only href for links and src/alt for images
             attrs_to_keep = {}
-            if tag.name == 'a' and tag.get('href'):
-                attrs_to_keep['href'] = tag['href']
-            elif tag.name == 'img':
-                if tag.get('src'):
-                    attrs_to_keep['src'] = tag['src']
-                if tag.get('alt'):
-                    attrs_to_keep['alt'] = tag['alt']
+            if tag.name == "a" and tag.get("href"):
+                attrs_to_keep["href"] = tag["href"]
+            elif tag.name == "img":
+                if tag.get("src"):
+                    attrs_to_keep["src"] = tag["src"]
+                if tag.get("alt"):
+                    attrs_to_keep["alt"] = tag["alt"]
 
             # Clear all attributes and restore only the ones we want to keep
             tag.attrs = attrs_to_keep
