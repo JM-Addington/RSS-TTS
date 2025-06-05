@@ -405,7 +405,7 @@ class Article(models.Model):
             if voice_provided and self.voice != settings.OPENAI_TTS_VOICE:
                 logger.info(
                     "Article %s: voice_id='%s' is set, resetting voice from '%s' "
-                    "to default '%s' to enforce single source of truth.",
+                    + "to default '%s' to enforce single source of truth.",
                     self.id or "new",
                     self.voice_id,
                     self.voice,
@@ -454,7 +454,8 @@ class Article(models.Model):
         # Check if MEDIA_ROOT exists first
         if not os.path.exists(settings.MEDIA_ROOT):
             raise FileNotFoundError(
-                f"MEDIA_ROOT directory does not exist: {settings.MEDIA_ROOT}"
+                "MEDIA_ROOT directory does not exist: "
+                f"{settings.MEDIA_ROOT}"
             )
 
         articles_dir = os.path.join(settings.MEDIA_ROOT, "articles")
