@@ -53,6 +53,7 @@ def _save_openai_usage_stats(
     tokens_used,
     processing_time_ms,
     word_count,
+    model_name: str,
 ):
     """Save OpenAI usage statistics in a separate function to isolate errors.
 
@@ -64,25 +65,26 @@ def _save_openai_usage_stats(
         tokens_used: Number of tokens used
         processing_time_ms: Processing time in milliseconds
         word_count: Number of words in the chunk
+        model_name: The OpenAI model used (e.g., 'tts-1', 'tts-1-hd')
     """
     try:
-        from django.db import transaction
+        from .services.usage_logging import log_openai_usage
 
-        from .models import OpenAIUsageStats
-
-        # Use transaction.atomic to ensure DB operations are isolated
-        with transaction.atomic():
-            OpenAIUsageStats.objects.create(
-                user=user,
-                article=article,
-                tokens_used=tokens_used,
-                processing_time_ms=processing_time_ms,
-                word_count=word_count,
-            )
-            logger.info(
-                f"OpenAI usage stats recorded for article {article_id}, "
-                f"chunk {chunk_index}"
-            )
+        # Log TTS usage with cost calculation
+        log_openai_usage(
+            user=user,
+            article=article,
+            operation=f"TTS Generation (chunk {chunk_index})",
+            tokens_used=tokens_used,  # For TTS, this is character count
+            processing_time_ms=processing_time_ms,
+            word_count=word_count,
+            operation_type="TTS",
+            model_name=model_name,
+        )
+        logger.info(
+            f"OpenAI usage stats recorded for article {article_id}, "
+            f"chunk {chunk_index}"
+        )
     except Exception as stats_exc:
         logger.error(
             f"Failed to save OpenAIUsageStats for article {article_id}, "
@@ -696,6 +698,7 @@ def process_article(self, article_id: int) -> str:
                         tokens_used=tokens_used,
                         processing_time_ms=processing_time_ms,
                         word_count=word_count,
+                        model_name=tts_model,
                     )
 
                 if generated_audio_files:
@@ -892,6 +895,7 @@ def process_article(self, article_id: int) -> str:
                             tokens_used=tokens_used,
                             processing_time_ms=processing_time_ms,
                             word_count=word_count,
+                            model_name=tts_model,
                         )
 
                 # Validate concatenated text matches original (if possible, or a large portion of it)
@@ -1117,6 +1121,7 @@ def process_article(self, article_id: int) -> str:
                     tokens_used=tokens_used,
                     processing_time_ms=processing_time_ms,
                     word_count=word_count,
+                    model_name=tts_model,
                 )
 
             if (
