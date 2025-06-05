@@ -371,6 +371,7 @@ class Article(models.Model):
     )
     prompt: models.TextField = models.TextField(
         blank=True,
+        null=True,
         default="",
         help_text="Computed TTS prompt for audit/debugging purposes.",
     )
