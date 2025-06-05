@@ -11,7 +11,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, Tag, Comment
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -286,6 +286,205 @@ def extract_article_text(html: str) -> Tuple[bool, str, Optional[str]]:
         return False, "", error_message
 
 
+def clean_html_minimal(html: str) -> str:
+    """Clean HTML by removing only unwanted tags and attributes.
+
+    This function removes script, style, and other non-content tags,
+    as well as attributes like class, id, and style that aren't needed
+    for content extraction.
+
+    Args:
+        html: Raw HTML content
+
+    Returns:
+        Cleaned HTML with only content-relevant tags and attributes
+    """
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Remove unwanted tags completely
+        unwanted_tags = [
+            'script', 'style', 'meta', 'link', 'noscript',
+            'iframe', 'embed', 'object', 'param', 'svg',
+            'canvas', 'map', 'area', 'audio', 'video',
+            'source', 'track', 'form', 'input', 'button',
+            'select', 'option', 'textarea', 'label', 'fieldset',
+            'legend', 'datalist', 'output', 'progress', 'meter',
+            'details', 'summary', 'menu', 'menuitem', 'dialog'
+        ]
+
+        for tag in unwanted_tags:
+            for element in soup.find_all(tag):
+                element.decompose()
+
+        # Remove comments
+        for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+            comment.extract()
+
+        # Remove unwanted attributes from all remaining tags
+        unwanted_attrs = [
+            'class', 'id', 'style', 'onclick', 'onload', 'onmouseover',
+            'onmouseout', 'onmouseenter', 'onmouseleave', 'onmousedown',
+            'onmouseup', 'onkeydown', 'onkeyup', 'onkeypress', 'onfocus',
+            'onblur', 'onchange', 'onsubmit', 'data-*', 'aria-*',
+            'role', 'tabindex', 'contenteditable', 'draggable',
+            'spellcheck', 'translate', 'dir', 'lang', 'xml:lang'
+        ]
+
+        for tag in soup.find_all(True):  # Find all tags
+            # Keep only href for links and src/alt for images
+            attrs_to_keep = {}
+            if tag.name == 'a' and tag.get('href'):
+                attrs_to_keep['href'] = tag['href']
+            elif tag.name == 'img':
+                if tag.get('src'):
+                    attrs_to_keep['src'] = tag['src']
+                if tag.get('alt'):
+                    attrs_to_keep['alt'] = tag['alt']
+
+            # Clear all attributes and restore only the ones we want to keep
+            tag.attrs = attrs_to_keep
+
+        # Return the cleaned HTML
+        return str(soup)
+
+    except Exception as e:
+        logger.error(f"Error cleaning HTML: {str(e)}")
+        return html  # Return original HTML if cleaning fails
+
+
+def extract_article_text_with_gpt(html: str, url: str = "") -> Tuple[bool, str, Optional[str]]:
+    """Extract article text using GPT-4o1 with cleaned HTML.
+
+    This function first cleans the HTML to remove unnecessary tags and attributes,
+    then uses GPT-4o1's large context window to intelligently extract the main
+    article content.
+
+    Args:
+        html: The raw HTML content
+        url: The source URL (optional, for context)
+
+    Returns:
+        Tuple of (success, extracted_text, error_message).
+        If successful, error_message will be None.
+    """
+    try:
+        # First, clean the HTML
+        cleaned_html = clean_html_minimal(html)
+
+        # Prepare the prompt for GPT-4o1
+        prompt = f"""Extract the main article content from this HTML.
+Return only the article text that should be narrated, including:
+- The main title/headline
+- All body paragraphs
+- Any relevant quotes or excerpts
+- Image descriptions from alt text (format as: [Image: description])
+- Table data if present (format as: [Table: brief description])
+
+Do not include:
+- Navigation menus
+- Advertisements
+- Footer information
+- Sidebar content
+- Comments sections
+- Related articles links
+- Social media buttons
+- Copyright notices
+
+Source URL: {url}
+
+HTML:
+{cleaned_html}
+
+EXTRACTED ARTICLE TEXT:"""
+
+        # Use GPT-4o1 to extract the content
+        import openai
+        from django.conf import settings
+
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+
+        # Log the API call
+        start_time = time.monotonic()
+        request_data = {
+            "model": "gpt-4o1",  # Using GPT-4o1 with 1M+ context window
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are an expert at extracting article content from HTML. Extract only the main article text that should be narrated, maintaining the logical flow and structure."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": 32768,  # GPT-4o1 supports up to 32K output tokens
+            "temperature": 0.1,  # Low temperature for consistent extraction
+        }
+
+        try:
+            response = client.chat.completions.create(**request_data)
+            end_time = time.monotonic()
+            duration_ms = int((end_time - start_time) * 1000)
+
+            # Extract the content
+            extracted_text = response.choices[0].message.content.strip()
+
+            # Log the successful API call
+            response_data = {
+                "id": response.id,
+                "model": response.model,
+                "object": response.object,
+                "created": response.created,
+                "choices": [
+                    {
+                        "index": choice.index,
+                        "message": {
+                            "role": choice.message.role,
+                            "content": choice.message.content[:500] + "..." if len(choice.message.content) > 500 else choice.message.content,
+                        },
+                        "finish_reason": choice.finish_reason,
+                    }
+                    for choice in response.choices
+                ],
+                "usage": (
+                    {
+                        "prompt_tokens": response.usage.prompt_tokens,
+                        "completion_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens,
+                    }
+                    if response.usage
+                    else None
+                ),
+            }
+
+            log_openai_api_call(
+                operation="Article Content Extraction (GPT-4o1)",
+                request_data=request_data,
+                response_data=response_data,
+                duration_ms=duration_ms,
+            )
+
+            if not extracted_text:
+                return False, "", "GPT-4o1 could not extract any content from the page"
+
+            return True, extracted_text, None
+
+        except openai.APIError as e:
+            error_msg = f"OpenAI API error: {str(e)}"
+            logger.error(error_msg)
+            return False, "", error_msg
+        except Exception as e:
+            error_msg = f"Error calling GPT-4o1: {str(e)}"
+            logger.error(error_msg)
+            return False, "", error_msg
+
+    except Exception as e:
+        error_message = f"Error in GPT-based extraction: {str(e)}"
+        logger.error(error_message)
+        return False, "", error_message
+
+
 def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
     """Process a URL to extract its textual content.
 
@@ -303,7 +502,19 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
     if not success:
         return False, "", error
 
-    # Extract the article text
+    # Try GPT-4o1 extraction first (if enabled)
+    from django.conf import settings
+    use_gpt_extraction = getattr(settings, 'USE_GPT_FOR_URL_EXTRACTION', True)
+
+    if use_gpt_extraction:
+        success, text, error = extract_article_text_with_gpt(html, url)
+        if success:
+            return True, text, None
+        else:
+            # Log the error but fall back to traditional extraction
+            logger.warning(f"GPT extraction failed for {url}: {error}. Falling back to traditional extraction.")
+
+    # Fall back to traditional extraction
     success, text, error = extract_article_text(html)
     if not success:
         return False, "", error

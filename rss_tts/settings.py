@@ -30,6 +30,9 @@ OPENAI_CLASSIFICATION_MODEL = os.environ.get(
     "OPENAI_CLASSIFICATION_MODEL", "gpt-4o-mini"
 )
 
+# URL extraction settings
+USE_GPT_FOR_URL_EXTRACTION = os.environ.get("USE_GPT_FOR_URL_EXTRACTION", "True").lower() in ("1", "true", "yes")
+
 # ChunkTone LLM Service Feature Flag
 ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "true").lower() == "true"
 
