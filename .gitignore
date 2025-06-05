@@ -32,3 +32,7 @@ joe1_review.md
 joe2_review.md
 mike1_review.md
 mike2_review.md
+
+*/.venv/*
+*/.mypy_cache/*
+*/__pycache__/*

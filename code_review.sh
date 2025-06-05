@@ -9,44 +9,8 @@ CODE_ROOT="./"
 EXTRA_MESSAGE="
 You're reviewing some work to make API calls concurrent, here are the notes from the dev:
 
-please review issues.md and create a plan to work on the bugs. I think we could get through
-all outstanding issues in a single sprint, so please prioritize them and create a plan
-for how to tackle them.
-
-this is the dev's comments on the last sprint:
-<comments>
-● 🎉 MISSION ACCOMPLISHED!
-
-  I have successfully completed all critical (P0) and high-priority (P1) tasks from Mike and Joe's comprehensive code
-  review:
-
-  ✅ Critical Bugs Fixed (P0)
-
-  1. Preset Voice Application Pipeline - Fixed VoiceConfigurationService to respect presets and ChunkToneService to use
-   preset voice for all chunks
-  2. Voice Field Single Source of Truth - Article.clean() now properly enforces voice field consistency
-  3. Preset Edit Form Data Clearing - Form now preserves existing values when POST data is empty
-  4. Universal TTS Speed Clamping - Speed validation applied before every TTS API call
-
-  ✅ High Priority Issues Fixed (P1)
-
-  5. Model-Aware Speed Control - gpt-4o-mini-tts uses instructions, tts-1 uses speed parameter
-  6. Robust Celery Task ID Handling - Prevents dangling task IDs in batched dispatch failures
-  7. Documentation Corrections - Fixed misleading performance claims in PARALLEL_TTS_README.md
-  8. Repository Hygiene - Verified .pytest_cache/ is properly ignored
-
-  📊 Final Status
-
-  - All modified files compile successfully ✅
-  - All pre-commit hooks pass ✅
-  - No breaking changes introduced ✅
-  - Ready for deployment ✅
-
-  The core preset voice bugs that were causing production issues have been resolved, and the system now has proper
-  voice handling, speed control, and robust task management. The remaining P2 tasks are feature enhancements rather
-  than critical fixes.
-
-  </comments>
+After one of the recent commits the worker stopped picking up on any new tasks.
+Why? How do we fix that?
 
 Keep in mind, that as of now this is a single-instance app that runs in my basement
 for personal use. I'll probably extend it to some family and friends, and eventually
@@ -55,6 +19,51 @@ a limited set of customers, but this is never gonna be a huge platform. It's my 
 Finally, if you find any legacy code point it out. It needs to be removed.
 
 The latest docs for the TTS API are here: openai-tts-docs.md
+
+Here is full output from the worker:
+<output>
+root@a4cc1c804e3d:/app# /app/start-worker.sh celery -A rss_tts worker --loglevel=info
+Development mode: checking requirements...
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+
+[notice] A new release of pip is available: 25.0.1 -> 25.1.1
+[notice] To update, run: pip install --upgrade pip
+/usr/local/lib/python3.12/site-packages/celery/platforms.py:841: SecurityWarning: You're running the worker with superuser privileges: this is
+absolutely not recommended!
+
+Please specify a different user using the --uid option.
+
+User information: uid=0 euid=0 gid=0 egid=0
+
+  warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+
+ -------------- celery@a4cc1c804e3d v5.5.3 (immunity)
+--- ***** -----
+-- ******* ---- Linux-6.2.0-39-generic-x86_64-with-glibc2.36 2025-06-04 23:21:56
+- *** --- * ---
+- ** ---------- [config]
+- ** ---------- .> app:         rss_tts:0x7f40b186f710
+- ** ---------- .> transport:   redis://redis:6379/0
+- ** ---------- .> results:     disabled://
+- *** --- * --- .> concurrency: 8 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** -----
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+
+
+[tasks]
+  . text_to_audio.parallel_tasks.generate_tts_for_chunk
+  . text_to_audio.parallel_tasks.process_large_article_batched
+  . text_to_audio.parallel_tasks.stitch_audio_and_finalize
+  . text_to_audio.tasks.check_stale_articles
+  . text_to_audio.tasks.process_article
+
+[2025-06-04 23:21:56,679: INFO/MainProcess] Connected to redis://redis:6379/0
+[2025-06-04 23:21:56,682: INFO/MainProcess] mingle: searching for neighbors
+[2025-06-04 23:21:57,693: INFO/MainProcess] mingle: all alone
+[2025-06-04 23:21:57,718: INFO/MainProcess] celery@a4cc1c804e3d ready.
+</output>
 "
 
 datestring=$(date +%Y-%m-%d-%H-%M)
@@ -94,6 +103,7 @@ emit_all() {
     -not -path '*/__pycache__/*' \
     -not -path '*/build/*' \
     -not -path '*/dist/*' \
+    -not -path '*/tests/*' \
     -exec sh -c '
     echo "# Contents of $1"
     echo "<$1>"
@@ -113,6 +123,7 @@ emit_all() {
     -not -path '*/build/*' \
     -not -path '*/dist/*' \
     -not -path '*/migrations/*' \
+    -not -path '*/tests/*' \
     -exec sh -c '
     echo "# Contents of $1"
     echo "<$1>"
