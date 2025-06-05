@@ -304,13 +304,41 @@ def clean_html_minimal(html: str) -> str:
 
         # Remove unwanted tags completely
         unwanted_tags = [
-            'script', 'style', 'meta', 'link', 'noscript',
-            'iframe', 'embed', 'object', 'param', 'svg',
-            'canvas', 'map', 'area', 'audio', 'video',
-            'source', 'track', 'form', 'input', 'button',
-            'select', 'option', 'textarea', 'label', 'fieldset',
-            'legend', 'datalist', 'output', 'progress', 'meter',
-            'details', 'summary', 'menu', 'menuitem', 'dialog'
+            "script",
+            "style",
+            "meta",
+            "link",
+            "noscript",
+            "iframe",
+            "embed",
+            "object",
+            "param",
+            "svg",
+            "canvas",
+            "map",
+            "area",
+            "audio",
+            "video",
+            "source",
+            "track",
+            "form",
+            "input",
+            "button",
+            "select",
+            "option",
+            "textarea",
+            "label",
+            "fieldset",
+            "legend",
+            "datalist",
+            "output",
+            "progress",
+            "meter",
+            "details",
+            "summary",
+            "menu",
+            "menuitem",
+            "dialog",
         ]
 
         for tag in unwanted_tags:
@@ -322,15 +350,6 @@ def clean_html_minimal(html: str) -> str:
             comment.extract()
 
         # Remove unwanted attributes from all remaining tags
-        unwanted_attrs = [
-            'class', 'id', 'style', 'onclick', 'onload', 'onmouseover',
-            'onmouseout', 'onmouseenter', 'onmouseleave', 'onmousedown',
-            'onmouseup', 'onkeydown', 'onkeyup', 'onkeypress', 'onfocus',
-            'onblur', 'onchange', 'onsubmit', 'data-*', 'aria-*',
-            'role', 'tabindex', 'contenteditable', 'draggable',
-            'spellcheck', 'translate', 'dir', 'lang', 'xml:lang'
-        ]
-
         for tag in soup.find_all(True):  # Find all tags
             # Keep only href for links and src/alt for images
             attrs_to_keep = {}
@@ -353,7 +372,9 @@ def clean_html_minimal(html: str) -> str:
         return html  # Return original HTML if cleaning fails
 
 
-def extract_article_text_with_gpt(html: str, url: str = "") -> Tuple[bool, str, Optional[str]]:
+def extract_article_text_with_gpt(
+    html: str, url: str = ""
+) -> Tuple[bool, str, Optional[str]]:
     """Extract article text using GPT-4.1 with cleaned HTML.
 
     This function first cleans the HTML to remove unnecessary tags and attributes,
@@ -372,7 +393,7 @@ def extract_article_text_with_gpt(html: str, url: str = "") -> Tuple[bool, str, 
         # First, clean the HTML
         cleaned_html = clean_html_minimal(html)
 
-        # Prepare the prompt for GPT-4o1
+        # Prepare the prompt for GPT-4.1
         prompt = f"""Extract the main article content from this HTML.
 Return only the article text that should be narrated, including:
 - The main title/headline
@@ -411,14 +432,11 @@ EXTRACTED ARTICLE TEXT:"""
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are an expert at extracting article content from HTML. Extract only the main article text that should be narrated, maintaining the logical flow and structure."
+                    "content": "You are an expert at extracting article content from HTML. Extract only the main article text that should be narrated, maintaining the logical flow and structure.",
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
-                            "max_tokens": 32768,  # GPT-4.1 supports up to 32K output tokens
+            "max_tokens": 32768,  # GPT-4.1 supports up to 32K output tokens
             "temperature": 0.1,  # Low temperature for consistent extraction
         }
 
@@ -441,7 +459,11 @@ EXTRACTED ARTICLE TEXT:"""
                         "index": choice.index,
                         "message": {
                             "role": choice.message.role,
-                            "content": choice.message.content[:500] + "..." if len(choice.message.content) > 500 else choice.message.content,
+                            "content": (
+                                choice.message.content[:500] + "..."
+                                if len(choice.message.content) > 500
+                                else choice.message.content
+                            ),
                         },
                         "finish_reason": choice.finish_reason,
                     }
@@ -504,7 +526,8 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
 
     # Try GPT-4.1 extraction first (if enabled)
     from django.conf import settings
-    use_gpt_extraction = getattr(settings, 'USE_GPT_FOR_URL_EXTRACTION', True)
+
+    use_gpt_extraction = getattr(settings, "USE_GPT_FOR_URL_EXTRACTION", True)
 
     if use_gpt_extraction:
         success, text, error = extract_article_text_with_gpt(html, url)
@@ -512,8 +535,9 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
             return True, text, None
         else:
             # Log the error but fall back to traditional extraction
-            logger.warning(f"GPT extraction failed for {url}: {error}. Falling back to traditional extraction.")
-
+            logger.warning(
+                f"GPT extraction failed for {url}: {error}. Falling back to traditional extraction."
+            )
     # Fall back to traditional extraction
     success, text, error = extract_article_text(html)
     if not success:
