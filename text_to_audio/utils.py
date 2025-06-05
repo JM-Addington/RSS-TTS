@@ -354,10 +354,10 @@ def clean_html_minimal(html: str) -> str:
 
 
 def extract_article_text_with_gpt(html: str, url: str = "") -> Tuple[bool, str, Optional[str]]:
-    """Extract article text using GPT-4o1 with cleaned HTML.
+    """Extract article text using GPT-4.1 with cleaned HTML.
 
     This function first cleans the HTML to remove unnecessary tags and attributes,
-    then uses GPT-4o1's large context window to intelligently extract the main
+    then uses GPT-4.1's large context window to intelligently extract the main
     article content.
 
     Args:
@@ -398,7 +398,7 @@ HTML:
 
 EXTRACTED ARTICLE TEXT:"""
 
-        # Use GPT-4o1 to extract the content
+        # Use GPT-4.1 to extract the content
         import openai
         from django.conf import settings
 
@@ -407,7 +407,7 @@ EXTRACTED ARTICLE TEXT:"""
         # Log the API call
         start_time = time.monotonic()
         request_data = {
-            "model": "gpt-4o1",  # Using GPT-4o1 with 1M+ context window
+            "model": "gpt-4.1-2025-04-14",  # Using GPT-4.1 with 1M+ context window
             "messages": [
                 {
                     "role": "system",
@@ -418,7 +418,7 @@ EXTRACTED ARTICLE TEXT:"""
                     "content": prompt
                 }
             ],
-            "max_tokens": 32768,  # GPT-4o1 supports up to 32K output tokens
+                            "max_tokens": 32768,  # GPT-4.1 supports up to 32K output tokens
             "temperature": 0.1,  # Low temperature for consistent extraction
         }
 
@@ -459,14 +459,14 @@ EXTRACTED ARTICLE TEXT:"""
             }
 
             log_openai_api_call(
-                operation="Article Content Extraction (GPT-4o1)",
+                operation="Article Content Extraction (GPT-4.1)",
                 request_data=request_data,
                 response_data=response_data,
                 duration_ms=duration_ms,
             )
 
             if not extracted_text:
-                return False, "", "GPT-4o1 could not extract any content from the page"
+                return False, "", "GPT-4.1 could not extract any content from the page"
 
             return True, extracted_text, None
 
@@ -475,7 +475,7 @@ EXTRACTED ARTICLE TEXT:"""
             logger.error(error_msg)
             return False, "", error_msg
         except Exception as e:
-            error_msg = f"Error calling GPT-4o1: {str(e)}"
+            error_msg = f"Error calling GPT-4.1: {str(e)}"
             logger.error(error_msg)
             return False, "", error_msg
 
@@ -502,7 +502,7 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
     if not success:
         return False, "", error
 
-    # Try GPT-4o1 extraction first (if enabled)
+    # Try GPT-4.1 extraction first (if enabled)
     from django.conf import settings
     use_gpt_extraction = getattr(settings, 'USE_GPT_FOR_URL_EXTRACTION', True)
 

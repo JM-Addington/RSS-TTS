@@ -2,7 +2,7 @@
 
 ## Overview
 
-This feature uses GPT-4o1 (with its 1M+ token context window) to intelligently extract article content from web pages. Instead of using rigid rules to extract text, we clean the HTML minimally and let GPT-4o1 determine what content should be narrated.
+This feature uses GPT-4.1 (with its 1M+ token context window) to intelligently extract article content from web pages. Instead of using rigid rules to extract text, we clean the HTML minimally and let GPT-4.1 determine what content should be narrated.
 
 ## How It Works
 
@@ -13,7 +13,7 @@ This feature uses GPT-4o1 (with its 1M+ token context window) to intelligently e
    - Unnecessary attributes (class, id, style, onclick, etc.)
    - Keeps only essential attributes (href for links, src/alt for images)
 
-2. **GPT-4o1 Extraction**: The cleaned HTML is sent to GPT-4o1 with instructions to:
+2. **GPT-4.1 Extraction**: The cleaned HTML is sent to GPT-4.1 with instructions to:
    - Extract the main article title and body
    - Include image descriptions from alt text
    - Include table summaries
@@ -26,7 +26,7 @@ This feature uses GPT-4o1 (with its 1M+ token context window) to intelligently e
 ### Environment Variables
 
 - `USE_GPT_FOR_URL_EXTRACTION`: Enable/disable GPT extraction (default: `True`)
-- `OPENAI_API_KEY`: Required for GPT-4o1 API access
+- `OPENAI_API_KEY`: Required for GPT-4.1 API access
 
 ### Django Settings
 
@@ -41,14 +41,14 @@ The feature is automatically used when processing URLs through the article submi
 
 ## Benefits
 
-1. **Better Content Extraction**: GPT-4o1 understands context and can intelligently identify the main article content
+1. **Better Content Extraction**: GPT-4.1 understands context and can intelligently identify the main article content
 2. **Handles Complex Layouts**: Works with various website structures without custom rules
 3. **Preserves Structure**: Maintains the logical flow of the article
 4. **Image Descriptions**: Automatically includes alt text as narration-friendly descriptions
 
 ## Cost Considerations
 
-GPT-4o1 usage is billed per token. With the 1M+ context window, even large web pages can be processed, but costs should be monitored for high-volume usage.
+GPT-4.1 usage is billed per token. With the 1M+ context window, even large web pages can be processed, but costs should be monitored for high-volume usage.
 
 ## Testing
 

@@ -105,7 +105,7 @@ class GptUrlExtractionTests(TestCase):
         mock_response.choices[0].message.content = """
         Test Article Title
 
-        This is the main article content that was extracted by GPT-4o1.
+        This is the main article content that was extracted by GPT-4.1.
         It includes multiple paragraphs and maintains structure.
 
         [Image: A test image description]
@@ -113,7 +113,7 @@ class GptUrlExtractionTests(TestCase):
         More content here.
         """
         mock_response.id = "test-response-id"
-        mock_response.model = "gpt-4o1"
+        mock_response.model = "gpt-4.1-2025-04-14"
         mock_response.object = "chat.completion"
         mock_response.created = 1234567890
         mock_response.choices[0].index = 0
@@ -145,11 +145,11 @@ class GptUrlExtractionTests(TestCase):
         self.assertTrue(success)
         self.assertIsNone(error)
         self.assertIn("Test Article Title", text)
-        self.assertIn("GPT-4o1", text)
+        self.assertIn("GPT-4.1", text)
 
         # Verify API was called with correct model
         call_args = mock_client.chat.completions.create.call_args
-        self.assertEqual(call_args[1]['model'], 'gpt-4o1')
+        self.assertEqual(call_args[1]['model'], 'gpt-4.1-2025-04-14')
         self.assertEqual(call_args[1]['max_tokens'], 32768)
         self.assertEqual(call_args[1]['temperature'], 0.1)
 
@@ -171,7 +171,7 @@ class GptUrlExtractionTests(TestCase):
         # Should fail gracefully
         self.assertFalse(success)
         self.assertEqual(text, "")
-        self.assertIn("Error calling GPT-4o1", error)
+        self.assertIn("Error calling GPT-4.1", error)
 
     @patch('text_to_audio.utils.fetch_url_content')
     @patch('text_to_audio.utils.extract_article_text_with_gpt')
