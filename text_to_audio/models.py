@@ -456,10 +456,7 @@ class Article(models.Model):
         # Check if MEDIA_ROOT exists first
         if not os.path.exists(settings.MEDIA_ROOT):
             raise FileNotFoundError(
-                (
-                    "MEDIA_ROOT directory does not exist: "
-                    f"{settings.MEDIA_ROOT}"
-                )
+                ("MEDIA_ROOT directory does not exist: " f"{settings.MEDIA_ROOT}")
             )
 
         articles_dir = os.path.join(settings.MEDIA_ROOT, "articles")
