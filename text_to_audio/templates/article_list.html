@@ -4,6 +4,11 @@
 
 {% block content %}
 {% load static %}
+<style>
+tr.now-playing {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}
+</style>
 <div class="container">
     {% if feed %}
         <nav aria-label="breadcrumb">
@@ -116,6 +121,12 @@
                                         </svg>
                                         Download MP3
                                     </a>
+                                    <button type="button" class="btn btn-success btn-sm play-audio-btn" data-audio-url="{% url 'article-media' article.audio_uuid %}" data-article-id="{{ article.id }}" data-article-title="{{ article.title|escapejs }}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-circle" viewBox="0 0 16 16">
+                                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                            <path d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445z"/>
+                                        </svg> Play
+                                    </button>
                                     <a href="{% url 'article_voice_settings' article.id %}" class="btn btn-info btn-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16">
                                             <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
@@ -221,10 +232,214 @@
         </div>
     {% endif %}
 </div>
+
+<div id="audioPlayerContainer" style="position: sticky; bottom: 0; background-color: #f8f9fa; padding: 10px; border-top: 1px solid #dee2e6; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); display: none; z-index: 1000;">
+    <audio id="audioPlayer" controls style="width: 100%;"></audio>
+    <div id="nowPlayingInfo" class="text-center mt-2 small">Now playing: <span id="nowPlayingTitle"></span></div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Define URL construction helper functions and CSRF token at the page level
+const csrfToken = '{{ csrf_token }}';
+
+// Helper function to safely escape HTML for use in attributes
+function escapeHtml(unsafe) {
+    if (unsafe === undefined || unsafe === null) return '';
+    return unsafe
+        .toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Create reusable SVG templates
+const playIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-circle" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445z"/></svg> Play';
+const pauseIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pause-circle" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M5 6.25a1.25 1.25 0 1 1 2.5 0v3.5a1.25 1.25 0 1 1-2.5 0v-3.5zm3.5 0a1.25 1.25 0 1 1 2.5 0v3.5a1.25 1.25 0 1 1-2.5 0v-3.5z"/></svg> Pause';
+
+// Create URL template patterns - these are processed server-side during initial page render
+const mediaUrlTemplate = '{% url "article-media" 0 %}'.replace('/0/', '/');
+const voiceSettingsUrlTemplate = '{% url "article_voice_settings" 0 %}'.replace('/0/', '/');
+const regenerateUrlTemplate = '{% url "article-regenerate" 0 %}'.replace('/0/', '/');
+{% if feed %}
+const feedId = {{ feed.id }}; // Store feed ID for use in dynamic content
+const deleteUrlTemplate = '{% url "article-delete" feed_id=feed.id article_id=0 %}'.replace('/0/', '/');
+{% endif %}
+
+// Create URL construction functions
+function getMediaUrl(audioUuid) {
+    return mediaUrlTemplate + audioUuid + '/';
+}
+
+function getVoiceSettingsUrl(articleId) {
+    return voiceSettingsUrlTemplate + articleId + '/';
+}
+
+function getRegenerateUrl(articleId) {
+    return regenerateUrlTemplate + articleId + '/';
+}
+
+function getDeleteUrl(articleId) {
+    return deleteUrlTemplate + articleId + '/';
+}
+
+// Function to generate complete article actions HTML
+function generateArticleActionsHTML(article) {
+    return `
+        <a href="${getMediaUrl(article.audio_uuid)}" class="btn btn-primary btn-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
+                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+            </svg>
+            Download MP3
+        </a>
+        <button type="button" class="btn btn-success btn-sm play-audio-btn" data-audio-url="${getMediaUrl(article.audio_uuid)}" data-article-id="${article.id}" data-article-title="${escapeHtml(article.title)}">
+            ${playIconSvg}
+        </button>
+        <a href="${getVoiceSettingsUrl(article.id)}" class="btn btn-info btn-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16">
+                <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+                <path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
+            </svg>
+            Voice Settings
+        </a>
+        <form method="post" action="${getRegenerateUrl(article.id)}" class="d-inline">
+            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+                Regenerate
+            </button>
+        </form>
+        <a href="${getDeleteUrl(article.id)}" class="btn btn-danger btn-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+            </svg>
+            Delete
+        </a>`;
+}
+
+// Function to reset playback UI
+function resetPlaybackUI() {
+    // Reset all play buttons and row highlighting
+    document.querySelectorAll('tr.now-playing').forEach(row => {
+        row.classList.remove('now-playing');
+    });
+    document.querySelectorAll('.play-audio-btn').forEach(btn => {
+        btn.innerHTML = playIconSvg;
+    });
+
+    // Hide the player container when playback ends
+    const playerContainer = document.getElementById('audioPlayerContainer');
+    if (playerContainer) {
+        playerContainer.style.display = 'none';
+    }
+}
+
+// Handle play button click events
+function handlePlayButtonClick(event) {
+    event.preventDefault();
+    const button = event.currentTarget;
+    const audioUrl = button.dataset.audioUrl;
+    const articleId = button.dataset.articleId;
+    let articleTitle = button.dataset.articleTitle || 'Unknown Title';
+
+    // Get audio player
+    const audioPlayer = document.getElementById('audioPlayer');
+    if (!audioPlayer) {
+        console.error('Audio player element not found');
+        return;
+    }
+
+    // Remove playing status from all rows
+    document.querySelectorAll('tr.now-playing').forEach(row => {
+        row.classList.remove('now-playing');
+    });
+    document.querySelectorAll('.play-audio-btn').forEach(btn => {
+        btn.innerHTML = playIconSvg;
+    });
+
+    // Add playing status to current row
+    const row = button.closest('tr');
+    if (row) {
+        row.classList.add('now-playing');
+        button.innerHTML = pauseIconSvg;
+    }
+
+    // Validate audioUrl to prevent invalid URLs
+    if (!audioUrl) {
+        console.error('Invalid audio URL');
+        alert('Cannot play this audio: missing URL');
+        resetPlaybackUI();
+        return;
+    }
+
+    // Compare raw src attribute instead of using audioPlayer.src property
+    const currentSrc = audioPlayer.getAttribute('src') || '';
+    if (currentSrc !== audioUrl) {
+        audioPlayer.setAttribute('src', audioUrl);
+    }
+
+    // Update now playing info with safe title
+    const nowPlayingTitle = document.getElementById('nowPlayingTitle');
+    if (nowPlayingTitle) {
+        // Using textContent is safe against XSS (browser handles escaping)
+        nowPlayingTitle.textContent = articleTitle;
+    }
+
+    const playerContainer = document.getElementById('audioPlayerContainer');
+    if (playerContainer) {
+        playerContainer.style.display = 'block'; // Show the player container
+    }
+
+    // Add error handling for playback with standardized approach
+    const playPromise = audioPlayer.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(error => {
+            console.error('Audio playback failed:', error);
+            alert('Failed to play audio. The file may be missing or corrupted.');
+            resetPlaybackUI();
+        });
+    }
+}
+
+// Function to attach event listeners to play buttons
+function attachPlayButtonListeners() {
+    const currentPlayButtons = document.querySelectorAll('.play-audio-btn');
+    currentPlayButtons.forEach(button => {
+        // Remove existing listener to avoid duplicates if this function is called multiple times
+        button.removeEventListener('click', handlePlayButtonClick);
+        button.addEventListener('click', handlePlayButtonClick);
+    });
+}
+
+// Set up audio player and event handlers after DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    const audioPlayer = document.getElementById('audioPlayer');
+
+    if (audioPlayer) {
+        // Handle audio playback completion
+        audioPlayer.addEventListener('ended', resetPlaybackUI);
+
+        // Handle audio playback errors with the standardized approach
+        audioPlayer.addEventListener('error', function() {
+            console.error('Audio playback failed:', audioPlayer.error);
+            alert('Failed to play audio. The file may be missing or corrupted.');
+            resetPlaybackUI();
+        });
+    }
+
+    // Initial attachment of listeners
+    attachPlayButtonListeners();
+});
+
 function copyFeedUrl() {
     var copyText = document.getElementById("feed-url");
     copyText.select();
@@ -242,6 +457,7 @@ function copyFeedUrl() {
         copyButton.classList.add("btn-outline-secondary");
     }, 2000);
 }
+
 {% if feed %}
 const articleStatusUrl = "{% url 'feed-article-status' feed.id %}";
 function updateArticleStatus() {
@@ -268,7 +484,13 @@ function updateArticleStatus() {
                     if (a.status === 'COMPLETED') {
                         const actions = row.querySelector('.action-cell');
                         if (actions) {
-                            actions.innerHTML = `<a href="/audio/${a.audio_uuid}/" class="btn btn-primary btn-sm">Download MP3</a>`;
+                            // Check if the play button already exists
+                            if (!actions.querySelector('.play-audio-btn')) {
+                                // Use the reusable function to generate actions HTML
+                                actions.innerHTML = generateArticleActionsHTML(a);
+                                // Re-attach event listeners for newly created play buttons
+                                attachPlayButtonListeners();
+                            }
                         }
                     }
                 }
@@ -278,5 +500,37 @@ function updateArticleStatus() {
 }
 setInterval(updateArticleStatus, 10000);
 {% endif %}
+
+// Ensure listeners are re-attached if articles are dynamically updated
+// by observing the table body for changes.
+const articleTableBody = document.querySelector('.table-responsive tbody');
+if (articleTableBody) {
+    const observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                // Check if new rows were added or existing rows' action cells were updated
+                let needsReAttach = false;
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'TR') {
+                        if (node.querySelector('.play-audio-btn')) {
+                            needsReAttach = true;
+                        }
+                    }
+                });
+                // Also check if an existing row's actions were updated
+                if (!needsReAttach && mutation.target && mutation.target.classList && mutation.target.classList.contains('action-cell')) {
+                     if (mutation.target.querySelector('.play-audio-btn')) {
+                        needsReAttach = true;
+                     }
+                }
+
+                if (needsReAttach) {
+                    attachPlayButtonListeners();
+                }
+            }
+        });
+    });
+    observer.observe(articleTableBody, { childList: true, subtree: true });
+}
 </script>
 {% endblock %}
