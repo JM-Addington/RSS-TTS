@@ -93,6 +93,14 @@ class TestArticleSubmission(TestCase):
         self.assertEqual(follow_response.status_code, 200)
         self.assertTemplateUsed(follow_response, "article_form.html")
 
+    def test_article_form_has_file_upload(self):
+        """Article submission form should include a file upload field."""
+        self.client.login(username="tester", password="pass123")
+        response = self.client.get(f"/feeds/{self.feed.pk}/add/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'enctype="multipart/form-data"')
+        self.assertContains(response, 'name="document_file"')
+
     def test_post_creates_article(self):
         """Test that submitting the article form creates a new article."""
         self.client.login(username="tester", password="pass123")
