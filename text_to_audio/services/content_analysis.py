@@ -231,14 +231,16 @@ class ContentAnalysisService:
             result = json.loads(content)
 
             # Validate the structure
-            if "voices" not in result or "audio_segments" not in result:
+            if "voices" not in result or "audio_segments" not in result or "summary" not in result:
                 raise ValueError(
-                    "Missing 'voices' or 'audio_segments' in LLM response."
+                    "Missing 'voices', 'audio_segments', or 'summary' in LLM response."
                 )
             if not isinstance(result["voices"], list) or not isinstance(
                 result["audio_segments"], list
             ):
                 raise ValueError("'voices' and 'audio_segments' must be lists.")
+            if not isinstance(result["summary"], str):
+                raise ValueError("'summary' must be a string.")
             if not result["voices"]:  # Must have at least one voice
                 raise ValueError("'voices' list cannot be empty.")
             if not result["audio_segments"]:  # Must have at least one segment
@@ -247,15 +249,24 @@ class ContentAnalysisService:
             # Further validation for each voice and segment can be added here if needed
             # For example, check if all voice_names in audio_segments refer to defined voices.
 
-            return result
+            # Extract summary
+            summary = result.get("summary", "") # Default to empty string if not found
+
+            return {
+                "summary": summary,
+                "voices": result["voices"],
+                "audio_segments": result["audio_segments"],
+            }
+
         except (json.JSONDecodeError, AttributeError, IndexError, ValueError) as e:
             logger.error(
                 f"Error parsing content analysis response or invalid structure: {e}"
             )
             # Log the problematic content
-            logger.error(f"LLM Response Content: {content}")
+            logger.error(f"LLM Response Content: {content if 'content' in locals() else 'Content not available'}")
             # Return a default structure
             return {
+                "summary": "", # Default empty summary
                 "voices": [
                     {
                         "name": "narrator",
@@ -276,30 +287,32 @@ class ContentAnalysisService:
         """Create the prompt for multi-voice content analysis."""
         title_context = f" for the article titled '{title}'" if title else ""
         return f"""
-        Analyze the following text{title_context}. Your goal is to segment the text for narration using multiple voices where appropriate.
+        Analyze the following text{title_context}. Your goal is to segment the text for narration using multiple voices where appropriate and generate a concise 2-3 sentence summary of the text.
 
         Instructions:
 
-        1.  **Identify Voice Opportunities:** Read through the text and identify distinct parts that would benefit from different voices. This could be:
+        1.  **Generate Summary:** Create a concise 2-3 sentence summary of the provided text.
+        2.  **Identify Voice Opportunities:** Read through the text and identify distinct parts that would benefit from different voices. This could be:
             *   Narration vs. direct quotations.
             *   Different characters speaking.
             *   Shifts in tone or style (e.g., a formal introduction followed by a personal anecdote).
 
-        2.  **Define Voices:** For each distinct voice you identify, create a voice definition. Each voice definition must include:
+        3.  **Define Voices:** For each distinct voice you identify, create a voice definition. Each voice definition must include:
             *   `name`: A unique string identifier for the voice (e.g., "narrator", "expert_quote", "character_jane", "historical_figure"). Use descriptive names.
             *   `tone`: A brief description of the voice's character (e.g., "Clear and neutral, like an NPR reporter", "Authoritative and academic", "Energetic and youthful", "Warm and conversational").
             *   `tts_model`: Recommend one of the following TTS voice models: "alloy", "echo", "fable", "onyx", "nova", "shimmer".
             *   `tts_speed`: Recommend a speaking speed as a float between 0.75 (slower) and 1.5 (faster).
 
-        3.  **Segment Text:** Divide the entire input text into `audio_segments`. Each segment must have:
+        4.  **Segment Text:** Divide the entire input text into `audio_segments`. Each segment must have:
             *   `text`: The actual text content for that segment.
             *   `voice_name`: The `name` of the voice (from your defined voices list) that should read this segment.
             *   Ensure that the concatenation of all `text` fields in `audio_segments` exactly matches the original input text.
 
-        4.  **Output JSON:** Structure your entire analysis as a single JSON object with two main keys: "voices" and "audio_segments", following the format below.
+        5.  **Output JSON:** Structure your entire analysis as a single JSON object with three main keys: "summary", "voices", and "audio_segments", following the format below.
 
         JSON Output Structure:
         {{
+          "summary": "2-3 sentence summary here",
           "voices": [
             {{
               "name": "string (unique identifier for the voice)",
@@ -327,6 +340,7 @@ class ContentAnalysisService:
 
         Expected JSON Output:
         {{
+          "summary": "The study found microbreaks increase job satisfaction. Dr. Carter explains they are essential for focus, implying businesses should encourage them for productivity.",
           "voices": [
             {{
               "name": "narrator",
@@ -364,6 +378,7 @@ class ContentAnalysisService:
 
         Expected JSON Output:
         {{
+          "summary": "Tom Sawyer is called by his aunt, but he doesn't answer. She looks for him, annoyed, and mutters a threat if she catches him.",
           "voices": [
             {{
               "name": "narrator",
