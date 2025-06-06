@@ -323,60 +323,28 @@ function resetPlaybackUI() {
     document.querySelectorAll('.play-audio-btn').forEach(btn => {
         btn.innerHTML = playIconSvg;
     });
-}
 
-// Set up audio player and event handlers after DOM is loaded
-let audioPlayer;
-document.addEventListener('DOMContentLoaded', function() {
-    audioPlayer = document.getElementById('audioPlayer');
-
-    if (audioPlayer) {
-        // Handle audio playback completion
-        audioPlayer.addEventListener('ended', resetPlaybackUI);
-
-        // Handle audio playback errors
-        audioPlayer.addEventListener('error', function() {
-            console.error('Audio playback failed:', audioPlayer.error);
-            alert('Failed to play audio. The file may be missing or corrupted.');
-            resetPlaybackUI();
-        });
+    // Hide the player container when playback ends
+    const playerContainer = document.getElementById('audioPlayerContainer');
+    if (playerContainer) {
+        playerContainer.style.display = 'none';
     }
-
-    // Initial attachment of listeners
-    attachPlayButtonListeners();
-});
-// URL helper functions - these construct proper URLs for dynamic content
-function getMediaUrl(audioUuid) {
-    return mediaUrlTemplate + audioUuid + '/';
 }
 
-function getVoiceSettingsUrl(articleId) {
-    return voiceSettingsUrlTemplate + articleId + '/';
-}
-
-function getRegenerateUrl(articleId) {
-    return regenerateUrlTemplate + articleId + '/';
-}
-
-function getDeleteUrl(articleId) {
-    return deleteUrlTemplate + articleId + '/';
-}
-
-function attachPlayButtonListeners() {
-    const currentPlayButtons = document.querySelectorAll('.play-audio-btn');
-    currentPlayButtons.forEach(button => {
-        // Remove existing listener to avoid duplicates if this function is called multiple times
-        button.removeEventListener('click', handlePlayButtonClick);
-        button.addEventListener('click', handlePlayButtonClick);
-    });
-}
-
+// Handle play button click events
 function handlePlayButtonClick(event) {
     event.preventDefault();
     const button = event.currentTarget;
     const audioUrl = button.dataset.audioUrl;
     const articleId = button.dataset.articleId;
     const articleTitle = button.dataset.articleTitle;
+
+    // Get audio player
+    const audioPlayer = document.getElementById('audioPlayer');
+    if (!audioPlayer) {
+        console.error('Audio player element not found');
+        return;
+    }
 
     // Remove playing status from all rows
     document.querySelectorAll('tr.now-playing').forEach(row => {
@@ -393,24 +361,56 @@ function handlePlayButtonClick(event) {
         button.innerHTML = pauseIconSvg;
     }
 
-    if (audioPlayer.src !== audioUrl) {
-        audioPlayer.src = audioUrl;
+    // Compare raw src attribute instead of using audioPlayer.src property
+    const currentSrc = audioPlayer.getAttribute('src') || '';
+    if (currentSrc !== audioUrl) {
+        audioPlayer.setAttribute('src', audioUrl);
     }
 
     // Update now playing info
     document.getElementById('nowPlayingTitle').textContent = articleTitle;
     document.getElementById('audioPlayerContainer').style.display = 'block'; // Show the player container
 
-    // Add error handling for playback
-    audioPlayer.play().catch(error => {
-        console.error('Audio playback failed:', error);
-        alert('Failed to play audio. The file may be missing or corrupted.');
-        resetPlaybackUI();
-    });
+    // Add error handling for playback with standardized approach
+    const playPromise = audioPlayer.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(error => {
+            console.error('Audio playback failed:', error);
+            alert('Failed to play audio. The file may be missing or corrupted.');
+            resetPlaybackUI();
+        });
+    }
 }
 
 // Function to attach event listeners to play buttons
+function attachPlayButtonListeners() {
+    const currentPlayButtons = document.querySelectorAll('.play-audio-btn');
+    currentPlayButtons.forEach(button => {
+        // Remove existing listener to avoid duplicates if this function is called multiple times
+        button.removeEventListener('click', handlePlayButtonClick);
+        button.addEventListener('click', handlePlayButtonClick);
+    });
+}
 
+// Set up audio player and event handlers after DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    const audioPlayer = document.getElementById('audioPlayer');
+
+    if (audioPlayer) {
+        // Handle audio playback completion
+        audioPlayer.addEventListener('ended', resetPlaybackUI);
+
+        // Handle audio playback errors with the standardized approach
+        audioPlayer.addEventListener('error', function() {
+            console.error('Audio playback failed:', audioPlayer.error);
+            alert('Failed to play audio. The file may be missing or corrupted.');
+            resetPlaybackUI();
+        });
+    }
+
+    // Initial attachment of listeners
+    attachPlayButtonListeners();
+});
 
 function copyFeedUrl() {
     var copyText = document.getElementById("feed-url");
@@ -429,6 +429,7 @@ function copyFeedUrl() {
         copyButton.classList.add("btn-outline-secondary");
     }, 2000);
 }
+
 {% if feed %}
 const articleStatusUrl = "{% url 'feed-article-status' feed.id %}";
 function updateArticleStatus() {
