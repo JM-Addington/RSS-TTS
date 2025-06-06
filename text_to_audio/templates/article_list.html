@@ -121,7 +121,7 @@ tr.now-playing {
                                         </svg>
                                         Download MP3
                                     </a>
-                                    <button type="button" class="btn btn-success btn-sm play-audio-btn" data-audio-url="{% url 'article-media' article.audio_uuid %}" data-article-id="{{ article.id }}" data-article-title="{{ article.title }}">
+                                    <button type="button" class="btn btn-success btn-sm play-audio-btn" data-audio-url="{% url 'article-media' article.audio_uuid %}" data-article-id="{{ article.id }}" data-article-title="{{ article.title|escapejs }}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-circle" viewBox="0 0 16 16">
                                             <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                                             <path d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445z"/>
@@ -245,6 +245,18 @@ tr.now-playing {
 // Define URL construction helper functions and CSRF token at the page level
 const csrfToken = '{{ csrf_token }}';
 
+// Helper function to safely escape HTML for use in attributes
+function escapeHtml(unsafe) {
+    if (unsafe === undefined || unsafe === null) return '';
+    return unsafe
+        .toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // Create reusable SVG templates
 const playIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-circle" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445z"/></svg> Play';
 const pauseIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pause-circle" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M5 6.25a1.25 1.25 0 1 1 2.5 0v3.5a1.25 1.25 0 1 1-2.5 0v-3.5zm3.5 0a1.25 1.25 0 1 1 2.5 0v3.5a1.25 1.25 0 1 1-2.5 0v-3.5z"/></svg> Pause';
@@ -285,7 +297,7 @@ function generateArticleActionsHTML(article) {
             </svg>
             Download MP3
         </a>
-        <button type="button" class="btn btn-success btn-sm play-audio-btn" data-audio-url="${getMediaUrl(article.audio_uuid)}" data-article-id="${article.id}" data-article-title="${article.title}">
+        <button type="button" class="btn btn-success btn-sm play-audio-btn" data-audio-url="${getMediaUrl(article.audio_uuid)}" data-article-id="${article.id}" data-article-title="${escapeHtml(article.title)}">
             ${playIconSvg}
         </button>
         <a href="${getVoiceSettingsUrl(article.id)}" class="btn btn-info btn-sm">
@@ -337,7 +349,7 @@ function handlePlayButtonClick(event) {
     const button = event.currentTarget;
     const audioUrl = button.dataset.audioUrl;
     const articleId = button.dataset.articleId;
-    const articleTitle = button.dataset.articleTitle;
+    let articleTitle = button.dataset.articleTitle || 'Unknown Title';
 
     // Get audio player
     const audioPlayer = document.getElementById('audioPlayer');
@@ -361,15 +373,31 @@ function handlePlayButtonClick(event) {
         button.innerHTML = pauseIconSvg;
     }
 
+    // Validate audioUrl to prevent invalid URLs
+    if (!audioUrl) {
+        console.error('Invalid audio URL');
+        alert('Cannot play this audio: missing URL');
+        resetPlaybackUI();
+        return;
+    }
+
     // Compare raw src attribute instead of using audioPlayer.src property
     const currentSrc = audioPlayer.getAttribute('src') || '';
     if (currentSrc !== audioUrl) {
         audioPlayer.setAttribute('src', audioUrl);
     }
 
-    // Update now playing info
-    document.getElementById('nowPlayingTitle').textContent = articleTitle;
-    document.getElementById('audioPlayerContainer').style.display = 'block'; // Show the player container
+    // Update now playing info with safe title
+    const nowPlayingTitle = document.getElementById('nowPlayingTitle');
+    if (nowPlayingTitle) {
+        // Using textContent is safe against XSS (browser handles escaping)
+        nowPlayingTitle.textContent = articleTitle;
+    }
+
+    const playerContainer = document.getElementById('audioPlayerContainer');
+    if (playerContainer) {
+        playerContainer.style.display = 'block'; // Show the player container
+    }
 
     // Add error handling for playback with standardized approach
     const playPromise = audioPlayer.play();
