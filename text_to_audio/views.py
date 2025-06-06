@@ -477,7 +477,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             # Validate using content_type for consistency with form validation
             if content_type == "application/pdf":
                 extracted_text = extract_text_from_pdf(document_file)
-                if extracted_text == "Error: Could not extract text from PDF.":
+                if extracted_text.startswith("Error: Could not extract text from PDF"):
                     form.add_error(
                         "document_file",
                         "Unable to extract text from the PDF file. The file might be password-protected, "
