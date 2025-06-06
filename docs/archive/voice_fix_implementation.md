@@ -34,7 +34,7 @@ In `rss_tts/settings.py`, I added explicit settings for TTS model and voice:
 
 ```python
 # TTS model and voice settings
-OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "tts-1")
+OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "tts-1-hd")
 OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "alloy")
 ```
 

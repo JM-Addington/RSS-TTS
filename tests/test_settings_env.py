@@ -57,3 +57,16 @@ class TestSettingsEnvironment(unittest.TestCase):
         default_db = settings.DATABASES["default"]
         self.assertEqual(default_db["ENGINE"], "django.db.backends.sqlite3")
         self.assertTrue(default_db["NAME"].endswith("custom/db.sqlite3"))
+
+    def test_default_tts_model(self):
+        """Default TTS model should be tts-1-hd when not set via env."""
+        os.environ["DJANGO_SECRET_KEY"] = "test"
+        settings = self._import_settings()
+        self.assertEqual(settings.OPENAI_TTS_MODEL, "tts-1-hd")
+
+    def test_tts_model_from_env(self):
+        """Environment variable should override the default TTS model."""
+        os.environ["DJANGO_SECRET_KEY"] = "test"
+        os.environ["OPENAI_TTS_MODEL"] = "tts-1"
+        settings = self._import_settings()
+        self.assertEqual(settings.OPENAI_TTS_MODEL, "tts-1")

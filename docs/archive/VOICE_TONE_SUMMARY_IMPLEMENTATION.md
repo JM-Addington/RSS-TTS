@@ -509,7 +509,7 @@ def process_article(self, article_id: int) -> str:
                 start_time = time.monotonic()
                 # Update to include voice_id and speed
                 response = client.audio.speech.create(
-                    model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1"),
+                    model=getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd"),
                     voice=article.voice_id or getattr(settings, "OPENAI_TTS_VOICE", "alloy"),
                     input=chunk,
                     speed=article.speed or 1.0,  # Apply speed if set
