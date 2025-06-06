@@ -1,8 +1,9 @@
 """Tests for cost tracking functionality."""
 
 from decimal import Decimal
-from django.test import TestCase
+
 from django.contrib.auth import get_user_model
+from django.test import TestCase
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
 from text_to_audio.services.cost_calculator import (

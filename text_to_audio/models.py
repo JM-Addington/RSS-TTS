@@ -491,7 +491,8 @@ class OpenAIUsageStats(models.Model):
 
     # Token usage fields
     tokens_used: models.IntegerField = models.IntegerField(
-        null=False, help_text="Number of tokens used in the request (for backwards compatibility)."
+        null=False,
+        help_text="Number of tokens used in the request (for backwards compatibility).",
     )
     input_tokens: models.IntegerField = models.IntegerField(
         null=True, blank=True, help_text="Number of input tokens used."
@@ -537,9 +538,14 @@ class OpenAIUsageStats(models.Model):
     class Meta:
         ordering = ["-request_timestamp"]
         indexes = [
-            models.Index(fields=["user", "request_timestamp"], name="text_to_aud_user_id_d5abf8_idx"),
+            models.Index(
+                fields=["user", "request_timestamp"],
+                name="text_to_aud_user_id_d5abf8_idx",
+            ),
             models.Index(fields=["article"], name="text_to_aud_article_9e9c59_idx"),
-            models.Index(fields=["operation_type"], name="text_to_aud_operati_2db4e5_idx"),
+            models.Index(
+                fields=["operation_type"], name="text_to_aud_operati_2db4e5_idx"
+            ),
         ]
 
     def __str__(self) -> str:
@@ -550,7 +556,9 @@ class OpenAIUsageStats(models.Model):
         # Use getattr to safely access username attribute - for better type checking
         username = getattr(self.user, "username", "unknown")
         cost_str = f" (${self.estimated_cost})" if self.estimated_cost else ""
-        return f"{self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
+        return (
+            f"{self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
+        )
 
 
 class UserVoiceProfile(models.Model):
