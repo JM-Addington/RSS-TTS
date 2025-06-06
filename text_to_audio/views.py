@@ -41,12 +41,11 @@ from .services.voice_configuration import VoiceConfigurationService  # noqa: F40
 from .tasks import process_article
 from .utils import (
     extract_article_text,
+    extract_text_from_pdf,
     extract_title_from_html,
     fetch_url_content,
     safe_delete_audio_file,
-    extract_text_from_pdf,
 )
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -427,6 +426,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 preset = UserVoicePreset.objects.get(id=preset_id)
                 article.voice_preset = preset
                 from text_to_audio.models import VOICE_CHOICES
+
                 standard_voices = [choice[0] for choice in VOICE_CHOICES]
                 if preset.voice_id in standard_voices:
                     article.voice = preset.voice_id
@@ -441,6 +441,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             preset = self.feed.default_voice_preset
             article.voice_preset = preset
             from text_to_audio.models import VOICE_CHOICES
+
             standard_voices = [choice[0] for choice in VOICE_CHOICES]
             if preset.voice_id in standard_voices:
                 article.voice = preset.voice_id
@@ -454,6 +455,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             speed = form.cleaned_data.get("speed")
             if voice_id:
                 from text_to_audio.models import VOICE_CHOICES
+
                 standard_voices = [choice[0] for choice in VOICE_CHOICES]
                 if voice_id in standard_voices:
                     article.voice = voice_id
@@ -474,47 +476,60 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             if file_ext == ".pdf":
                 extracted_text = extract_text_from_pdf(document_file)
                 if extracted_text == "Error: Could not extract text from PDF.":
-                    form.add_error("document_file",
+                    form.add_error(
+                        "document_file",
                         "Unable to extract text from the PDF file. The file might be password-protected, "
                         "corrupted, or contain only scanned images without text layers. "
-                        "Try using a different PDF or extract the text manually.")
+                        "Try using a different PDF or extract the text manually.",
+                    )
                     return self.form_invalid(form)
             elif file_ext == ".html":
                 try:
                     html_content = document_file.read().decode("utf-8")
                     success, text, error = extract_article_text(html_content)
                     if not success:
-                        form.add_error("document_file",
+                        form.add_error(
+                            "document_file",
                             f"Unable to extract content from the HTML file: {error or 'No content found'}. "
                             "The file might be malformed or contain no meaningful content. "
-                            "Try using a different HTML file or extract the text manually.")
+                            "Try using a different HTML file or extract the text manually.",
+                        )
                         return self.form_invalid(form)
                     extracted_text = text
                 except UnicodeDecodeError:
-                    form.add_error("document_file",
+                    form.add_error(
+                        "document_file",
                         "Unable to decode the HTML file. The file might use an unsupported encoding. "
-                        "Try saving the file as UTF-8 and uploading again.")
+                        "Try saving the file as UTF-8 and uploading again.",
+                    )
                     return self.form_invalid(form)
             else:
                 # This case should ideally be caught by form validation, but as a fallback:
-                form.add_error("document_file",
-                    f"Unsupported file type: {file_ext}. Only PDF (.pdf) and HTML (.html) files are supported.")
+                form.add_error(
+                    "document_file",
+                    f"Unsupported file type: {file_ext}. Only PDF (.pdf) and HTML (.html) files are supported.",
+                )
                 return self.form_invalid(form)
 
             article.text_content = extracted_text
             if not article.title:
                 # Store HTML content for title extraction if available
                 html_content = None
-                if file_ext == ".html" and 'html_content' not in locals():
+                if file_ext == ".html" and "html_content" not in locals():
                     try:
                         document_file.seek(0)  # Reset file pointer to beginning
-                        html_content = document_file.read().decode('utf-8')
+                        html_content = document_file.read().decode("utf-8")
                     except Exception as e:
-                        logger.error(f"Error reading HTML file for title extraction: {e}")
+                        logger.error(
+                            f"Error reading HTML file for title extraction: {e}"
+                        )
 
-                if file_ext == ".html" and (html_content or ('html_content' in locals() and locals()['html_content'])):
+                if file_ext == ".html" and (
+                    html_content
+                    or ("html_content" in locals() and locals()["html_content"])
+                ):
                     # Use existing html_content if available, otherwise use newly read content
-                    content_to_use = locals().get('html_content', html_content)
+                    content_to_use = locals().get("html_content", html_content)
                     extracted_title = extract_title_from_html(content_to_use)
                     if extracted_title:
                         article.title = extracted_title
@@ -523,7 +538,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 if not article.title:
                     article.title = os.path.splitext(filename)[0]
 
-        elif article.source_url: # Process URL only if no document is uploaded
+        elif article.source_url:  # Process URL only if no document is uploaded
             success, html, error = fetch_url_content(article.source_url)
             if not success:
                 form.add_error("source_url", error)
@@ -537,21 +552,32 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
 
                     if text_success and page_text:
                         # Get first 100 chars of content for a title
-                        first_paragraph = page_text.split('\n')[0] if '\n' in page_text else page_text
-                        title = first_paragraph[:100] + ("..." if len(first_paragraph) > 100 else "")
+                        first_paragraph = (
+                            page_text.split("\n")[0] if "\n" in page_text else page_text
+                        )
+                        title = first_paragraph[:100] + (
+                            "..." if len(first_paragraph) > 100 else ""
+                        )
 
                     # Check URL for a possible title if text extraction failed
                     if not title:
                         # Try to get a title from the last part of the URL
                         from urllib.parse import urlparse
+
                         path = urlparse(article.source_url).path
-                        path_parts = [p for p in path.split('/') if p]
+                        path_parts = [p for p in path.split("/") if p]
 
                         if path_parts:
                             # Use the last meaningful part of the URL
-                            url_title = path_parts[-1].replace('-', ' ').replace('_', ' ')
+                            url_title = (
+                                path_parts[-1].replace("-", " ").replace("_", " ")
+                            )
                             # Remove file extensions if present
-                            url_title = url_title.split('.')[0] if '.' in url_title else url_title
+                            url_title = (
+                                url_title.split(".")[0]
+                                if "." in url_title
+                                else url_title
+                            )
                             if url_title:
                                 title = url_title.capitalize()
 
@@ -561,10 +587,12 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             if not article.text_content:
                 success, text_from_url, error_extraction = extract_article_text(html)
                 if not success:
-                    form.add_error("source_url", error_extraction or "Failed to extract text from URL.")
+                    form.add_error(
+                        "source_url",
+                        error_extraction or "Failed to extract text from URL.",
+                    )
                     return self.form_invalid(form)
                 article.text_content = text_from_url
-
 
         article.save()
         task = process_article.delay(article.pk)

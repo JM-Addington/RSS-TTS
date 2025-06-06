@@ -24,14 +24,21 @@ class ArticleSubmissionForm(forms.ModelForm):
 
     document_file = forms.FileField(
         required=False,
-        help_text="Upload a PDF or HTML file (max 10MB). Provide either a URL, text content, or a file - not multiple."
+        help_text="Upload a PDF or HTML file (max 10MB). Provide either a URL, text content, or a file - not multiple.",
     )
 
     class Meta:
         """Meta options for the ArticleSubmissionForm."""
 
         model = Article
-        fields = ["title", "source_url", "text_content", "document_file", "voice_id", "speed"]
+        fields = [
+            "title",
+            "source_url",
+            "text_content",
+            "document_file",
+            "voice_id",
+            "speed",
+        ]
         widgets = {
             "title": forms.TextInput(
                 attrs={
