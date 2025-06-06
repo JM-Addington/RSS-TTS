@@ -465,6 +465,25 @@ class Article(models.Model):
 
         return reverse("article-media", kwargs={"audio_uuid": self.audio_uuid})
 
+    @property
+    def get_display_voice_name(self) -> str:
+        """Determine the display name for the voice used in this article."""
+        base_voice_name = ""
+        standard_voice_ids = [choice[0] for choice in self.VOICE_CHOICES]
+
+        if self.voice_preset:
+            base_voice_name = self.voice_preset.name
+        elif self.voice_id and self.voice_id not in standard_voice_ids:
+            base_voice_name = self.voice_id
+        else:
+            # Relies on the get_voice_display method which Django models have
+            # if 'voice' is a field with choices.
+            base_voice_name = self.get_voice_display()
+
+        if self.multi_voice_data:
+            return f"{base_voice_name} - Multi-Voice"
+        return base_voice_name
+
 
 class OpenAIUsageStats(models.Model):
     """Model to track OpenAI API usage statistics with cost tracking."""
