@@ -10,9 +10,9 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+import PyPDF2
 import requests
 from bs4 import BeautifulSoup, Comment, Tag
-import PyPDF2
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -473,7 +473,7 @@ EXTRACTED ARTICLE TEXT:"""
                 model=request_data["model"],
                 messages=request_data["messages"],
                 max_tokens=request_data["max_tokens"],
-                temperature=request_data["temperature"]
+                temperature=request_data["temperature"],
             )
             end_time = time.monotonic()
             duration_ms = int((end_time - start_time) * 1000)

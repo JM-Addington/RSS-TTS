@@ -517,7 +517,11 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             article.text_content = extracted_text
             if not article.title:
                 # Extract title from HTML content if available
-                if content_type == "text/html" and 'html_content' in locals() and html_content:
+                if (
+                    content_type == "text/html"
+                    and "html_content" in locals()
+                    and html_content
+                ):
                     # Use the html_content we already have
                     extracted_title = extract_title_from_html(html_content)
                     if extracted_title:
@@ -554,7 +558,9 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                     if url_text_success and url_page_text:
                         # Get first 100 chars of content for a title
                         first_paragraph = (
-                            url_page_text.split("\n")[0] if "\n" in url_page_text else url_page_text
+                            url_page_text.split("\n")[0]
+                            if "\n" in url_page_text
+                            else url_page_text
                         )
                         title = first_paragraph[:100] + (
                             "..." if len(first_paragraph) > 100 else ""
