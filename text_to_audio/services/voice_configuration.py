@@ -168,6 +168,33 @@ class VoiceConfigurationService:
         Returns:
             Updated Article object with voice configuration applied
         """
+        # Quick escape ‒ if a voice preset is already attached to the article
+        # (meaning the user explicitly selected it during submission) and we
+        # are *not* forcing auto configuration, we should leave the existing
+        # settings untouched. This prevents the system from overriding the
+        # user's choice with the AUTO-voice logic while still allowing normal
+        # behaviour for articles without a preset.
+
+        if not force_auto and getattr(article, "voice_preset_id", None):
+            try:
+                preset = article.voice_preset  # May hit DB but cached
+            except Exception:
+                preset = None
+
+            # Only respect the preset if it is *currently* applied to the
+            # article's voice fields. This avoids blocking AUTO mode in cases
+            # where the preset field is lingering from a previous operation
+            # but is no longer relevant (e.g., after a user or system reset).
+            if preset and (
+                (article.voice and article.voice == preset.voice_id)
+                or (article.voice_id and article.voice_id == preset.voice_id)
+            ):
+                return article
+
+        # From this point onward we are free to apply the normal feed-level
+        # voice logic (single_default / single_custom / auto).
+        # ------------------------------------------------------------------
+
         from text_to_audio.models import Feed
         from text_to_audio.services.user_preferences import UserPreferencesService
 
@@ -177,7 +204,7 @@ class VoiceConfigurationService:
         # Determine voice mode to use
         voice_mode = preferences_service.get_feed_voice_mode(feed)
 
-        # If force_auto is True, always use auto voice generation
+        # If force_auto is requested, override feed setting
         if force_auto:
             voice_mode = Feed.VOICE_MODE_AUTO
 
