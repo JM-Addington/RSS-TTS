@@ -7,7 +7,7 @@ from typing import Dict, Optional
 logger = logging.getLogger(__name__)
 
 # OpenAI pricing per million tokens (as of 2025-01)
-# Source: https://openai.com/pricing
+# Source: https://www.llm-prices.com/
 OPENAI_PRICING = {
     "gpt-4o": {
         "input": Decimal("2.50"),  # $2.50 per million input tokens
@@ -25,14 +25,43 @@ OPENAI_PRICING = {
         "input": Decimal("0.150"),
         "output": Decimal("0.600"),
     },
+    "chatgpt-4o-latest": {
+        "input": Decimal("5.00"),  # $5.00 per million input tokens
+        "output": Decimal("15.00"),  # $15.00 per million output tokens
+    },
+    # GPT-4.x models
+    "gpt-4.5": {
+        "input": Decimal("75.00"),  # $75.00 per million input tokens
+        "output": Decimal("150.00"),  # $150.00 per million output tokens
+    },
+    "gpt-4.1": {
+        "input": Decimal("2.00"),  # $2.00 per million input tokens
+        "output": Decimal("8.00"),  # $8.00 per million output tokens
+    },
+    "gpt-4.1-mini": {
+        "input": Decimal("0.40"),  # $0.40 per million input tokens
+        "output": Decimal("1.60"),  # $1.60 per million output tokens
+    },
+    "gpt-4.1-nano": {
+        "input": Decimal("0.10"),  # $0.10 per million input tokens
+        "output": Decimal("0.40"),  # $0.40 per million output tokens
+    },
     # O1 models
     "o1": {
         "input": Decimal("15.00"),  # $15.00 per million input tokens
         "output": Decimal("60.00"),  # $60.00 per million output tokens
     },
+    "o1-preview": {
+        "input": Decimal("15.00"),  # $15.00 per million input tokens
+        "output": Decimal("60.00"),  # $60.00 per million output tokens
+    },
+    "o1-pro": {
+        "input": Decimal("150.00"),  # $150.00 per million input tokens
+        "output": Decimal("600.00"),  # $600.00 per million output tokens
+    },
     "o1-mini": {
-        "input": Decimal("3.00"),  # $3.00 per million input tokens
-        "output": Decimal("12.00"),  # $12.00 per million output tokens
+        "input": Decimal("1.10"),  # $1.10 per million input tokens
+        "output": Decimal("4.40"),  # $4.40 per million output tokens
     },
     # TTS models - pricing per million characters
     "tts-1": {

@@ -34,6 +34,13 @@ class CostCalculatorTests(TestCase):
         # = 0.00015 + 0.0003 = 0.00045
         self.assertEqual(cost, Decimal("0.000450"))
 
+    def test_calculate_llm_cost_o1_mini(self):
+        """Test cost calculation for o1-mini model with updated pricing."""
+        cost = calculate_llm_cost("o1-mini", input_tokens=1000, output_tokens=500)
+        # Expected: (1000 * 1.10 / 1,000,000) + (500 * 4.40 / 1,000,000)
+        # = 0.0011 + 0.0022 = 0.0033
+        self.assertEqual(cost, Decimal("0.003300"))
+
     def test_calculate_llm_cost_unknown_model(self):
         """Test cost calculation falls back to default for unknown model."""
         cost = calculate_llm_cost("unknown-model", input_tokens=1000, output_tokens=500)
