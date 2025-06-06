@@ -555,12 +555,27 @@ def process_article(self, article_id: int) -> str:
                 if article.title:
                     text_for_chunking = f"{article.title}.\n\n{article.text_content}"
 
-                # Get chunks from LLM service
-                chunk_tone_payload = chunk_tone_service.get_payload(
-                    text=text_for_chunking,
-                    title=article.title or "Untitled",
-                    max_chars=4000,
-                )
+                # Check if article has a voice preset (user explicitly selected a voice)
+                if article.voice_preset:
+                    logger.info(
+                        f"Article {article_id} has voice preset '{article.voice_preset.name}'. "
+                        f"Using single-voice mode with text normalization."
+                    )
+                    # Use single-voice mode with the preset voice
+                    preset_voice = article.voice_preset.voice_id
+                    chunk_tone_payload = chunk_tone_service.get_single_voice_payload(
+                        text=text_for_chunking,
+                        title=article.title or "Untitled",
+                        max_chars=4000,
+                        voice=preset_voice,
+                    )
+                else:
+                    # Use normal multi-voice mode
+                    chunk_tone_payload = chunk_tone_service.get_payload(
+                        text=text_for_chunking,
+                        title=article.title or "Untitled",
+                        max_chars=4000,
+                    )
 
                 logger.info(
                     f"ChunkToneService returned {len(chunk_tone_payload.chunks)} chunks for Article ID: {article_id}"
@@ -725,8 +740,10 @@ def process_article(self, article_id: int) -> str:
 
         # --- Legacy Multi-Voice TTS Generation Attempt ---
         multi_voice_generation_successful = False
-        if not chunk_tone_generation_successful and _is_valid_multi_voice_data(
-            article.multi_voice_data
+        if (
+            not chunk_tone_generation_successful
+            and _is_valid_multi_voice_data(article.multi_voice_data)
+            and not article.voice_preset  # Skip multi-voice if preset is selected
         ):
             try:
                 logger.info(
@@ -946,9 +963,16 @@ def process_article(self, article_id: int) -> str:
                     False  # Ensure fallback is triggered
                 )
         else:
-            logger.info(
-                f"Skipping multi-voice generation for Article ID: {article_id} due to missing or invalid multi_voice_data."
-            )
+            if article.voice_preset:
+                logger.info(
+                    f"Skipping multi-voice generation for Article ID: {article_id} "
+                    f"because voice preset '{article.voice_preset.name}' is selected."
+                )
+            else:
+                logger.info(
+                    f"Skipping multi-voice generation for Article ID: {article_id} "
+                    f"due to missing or invalid multi_voice_data."
+                )
 
         # --- Fallback to Single-Voice Generation ---
         if (

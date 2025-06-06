@@ -69,6 +69,82 @@ class ChunkToneService:
                 )
                 return self.create_fallback_payload(text)
 
+    def get_single_voice_payload(
+        self,
+        text: str,
+        title: str,
+        max_chars: int,
+        voice: str,
+        character_name: str = "narrator",
+    ) -> ChunkTonePayload:
+        """
+        Generate ChunkTonePayload for single-voice mode with text normalization.
+
+        This is used when a user has selected a voice preset - we disable multi-voice
+        and only use their chosen voice, but still chunk intelligently and normalize
+        text for better TTS output.
+
+        Args:
+            text: The text content to analyze and chunk
+            title: The article title for context
+            max_chars: Maximum characters per chunk
+            voice: The voice to use for all chunks
+            character_name: The character name to use (default: "narrator")
+
+        Returns:
+            ChunkTonePayload with all chunks using the same voice
+        """
+        prompt = self._build_single_voice_prompt(text, title, max_chars, voice)
+
+        # First attempt
+        try:
+            response_json = self._call_openai(prompt)
+            # Override any voice assignments from LLM with the preset voice
+            if "chunks" in response_json:
+                for chunk in response_json["chunks"]:
+                    chunk["voice"] = {"voice": voice}
+                    chunk["character_name"] = character_name
+            return ChunkTonePayload.model_validate(response_json)
+        except (ValidationError, Exception) as e:
+            logger.warning(f"First attempt failed for single-voice mode: {e}")
+
+            # Retry attempt
+            try:
+                response_json = self._call_openai(prompt)
+                # Override any voice assignments from LLM with the preset voice
+                if "chunks" in response_json:
+                    for chunk in response_json["chunks"]:
+                        chunk["voice"] = {"voice": voice}
+                        chunk["character_name"] = character_name
+                return ChunkTonePayload.model_validate(response_json)
+            except (ValidationError, Exception) as e2:
+                logger.error(
+                    f"Second attempt failed for single-voice mode: {e2}. Using fallback."
+                )
+                return self.create_single_voice_fallback(text, voice)
+
+    def create_single_voice_fallback(self, text: str, voice: str) -> ChunkTonePayload:
+        """
+        Create a fallback payload with specified voice when LLM processing fails.
+
+        Args:
+            text: The text content to create fallback for
+            voice: The voice to use
+
+        Returns:
+            ChunkTonePayload with single specified voice
+        """
+        return ChunkTonePayload(
+            chunks=[
+                ChunkData(
+                    text=text,
+                    voice=TTSVoice(voice=voice),
+                    character_name="narrator",
+                    instructions="Speak in a clear, engaging manner with appropriate expression for the content.",
+                )
+            ]
+        )
+
     def create_fallback_payload(self, text: str) -> ChunkTonePayload:
         """
         Create a fallback payload with narrator voice when LLM processing fails.
@@ -127,6 +203,48 @@ Example instructions:
 - "Use dramatic emphasis. Varied pacing to build tension. Dynamic pitch variation for engagement."
 
 The JSON must be valid and parseable. Do not include any other text or explanations."""
+
+    def _build_single_voice_prompt(
+        self, text: str, title: str, max_chars: int, voice: str
+    ) -> str:
+        """Build the prompt for single-voice mode with text normalization."""
+        return f"""You are a text-to-speech preprocessing specialist. Prepare the following article for TTS by:
+
+1. Breaking it into logical chunks (maximum {max_chars} characters each)
+2. Expanding ALL abbreviations for natural speech
+3. Converting dates and numbers to spoken form
+4. Maintaining the original meaning while optimizing for speech
+
+Article Title: {title}
+
+Article Text:
+{text}
+
+Text Normalization Rules:
+- Expand state abbreviations: VA → Virginia, CA → California, NY → New York, etc.
+- Expand titles: Mr. → Mister, Mrs. → Missus, Dr. → Doctor, Prof. → Professor, etc.
+- Expand common abbreviations: St. → Street, Ave. → Avenue, Co. → Company, Inc. → Incorporated, etc.
+- Convert dates: 1/1/2000 → January first, two thousand; 12/25/2025 → December twenty-fifth, twenty twenty-five
+- Convert times: 3:30 PM → three thirty P M, 9:00 AM → nine o'clock A M
+- Spell out numbers in context: "5 people" → "five people", "$100" → "one hundred dollars"
+- Expand units: kg → kilograms, mi → miles, ft → feet, etc.
+- Handle special cases: U.S. → United States, U.K. → United Kingdom, E.U. → European Union
+
+Return ONLY a JSON object with this exact structure:
+{{
+  "chunks": [
+    {{
+      "text": "normalized chunk text here with all abbreviations expanded",
+      "voice": {{"voice": "{voice}"}},
+      "character_name": "narrator",
+      "instructions": "Detailed TTS instructions for tone and pacing"
+    }}
+  ]
+}}
+
+IMPORTANT: All chunks must use voice "{voice}" and character_name "narrator".
+The text in each chunk should have ALL abbreviations and numbers expanded for natural speech.
+Break at natural pauses like paragraphs or sentence boundaries when possible."""
 
     def _call_openai(self, prompt: str) -> dict:
         """
