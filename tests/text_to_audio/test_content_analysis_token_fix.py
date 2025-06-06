@@ -223,7 +223,8 @@ class ContentAnalysisTokenFixTest(TestCase):
         # Check that a large max_completion_tokens was used
         call_args = self.mock_client.chat.completions.create.call_args
         max_tokens = call_args.kwargs["max_completion_tokens"]
-        # With 8000 words (~10666 tokens) and gpt-4o-mini (128k), should get much more than 500
+        # With 8000 words (~10666 tokens) and gpt-4o-mini (128k),
+        # should get much more than 500
         self.assertGreater(max_tokens, 80000)  # Should be much larger than default 500
 
     def test_legacy_multi_voice_with_chunks(self):

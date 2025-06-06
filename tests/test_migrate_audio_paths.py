@@ -50,7 +50,10 @@ class MigrateAudioPathsTestCase(TestCase):
             title="Article 2",
             text_content="Content 2",
             audio_uuid=uuid.uuid4(),
-            audio_file_path=f"articles/{self.user1.id}/{self.feed1.id}/article_{uuid.uuid4()}.mp3",  # Complex legacy format
+            audio_file_path=(
+                f"articles/{self.user1.id}/{self.feed1.id}/"
+                f"article_{uuid.uuid4()}.mp3"
+            ),  # Complex legacy format
             status=Article.COMPLETED,
         )
 
