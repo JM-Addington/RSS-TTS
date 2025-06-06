@@ -242,6 +242,32 @@ tr.now-playing {
 
 {% block extra_js %}
 <script>
+// Define URL construction helper functions and CSRF token at the page level
+const csrfToken = '{{ csrf_token }}';
+const mediaUrlTemplate = '{% url "article-media" 0 %}'.replace('/0/', '/');
+const voiceSettingsUrlTemplate = '{% url "article_voice_settings" 0 %}'.replace('/0/', '/');
+const regenerateUrlTemplate = '{% url "article-regenerate" 0 %}'.replace('/0/', '/');
+{% if feed %}
+const deleteUrlTemplate = '{% url "article-delete" feed_id=feed.id article_id=0 %}'.replace('/0/', '/');
+{% endif %}
+
+// Create URL construction functions
+function getMediaUrl(audioUuid) {
+    return mediaUrlTemplate + audioUuid + '/';
+}
+
+function getVoiceSettingsUrl(articleId) {
+    return voiceSettingsUrlTemplate + articleId + '/';
+}
+
+function getRegenerateUrl(articleId) {
+    return regenerateUrlTemplate + articleId + '/';
+}
+
+function getDeleteUrl(articleId) {
+    return deleteUrlTemplate + articleId + '/';
+}
+
 // Listen for audio player ending to reset UI
 document.addEventListener('DOMContentLoaded', function() {
     const audioPlayer = document.getElementById('audioPlayer');
@@ -351,29 +377,28 @@ function updateArticleStatus() {
                             // Check if the play button already exists
                             if (!actions.querySelector('.play-audio-btn')) {
                                 actions.innerHTML = `
-                                <a href="{% url 'article-media' a.audio_uuid %}" class="btn btn-primary btn-sm">
+                                <a href="${getMediaUrl(a.audio_uuid)}" class="btn btn-primary btn-sm">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
                                         <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                         <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                                     </svg>
                                     Download MP3
                                 </a>
-                                <button type="button" class="btn btn-success btn-sm play-audio-btn" data-audio-url="{% url 'article-media' a.audio_uuid %}" data-article-id="${a.id}" data-article-title="${a.title}">
+                                <button type="button" class="btn btn-success btn-sm play-audio-btn" data-audio-url="${getMediaUrl(a.audio_uuid)}" data-article-id="${a.id}" data-article-title="${a.title}">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-circle" viewBox="0 0 16 16">
                                         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                                         <path d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445z"/>
                                     </svg> Play
                                 </button>
-                                <a href="{% url 'article_voice_settings' a.id %}" class="btn btn-info btn-sm">
+                                <a href="${getVoiceSettingsUrl(a.id)}" class="btn btn-info btn-sm">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16">
                                         <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
                                         <path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
                                     </svg>
                                     Voice Settings
                                 </a>
-                                <form method="post" action="{% url 'article-regenerate' a.id %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                                <form method="post" action="${getRegenerateUrl(a.id)}" class="d-inline">
+                                    <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
                                     <button type="submit" class="btn btn-outline-secondary btn-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
                                             <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
@@ -382,7 +407,7 @@ function updateArticleStatus() {
                                         Regenerate
                                     </button>
                                 </form>
-                                <a href="{% url 'article-delete' feed_id=feed.id article_id=a.id %}" class="btn btn-danger btn-sm">
+                                <a href="${getDeleteUrl(a.id)}" class="btn btn-danger btn-sm">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
                                         <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
                                         <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
