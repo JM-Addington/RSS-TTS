@@ -372,6 +372,11 @@ class Article(models.Model):
         default="",
         help_text="Computed TTS prompt for audit/debugging purposes.",
     )
+    processing_notes: models.TextField = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Notes about processing warnings, such as failed chunks in parallel TTS.",
+    )
 
     def clean(self) -> None:
         """Validate and enforce single source of truth for voice fields.
@@ -462,7 +467,12 @@ class Article(models.Model):
 
 
 class OpenAIUsageStats(models.Model):
-    """Model to track OpenAI API usage statistics."""
+    """Model to track OpenAI API usage statistics with cost tracking."""
+
+    OPERATION_TYPE_CHOICES = [
+        ("LLM", "Language Model"),
+        ("TTS", "Text-to-Speech"),
+    ]
 
     user: models.ForeignKey = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -478,9 +488,41 @@ class OpenAIUsageStats(models.Model):
         blank=True,
         help_text="The article associated with this usage, if any.",
     )
+
+    # Token usage fields
     tokens_used: models.IntegerField = models.IntegerField(
-        null=False, help_text="Number of tokens used in the request."
+        null=False,
+        help_text="Number of tokens used in the request (for backwards compatibility).",
     )
+    input_tokens: models.IntegerField = models.IntegerField(
+        null=True, blank=True, help_text="Number of input tokens used."
+    )
+    output_tokens: models.IntegerField = models.IntegerField(
+        null=True, blank=True, help_text="Number of output tokens generated."
+    )
+
+    # Cost and model tracking
+    model_name: models.CharField = models.CharField(
+        max_length=100,
+        default="gpt-4o-mini",
+        blank=True,
+        help_text="The OpenAI model used for this operation.",
+    )
+    operation_type: models.CharField = models.CharField(
+        max_length=10,
+        choices=OPERATION_TYPE_CHOICES,
+        default="LLM",
+        help_text="Type of operation performed.",
+    )
+    estimated_cost: models.DecimalField = models.DecimalField(
+        max_digits=10,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        help_text="Estimated cost in USD for this operation.",
+    )
+
+    # Original fields
     processing_time_ms: models.IntegerField = models.IntegerField(
         null=False, help_text="Processing time for the request in milliseconds."
     )
@@ -493,6 +535,19 @@ class OpenAIUsageStats(models.Model):
         help_text="Timestamp of when the usage was recorded.",
     )
 
+    class Meta:
+        ordering = ["-request_timestamp"]
+        indexes = [
+            models.Index(
+                fields=["user", "request_timestamp"],
+                name="text_to_aud_user_id_d5abf8_idx",
+            ),
+            models.Index(fields=["article"], name="text_to_aud_article_9e9c59_idx"),
+            models.Index(
+                fields=["operation_type"], name="text_to_aud_operati_2db4e5_idx"
+            ),
+        ]
+
     def __str__(self) -> str:
         """Return a string representation of the usage stat."""
         timestamp_fmt = ""  # Default empty string
@@ -500,7 +555,10 @@ class OpenAIUsageStats(models.Model):
             timestamp_fmt = self.request_timestamp.strftime("%Y-%m-%d %H:%M:%S")
         # Use getattr to safely access username attribute - for better type checking
         username = getattr(self.user, "username", "unknown")
-        return f"Usage for {username} at {timestamp_fmt}"
+        cost_str = f" (${self.estimated_cost})" if self.estimated_cost else ""
+        return (
+            f"{self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
+        )
 
 
 class UserVoiceProfile(models.Model):
