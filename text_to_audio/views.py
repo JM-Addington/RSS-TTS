@@ -522,7 +522,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                     # or try to re-read the file if needed
                     html_for_title = None
 
-                    if 'html_content' in locals() and html_content:
+                    if "html_content" in locals() and html_content:
                         # Use the html_content we already have
                         html_for_title = html_content
                     else:
