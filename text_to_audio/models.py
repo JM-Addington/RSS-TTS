@@ -372,6 +372,11 @@ class Article(models.Model):
         default="",
         help_text="Computed TTS prompt for audit/debugging purposes.",
     )
+    processing_notes: models.TextField = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Notes about processing warnings, such as failed chunks in parallel TTS.",
+    )
 
     def clean(self) -> None:
         """Validate and enforce single source of truth for voice fields.
@@ -532,8 +537,9 @@ class OpenAIUsageStats(models.Model):
     class Meta:
         ordering = ["-request_timestamp"]
         indexes = [
-            models.Index(fields=["user", "request_timestamp"], name="text_to_aud_user_cost_idx"),
-            models.Index(fields=["operation_type"], name="text_to_aud_op_type_idx"),
+            models.Index(fields=["user", "request_timestamp"], name="text_to_aud_user_id_d5abf8_idx"),
+            models.Index(fields=["article"], name="text_to_aud_article_9e9c59_idx"),
+            models.Index(fields=["operation_type"], name="text_to_aud_operati_2db4e5_idx"),
         ]
 
     def __str__(self) -> str:
