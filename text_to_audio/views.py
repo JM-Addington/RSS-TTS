@@ -471,9 +471,11 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
         if document_file:
             filename = document_file.name
             file_ext = os.path.splitext(filename)[1].lower()
+            content_type = document_file.content_type
             extracted_text = None
 
-            if file_ext == ".pdf":
+            # Validate using content_type for consistency with form validation
+            if content_type == "application/pdf":
                 extracted_text = extract_text_from_pdf(document_file)
                 if extracted_text == "Error: Could not extract text from PDF.":
                     form.add_error(
@@ -483,8 +485,9 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                         "Try using a different PDF or extract the text manually.",
                     )
                     return self.form_invalid(form)
-            elif file_ext == ".html":
+            elif content_type == "text/html":
                 try:
+                    document_file.seek(0)  # Reset file pointer to beginning
                     html_content = document_file.read().decode("utf-8")
                     success, text, error = extract_article_text(html_content)
                     if not success:
@@ -507,32 +510,30 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 # This case should ideally be caught by form validation, but as a fallback:
                 form.add_error(
                     "document_file",
-                    f"Unsupported file type: {file_ext}. Only PDF (.pdf) and HTML (.html) files are supported.",
+                    f"Unsupported file type: {content_type}. Only PDF and HTML files are supported.",
                 )
                 return self.form_invalid(form)
 
             article.text_content = extracted_text
             if not article.title:
-                # Store HTML content for title extraction if available
-                html_content = None
-                if file_ext == ".html" and "html_content" not in locals():
+                # Extract title from HTML content if available
+                if content_type == "text/html" and 'html_content' in locals() and html_content:
+                    # Use the html_content we already have
+                    extracted_title = extract_title_from_html(html_content)
+                    if extracted_title:
+                        article.title = extracted_title
+                elif content_type == "text/html":
+                    # Need to read the HTML content again
                     try:
                         document_file.seek(0)  # Reset file pointer to beginning
-                        html_content = document_file.read().decode("utf-8")
+                        temp_html_content = document_file.read().decode("utf-8")
+                        extracted_title = extract_title_from_html(temp_html_content)
+                        if extracted_title:
+                            article.title = extracted_title
                     except Exception as e:
                         logger.error(
                             f"Error reading HTML file for title extraction: {e}"
                         )
-
-                if file_ext == ".html" and (
-                    html_content
-                    or ("html_content" in locals() and locals()["html_content"])
-                ):
-                    # Use existing html_content if available, otherwise use newly read content
-                    content_to_use = locals().get("html_content", html_content)
-                    extracted_title = extract_title_from_html(content_to_use)
-                    if extracted_title:
-                        article.title = extracted_title
 
                 # If still no title, use filename
                 if not article.title:
@@ -548,12 +549,12 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 title = extract_title_from_html(html)
                 if not title:
                     # Try to get some text from the page for a title
-                    text_success, page_text, _ = extract_article_text(html)
+                    url_text_success, url_page_text, _ = extract_article_text(html)
 
-                    if text_success and page_text:
+                    if url_text_success and url_page_text:
                         # Get first 100 chars of content for a title
                         first_paragraph = (
-                            page_text.split("\n")[0] if "\n" in page_text else page_text
+                            url_page_text.split("\n")[0] if "\n" in url_page_text else url_page_text
                         )
                         title = first_paragraph[:100] + (
                             "..." if len(first_paragraph) > 100 else ""
