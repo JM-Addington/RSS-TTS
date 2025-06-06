@@ -22,7 +22,10 @@ class ArticleSubmissionForm(forms.ModelForm):
         required=False, help_text="Or select a saved voice preset."
     )
 
-    document_file = forms.FileField(required=False, help_text="Upload a PDF or HTML file.")
+    document_file = forms.FileField(
+        required=False,
+        help_text="Upload a PDF or HTML file (max 10MB). Provide either a URL, text content, or a file - not multiple."
+    )
 
     class Meta:
         """Meta options for the ArticleSubmissionForm."""
@@ -100,6 +103,13 @@ class ArticleSubmissionForm(forms.ModelForm):
             if content_type not in ["application/pdf", "text/html"]:
                 raise ValidationError(
                     "Invalid file type. Only PDF and HTML files are allowed."
+                )
+
+            # Validate file size (10MB limit)
+            MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB in bytes
+            if document_file.size > MAX_UPLOAD_SIZE:
+                raise ValidationError(
+                    f"File is too large. Maximum file size is 10MB. Your file is {document_file.size / (1024 * 1024):.1f}MB."
                 )
 
         # Enforce 30,000-word limit for pasted text content

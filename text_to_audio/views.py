@@ -474,24 +474,52 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             if file_ext == ".pdf":
                 extracted_text = extract_text_from_pdf(document_file)
                 if extracted_text == "Error: Could not extract text from PDF.":
-                    form.add_error("document_file", extracted_text)
+                    form.add_error("document_file",
+                        "Unable to extract text from the PDF file. The file might be password-protected, "
+                        "corrupted, or contain only scanned images without text layers. "
+                        "Try using a different PDF or extract the text manually.")
                     return self.form_invalid(form)
             elif file_ext == ".html":
-                html_content = document_file.read().decode("utf-8")
-                success, text, error = extract_article_text(html_content)
-                if not success:
-                    form.add_error("document_file", error or "Failed to extract text from HTML file.")
+                try:
+                    html_content = document_file.read().decode("utf-8")
+                    success, text, error = extract_article_text(html_content)
+                    if not success:
+                        form.add_error("document_file",
+                            f"Unable to extract content from the HTML file: {error or 'No content found'}. "
+                            "The file might be malformed or contain no meaningful content. "
+                            "Try using a different HTML file or extract the text manually.")
+                        return self.form_invalid(form)
+                    extracted_text = text
+                except UnicodeDecodeError:
+                    form.add_error("document_file",
+                        "Unable to decode the HTML file. The file might use an unsupported encoding. "
+                        "Try saving the file as UTF-8 and uploading again.")
                     return self.form_invalid(form)
-                extracted_text = text
             else:
                 # This case should ideally be caught by form validation, but as a fallback:
-                form.add_error("document_file", "Unsupported file type.")
+                form.add_error("document_file",
+                    f"Unsupported file type: {file_ext}. Only PDF (.pdf) and HTML (.html) files are supported.")
                 return self.form_invalid(form)
 
             article.text_content = extracted_text
             if not article.title:
-                if file_ext == ".html" and 'html_content' in locals():
-                    article.title = extract_title_from_html(html_content)
+                # Store HTML content for title extraction if available
+                html_content = None
+                if file_ext == ".html" and 'html_content' not in locals():
+                    try:
+                        document_file.seek(0)  # Reset file pointer to beginning
+                        html_content = document_file.read().decode('utf-8')
+                    except Exception as e:
+                        logger.error(f"Error reading HTML file for title extraction: {e}")
+
+                if file_ext == ".html" and (html_content or ('html_content' in locals() and locals()['html_content'])):
+                    # Use existing html_content if available, otherwise use newly read content
+                    content_to_use = locals().get('html_content', html_content)
+                    extracted_title = extract_title_from_html(content_to_use)
+                    if extracted_title:
+                        article.title = extracted_title
+
+                # If still no title, use filename
                 if not article.title:
                     article.title = os.path.splitext(filename)[0]
 
@@ -505,14 +533,27 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 title = extract_title_from_html(html)
                 if not title:
                     # Try to get some text from the page for a title
-                    # This part was using 'content' which was not defined if html extraction failed
-                    # Re-using 'text' from a successful extraction, or make a new one if needed
-                    if 'text' not in locals() or not success : # if text var doesn't exist or success is False
-                        text_success, page_text, _ = extract_article_text(html)
-                        if text_success and page_text:
-                             title = page_text[:100] + ("..." if len(page_text) > 100 else "")
-                    elif success and 'text' in locals() and text : # if text var exists and it has content
-                        title = text[:100] + ("..." if len(text) > 100 else "")
+                    text_success, page_text, _ = extract_article_text(html)
+
+                    if text_success and page_text:
+                        # Get first 100 chars of content for a title
+                        first_paragraph = page_text.split('\n')[0] if '\n' in page_text else page_text
+                        title = first_paragraph[:100] + ("..." if len(first_paragraph) > 100 else "")
+
+                    # Check URL for a possible title if text extraction failed
+                    if not title:
+                        # Try to get a title from the last part of the URL
+                        from urllib.parse import urlparse
+                        path = urlparse(article.source_url).path
+                        path_parts = [p for p in path.split('/') if p]
+
+                        if path_parts:
+                            # Use the last meaningful part of the URL
+                            url_title = path_parts[-1].replace('-', ' ').replace('_', ' ')
+                            # Remove file extensions if present
+                            url_title = url_title.split('.')[0] if '.' in url_title else url_title
+                            if url_title:
+                                title = url_title.capitalize()
 
                 article.title = title or f"Article from {article.source_url}"
             # If text_content is still empty (e.g. not file upload, and no direct text input)
