@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("text_to_audio", "0027_alter_openaiusagestats_options_and_more"),
+        ("text_to_audio", "0024_alter_article_title"),
     ]
 
     operations = [

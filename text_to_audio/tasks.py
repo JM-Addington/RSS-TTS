@@ -602,7 +602,7 @@ def process_article(self, article_id: int) -> str:
                     )
 
                     # Prepare TTS request data for logging
-                    tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd")
+                    tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
                     tts_request_data = {
                         "model": tts_model,
                         "voice": chunk_data.voice.voice,
@@ -803,7 +803,7 @@ def process_article(self, article_id: int) -> str:
                         segment_voice_prompt = f"Use a {voice_tone} tone. Speak in a clear, engaging manner."
 
                         # Prepare TTS request data for logging
-                        tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd")
+                        tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
                         tts_request_data = {
                             "model": tts_model,  # tts-1 or tts-1-hd
                             "voice": tts_api_voice,  # This is 'alloy', 'echo', etc.
@@ -1032,7 +1032,7 @@ def process_article(self, article_id: int) -> str:
                 start_time = time.monotonic()
 
                 # Create TTS request
-                tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd")
+                tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
                 tts_args = {
                     "model": tts_model,
                     "voice": fallback_voice,

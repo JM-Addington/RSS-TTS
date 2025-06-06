@@ -504,9 +504,10 @@ class OpenAIUsageStats(models.Model):
     # Cost and model tracking
     model_name: models.CharField = models.CharField(
         max_length=100,
-        default="gpt-4o-mini",
-        blank=True,
-        help_text="The OpenAI model used for this operation.",
+        null=False,
+        blank=False,
+        default="unknown",
+        help_text="The OpenAI model used for the request.",
     )
     operation_type: models.CharField = models.CharField(
         max_length=10,
