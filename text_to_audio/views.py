@@ -517,27 +517,29 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             article.text_content = extracted_text
             if not article.title:
                 # Extract title from HTML content if available
-                if (
-                    content_type == "text/html"
-                    and "html_content" in locals()
-                    and html_content
-                ):
-                    # Use the html_content we already have
-                    extracted_title = extract_title_from_html(html_content)
-                    if extracted_title:
-                        article.title = extracted_title
-                elif content_type == "text/html":
-                    # Need to read the HTML content again
-                    try:
-                        document_file.seek(0)  # Reset file pointer to beginning
-                        temp_html_content = document_file.read().decode("utf-8")
-                        extracted_title = extract_title_from_html(temp_html_content)
+                if content_type == "text/html":
+                    # Use html_content variable that should be available from earlier processing
+                    # or try to re-read the file if needed
+                    html_for_title = None
+
+                    if "html_content" in locals() and html_content:
+                        # Use the html_content we already have
+                        html_for_title = html_content
+                    else:
+                        # Need to read the HTML content again
+                        try:
+                            document_file.seek(0)  # Reset file pointer to beginning
+                            html_for_title = document_file.read().decode("utf-8")
+                        except Exception as e:
+                            logger.error(
+                                f"Error reading HTML file for title extraction: {e}"
+                            )
+
+                    # Extract the title if we have HTML content
+                    if html_for_title:
+                        extracted_title = extract_title_from_html(html_for_title)
                         if extracted_title:
                             article.title = extracted_title
-                    except Exception as e:
-                        logger.error(
-                            f"Error reading HTML file for title extraction: {e}"
-                        )
 
                 # If still no title, use filename
                 if not article.title:

@@ -389,7 +389,10 @@ def clean_html_minimal(html: str) -> str:
                     attrs_to_keep["alt"] = element.get("alt", "")
 
             # Clear all attributes and restore only the ones we want to keep
-            element.attrs = attrs_to_keep
+            element.attrs.clear()
+            for key, value in attrs_to_keep.items():
+                if value is not None:
+                    element.attrs[key] = value
 
         # Return the cleaned HTML
         return str(soup)
@@ -469,12 +472,7 @@ EXTRACTED ARTICLE TEXT:"""
 
         try:
             # Call the correct OpenAI API for chat completions
-            response = client.chat.completions.create(
-                model=request_data["model"],
-                messages=request_data["messages"],
-                max_tokens=request_data["max_tokens"],
-                temperature=request_data["temperature"],
-            )
+            response = client.chat.completions.create(**request_data)
             end_time = time.monotonic()
             duration_ms = int((end_time - start_time) * 1000)
 
