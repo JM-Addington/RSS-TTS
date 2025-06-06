@@ -24,6 +24,12 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Install Playwright browser binaries:
+
+```bash
+playwright install
+```
+
 Run the development server:
 
 ```bash

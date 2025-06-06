@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import PyPDF2
 import requests
 from bs4 import BeautifulSoup, Comment, Tag
+from playwright.sync_api import sync_playwright, Error as PlaywrightError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -137,9 +138,31 @@ def fetch_url_content(
             response = requests.get(url, timeout=timeout)
 
             # Handle common HTTP error status codes
-            result = _handle_http_error(response.status_code, url)
-            if result:
-                return result
+            http_error_result = _handle_http_error(response.status_code, url)
+            if http_error_result:
+                # Specific codes that might indicate blocking
+                if response.status_code in [403]:  # Add more codes like 401, 429 if needed
+                    logger.warning(
+                        f"Request to {url} failed with status {response.status_code}. Attempting with Playwright."
+                    )
+                    # Try fetching with Playwright
+                    pw_success, pw_content, pw_error = _fetch_url_with_headless_browser(
+                        url
+                    )
+                    if pw_success:
+                        return True, pw_content, None
+                    else:
+                        # If Playwright also fails, return original error or a combined one
+                        original_error_message = http_error_result[2]
+                        combined_error = (
+                            f"Initial request failed: {original_error_message}. "
+                            f"Playwright fallback also failed: {pw_error}"
+                        )
+                        logger.error(
+                            f"Both requests and Playwright failed for {url}. Combined error: {combined_error}"
+                        )
+                        return False, "", combined_error
+                return http_error_result
 
             # Handle server error (status code 500)
             if response.status_code == 500:
@@ -174,6 +197,32 @@ def fetch_url_content(
     # If we've exhausted our retries
     logger.error(f"Max retries ({max_retries}) exceeded for URL {url}: {last_error}")
     return False, "", f"Failed after {max_retries} attempts: {last_error}"
+
+
+def _fetch_url_with_headless_browser(url: str) -> Tuple[bool, str, Optional[str]]:
+    """Fetch URL content using a headless browser (Playwright).
+
+    Args:
+        url: The URL to fetch content from.
+
+    Returns:
+        Tuple of (success, content, error_message).
+        If successful, error_message will be None.
+    """
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page()
+            page.goto(url, timeout=30000)  # 30 seconds timeout
+            content = page.content()
+            browser.close()
+        return True, content, None
+    except PlaywrightError as e:
+        logger.error(f"Playwright error fetching {url}: {str(e)}")
+        return False, "", f"Playwright error: {str(e)}"
+    except Exception as e:
+        logger.error(f"Unexpected error fetching {url} with Playwright: {str(e)}")
+        return False, "", f"Unexpected Playwright error: {str(e)}"
 
 
 def _find_main_container(soup: BeautifulSoup) -> Optional[Tag]:
