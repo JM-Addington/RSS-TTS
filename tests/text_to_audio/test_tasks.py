@@ -1590,3 +1590,122 @@ class SpeedClampingUnitTests(TestCase):
 
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
+
+
+from datetime import timedelta
+
+from django.utils import timezone
+from django.conf import settings as django_settings
+
+from text_to_audio.tasks import check_stale_articles
+
+
+class CheckStaleArticlesTests(TestCase):
+    """Tests for the check_stale_articles task."""
+
+    def setUp(self):
+        """Set up test data and environment for each test."""
+        self.user = User.objects.create_user(
+            username="staletestuser", password="password"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Stale Test Feed")
+
+        # Mock ARTICLE_PROCESSING_TIMEOUT_SECONDS
+        self.mock_timeout_seconds = 60
+        self.settings_patcher = patch.object(
+            django_settings,
+            "ARTICLE_PROCESSING_TIMEOUT_SECONDS",
+            self.mock_timeout_seconds,
+        )
+        self.settings_patcher.start()
+
+        # Mock celery app control revoke
+        self.revoke_patcher = patch("rss_tts.celery.app.control.revoke")
+        self.mock_revoke = self.revoke_patcher.start()
+
+    def tearDown(self):
+        """Clean up after each test."""
+        self.settings_patcher.stop()
+        self.revoke_patcher.stop()
+        # Clean up any created articles, feeds, users if necessary
+        Article.objects.all().delete()
+        Feed.objects.filter(user=self.user).delete()
+        self.user.delete()
+
+
+    def test_check_stale_articles_logic(self):
+        """Test that stale articles are correctly identified and processed."""
+        now = timezone.now()
+        very_old_time = now - timedelta(seconds=self.mock_timeout_seconds * 2)
+        recent_time = now - timedelta(seconds=self.mock_timeout_seconds // 2)
+
+        stale_article = Article.objects.create(
+            feed=self.feed,
+            title="Stale Article",
+            text_content="This article should time out.",
+            status=Article.PROCESSING,
+            celery_task_id="fake_stale_task_id",
+            updated_at=very_old_time,
+        )
+        # Manually set updated_at as save() would update it
+        Article.objects.filter(pk=stale_article.pk).update(updated_at=very_old_time)
+        stale_article.refresh_from_db()
+
+
+        recent_processing_article = Article.objects.create(
+            feed=self.feed,
+            title="Recent Processing Article",
+            text_content="This article is still processing.",
+            status=Article.PROCESSING,
+            celery_task_id="fake_recent_task_id",
+            updated_at=recent_time,
+        )
+        Article.objects.filter(pk=recent_processing_article.pk).update(updated_at=recent_time)
+        recent_processing_article.refresh_from_db()
+
+        completed_article = Article.objects.create(
+            feed=self.feed,
+            title="Completed Article",
+            text_content="This article is completed.",
+            status=Article.COMPLETED,
+            updated_at=very_old_time, # old but completed
+        )
+        Article.objects.filter(pk=completed_article.pk).update(updated_at=very_old_time)
+        completed_article.refresh_from_db()
+
+        failed_article_already = Article.objects.create(
+            feed=self.feed,
+            title="Already Failed Article",
+            text_content="This article already failed.",
+            status=Article.FAILED,
+            updated_at=very_old_time, # old but already failed
+        )
+        Article.objects.filter(pk=failed_article_already.pk).update(updated_at=very_old_time)
+        failed_article_already.refresh_from_db()
+
+        # Call the task
+        check_stale_articles()
+
+        # Refresh articles from DB
+        stale_article.refresh_from_db()
+        recent_processing_article.refresh_from_db()
+        completed_article.refresh_from_db()
+        failed_article_already.refresh_from_db()
+
+        # Assertions for stale_article
+        self.assertEqual(stale_article.status, Article.FAILED)
+        self.assertIn("timed out", stale_article.error_message.lower())
+        self.assertIsNone(stale_article.celery_task_id)
+        self.mock_revoke.assert_called_once_with(
+            "fake_stale_task_id", terminate=True
+        )
+
+        # Assertions for recent_processing_article
+        self.assertEqual(recent_processing_article.status, Article.PROCESSING)
+        self.assertIsNone(recent_processing_article.error_message) # Should not have error
+
+        # Assertions for completed_article
+        self.assertEqual(completed_article.status, Article.COMPLETED)
+
+        # Assertions for failed_article_already
+        self.assertEqual(failed_article_already.status, Article.FAILED)

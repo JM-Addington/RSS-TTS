@@ -23,7 +23,7 @@ class FeedAdmin(admin.ModelAdmin):
 class ArticleAdmin(admin.ModelAdmin):
     """Admin interface for the Article model."""
 
-    list_display = ["title", "feed", "status", "created_at"]
-    list_filter = ["status", "created_at", "feed"]
+    list_display = ["title", "feed", "status", "created_at", "updated_at"]
+    list_filter = ["status", "created_at", "updated_at", "feed"]
     search_fields = ["title", "feed__name", "feed__user__username"]
-    readonly_fields = ["created_at", "prompt"]
+    readonly_fields = ["created_at", "updated_at", "prompt"]
