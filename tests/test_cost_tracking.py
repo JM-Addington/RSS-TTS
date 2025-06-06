@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from text_to_audio.models import Article, Feed, OpenAIUsageStats
+from text_to_audio.models import Article, Feed
 from text_to_audio.services.cost_calculator import (
     calculate_llm_cost,
     calculate_tts_cost,
