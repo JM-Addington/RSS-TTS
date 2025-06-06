@@ -22,11 +22,13 @@ class ArticleSubmissionForm(forms.ModelForm):
         required=False, help_text="Or select a saved voice preset."
     )
 
+    document_file = forms.FileField(required=False, help_text="Upload a PDF or HTML file.")
+
     class Meta:
         """Meta options for the ArticleSubmissionForm."""
 
         model = Article
-        fields = ["title", "source_url", "text_content", "voice_id", "speed"]
+        fields = ["title", "source_url", "text_content", "document_file", "voice_id", "speed"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -83,9 +85,22 @@ class ArticleSubmissionForm(forms.ModelForm):
 
         source_url = cleaned_data.get("source_url", "")
         text_content = cleaned_data.get("text_content", "")
+        document_file = cleaned_data.get("document_file")
 
-        if not source_url and not text_content:
-            raise ValidationError("You must provide either a URL or text content.")
+        # Ensure that exactly one of source_url, text_content, or document_file is provided.
+        provided_fields = [source_url, text_content, document_file]
+        if sum(bool(field) for field in provided_fields) != 1:
+            raise ValidationError(
+                "You must provide exactly one of: a URL, text content, or a document file."
+            )
+
+        if document_file:
+            # Validate file type
+            content_type = document_file.content_type
+            if content_type not in ["application/pdf", "text/html"]:
+                raise ValidationError(
+                    "Invalid file type. Only PDF and HTML files are allowed."
+                )
 
         # Enforce 30,000-word limit for pasted text content
         if text_content:

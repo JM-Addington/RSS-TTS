@@ -44,7 +44,9 @@ from .utils import (
     extract_title_from_html,
     fetch_url_content,
     safe_delete_audio_file,
+    extract_text_from_pdf,
 )
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -424,83 +426,108 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             try:
                 preset = UserVoicePreset.objects.get(id=preset_id)
                 article.voice_preset = preset
-
-                # Apply single source of truth for voice fields
                 from text_to_audio.models import VOICE_CHOICES
-
                 standard_voices = [choice[0] for choice in VOICE_CHOICES]
-
                 if preset.voice_id in standard_voices:
                     article.voice = preset.voice_id
                     article.voice_id = None
                 else:
                     article.voice_id = preset.voice_id
-                    article.voice = (
-                        "alloy"  # Reset to default for validation compatibility
-                    )
-
+                    article.voice = "alloy"
                 article.speed = preset.speed
             except UserVoicePreset.DoesNotExist:
                 pass
         elif self.feed.default_voice_preset:
             preset = self.feed.default_voice_preset
             article.voice_preset = preset
-
-            # Apply single source of truth for voice fields
             from text_to_audio.models import VOICE_CHOICES
-
             standard_voices = [choice[0] for choice in VOICE_CHOICES]
-
             if preset.voice_id in standard_voices:
                 article.voice = preset.voice_id
                 article.voice_id = None
             else:
                 article.voice_id = preset.voice_id
-                article.voice = "alloy"  # Reset to default for validation compatibility
-
+                article.voice = "alloy"
             article.speed = preset.speed
         else:
             voice_id = form.cleaned_data.get("voice_id")
             speed = form.cleaned_data.get("speed")
             if voice_id:
-                # Apply single source of truth for voice fields
                 from text_to_audio.models import VOICE_CHOICES
-
                 standard_voices = [choice[0] for choice in VOICE_CHOICES]
-
                 if voice_id in standard_voices:
                     article.voice = voice_id
                     article.voice_id = None
                 else:
                     article.voice_id = voice_id
-                    article.voice = (
-                        "alloy"  # Reset to default for validation compatibility
-                    )
+                    article.voice = "alloy"
             if speed:
                 article.speed = float(speed)
 
-        # If URL is provided, validate it first
-        if article.source_url:
+        document_file = form.cleaned_data.get("document_file")
+
+        if document_file:
+            filename = document_file.name
+            file_ext = os.path.splitext(filename)[1].lower()
+            extracted_text = None
+
+            if file_ext == ".pdf":
+                extracted_text = extract_text_from_pdf(document_file)
+                if extracted_text == "Error: Could not extract text from PDF.":
+                    form.add_error("document_file", extracted_text)
+                    return self.form_invalid(form)
+            elif file_ext == ".html":
+                html_content = document_file.read().decode("utf-8")
+                success, text, error = extract_article_text(html_content)
+                if not success:
+                    form.add_error("document_file", error or "Failed to extract text from HTML file.")
+                    return self.form_invalid(form)
+                extracted_text = text
+            else:
+                # This case should ideally be caught by form validation, but as a fallback:
+                form.add_error("document_file", "Unsupported file type.")
+                return self.form_invalid(form)
+
+            article.text_content = extracted_text
+            if not article.title:
+                if file_ext == ".html" and 'html_content' in locals():
+                    article.title = extract_title_from_html(html_content)
+                if not article.title:
+                    article.title = os.path.splitext(filename)[0]
+
+        elif article.source_url: # Process URL only if no document is uploaded
             success, html, error = fetch_url_content(article.source_url)
             if not success:
                 form.add_error("source_url", error)
                 return self.form_invalid(form)
 
-            # If no title provided but URL is valid, try to extract title
             if not article.title:
                 title = extract_title_from_html(html)
-
                 if not title:
-                    success, content, _ = extract_article_text(html)
-                    if success and content:
-                        title = content[:100] + ("..." if len(content) > 100 else "")
+                    # Try to get some text from the page for a title
+                    # This part was using 'content' which was not defined if html extraction failed
+                    # Re-using 'text' from a successful extraction, or make a new one if needed
+                    if 'text' not in locals() or not success : # if text var doesn't exist or success is False
+                        text_success, page_text, _ = extract_article_text(html)
+                        if text_success and page_text:
+                             title = page_text[:100] + ("..." if len(page_text) > 100 else "")
+                    elif success and 'text' in locals() and text : # if text var exists and it has content
+                        title = text[:100] + ("..." if len(text) > 100 else "")
 
                 article.title = title or f"Article from {article.source_url}"
+            # If text_content is still empty (e.g. not file upload, and no direct text input)
+            # then extract from URL
+            if not article.text_content:
+                success, text_from_url, error_extraction = extract_article_text(html)
+                if not success:
+                    form.add_error("source_url", error_extraction or "Failed to extract text from URL.")
+                    return self.form_invalid(form)
+                article.text_content = text_from_url
+
 
         article.save()
         task = process_article.delay(article.pk)
         article.celery_task_id = task.id
-        # Restrict fields on save
         article.save(update_fields=["celery_task_id", "updated_at"])
         return super().form_valid(form)
 

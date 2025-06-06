@@ -17,6 +17,29 @@ from bs4 import BeautifulSoup, Comment, Tag
 logger = logging.getLogger(__name__)
 
 
+def extract_text_from_pdf(file_obj) -> str:
+    """Extract text content from a PDF file.
+
+    Args:
+        file_obj: A file object representing the PDF file.
+
+    Returns:
+        The extracted text content, or an error message if extraction fails.
+    """
+    try:
+        import PyPDF2
+
+        reader = PyPDF2.PdfReader(file_obj)
+        text_parts = []
+        for page_num in range(len(reader.pages)):
+            page = reader.pages[page_num]
+            text_parts.append(page.extract_text())
+        return "\n".join(text_parts)
+    except Exception as e:
+        logger.error(f"Error extracting text from PDF: {str(e)}")
+        return "Error: Could not extract text from PDF."
+
+
 def extract_title_from_html(html: str) -> str:
     """Extract the title from HTML content.
 
