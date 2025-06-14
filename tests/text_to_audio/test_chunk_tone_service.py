@@ -289,3 +289,9 @@ class TestChunkToneService:
         # Empty chunks should fail validation
         with pytest.raises(ValidationError):
             ChunkTonePayload(chunks=[])
+
+    def test_single_voice_prompt_respects_letter_abbreviations(self, service):
+        """Ensure single-voice prompt keeps letter-by-letter abbreviations."""
+        prompt = service._build_single_voice_prompt("Text", "Title", 1000, "alloy")
+        assert "spoken as words" in prompt
+        assert "letter by letter" in prompt
