@@ -187,6 +187,8 @@ We follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide for
 - Feature branches should follow the format `feature/description`
 - See [AGENTS.md](AGENTS.md) for more details on branch management
 
+> **Note**: We are currently reviewing and adjusting our CI/CD pipeline to ensure it aligns with our development needs while maintaining code quality standards.
+
 ## Features
 
 ### ChunkToneService (LLM-Driven Audio Processing)
