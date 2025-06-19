@@ -98,10 +98,14 @@ def configure_logging(config: Dict, base_dir: Path) -> Dict:
     for handler_name, handler_config in config["handlers"].items():
         if handler_config.get("class") == "logging.FileHandler":
             # Replace with SafeFileHandler
-            handler_config["class"] = "text_to_audio.services.logging_setup.SafeFileHandler"
+            handler_config["class"] = (
+                "text_to_audio.services.logging_setup.SafeFileHandler"
+            )
         elif handler_config.get("class") == "logging.handlers.RotatingFileHandler":
             # Replace with SafeRotatingFileHandler
-            handler_config["class"] = "text_to_audio.services.logging_setup.SafeRotatingFileHandler"
+            handler_config["class"] = (
+                "text_to_audio.services.logging_setup.SafeRotatingFileHandler"
+            )
 
         # Ensure log directory exists if there's a filename
         if "filename" in handler_config:

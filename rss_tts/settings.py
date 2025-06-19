@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+
 from text_to_audio.services.logging_setup import configure_logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
