@@ -5,7 +5,6 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from unittest import mock
 
 import pytest
 

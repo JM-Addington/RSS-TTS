@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from text_to_audio.services.logging_setup import configure_logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -192,8 +193,7 @@ PODCAST_IMAGE_URL = os.environ.get("PODCAST_IMAGE_URL", "")
 RSS_EXTERNAL_HOSTNAME = os.environ.get("RSS_EXTERNAL_HOSTNAME", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
-# Import custom logging setup
-from text_to_audio.services.logging_setup import configure_logging
+# Logging setup is imported at the top of the file
 
 # Logging Configuration
 LOGGING_BASE = {
