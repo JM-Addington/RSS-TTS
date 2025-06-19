@@ -6,9 +6,8 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('text_to_audio', '0030_merge_20250606_2335'),
-        ('text_to_audio', '0030_merge_20250619_1106'),
+        ("text_to_audio", "0030_merge_20250606_2335"),
+        ("text_to_audio", "0030_merge_20250619_1106"),
     ]
 
-    operations = [
-    ]
+    operations = []
