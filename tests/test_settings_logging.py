@@ -1,6 +1,5 @@
 """Tests for Django settings logging configuration."""
 
-import os
 import shutil
 import tempfile
 from pathlib import Path
