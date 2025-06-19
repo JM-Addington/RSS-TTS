@@ -7,7 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("text_to_audio", "0027_alter_openaiusagestats_options_and_more"),
-        ("text_to_audio", "0029_add_model_name_to_openaiusagestats"),
+        ("text_to_audio", "0028_alter_article_prompt"),
     ]
 
     operations = []
