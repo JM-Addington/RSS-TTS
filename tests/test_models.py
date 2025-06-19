@@ -12,7 +12,7 @@ from django.db import models
 from django.test import TestCase
 
 # Import models needed for tests
-from text_to_audio.models import Article, Feed, OpenAIUsageStats
+from text_to_audio.models import Article, Feed, OpenAIUsageStats, UserVoicePreset, VOICE_CHOICES
 
 User = get_user_model()  # type: ignore
 
@@ -381,9 +381,6 @@ class ArticleVoiceFieldTests(TestCase):
         # Should set default voice
         self.assertEqual(article.voice, "alloy")
         self.assertIn(article.voice_id, [None, ""])
-
-
-from text_to_audio.models import UserVoicePreset, VOICE_CHOICES
 
 
 class ArticleGetDisplayVoiceNameTests(TestCase):

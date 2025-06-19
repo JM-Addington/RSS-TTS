@@ -274,3 +274,4 @@ SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection
 ARTICLE_PROCESSING_TIMEOUT_SECONDS = 3600  # 1 hour
 # Maximum number of words to analyze for content analysis (reduced from 750k for cost/performance)
 MAX_ANALYSIS_WORDS = int(os.environ.get("MAX_ANALYSIS_WORDS", "8000"))
+
