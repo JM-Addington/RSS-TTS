@@ -82,16 +82,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if article.voice %}
-                                <span class="badge bg-secondary">{{ article.get_voice_display }}</span>
-                                {% if article.multi_voice_data %}
-                                <span class="badge bg-info" title="Uses multiple AI voices for a more dynamic experience">
-                                    <i class="bi bi-people-fill"></i> Multi-Voice
-                                </span>
-                                {% endif %}
-                            {% else %}
-                                <span class="text-muted">Default</span>
-                            {% endif %}
+                            <span class="badge bg-secondary">{{ article.display_voice_name|default:"Default" }}</span>
                         </td>
                         <td>{{ article.created_at|date:"M d, Y" }}</td>
                         <td class="status-badge">

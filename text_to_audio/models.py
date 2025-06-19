@@ -418,7 +418,7 @@ class Article(models.Model):
         from django.conf import settings
 
         if not self.audio_uuid:
-            raise ValueError(f"Article {self.id} has no audio_uuid set")
+            raise ValueError(f"Article {self.pk} has no audio_uuid set")
 
         return os.path.join(settings.MEDIA_ROOT, "articles", f"{self.audio_uuid}.mp3")
 
@@ -427,7 +427,7 @@ class Article(models.Model):
         import os
 
         if not self.audio_uuid:
-            raise ValueError(f"Article {self.id} has no audio_uuid set")
+            raise ValueError(f"Article {self.pk} has no audio_uuid set")
 
         relative_path = os.path.join("articles", f"{self.audio_uuid}.mp3")
         self.audio_file_path = relative_path
@@ -464,6 +464,34 @@ class Article(models.Model):
             raise ValueError("Article has no audio_uuid set")
 
         return reverse("article-media", kwargs={"audio_uuid": self.audio_uuid})
+
+    @property
+    def display_voice_name(self) -> str:
+        """Determine the display name for the voice used in this article.
+
+        Returns:
+            A user-friendly display name for the voice configuration, including
+            any multi-voice indicator.
+        """
+        base_voice_name = ""
+        standard_voice_ids = [choice[0] for choice in self.VOICE_CHOICES]
+
+        if self.voice_preset and hasattr(self.voice_preset, "name"):
+            base_voice_name = str(self.voice_preset.name)
+        elif self.voice_id and self.voice_id not in standard_voice_ids:
+            base_voice_name = str(self.voice_id)
+        else:
+            # Relies on the get_voice_display method which Django models have
+            # if 'voice' is a field with choices.
+            # Using getattr with default for type safety
+            display_method = getattr(
+                self, "get_voice_display", lambda: self.voice or ""
+            )
+            base_voice_name = str(display_method())
+
+        if self.multi_voice_data:
+            return f"{base_voice_name} - Multi-Voice"
+        return base_voice_name
 
 
 class OpenAIUsageStats(models.Model):
