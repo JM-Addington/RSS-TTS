@@ -192,6 +192,13 @@ PODCAST_IMAGE_URL = os.environ.get("PODCAST_IMAGE_URL", "")
 RSS_EXTERNAL_HOSTNAME = os.environ.get("RSS_EXTERNAL_HOSTNAME", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
+# Ensure log directory exists
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+# Check if running in CI environment
+IS_CI = os.environ.get("CI", "False").lower() in ("1", "true", "yes")
+
 # Logging Configuration
 LOGGING = {
     "version": 1,
@@ -218,20 +225,20 @@ LOGGING = {
         },
         "django_file": {
             "level": "INFO",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs" / "django.log",
+            "class": "logging.FileHandler" if not IS_CI else "logging.NullHandler",
+            "filename": LOG_DIR / "django.log" if not IS_CI else None,
             "formatter": "detailed",
         },
         "worker_file": {
             "level": "INFO",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs" / "worker.log",
+            "class": "logging.FileHandler" if not IS_CI else "logging.NullHandler",
+            "filename": LOG_DIR / "worker.log" if not IS_CI else None,
             "formatter": "detailed",
         },
         "tts_file": {
             "level": "INFO",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs" / "tts_api.log",
+            "class": "logging.FileHandler" if not IS_CI else "logging.NullHandler",
+            "filename": LOG_DIR / "tts_api.log" if not IS_CI else None,
             "formatter": "detailed",
         },
     },
