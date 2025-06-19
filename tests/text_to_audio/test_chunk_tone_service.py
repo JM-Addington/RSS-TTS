@@ -34,13 +34,13 @@ class TestChunkToneService:
                     "text": "Once upon a time, there was a brave knight.",
                     "voice": {"voice": "alloy"},
                     "character_name": "narrator",
-                    "instructions": "Use a calm, storytelling tone. Moderate pace with clear enunciation. Classic narrative style.",
+                    "instructions": "Use a calm, storytelling tone. Moderate pace with clear enunciation.",
                 },
                 {
                     "text": "I shall save the kingdom!",
                     "voice": {"voice": "onyx"},
                     "character_name": "knight",
-                    "instructions": "Speak with determination and heroic energy. Use a bold, confident tone with emphasis.",
+                    "instructions": "Speak with determination and heroic energy.",
                 },
             ]
         }

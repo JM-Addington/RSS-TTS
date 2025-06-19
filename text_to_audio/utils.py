@@ -458,15 +458,15 @@ EXTRACTED ARTICLE TEXT:"""
         # Log the API call
         start_time = time.monotonic()
         request_data = {
-            "model": "gpt-4.1-2025-04-14",  # Using GPT-4.1 with 1M+ context window
+            "model": "gpt-4.1-2025-04-14",
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are an expert at extracting article content from HTML. Extract only the main article text that should be narrated, maintaining the logical flow and structure.",
+                    "content": "Extract the main article content from HTML.",
                 },
                 {"role": "user", "content": prompt},
             ],
-            "max_tokens": 32768,  # GPT-4.1 supports up to 32K output tokens
+            "max_tokens": 32768,
             "temperature": 0.1,  # Low temperature for consistent extraction
         }
 

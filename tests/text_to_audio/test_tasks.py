@@ -20,7 +20,10 @@ from django.test import TestCase, override_settings
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
-from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
+from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article, check_stale_articles
+from datetime import timedelta
+from django.utils import timezone
+from django.conf import settings as django_settings
 
 User = get_user_model()
 
@@ -1599,14 +1602,6 @@ class SpeedClampingUnitTests(TestCase):
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
 
 
-from datetime import timedelta
-
-from django.utils import timezone
-from django.conf import settings as django_settings
-
-from text_to_audio.tasks import check_stale_articles
-
-
 class CheckStaleArticlesTests(TestCase):
     """Tests for the check_stale_articles task."""
 
@@ -1639,7 +1634,6 @@ class CheckStaleArticlesTests(TestCase):
         Feed.objects.filter(user=self.user).delete()
         self.user.delete()
 
-
     def test_check_stale_articles_logic(self):
         """Test that stale articles are correctly identified and processed."""
         now = timezone.now()
@@ -1658,7 +1652,6 @@ class CheckStaleArticlesTests(TestCase):
         Article.objects.filter(pk=stale_article.pk).update(updated_at=very_old_time)
         stale_article.refresh_from_db()
 
-
         recent_processing_article = Article.objects.create(
             feed=self.feed,
             title="Recent Processing Article",
@@ -1675,7 +1668,7 @@ class CheckStaleArticlesTests(TestCase):
             title="Completed Article",
             text_content="This article is completed.",
             status=Article.COMPLETED,
-            updated_at=very_old_time, # old but completed
+            updated_at=very_old_time,  # old but completed
         )
         Article.objects.filter(pk=completed_article.pk).update(updated_at=very_old_time)
         completed_article.refresh_from_db()
@@ -1685,7 +1678,7 @@ class CheckStaleArticlesTests(TestCase):
             title="Already Failed Article",
             text_content="This article already failed.",
             status=Article.FAILED,
-            updated_at=very_old_time, # old but already failed
+            updated_at=very_old_time,  # old but already failed
         )
         Article.objects.filter(pk=failed_article_already.pk).update(updated_at=very_old_time)
         failed_article_already.refresh_from_db()
@@ -1709,7 +1702,7 @@ class CheckStaleArticlesTests(TestCase):
 
         # Assertions for recent_processing_article
         self.assertEqual(recent_processing_article.status, Article.PROCESSING)
-        self.assertIsNone(recent_processing_article.error_message) # Should not have error
+        self.assertIsNone(recent_processing_article.error_message)  # Should not have error
 
         # Assertions for completed_article
         self.assertEqual(completed_article.status, Article.COMPLETED)
