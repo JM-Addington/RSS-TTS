@@ -9,21 +9,26 @@ functionality.
 from __future__ import annotations
 
 import shutil
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
 from django.conf import settings
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 
 # Transaction import is used by decorator
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
-from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article, check_stale_articles
-from datetime import timedelta
-from django.utils import timezone
-from django.conf import settings as django_settings
+from text_to_audio.tasks import (
+    _clamp_tts_speed,
+    _legacy_chunk_text,
+    check_stale_articles,
+    process_article,
+)
 
 User = get_user_model()
 
@@ -1660,7 +1665,9 @@ class CheckStaleArticlesTests(TestCase):
             celery_task_id="fake_recent_task_id",
             updated_at=recent_time,
         )
-        Article.objects.filter(pk=recent_processing_article.pk).update(updated_at=recent_time)
+        Article.objects.filter(pk=recent_processing_article.pk).update(
+            updated_at=recent_time
+        )
         recent_processing_article.refresh_from_db()
 
         completed_article = Article.objects.create(
@@ -1680,7 +1687,9 @@ class CheckStaleArticlesTests(TestCase):
             status=Article.FAILED,
             updated_at=very_old_time,  # old but already failed
         )
-        Article.objects.filter(pk=failed_article_already.pk).update(updated_at=very_old_time)
+        Article.objects.filter(pk=failed_article_already.pk).update(
+            updated_at=very_old_time
+        )
         failed_article_already.refresh_from_db()
 
         # Call the task
@@ -1696,13 +1705,13 @@ class CheckStaleArticlesTests(TestCase):
         self.assertEqual(stale_article.status, Article.FAILED)
         self.assertIn("timed out", stale_article.error_message.lower())
         self.assertIsNone(stale_article.celery_task_id)
-        self.mock_revoke.assert_called_once_with(
-            "fake_stale_task_id", terminate=True
-        )
+        self.mock_revoke.assert_called_once_with("fake_stale_task_id", terminate=True)
 
         # Assertions for recent_processing_article
         self.assertEqual(recent_processing_article.status, Article.PROCESSING)
-        self.assertIsNone(recent_processing_article.error_message)  # Should not have error
+        self.assertIsNone(
+            recent_processing_article.error_message
+        )  # Should not have error
 
         # Assertions for completed_article
         self.assertEqual(completed_article.status, Article.COMPLETED)
