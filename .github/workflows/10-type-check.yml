@@ -66,3 +66,4 @@ jobs:
           CELERY_BROKER_URL: "memory://"
           CELERY_TASK_ALWAYS_EAGER: "True"
           PYTHONPATH: "."
+          CI: "True"

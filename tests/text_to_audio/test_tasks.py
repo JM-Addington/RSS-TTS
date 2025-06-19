@@ -9,18 +9,26 @@ functionality.
 from __future__ import annotations
 
 import shutil
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
 from django.conf import settings
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 
 # Transaction import is used by decorator
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
-from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
+from text_to_audio.tasks import (
+    _clamp_tts_speed,
+    _legacy_chunk_text,
+    check_stale_articles,
+    process_article,
+)
 
 User = get_user_model()
 
@@ -287,10 +295,11 @@ class ProcessArticleTests(TestCase):
         if TEST_MEDIA_ROOT.exists():
             shutil.rmtree(TEST_MEDIA_ROOT)
 
+    @patch("text_to_audio.tasks.AudioSegment.silent")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_single_chunk(
-        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_mp3, mock_silent, MockOpenAIClient
     ):
         """Test that processing an article with a single text chunk works correctly."""
         mock_openai_instance = MockOpenAIClient.return_value
@@ -322,6 +331,7 @@ class ProcessArticleTests(TestCase):
         mock_audio_segment.export.side_effect = export_side_effect
         mock_audio_from_mp3.return_value = mock_audio_segment
         mock_audio_empty.return_value = MagicMock()
+        mock_silent.return_value = MagicMock()
 
         result = process_article(self.article.id)
 
@@ -338,6 +348,7 @@ class ProcessArticleTests(TestCase):
         # Verify the mock calls specific to the new export parameters
         mock_audio_segment.set_frame_rate.assert_called_once_with(44100)
         mock_audio_segment.export.assert_called_once()
+        mock_silent.assert_called_once_with(duration=2000)
         # Verify export parameters (CBR and tags)
         export_call = mock_audio_segment.export.call_args
         self.assertEqual(export_call[1]["bitrate"], "128k")
@@ -467,12 +478,15 @@ class ProcessArticleTests(TestCase):
             "text_to_audio.tasks._legacy_chunk_text"
         ) as mock_legacy_chunk_text, patch(
             "text_to_audio.tasks.AudioSegment"
-        ), patch.object(
+        ) as mock_audio_segment_cls, patch.object(
             Path, "rename"
         ):  # Prevent file rename attempts
 
             # Return 2 chunks to force multi-chunk processing
             mock_legacy_chunk_text.return_value = (True, chunks_data)
+            mock_audio_segment_cls.from_mp3.return_value = MagicMock()
+            mock_audio_segment_cls.empty.return_value = MagicMock()
+            mock_audio_segment_cls.silent.return_value = MagicMock()
 
             # Run the function
             result = process_article(self.article.id)
@@ -502,6 +516,7 @@ class ProcessArticleTests(TestCase):
             self.assertEqual(
                 result, f"Article {self.article.id} processed successfully."
             )
+            mock_audio_segment_cls.silent.assert_called_once_with(duration=2000)
 
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
@@ -1592,14 +1607,6 @@ class SpeedClampingUnitTests(TestCase):
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
 
 
-from datetime import timedelta
-
-from django.utils import timezone
-from django.conf import settings as django_settings
-
-from text_to_audio.tasks import check_stale_articles
-
-
 class CheckStaleArticlesTests(TestCase):
     """Tests for the check_stale_articles task."""
 
@@ -1632,7 +1639,6 @@ class CheckStaleArticlesTests(TestCase):
         Feed.objects.filter(user=self.user).delete()
         self.user.delete()
 
-
     def test_check_stale_articles_logic(self):
         """Test that stale articles are correctly identified and processed."""
         now = timezone.now()
@@ -1651,7 +1657,6 @@ class CheckStaleArticlesTests(TestCase):
         Article.objects.filter(pk=stale_article.pk).update(updated_at=very_old_time)
         stale_article.refresh_from_db()
 
-
         recent_processing_article = Article.objects.create(
             feed=self.feed,
             title="Recent Processing Article",
@@ -1660,7 +1665,9 @@ class CheckStaleArticlesTests(TestCase):
             celery_task_id="fake_recent_task_id",
             updated_at=recent_time,
         )
-        Article.objects.filter(pk=recent_processing_article.pk).update(updated_at=recent_time)
+        Article.objects.filter(pk=recent_processing_article.pk).update(
+            updated_at=recent_time
+        )
         recent_processing_article.refresh_from_db()
 
         completed_article = Article.objects.create(
@@ -1668,7 +1675,7 @@ class CheckStaleArticlesTests(TestCase):
             title="Completed Article",
             text_content="This article is completed.",
             status=Article.COMPLETED,
-            updated_at=very_old_time, # old but completed
+            updated_at=very_old_time,  # old but completed
         )
         Article.objects.filter(pk=completed_article.pk).update(updated_at=very_old_time)
         completed_article.refresh_from_db()
@@ -1678,9 +1685,11 @@ class CheckStaleArticlesTests(TestCase):
             title="Already Failed Article",
             text_content="This article already failed.",
             status=Article.FAILED,
-            updated_at=very_old_time, # old but already failed
+            updated_at=very_old_time,  # old but already failed
         )
-        Article.objects.filter(pk=failed_article_already.pk).update(updated_at=very_old_time)
+        Article.objects.filter(pk=failed_article_already.pk).update(
+            updated_at=very_old_time
+        )
         failed_article_already.refresh_from_db()
 
         # Call the task
@@ -1696,13 +1705,13 @@ class CheckStaleArticlesTests(TestCase):
         self.assertEqual(stale_article.status, Article.FAILED)
         self.assertIn("timed out", stale_article.error_message.lower())
         self.assertIsNone(stale_article.celery_task_id)
-        self.mock_revoke.assert_called_once_with(
-            "fake_stale_task_id", terminate=True
-        )
+        self.mock_revoke.assert_called_once_with("fake_stale_task_id", terminate=True)
 
         # Assertions for recent_processing_article
         self.assertEqual(recent_processing_article.status, Article.PROCESSING)
-        self.assertIsNone(recent_processing_article.error_message) # Should not have error
+        self.assertIsNone(
+            recent_processing_article.error_message
+        )  # Should not have error
 
         # Assertions for completed_article
         self.assertEqual(completed_article.status, Article.COMPLETED)

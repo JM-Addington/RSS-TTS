@@ -10,11 +10,33 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+import PyPDF2
 import requests
 from bs4 import BeautifulSoup, Comment, Tag
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def extract_text_from_pdf(file_obj) -> str:
+    """Extract text content from a PDF file.
+
+    Args:
+        file_obj: A file object representing the PDF file.
+
+    Returns:
+        The extracted text content, or an error message if extraction fails.
+    """
+    try:
+        reader = PyPDF2.PdfReader(file_obj)
+        text_parts = []
+        for page_num in range(len(reader.pages)):
+            page = reader.pages[page_num]
+            text_parts.append(page.extract_text())
+        return "\n".join(text_parts)
+    except Exception as e:
+        logger.error(f"Error extracting text from PDF: {str(e)}")
+        return f"Error: Could not extract text from PDF. {str(e)}"
 
 
 def extract_title_from_html(html: str) -> str:
@@ -209,11 +231,12 @@ def _extract_image_descriptions(container: Tag) -> List[str]:
     """
     descriptions = []
 
-    for img in container.find_all("img"):
-        if not isinstance(img, Tag):
+    for element in container.find_all("img"):
+        # Ensure we're working with a Tag object
+        if not isinstance(element, Tag):
             continue
 
-        alt = img.get("alt")
+        alt = element.get("alt")
         if alt and isinstance(alt, str) and alt.strip():
             descriptions.append(f"[Image: {alt}]")
 
@@ -231,13 +254,13 @@ def _extract_table_captions(container: Tag) -> List[str]:
     """
     captions = []
 
-    for table in container.find_all("table"):
-        if not isinstance(table, Tag):
+    for table_element in container.find_all("table"):
+        if not isinstance(table_element, Tag):
             continue
 
-        caption = table.find("caption")
-        if isinstance(caption, Tag) and caption.get_text(strip=True):
-            captions.append(f"[Table: {caption.get_text(strip=True)}]")
+        caption_element = table_element.find("caption")
+        if isinstance(caption_element, Tag) and caption_element.get_text(strip=True):
+            captions.append(f"[Table: {caption_element.get_text(strip=True)}]")
         else:
             captions.append("[Table present]")
 
@@ -350,19 +373,26 @@ def clean_html_minimal(html: str) -> str:
             comment.extract()
 
         # Remove unwanted attributes from all remaining tags
-        for tag in soup.find_all(True):  # Find all tags
+        for element in soup.find_all(True):  # Find all tags
+            # Ensure we're working with a Tag object
+            if not isinstance(element, Tag):
+                continue
+
             # Keep only href for links and src/alt for images
             attrs_to_keep = {}
-            if tag.name == "a" and tag.get("href"):
-                attrs_to_keep["href"] = tag["href"]
-            elif tag.name == "img":
-                if tag.get("src"):
-                    attrs_to_keep["src"] = tag["src"]
-                if tag.get("alt"):
-                    attrs_to_keep["alt"] = tag["alt"]
+            if element.name == "a" and element.get("href"):
+                attrs_to_keep["href"] = element.get("href", "")
+            elif element.name == "img":
+                if element.get("src"):
+                    attrs_to_keep["src"] = element.get("src", "")
+                if element.get("alt"):
+                    attrs_to_keep["alt"] = element.get("alt", "")
 
             # Clear all attributes and restore only the ones we want to keep
-            tag.attrs = attrs_to_keep
+            element.attrs.clear()
+            for key, value in attrs_to_keep.items():
+                if value is not None:
+                    element.attrs[key] = value
 
         # Return the cleaned HTML
         return str(soup)
@@ -428,19 +458,20 @@ EXTRACTED ARTICLE TEXT:"""
         # Log the API call
         start_time = time.monotonic()
         request_data = {
-            "model": "gpt-4.1-2025-04-14",  # Using GPT-4.1 with 1M+ context window
+            "model": "gpt-4.1-2025-04-14",
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are an expert at extracting article content from HTML. Extract only the main article text that should be narrated, maintaining the logical flow and structure.",
+                    "content": "Extract the main article content from HTML.",
                 },
                 {"role": "user", "content": prompt},
             ],
-            "max_tokens": 32768,  # GPT-4.1 supports up to 32K output tokens
+            "max_tokens": 32768,
             "temperature": 0.1,  # Low temperature for consistent extraction
         }
 
         try:
+            # Call the correct OpenAI API for chat completions
             response = client.chat.completions.create(**request_data)
             end_time = time.monotonic()
             duration_ms = int((end_time - start_time) * 1000)

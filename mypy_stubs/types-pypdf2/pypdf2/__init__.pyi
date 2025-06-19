@@ -1,0 +1,13 @@
+from typing import Any, BinaryIO, Dict, Iterator, List, Optional, TextIO, Union
+
+class PdfReader:
+    pages: List["PageObject"]
+
+    def __init__(
+        self, stream: Union[str, BinaryIO], password: Optional[str] = None
+    ) -> None: ...
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int) -> "PageObject": ...
+
+class PageObject:
+    def extract_text(self) -> str: ...

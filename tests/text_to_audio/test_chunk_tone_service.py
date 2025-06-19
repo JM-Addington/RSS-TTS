@@ -34,13 +34,13 @@ class TestChunkToneService:
                     "text": "Once upon a time, there was a brave knight.",
                     "voice": {"voice": "alloy"},
                     "character_name": "narrator",
-                    "instructions": "Use a calm, storytelling tone. Moderate pace with clear enunciation. Classic narrative style.",
+                    "instructions": "Use a calm, storytelling tone. Moderate pace with clear enunciation.",
                 },
                 {
                     "text": "I shall save the kingdom!",
                     "voice": {"voice": "onyx"},
                     "character_name": "knight",
-                    "instructions": "Speak with determination and heroic energy. Use a bold, confident tone with emphasis.",
+                    "instructions": "Speak with determination and heroic energy.",
                 },
             ]
         }
@@ -289,3 +289,9 @@ class TestChunkToneService:
         # Empty chunks should fail validation
         with pytest.raises(ValidationError):
             ChunkTonePayload(chunks=[])
+
+    def test_single_voice_prompt_respects_letter_abbreviations(self, service):
+        """Ensure single-voice prompt keeps letter-by-letter abbreviations."""
+        prompt = service._build_single_voice_prompt("Text", "Title", 1000, "alloy")
+        assert "spoken as words" in prompt
+        assert "letter by letter" in prompt

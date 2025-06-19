@@ -211,7 +211,7 @@ The JSON must be valid and parseable. Do not include any other text or explanati
         return f"""You are a text-to-speech preprocessing specialist. Prepare the following article for TTS by:
 
 1. Breaking it into logical chunks (maximum {max_chars} characters each)
-2. Expanding ALL abbreviations for natural speech
+2. Expanding abbreviations that are normally spoken as words for natural speech
 3. Converting dates and numbers to spoken form
 4. Maintaining the original meaning while optimizing for speech
 
@@ -224,6 +224,7 @@ Text Normalization Rules:
 - Expand state abbreviations: VA → Virginia, CA → California, NY → New York, etc.
 - Expand titles: Mr. → Mister, Mrs. → Missus, Dr. → Doctor, Prof. → Professor, etc.
 - Expand common abbreviations: St. → Street, Ave. → Avenue, Co. → Company, Inc. → Incorporated, etc.
+- Keep abbreviations that are typically spoken letter by letter (e.g., AI, GPT, CPU) as-is.
 - Convert dates: 1/1/2000 → January first, two thousand; 12/25/2025 → December twenty-fifth, twenty twenty-five
 - Convert times: 3:30 PM → three thirty P M, 9:00 AM → nine o'clock A M
 - Spell out numbers in context: "5 people" → "five people", "$100" → "one hundred dollars"
@@ -243,7 +244,7 @@ Return ONLY a JSON object with this exact structure:
 }}
 
 IMPORTANT: All chunks must use voice "{voice}" and character_name "narrator".
-The text in each chunk should have ALL abbreviations and numbers expanded for natural speech.
+The text in each chunk should expand abbreviations normally spoken as words while leaving letter-by-letter abbreviations unchanged. Numbers should be converted to spoken form.
 Break at natural pauses like paragraphs or sentence boundaries when possible."""
 
     def _call_openai(self, prompt: str) -> dict:
