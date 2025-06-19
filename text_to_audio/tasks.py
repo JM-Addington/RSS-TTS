@@ -32,6 +32,9 @@ from .utils import process_url_to_text
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Add a short pause to the end of exported audio files
+ENDING_SILENCE_MS = 2000
+
 
 def _clamp_tts_speed(speed: float) -> float:
     """Clamp TTS speed to valid range [0.25, 4.0].
@@ -1186,6 +1189,7 @@ def process_article(self, article_id: int) -> str:
             audio_segment = audio_segment.set_frame_rate(
                 44100
             )  # Ensure consistent frame rate
+            audio_segment += AudioSegment.silent(duration=ENDING_SILENCE_MS)
             audio_segment.export(
                 str(final_audio_path),
                 format="mp3",
@@ -1215,6 +1219,7 @@ def process_article(self, article_id: int) -> str:
                 combined_audio = combined_audio.set_frame_rate(
                     44100
                 )  # Ensure consistent frame rate
+                combined_audio += AudioSegment.silent(duration=ENDING_SILENCE_MS)
                 combined_audio.export(
                     str(final_audio_path),
                     format="mp3",

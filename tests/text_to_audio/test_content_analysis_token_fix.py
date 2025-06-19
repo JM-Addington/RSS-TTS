@@ -200,7 +200,7 @@ class ContentAnalysisTokenFixTest(TestCase):
             )
             segments.append(
                 {
-                    "text": f"This is segment {i} with a substantial amount of text that represents actual dialogue or narration content",
+                    "text": f"This is segment {i} with text that represents dialogue or narration",
                     "voice_name": f"character_{i}",
                 }
             )
