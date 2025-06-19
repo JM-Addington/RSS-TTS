@@ -192,8 +192,11 @@ PODCAST_IMAGE_URL = os.environ.get("PODCAST_IMAGE_URL", "")
 RSS_EXTERNAL_HOSTNAME = os.environ.get("RSS_EXTERNAL_HOSTNAME", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
+# Import custom logging setup
+from text_to_audio.services.logging_setup import configure_logging
+
 # Logging Configuration
-LOGGING = {
+LOGGING_BASE = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
@@ -218,19 +221,19 @@ LOGGING = {
         },
         "django_file": {
             "level": "INFO",
-            "class": "logging.FileHandler",
+            "class": "text_to_audio.services.logging_setup.SafeFileHandler",
             "filename": BASE_DIR / "logs" / "django.log",
             "formatter": "detailed",
         },
         "worker_file": {
             "level": "INFO",
-            "class": "logging.FileHandler",
+            "class": "text_to_audio.services.logging_setup.SafeFileHandler",
             "filename": BASE_DIR / "logs" / "worker.log",
             "formatter": "detailed",
         },
         "tts_file": {
             "level": "INFO",
-            "class": "logging.FileHandler",
+            "class": "text_to_audio.services.logging_setup.SafeFileHandler",
             "filename": BASE_DIR / "logs" / "tts_api.log",
             "formatter": "detailed",
         },
@@ -253,6 +256,9 @@ LOGGING = {
         },
     },
 }
+
+# Apply our safe logging configuration
+LOGGING = configure_logging(LOGGING_BASE, BASE_DIR)
 
 # Session Configuration
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Store sessions in database
