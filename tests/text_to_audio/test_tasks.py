@@ -287,10 +287,11 @@ class ProcessArticleTests(TestCase):
         if TEST_MEDIA_ROOT.exists():
             shutil.rmtree(TEST_MEDIA_ROOT)
 
+    @patch("text_to_audio.tasks.AudioSegment.silent")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_single_chunk(
-        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_mp3, mock_silent, MockOpenAIClient
     ):
         """Test that processing an article with a single text chunk works correctly."""
         mock_openai_instance = MockOpenAIClient.return_value
@@ -322,6 +323,7 @@ class ProcessArticleTests(TestCase):
         mock_audio_segment.export.side_effect = export_side_effect
         mock_audio_from_mp3.return_value = mock_audio_segment
         mock_audio_empty.return_value = MagicMock()
+        mock_silent.return_value = MagicMock()
 
         result = process_article(self.article.id)
 
@@ -338,6 +340,7 @@ class ProcessArticleTests(TestCase):
         # Verify the mock calls specific to the new export parameters
         mock_audio_segment.set_frame_rate.assert_called_once_with(44100)
         mock_audio_segment.export.assert_called_once()
+        mock_silent.assert_called_once_with(duration=2000)
         # Verify export parameters (CBR and tags)
         export_call = mock_audio_segment.export.call_args
         self.assertEqual(export_call[1]["bitrate"], "128k")
@@ -467,12 +470,15 @@ class ProcessArticleTests(TestCase):
             "text_to_audio.tasks._legacy_chunk_text"
         ) as mock_legacy_chunk_text, patch(
             "text_to_audio.tasks.AudioSegment"
-        ), patch.object(
+        ) as mock_audio_segment_cls, patch.object(
             Path, "rename"
         ):  # Prevent file rename attempts
 
             # Return 2 chunks to force multi-chunk processing
             mock_legacy_chunk_text.return_value = (True, chunks_data)
+            mock_audio_segment_cls.from_mp3.return_value = MagicMock()
+            mock_audio_segment_cls.empty.return_value = MagicMock()
+            mock_audio_segment_cls.silent.return_value = MagicMock()
 
             # Run the function
             result = process_article(self.article.id)
@@ -502,6 +508,7 @@ class ProcessArticleTests(TestCase):
             self.assertEqual(
                 result, f"Article {self.article.id} processed successfully."
             )
+            mock_audio_segment_cls.silent.assert_called_once_with(duration=2000)
 
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
