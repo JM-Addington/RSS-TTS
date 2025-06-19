@@ -12,7 +12,8 @@ from django.db import models
 from django.test import TestCase
 
 # Import models needed for tests
-from text_to_audio.models import Article, Feed, OpenAIUsageStats, UserVoicePreset, VOICE_CHOICES
+from text_to_audio.models import (VOICE_CHOICES, Article, Feed,
+                                  OpenAIUsageStats, UserVoicePreset)
 
 User = get_user_model()  # type: ignore
 
@@ -465,12 +466,12 @@ class ArticleGetDisplayVoiceNameTests(TestCase):
         article = Article.objects.create(
             feed=self.feed,
             title="Test",
-            voice="alloy", # Explicitly set voice, or rely on clean()
-            voice_id="nova", # This is a standard voice
+            voice="alloy",  # Explicitly set voice, or rely on clean()
+            voice_id="nova",  # This is a standard voice
         )
-        article.clean() # clean() will set self.voice to 'alloy' because voice_id is present
-                        # The property logic will then see 'nova' as a standard voice in voice_id
-                        # and thus fall back to self.get_voice_display() which uses self.voice ('alloy').
+        article.clean()  # clean() will set self.voice to 'alloy' because voice_id is present
+        # The property logic will then see 'nova' as a standard voice in voice_id
+        # and thus fall back to self.get_voice_display() which uses self.voice ('alloy').
         self.assertEqual(article.get_display_voice_name, self.default_voice_display)
 
     def test_voice_id_is_standard_voice_name_shimmer_fallback_to_voice_fable(self):
@@ -480,16 +481,16 @@ class ArticleGetDisplayVoiceNameTests(TestCase):
         article = Article.objects.create(
             feed=self.feed,
             title="Test",
-            voice="fable", # Explicitly set voice
-            voice_id="shimmer", # This is a standard voice
+            voice="fable",  # Explicitly set voice
+            voice_id="shimmer",  # This is a standard voice
         )
-        article.clean() # clean() will set self.voice to 'alloy' because voice_id is present.
-                        # However, the property logic checks if voice_id is in standard_voice_ids.
-                        # If it is, it uses self.get_voice_display().
-                        # After clean(), self.voice is 'alloy'.
-                        # So, the expected output should be 'Alloy'.
-                        # This test case needs to be re-evaluated against the actual logic in `get_display_voice_name`
-                        # and `Article.clean()`.
+        article.clean()  # clean() will set self.voice to 'alloy' because voice_id is present.
+        # However, the property logic checks if voice_id is in standard_voice_ids.
+        # If it is, it uses self.get_voice_display().
+        # After clean(), self.voice is 'alloy'.
+        # So, the expected output should be 'Alloy'.
+        # This test case needs to be re-evaluated against the actual logic in `get_display_voice_name`
+        # and `Article.clean()`.
 
         # Re-evaluation based on model logic:
         # 1. Article.clean(): if voice_id is present (e.g. "shimmer"), self.voice is set to "alloy".
@@ -501,12 +502,11 @@ class ArticleGetDisplayVoiceNameTests(TestCase):
         expected_display_name = dict(VOICE_CHOICES).get("alloy", "Alloy")
         self.assertEqual(article.get_display_voice_name, expected_display_name)
 
-
     def test_no_specific_voice_settings(self):
         """Test with no specific voice settings (falls back to default 'voice')."""
         # Article creation defaults 'voice' to VOICE_ALLOY ('alloy')
         article = Article.objects.create(feed=self.feed, title="Test")
-        article.clean() # Ensures voice is set to default if nothing is provided
+        article.clean()  # Ensures voice is set to default if nothing is provided
         self.assertEqual(article.get_display_voice_name, self.default_voice_display)
 
     def test_voice_id_is_standard_voice_but_voice_is_different_standard(self):
@@ -520,9 +520,11 @@ class ArticleGetDisplayVoiceNameTests(TestCase):
             voice="echo",  # A standard voice
             voice_id="nova",  # Also a standard voice
         )
-        article.clean() # voice will be 'alloy'
+        article.clean()  # voice will be 'alloy'
         # Expected: 'Alloy' because voice_id 'nova' is standard, so get_voice_display() for 'alloy' is used.
-        self.assertEqual(article.get_display_voice_name, dict(VOICE_CHOICES).get("alloy", "Alloy"))
+        self.assertEqual(
+            article.get_display_voice_name, dict(VOICE_CHOICES).get("alloy", "Alloy")
+        )
 
 
 # For pytest compatibility
