@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import time  # Added for timing API calls
 import traceback
 import uuid
 from datetime import timedelta
 from pathlib import Path
-import math
 
 import openai
 from celery import shared_task  # type: ignore
@@ -1187,8 +1187,8 @@ def process_article(self, article_id: int) -> str:
             # It's safer to copy/process the file rather than renaming, then clean up.
             # For single files, we still re-export to apply tags and ensure format.
             audio_segment = AudioSegment.from_mp3(single_audio_path)
-            audio_segment = (
-                audio_segment.set_frame_rate(44100).apply_gain(VOLUME_GAIN_DB)
+            audio_segment = audio_segment.set_frame_rate(44100).apply_gain(
+                VOLUME_GAIN_DB
             )  # Ensure consistent frame rate and volume
             audio_segment += AudioSegment.silent(duration=ENDING_SILENCE_MS)
             audio_segment.export(
@@ -1217,8 +1217,8 @@ def process_article(self, article_id: int) -> str:
                     ) from e
 
             if combined_audio.duration_seconds > 0:
-                combined_audio = (
-                    combined_audio.set_frame_rate(44100).apply_gain(VOLUME_GAIN_DB)
+                combined_audio = combined_audio.set_frame_rate(44100).apply_gain(
+                    VOLUME_GAIN_DB
                 )  # Ensure consistent frame rate and volume
                 combined_audio += AudioSegment.silent(duration=ENDING_SILENCE_MS)
                 combined_audio.export(
