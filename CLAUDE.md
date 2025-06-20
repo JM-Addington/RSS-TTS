@@ -65,6 +65,8 @@ Always run pre-commit before committing. If the hooks are set up correctly, they
 All tests must be run inside docker. The local environment does NOT have all of the dependencies installed and the tests WILL fail.
 If your `cwd` is `/app` or `/workspace`, you are already in docker. If not, you're home the host.
 
+If the environmental variable `IN_DOCKER` is set to `True`, you are in docker.
+
 ## Anchor comments
 
 Add specially formatted comments throughout the codebase, where appropriate, for yourself as inline knowledge that can be easily `grep`ped for.
