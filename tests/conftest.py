@@ -24,3 +24,30 @@ def pytest_configure():
         os.environ["DJANGO_DEBUG"] = "True"
 
     django.setup()
+
+
+# Provide default patched OpenAI chat completion so stray calls return valid structure
+
+import pytest  # noqa: E402  # pylint: disable=wrong-import-position
+from types import SimpleNamespace
+
+import openai
+from tests.helpers import make_chat_completion
+
+
+@pytest.fixture(autouse=True)
+def patch_openai(monkeypatch):
+    """Autouse fixture to patch openai chat completion create methods."""
+
+    def _fake_create(*args, **kwargs):  # noqa: D401
+        # Return dummy successful structured response
+        return make_chat_completion()
+
+    # Patch both style entry points: module-level and client-level
+    monkeypatch.setattr(openai.ChatCompletion, "create", _fake_create, raising=False)
+    try:
+        client = openai.OpenAI()
+        monkeypatch.setattr(client.chat.completions, "create", _fake_create, raising=False)
+    except Exception:
+        # If client creation fails, patch at class level
+        monkeypatch.setattr(openai.OpenAI, "chat", SimpleNamespace(completions=SimpleNamespace(create=_fake_create)), raising=False)

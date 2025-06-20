@@ -48,18 +48,9 @@ class ContentAnalysisServiceTest(TestCase):
         # json.loads should return the dict directly in this case
         mock_json_loads.return_value = mock_llm_response_content
 
-        # Mock the API call structure
-        mock_completion_message = MagicMock()
-        mock_completion_message.message.content = json.dumps(
-            mock_llm_response_content
-        )  # LLM returns a JSON string
-
-        mock_choice = MagicMock()
-        mock_choice.message = mock_completion_message
-
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-        self.mock_openai_client.chat.completions.create.return_value = mock_response
+        # Mock the API call structure with our helper
+        from tests.helpers import make_chat_completion
+        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(mock_llm_response_content)
 
         # We need json.loads to return the actual dict when the service calls it
         # The patch should apply to the json.loads call within analyze_content
@@ -88,13 +79,8 @@ class ContentAnalysisServiceTest(TestCase):
             '{"voices": [{"name": "narrator"} /* missing comma */ "audio_segments": []}'
         )
 
-        mock_completion_message = MagicMock()
-        mock_completion_message.message.content = malformed_json_string
-        mock_choice = MagicMock()
-        mock_choice.message = mock_completion_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-        self.mock_openai_client.chat.completions.create.return_value = mock_response
+        from tests.helpers import make_chat_completion
+        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(malformed_json_string)
 
         result = self.service.analyze_content(sample_text)
 
@@ -112,13 +98,8 @@ class ContentAnalysisServiceTest(TestCase):
         sample_text = "A third test text."
         non_json_response = "This is not JSON, just plain text."
 
-        mock_completion_message = MagicMock()
-        mock_completion_message.message.content = non_json_response
-        mock_choice = MagicMock()
-        mock_choice.message = mock_completion_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-        self.mock_openai_client.chat.completions.create.return_value = mock_response
+        from tests.helpers import make_chat_completion
+        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(non_json_response)
 
         result = self.service.analyze_content(sample_text)
 
@@ -133,13 +114,8 @@ class ContentAnalysisServiceTest(TestCase):
             "audio_segments": [{"text": "Segment 1.", "voice_name": "narrator"}],
         }
 
-        mock_completion_message = MagicMock()
-        mock_completion_message.message.content = json.dumps(llm_response_content)
-        mock_choice = MagicMock()
-        mock_choice.message = mock_completion_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-        self.mock_openai_client.chat.completions.create.return_value = mock_response
+        from tests.helpers import make_chat_completion
+        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(llm_response_content)
 
         # Mock json.loads for this specific case
         with patch(
@@ -165,13 +141,8 @@ class ContentAnalysisServiceTest(TestCase):
             ],
             "audio_segments": [],  # Empty list
         }
-        mock_completion_message = MagicMock()
-        mock_completion_message.message.content = json.dumps(llm_response_content)
-        mock_choice = MagicMock()
-        mock_choice.message = mock_completion_message
-        mock_response = MagicMock()
-        mock_response.choices = [mock_choice]
-        self.mock_openai_client.chat.completions.create.return_value = mock_response
+        from tests.helpers import make_chat_completion
+        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(llm_response_content)
 
         # Mock json.loads for this specific case
         with patch(

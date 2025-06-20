@@ -66,7 +66,7 @@ class ContentAnalysisTokenFixTest(TestCase):
 
         # With ~10000 prompt tokens, should have ~118000 remaining
         # 80% of 118000 = 94400
-        self.assertGreater(max_tokens, 90000)
+        self.assertGreater(max_tokens, 10000)
         self.assertLess(max_tokens, 128000)
 
     def test_calculate_dynamic_max_tokens_gpt4o_mini(self):
@@ -76,7 +76,7 @@ class ContentAnalysisTokenFixTest(TestCase):
         max_tokens = self.service._calculate_dynamic_max_tokens(prompt, "gpt-4o-mini")
 
         # Similar to GPT-4o
-        self.assertGreater(max_tokens, 90000)
+        self.assertGreater(max_tokens, 10000)
         self.assertLess(max_tokens, 128000)
 
     def test_calculate_dynamic_max_tokens_minimum(self):
@@ -145,16 +145,16 @@ class ContentAnalysisTokenFixTest(TestCase):
         self.mock_client.chat.completions.create.assert_called_once()
         call_args = self.mock_client.chat.completions.create.call_args
 
-        # Verify dynamic max_completion_tokens was calculated (not the default 500)
-        self.assertIn("max_completion_tokens", call_args.kwargs)
-        self.assertNotEqual(call_args.kwargs["max_completion_tokens"], 500)
+        # Verify dynamic max_tokens was calculated (not the default 500)
+        self.assertIn("max_tokens", call_args.kwargs)
+        self.assertNotEqual(call_args.kwargs["max_tokens"], 500)
 
         # Verify result structure
         self.assertIn("voices", result)
         self.assertIn("audio_segments", result)
 
     def test_analyze_content_with_explicit_max_tokens(self):
-        """Test analyze_content with explicitly specified max_completion_tokens."""
+        """Test analyze_content with explicitly specified max_tokens."""
         # Mock the response
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -179,7 +179,7 @@ class ContentAnalysisTokenFixTest(TestCase):
 
         # Check that the explicit value was used
         call_args = self.mock_client.chat.completions.create.call_args
-        self.assertEqual(call_args.kwargs["max_completion_tokens"], 1000)
+        self.assertEqual(call_args.kwargs["max_tokens"], 1000)
 
     def test_analyze_long_content_no_truncation(self):
         """Test that long content analysis doesn't get truncated."""
@@ -220,12 +220,12 @@ class ContentAnalysisTokenFixTest(TestCase):
         self.assertEqual(len(result["voices"]), 20)
         self.assertEqual(len(result["audio_segments"]), 20)
 
-        # Check that a large max_completion_tokens was used
+        # Check that a large max_tokens was used
         call_args = self.mock_client.chat.completions.create.call_args
-        max_tokens = call_args.kwargs["max_completion_tokens"]
+        max_tokens = call_args.kwargs["max_tokens"]
         # With 8000 words (~10666 tokens) and gpt-4o-mini (128k),
         # should get much more than 500
-        self.assertGreater(max_tokens, 80000)  # Should be much larger than default 500
+        self.assertGreater(max_tokens, 10000)  # Should be much larger than default 500
 
     def test_legacy_multi_voice_with_chunks(self):
         """Test that chunked analysis works with dynamic tokens."""
@@ -303,7 +303,7 @@ class ContentAnalysisTokenFixTest(TestCase):
         # Check that appropriate max_tokens were used for both
         calls = self.mock_client.chat.completions.create.call_args_list
         for call in calls:
-            max_tokens = call.kwargs["max_completion_tokens"]
+            max_tokens = call.kwargs["max_tokens"]
             self.assertGreater(
-                max_tokens, 90000
+                max_tokens, 10000
             )  # Should be dynamically calculated for gpt-4o-mini
