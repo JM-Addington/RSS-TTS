@@ -552,6 +552,22 @@ def process_article(self, article_id: int) -> str:
                 logger.info(f"Using ChunkToneService for Article ID: {article_id}")
                 chunk_tone_service = ChunkToneService()
 
+                # Determine fallback voice for ChunkToneService
+                # Use the same logic as single-voice fallback
+                if article.voice_parameters:
+                    fallback_voice = (
+                        article.voice
+                        or article.voice_parameters.get("voice_id")
+                        or article.voice_id
+                        or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
+                    )
+                else:
+                    fallback_voice = (
+                        article.voice
+                        or article.voice_id
+                        or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
+                    )
+
                 # Prepare text for chunking (include title)
                 text_for_chunking = article.text_content
                 if article.title:
@@ -577,6 +593,7 @@ def process_article(self, article_id: int) -> str:
                         text=text_for_chunking,
                         title=article.title or "Untitled",
                         max_chars=4000,
+                        fallback_voice=fallback_voice,
                     )
 
                 logger.info(

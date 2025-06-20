@@ -306,6 +306,7 @@ class ProcessArticleTests(TestCase):
         if TEST_MEDIA_ROOT.exists():
             shutil.rmtree(TEST_MEDIA_ROOT)
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.AudioSegment.silent")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
@@ -1018,8 +1019,8 @@ class ProcessArticleTests(TestCase):
         # Set invalid multi_voice_data
         self.article.multi_voice_data = {"error": "this is not valid"}
         self.article.text_content = "This is fallback content. It is short."  # 7 words
-        # Set article level voice_id and speed for fallback
-        self.article.voice_id = "echo"  # Fallback voice
+        # Set article level voice and speed for fallback
+        self.article.voice = "echo"  # Fallback voice (standard OpenAI voice)
         self.article.speed = 0.9  # Fallback speed
         self.article.save()
 
@@ -1192,6 +1193,7 @@ class ProcessArticleTests(TestCase):
 
         self.assertEqual(mock_save_stats.call_count, 5)
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")

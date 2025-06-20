@@ -38,7 +38,9 @@ class ChunkToneService:
             )
         return self._client
 
-    def get_payload(self, text: str, title: str, max_chars: int) -> ChunkTonePayload:
+    def get_payload(
+        self, text: str, title: str, max_chars: int, fallback_voice: str = "alloy"
+    ) -> ChunkTonePayload:
         """
         Generate ChunkTonePayload using LLM analysis.
 
@@ -46,6 +48,7 @@ class ChunkToneService:
             text: The text content to analyze and chunk
             title: The article title for context
             max_chars: Maximum characters per chunk
+            fallback_voice: Voice to use if LLM analysis fails
 
         Returns:
             ChunkTonePayload with analyzed chunks and voice assignments
@@ -67,7 +70,7 @@ class ChunkToneService:
                 logger.error(
                     f"Second attempt failed: OpenAI API error: {e2}. Using fallback."
                 )
-                return self.create_fallback_payload(text)
+                return self.create_fallback_payload(text, fallback_voice)
 
     def get_single_voice_payload(
         self,
@@ -145,12 +148,15 @@ class ChunkToneService:
             ]
         )
 
-    def create_fallback_payload(self, text: str) -> ChunkTonePayload:
+    def create_fallback_payload(
+        self, text: str, voice: str = "alloy"
+    ) -> ChunkTonePayload:
         """
         Create a fallback payload with narrator voice when LLM processing fails.
 
         Args:
             text: The text content to create fallback for
+            voice: The voice to use for the fallback
 
         Returns:
             ChunkTonePayload with single narrator voice
@@ -159,7 +165,7 @@ class ChunkToneService:
             chunks=[
                 ChunkData(
                     text=text,
-                    voice=TTSVoice(voice="alloy"),
+                    voice=TTSVoice(voice=voice),
                     character_name="narrator",
                     instructions="Speak in a clear, engaging manner with appropriate expression for the content.",
                 )
