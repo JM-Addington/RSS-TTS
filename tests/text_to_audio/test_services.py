@@ -50,7 +50,10 @@ class ContentAnalysisServiceTest(TestCase):
 
         # Mock the API call structure with our helper
         from tests.helpers import make_chat_completion
-        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(mock_llm_response_content)
+
+        self.mock_openai_client.chat.completions.create.return_value = (
+            make_chat_completion(mock_llm_response_content)
+        )
 
         # We need json.loads to return the actual dict when the service calls it
         # The patch should apply to the json.loads call within analyze_content
@@ -80,7 +83,10 @@ class ContentAnalysisServiceTest(TestCase):
         )
 
         from tests.helpers import make_chat_completion
-        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(malformed_json_string)
+
+        self.mock_openai_client.chat.completions.create.return_value = (
+            make_chat_completion(malformed_json_string)
+        )
 
         result = self.service.analyze_content(sample_text)
 
@@ -99,7 +105,10 @@ class ContentAnalysisServiceTest(TestCase):
         non_json_response = "This is not JSON, just plain text."
 
         from tests.helpers import make_chat_completion
-        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(non_json_response)
+
+        self.mock_openai_client.chat.completions.create.return_value = (
+            make_chat_completion(non_json_response)
+        )
 
         result = self.service.analyze_content(sample_text)
 
@@ -115,7 +124,10 @@ class ContentAnalysisServiceTest(TestCase):
         }
 
         from tests.helpers import make_chat_completion
-        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(llm_response_content)
+
+        self.mock_openai_client.chat.completions.create.return_value = (
+            make_chat_completion(llm_response_content)
+        )
 
         # Mock json.loads for this specific case
         with patch(
@@ -142,7 +154,10 @@ class ContentAnalysisServiceTest(TestCase):
             "audio_segments": [],  # Empty list
         }
         from tests.helpers import make_chat_completion
-        self.mock_openai_client.chat.completions.create.return_value = make_chat_completion(llm_response_content)
+
+        self.mock_openai_client.chat.completions.create.return_value = (
+            make_chat_completion(llm_response_content)
+        )
 
         # Mock json.loads for this specific case
         with patch(
