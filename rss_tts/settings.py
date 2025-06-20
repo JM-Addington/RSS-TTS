@@ -35,6 +35,12 @@ USE_GPT_FOR_URL_EXTRACTION = os.environ.get(
     "USE_GPT_FOR_URL_EXTRACTION", "True"
 ).lower() in ("1", "true", "yes")
 
+# Firecrawl settings
+FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY")
+USE_FIRECRAWL_BY_DEFAULT = os.environ.get(
+    "USE_FIRECRAWL_BY_DEFAULT", "False"
+).lower() in ("1", "true", "yes")
+
 # ChunkTone LLM Service Feature Flag
 ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "true").lower() == "true"
 

@@ -70,3 +70,17 @@ class TestSettingsEnvironment(unittest.TestCase):
         os.environ["OPENAI_TTS_MODEL"] = "tts-1"
         settings = self._import_settings()
         self.assertEqual(settings.OPENAI_TTS_MODEL, "tts-1")
+
+    def test_firecrawl_key_loaded_from_env(self):
+        """Firecrawl API key is loaded from environment variables."""
+        os.environ["DJANGO_SECRET_KEY"] = "test"
+        os.environ["FIRECRAWL_API_KEY"] = "fc-key"
+        settings = self._import_settings()
+        self.assertEqual(settings.FIRECRAWL_API_KEY, "fc-key")
+
+    def test_firecrawl_default_disabled(self):
+        """USE_FIRECRAWL_BY_DEFAULT should be False when not set."""
+        os.environ["DJANGO_SECRET_KEY"] = "test"
+        settings = self._import_settings()
+        self.assertFalse(settings.USE_FIRECRAWL_BY_DEFAULT)
+

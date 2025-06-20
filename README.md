@@ -45,6 +45,8 @@ Key environment variables:
 - `SQLITE_DATA_DIR`: Directory to store SQLite database (optional)
 - `CELERY_BROKER_URL`: Redis URL for Celery
 - `SITE_URL`: Full URL of your site (e.g., "https://example.com") for RSS feed links
+- `FIRECRAWL_API_KEY`: Optional API key for Firecrawl URL fetching
+- `USE_FIRECRAWL_BY_DEFAULT`: Set to "True" to fetch pages via Firecrawl first
 
 ### Database Configuration
 
