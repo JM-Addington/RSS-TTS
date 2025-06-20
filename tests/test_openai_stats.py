@@ -67,5 +67,5 @@ class OpenAIUsageStatsTests(TestCase):
             processing_time_ms=500,
             word_count=50,
         )
-        self.assertIn(f"Usage for {self.user.username}", str(stats))
+        self.assertIn(f"LLM usage for {self.user.username}", str(stats))
         self.assertIn("at", str(stats))

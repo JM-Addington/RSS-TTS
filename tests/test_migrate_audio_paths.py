@@ -41,7 +41,7 @@ class MigrateAudioPathsTestCase(TestCase):
             title="Article 1",
             text_content="Content 1",
             audio_uuid=uuid.uuid4(),
-            audio_file_path=f"articles/{uuid.uuid4()}.mp3",  # Simple legacy format
+            audio_file_path=f"audio/{self.user1.id}/article_{uuid.uuid4()}.mp3",  # Legacy format
             status=Article.COMPLETED,
         )
 
@@ -229,7 +229,8 @@ class MigrateAudioPathsTestCase(TestCase):
                     mock_save.side_effect = [None, Exception("Database error")]
 
                     with captured_stderr() as stderr:
-                        call_command("migrate_audio_paths", "--rollback-on-error")
+                        with self.assertRaises(CommandError):
+                            call_command("migrate_audio_paths", "--rollback-on-error")
 
                     error_output = stderr.getvalue()
 

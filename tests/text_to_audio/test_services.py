@@ -49,26 +49,27 @@ class ContentAnalysisServiceTest(TestCase):
         mock_json_loads.return_value = mock_llm_response_content
 
         # Mock the API call structure
-        mock_completion_message = MagicMock()
-        mock_completion_message.message.content = json.dumps(
-            mock_llm_response_content
-        )  # LLM returns a JSON string
+        json_content = json.dumps(mock_llm_response_content)
+
+        mock_message = MagicMock()
+        mock_message.content = json_content
 
         mock_choice = MagicMock()
-        mock_choice.message = mock_completion_message
+        mock_choice.message = mock_message
 
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
         self.mock_openai_client.chat.completions.create.return_value = mock_response
 
         # We need json.loads to return the actual dict when the service calls it
-        # The patch should apply to the json.loads call within analyze_content
-        original_json_loads = json.loads
+        # Just handle the expected case and let others fail if unexpected
+        expected_json_string = json.dumps(mock_llm_response_content)
 
         def side_effect_json_loads(s):
-            if s == json.dumps(mock_llm_response_content):
+            if s == expected_json_string:
                 return mock_llm_response_content
-            return original_json_loads(s)
+            # For other cases, let's try to parse manually or raise
+            raise ValueError(f"Unexpected json.loads call with: {s[:100]}...")
 
         mock_json_loads.side_effect = side_effect_json_loads
 
@@ -88,10 +89,10 @@ class ContentAnalysisServiceTest(TestCase):
             '{"voices": [{"name": "narrator"} /* missing comma */ "audio_segments": []}'
         )
 
-        mock_completion_message = MagicMock()
-        mock_completion_message.message.content = malformed_json_string
+        mock_message = MagicMock()
+        mock_message.content = malformed_json_string
         mock_choice = MagicMock()
-        mock_choice.message = mock_completion_message
+        mock_choice.message = mock_message
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
         self.mock_openai_client.chat.completions.create.return_value = mock_response
@@ -112,10 +113,10 @@ class ContentAnalysisServiceTest(TestCase):
         sample_text = "A third test text."
         non_json_response = "This is not JSON, just plain text."
 
-        mock_completion_message = MagicMock()
-        mock_completion_message.message.content = non_json_response
+        mock_message = MagicMock()
+        mock_message.content = non_json_response
         mock_choice = MagicMock()
-        mock_choice.message = mock_completion_message
+        mock_choice.message = mock_message
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
         self.mock_openai_client.chat.completions.create.return_value = mock_response

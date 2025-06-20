@@ -10,15 +10,15 @@ from django.conf import settings
 # Reduced from 750k to a more reasonable amount to avoid excessive costs and context limits
 MAX_ANALYSIS_WORDS = getattr(settings, "MAX_ANALYSIS_WORDS", 8_000)
 
-# Maximum completion token limits for different models
-# Note: These are COMPLETION token limits, not context window limits
+# Total context window limits for different models
+# Note: These are TOTAL context limits (prompt + completion)
 MODEL_TOKEN_LIMITS = {
-    "gpt-4": 4_000,  # 4k max completion tokens
-    "gpt-4-32k": 4_000,  # 4k max completion tokens
-    "gpt-4-turbo": 4_096,  # 4k max completion tokens
-    "gpt-4o": 16_384,  # 16k max completion tokens
-    "gpt-4o-mini": 16_384,  # 16k max completion tokens
-    "gpt-4.1": 32_768,  # 32k max completion tokens
+    "gpt-4": 8_192,  # 8k total context
+    "gpt-4-32k": 32_768,  # 32k total context
+    "gpt-4-turbo": 128_000,  # 128k total context
+    "gpt-4o": 128_000,  # 128k total context
+    "gpt-4o-mini": 128_000,  # 128k total context
+    "gpt-4.1": 32_768,  # 32k total context (deprecated)
 }
 
 # Default conservative limit if model not recognized
@@ -94,12 +94,14 @@ class ContentAnalysisService:
         system_message = "You are an expert content analyzer."
         total_prompt_tokens = self._estimate_token_count(prompt_text + system_message)
 
-        # The model_limit now represents max completion tokens, not total context
-        # For safety, use 80% of the completion token limit to ensure we stay well under
-        max_completion_tokens = int(model_limit * 0.8)
+        # Calculate remaining tokens for completion
+        remaining_tokens = model_limit - total_prompt_tokens
 
-        # Ensure we have at least 500 tokens for response, but respect the model's limits
-        max_completion_tokens = max(500, min(max_completion_tokens, model_limit))
+        # For safety, use 80% of the remaining tokens for completion
+        max_completion_tokens = int(remaining_tokens * 0.8)
+
+        # Ensure we have at least 500 tokens for response, but don't exceed remaining tokens
+        max_completion_tokens = max(500, min(max_completion_tokens, remaining_tokens))
 
         # Additional safety check: if prompt is extremely large, reduce completion tokens further
         if total_prompt_tokens > 50_000:  # Very large prompt
@@ -151,7 +153,7 @@ class ContentAnalysisService:
                 {"role": "system", "content": "You are an expert content analyzer."},
                 {"role": "user", "content": prompt},
             ],
-            "max_tokens": max_completion_tokens,
+            "max_completion_tokens": max_completion_tokens,
             "temperature": 0.3,
             "response_format": {"type": "json_object"},
         }

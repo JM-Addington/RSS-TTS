@@ -170,7 +170,7 @@ class Command(BaseCommand):
         """Process a batch of articles."""
         for article in articles:
             try:
-                self._migrate_single_article(article, force)
+                self._migrate_single_article(article, force, rollback_on_error)
             except Exception as e:
                 self.stderr.write(f"Failed to migrate article {article.id}: {e}")
                 self.stats["failed"] += 1
@@ -178,7 +178,7 @@ class Command(BaseCommand):
                     # Re-raise the exception to trigger rollback
                     raise
 
-    def _migrate_single_article(self, article: Article, force: bool) -> None:
+    def _migrate_single_article(self, article: Article, force: bool, rollback_on_error: bool = False) -> None:
         """Migrate a single article's audio file to canonical location."""
         legacy_path = os.path.join(settings.MEDIA_ROOT, article.audio_file_path)
         canonical_path = article.get_canonical_audio_path()
@@ -213,11 +213,7 @@ class Command(BaseCommand):
             os.utime(canonical_path, (original_stat.st_atime, original_stat.st_mtime))
             os.chmod(canonical_path, original_stat.st_mode)
 
-            # Update database path
-            article.set_canonical_audio_path()
-            article.save(update_fields=["audio_file_path"])
-
-            # Track for potential rollback
+            # Track for potential rollback immediately after file move
             self.rollback_operations.append(
                 {
                     "type": "move",
@@ -231,16 +227,24 @@ class Command(BaseCommand):
                 }
             )
 
+            # Update database path
+            article.set_canonical_audio_path()
+            article.save(update_fields=["audio_file_path"])
+
             self.stats["migrated"] += 1
             self.stdout.write(f"Successfully migrated article {article.id}")
 
         except PermissionError as e:
             self.stderr.write(f"Permission denied migrating article {article.id}: {e}")
             self.stats["failed"] += 1
+            if rollback_on_error:
+                raise
         except Exception as e:
             self.stderr.write(f"Error migrating article {article.id}: {e}")
             self.stderr.write(traceback.format_exc())
             self.stats["failed"] += 1
+            if rollback_on_error:
+                raise
 
     def _rollback_changes(self) -> None:
         """Rollback all successful migrations."""

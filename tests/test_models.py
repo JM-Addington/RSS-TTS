@@ -111,7 +111,7 @@ class TestModels(TestCase):
 
             # Check field attributes
             self.assertEqual(Article._meta.get_field("feed").related_model, Feed)
-            self.assertEqual(Article._meta.get_field("title").max_length, 255)
+            self.assertEqual(Article._meta.get_field("title").max_length, 1024)
             self.assertEqual(Article._meta.get_field("audio_file_path").max_length, 255)
             self.assertEqual(Article._meta.get_field("celery_task_id").max_length, 255)
             self.assertTrue(Article._meta.get_field("created_at").auto_now_add)
@@ -305,7 +305,7 @@ class OpenAIUsageStatsModelTests(TestCase):
         )
         # Format timestamp for comparison with __str__ output
         timestamp_fmt = stats.request_timestamp.strftime("%Y-%m-%d %H:%M:%S")
-        expected_str = f"Usage for {self.user.username} at {timestamp_fmt}"
+        expected_str = f"LLM usage for {self.user.username} at {timestamp_fmt}"
         self.assertEqual(str(stats), expected_str)
 
     def test_str_method_no_article(self):
@@ -319,7 +319,7 @@ class OpenAIUsageStatsModelTests(TestCase):
         )
         # Format timestamp for comparison with __str__ output
         timestamp_fmt = stats.request_timestamp.strftime("%Y-%m-%d %H:%M:%S")
-        expected_str = f"Usage for {self.user.username} at {timestamp_fmt}"
+        expected_str = f"LLM usage for {self.user.username} at {timestamp_fmt}"
         self.assertEqual(str(stats), expected_str)
 
 
