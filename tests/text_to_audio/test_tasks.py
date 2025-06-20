@@ -12,7 +12,6 @@ import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.conf import settings as django_settings # Use a different alias to avoid conflict with fixture
 
@@ -51,7 +50,7 @@ if not django_settings.configured:
 from django.test import TestCase, override_settings
 from openai import APIError as OpenAIAPIError
 
-from text_to_audio.models import Article, Feed, OpenAIUsageStats
+from text_to_audio.models import Article, Feed
 from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
 
 User = get_user_model()
@@ -346,7 +345,7 @@ class ProcessArticleTests(TestCase):
 
         with patch("text_to_audio.tasks._legacy_chunk_text", return_value=(True, chunks_data)), \
              patch.object(Path, "rename"):
-            result = process_article(self.article.id)
+            process_article(self.article.id)
 
         self.article.refresh_from_db()
         self.assertEqual(self.article.status, Article.COMPLETED)
@@ -373,7 +372,7 @@ class ProcessArticleTests(TestCase):
             mock_retry.return_value = None
             with unittest_patch("text_to_audio.models.OpenAIUsageStats.objects.create", side_effect=raise_db_error):
                 with self.assertLogs("text_to_audio.tasks", level="ERROR") as log_watcher:
-                    result = process_article(self.article.id)
+                    process_article(self.article.id)
         self.assertTrue(any("Failed to save OpenAIUsageStats for article" in message and "chunk fallback_chunk_0" in message for message in log_watcher.output))
 
 
@@ -469,7 +468,8 @@ class ProcessArticleTests(TestCase):
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock(spec=["stream_to_file"])
-        usage_mock = MagicMock(); usage_mock.total_tokens = 100
+        usage_mock = MagicMock()
+        usage_mock.total_tokens = 100
         type(mock_tts_response).usage = PropertyMock(return_value=usage_mock)
         mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
         mock_speech_create.return_value = mock_tts_response
@@ -511,7 +511,8 @@ class ProcessArticleTests(TestCase):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(); mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_tts_response = MagicMock()
+        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
         mock_speech_create.return_value = mock_tts_response
 
         expected_summary = "Multi-voice summary."
@@ -523,7 +524,7 @@ class ProcessArticleTests(TestCase):
         MockCAS.return_value.analyze_content.return_value = valid_multi_voice_data
 
         with patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=True), \
-             patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
+             patch("text_to_audio.tasks._save_openai_usage_stats"):
             process_article(self.article.id)
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
@@ -537,7 +538,8 @@ class ProcessArticleTests(TestCase):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(); mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_tts_response = MagicMock()
+        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
         mock_speech_create.return_value = mock_tts_response
 
         expected_summary = "Summary from invalid data"
@@ -549,7 +551,7 @@ class ProcessArticleTests(TestCase):
         self.article.save()
 
         with patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=False), \
-             patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
+             patch("text_to_audio.tasks._save_openai_usage_stats"):
             process_article(self.article.id)
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
@@ -564,7 +566,8 @@ class ProcessArticleTests(TestCase):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(); mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_tts_response = MagicMock()
+        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
         mock_speech_create.return_value = mock_tts_response
 
         long_segment_text_actually_long = ("This is an extremely long segment designed to test chunking. " * 250)
@@ -578,7 +581,7 @@ class ProcessArticleTests(TestCase):
         MockCAS.return_value.analyze_content.return_value = multi_voice_data_with_long_segment
 
         with patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=True), \
-             patch("text_to_audio.tasks._save_openai_usage_stats") as mock_save_stats:
+             patch("text_to_audio.tasks._save_openai_usage_stats"):
             process_article(self.article.id)
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
@@ -592,7 +595,8 @@ class ProcessArticleTests(TestCase):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(); mock_tts_response.usage = MagicMock(total_tokens=100)
+        mock_tts_response = MagicMock()
+        mock_tts_response.usage = MagicMock(total_tokens=100)
         mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
         mock_speech_create.return_value = mock_tts_response
 
@@ -658,7 +662,8 @@ class ProcessArticleTests(TestCase):
 
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(); mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_tts_response = MagicMock()
+        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
         mock_speech_create.return_value = mock_tts_response
 
         with patch("text_to_audio.tasks._is_valid_multi_voice_data", return_value=True), \
@@ -685,7 +690,8 @@ class ProcessArticleTests(TestCase):
 
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(); mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_tts_response = MagicMock()
+        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
         mock_speech_create.return_value = mock_tts_response
 
         mock_cas_for_vpgen = MockVPGenCAS.return_value
@@ -735,7 +741,8 @@ class ProcessArticleTests(TestCase):
         self.article.save()
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(); mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+        mock_tts_response = MagicMock()
+        mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
         mock_speech_create.return_value = mock_tts_response
 
         mock_analysis_instance = MockCAS.return_value
@@ -810,12 +817,16 @@ class ProcessArticleTests(TestCase):
         test_cases = [(0.1, 0.25), (1.0, 1.0), (5.0, 4.0)]
         for input_speed, expected_speed in test_cases:
             with self.subTest(input_speed=input_speed, expected_speed=expected_speed):
-                self.article.speed = input_speed; self.article.multi_voice_data = None; self.article.save()
+                self.article.speed = input_speed
+                self.article.multi_voice_data = None
+                self.article.save()
                 mock_openai_instance = MockOpenAIClient.return_value
                 mock_speech_create = mock_openai_instance.audio.speech.create
-                mock_tts_response = MagicMock(); mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+                mock_tts_response = MagicMock()
+                mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
                 mock_speech_create.return_value = mock_tts_response
-                with patch("text_to_audio.tasks._save_openai_usage_stats"): process_article(self.article.id)
+                with patch("text_to_audio.tasks._save_openai_usage_stats"):
+                    process_article(self.article.id)
                 self.assertEqual(mock_speech_create.call_args[1]["speed"], expected_speed)
                 MockOpenAIClient.reset_mock()
 
@@ -830,16 +841,20 @@ class ProcessArticleTests(TestCase):
         test_cases = [(0.2, 0.25), (2.5, 2.5), (4.5, 4.0)]
         for input_speed, expected_speed in test_cases:
             with self.subTest(input_speed=input_speed, expected_speed=expected_speed):
-                self.article.speed = input_speed; self.article.save()
-                mock_chunk_tone_instance = MockChunkToneService.return_value
-                mock_chunk_tone_instance.get_payload.return_value = ChunkTonePayload(chunks=[ChunkData(text="Test chunk text", voice=TTSVoice(voice="alloy"))])
-                mock_openai_instance = MockOpenAIClient.return_value
-                mock_speech_create = mock_openai_instance.audio.speech.create
-                mock_tts_response = MagicMock(); mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
-                mock_speech_create.return_value = mock_tts_response
-                with patch("text_to_audio.tasks._save_openai_usage_stats"): process_article(self.article.id)
-                self.assertEqual(mock_speech_create.call_args[1]["speed"], expected_speed)
-                MockOpenAIClient.reset_mock(); MockChunkToneService.reset_mock()
+                self.article.speed = input_speed
+            self.article.save()
+            mock_chunk_tone_instance = MockChunkToneService.return_value
+            mock_chunk_tone_instance.get_payload.return_value = ChunkTonePayload(chunks=[ChunkData(text="Test chunk text", voice=TTSVoice(voice="alloy"))])
+            mock_openai_instance = MockOpenAIClient.return_value
+            mock_speech_create = mock_openai_instance.audio.speech.create
+            mock_tts_response = MagicMock()
+            mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
+            mock_speech_create.return_value = mock_tts_response
+            with patch("text_to_audio.tasks._save_openai_usage_stats"):
+                process_article(self.article.id)
+            self.assertEqual(mock_speech_create.call_args[1]["speed"], expected_speed)
+            MockOpenAIClient.reset_mock()
+            MockChunkToneService.reset_mock()
 
 
 class SpeedClampingUnitTests(TestCase):
