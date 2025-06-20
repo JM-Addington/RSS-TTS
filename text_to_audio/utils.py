@@ -176,6 +176,57 @@ def fetch_url_content(
     return False, "", f"Failed after {max_retries} attempts: {last_error}"
 
 
+def fetch_html_with_firecrawl(url: str) -> Tuple[bool, str, Optional[str]]:
+    """Fetch HTML content using the Firecrawl API.
+
+    Args:
+        url: The URL to fetch via Firecrawl.
+
+    Returns:
+        Tuple of (success, html, error_message).
+    """
+    from django.conf import settings
+
+    api_key = getattr(settings, "FIRECRAWL_API_KEY", None)
+    if not api_key:
+        return False, "", "Firecrawl API key not configured"
+
+    endpoint = getattr(
+        settings,
+        "FIRECRAWL_ENDPOINT",
+        "https://api.firecrawl.dev/v1/firecrawl",
+    )
+
+    try:
+        response = requests.post(
+            endpoint,
+            json={"url": url, "html": True},
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=20,
+        )
+
+        if response.status_code != 200:
+            logger.error(
+                "Firecrawl request failed with status %s", response.status_code
+            )
+            return (
+                False,
+                "",
+                f"Firecrawl Error {response.status_code}: {response.text}",
+            )
+
+        data = response.json()
+        html = data.get("html") or data.get("content", "")
+        if not html:
+            return False, "", "Firecrawl response contained no HTML"
+
+        return True, str(html), None
+
+    except Exception as exc:  # pragma: no cover - safeguard
+        logger.error("Firecrawl request error: %s", exc)
+        return False, "", f"Firecrawl request failed: {exc}"
+
+
 def _find_main_container(soup: BeautifulSoup) -> Optional[Tag]:
     """Find the main content container in an HTML document.
 
@@ -541,7 +592,8 @@ EXTRACTED ARTICLE TEXT:"""
 def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
     """Process a URL to extract its textual content.
 
-    Combines fetch_url_content and extract_article_text functions.
+    Combines HTML fetching and text extraction logic with optional Firecrawl
+    support.
 
     Args:
         url: The URL to process.
@@ -550,14 +602,41 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
         Tuple of (success, extracted_text, error_message).
         If successful, error_message will be None.
     """
-    # Fetch the HTML content with retry mechanism
-    success, html, error = fetch_url_content(url)
+    from django.conf import settings
+
+    html = ""
+    success = False
+    error: Optional[str] = None
+
+    use_firecrawl_default = getattr(settings, "USE_FIRECRAWL_BY_DEFAULT", False)
+    api_key = getattr(settings, "FIRECRAWL_API_KEY", None)
+
+    if use_firecrawl_default and api_key:
+        success, html, error = fetch_html_with_firecrawl(url)
+        if not success:
+            logger.warning(
+                "Firecrawl default fetch failed for %s: %s", url, error
+            )
+
+    if not success:
+        success, html, error = fetch_url_content(url, max_retries=1)
+
+        if (
+            not success
+            and api_key
+            and error
+            and any(code in error for code in ["404", "403", "400"])
+        ):
+            fc_success, fc_html, fc_error = fetch_html_with_firecrawl(url)
+            if fc_success:
+                success, html, error = True, fc_html, None
+            else:
+                return False, "", fc_error or error
+
     if not success:
         return False, "", error
 
     # Try GPT-4.1 extraction first (if enabled)
-    from django.conf import settings
-
     use_gpt_extraction = getattr(settings, "USE_GPT_FOR_URL_EXTRACTION", True)
 
     if use_gpt_extraction:
