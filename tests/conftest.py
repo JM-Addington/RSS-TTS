@@ -2,7 +2,6 @@
 
 import os
 import sys
-from types import SimpleNamespace
 
 import django
 import openai
