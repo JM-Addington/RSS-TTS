@@ -125,6 +125,13 @@ class FollowedFeed(models.Model):
         blank=True,
         help_text="When this feed was last checked for new articles.",
     )
+    fetch_full_text: models.BooleanField = models.BooleanField(
+        default=True,
+        help_text=(
+            "Fetch the full article text from the entry's URL instead of "
+            "using the feed-provided summary."
+        ),
+    )
     is_active: models.BooleanField = models.BooleanField(
         default=True,
         help_text=(
