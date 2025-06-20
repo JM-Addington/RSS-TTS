@@ -129,6 +129,17 @@ class ChunkTextTests(TestCase):
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 20)
 
+        # Test edge case: text length equals max_length with no natural breaks
+        text_exact = "abcdefghijklmnopqrst"  # exactly 20 chars, no spaces
+        success_exact, chunks_exact = _legacy_chunk_text(text_exact, max_length=20)
+        # Since there are no natural breaks, this should still be considered a forced split
+        # But with our current logic, if len(text) < max_length, it returns len(text)
+        # Since 20 == 20 (not < 20), it should go through the natural break search
+        # and since no natural breaks are found, should return 0, leading to forced split
+        self.assertTrue(success_exact)  # This should be True since text fits exactly
+        self.assertEqual(len(chunks_exact), 1)
+        self.assertEqual(chunks_exact[0], text_exact)
+
     def test_mixed_content_with_various_breaks(self):
         """Test text with mixed content types."""
         text = (

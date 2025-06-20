@@ -90,8 +90,11 @@ class UrlImportTests(TestCase):
         # Verify TTS was called with the extracted text
         mock_client.audio.speech.create.assert_called()
 
+    @patch("text_to_audio.tasks.openai.OpenAI")
     @patch("text_to_audio.tasks.process_url_to_text")
-    def test_process_article_with_url_extraction_failure(self, mock_process_url):
+    def test_process_article_with_url_extraction_failure(
+        self, mock_process_url, mock_openai
+    ):
         """Test handling of URL extraction failure."""
         # Setup mock to return failure
         mock_process_url.return_value = (

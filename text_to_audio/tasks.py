@@ -212,7 +212,7 @@ def _legacy_find_best_break_point(text: str, max_length: int) -> int:
 
     Returns the index where to break, or 0 if no good break point found.
     """
-    if len(text) <= max_length:
+    if len(text) < max_length:
         return len(text)
 
     # Search backwards from max_length for break opportunities
