@@ -5,6 +5,8 @@ from pathlib import Path
 
 import dj_database_url
 
+from text_to_audio.services.logging_setup import configure_logging
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -192,15 +194,10 @@ PODCAST_IMAGE_URL = os.environ.get("PODCAST_IMAGE_URL", "")
 RSS_EXTERNAL_HOSTNAME = os.environ.get("RSS_EXTERNAL_HOSTNAME", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
-# Ensure log directory exists
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-
-# Check if running in CI environment
-IS_CI = os.environ.get("CI", "False").lower() in ("1", "true", "yes")
+# Logging setup is imported at the top of the file
 
 # Logging Configuration
-LOGGING = {
+LOGGING_BASE = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
@@ -225,20 +222,20 @@ LOGGING = {
         },
         "django_file": {
             "level": "INFO",
-            "class": "logging.FileHandler" if not IS_CI else "logging.NullHandler",
-            "filename": LOG_DIR / "django.log" if not IS_CI else None,
+            "class": "text_to_audio.services.logging_setup.SafeFileHandler",
+            "filename": BASE_DIR / "logs" / "django.log",
             "formatter": "detailed",
         },
         "worker_file": {
             "level": "INFO",
-            "class": "logging.FileHandler" if not IS_CI else "logging.NullHandler",
-            "filename": LOG_DIR / "worker.log" if not IS_CI else None,
+            "class": "text_to_audio.services.logging_setup.SafeFileHandler",
+            "filename": BASE_DIR / "logs" / "worker.log",
             "formatter": "detailed",
         },
         "tts_file": {
             "level": "INFO",
-            "class": "logging.FileHandler" if not IS_CI else "logging.NullHandler",
-            "filename": LOG_DIR / "tts_api.log" if not IS_CI else None,
+            "class": "text_to_audio.services.logging_setup.SafeFileHandler",
+            "filename": BASE_DIR / "logs" / "tts_api.log",
             "formatter": "detailed",
         },
     },
@@ -261,6 +258,9 @@ LOGGING = {
     },
 }
 
+# Apply our safe logging configuration
+LOGGING = configure_logging(LOGGING_BASE, BASE_DIR)
+
 # Session Configuration
 SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Store sessions in database
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
@@ -274,3 +274,4 @@ SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection
 ARTICLE_PROCESSING_TIMEOUT_SECONDS = 3600  # 1 hour
 # Maximum number of words to analyze for content analysis (reduced from 750k for cost/performance)
 MAX_ANALYSIS_WORDS = int(os.environ.get("MAX_ANALYSIS_WORDS", "8000"))
+
