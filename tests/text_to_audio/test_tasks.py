@@ -9,18 +9,21 @@ functionality.
 from __future__ import annotations
 
 import shutil
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
 from django.conf import settings
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 # Transaction import is used by decorator
 from django.test import TestCase, override_settings
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
-from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
+from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, check_stale_articles, process_article
 
 User = get_user_model()
 
@@ -1592,12 +1595,6 @@ class SpeedClampingUnitTests(TestCase):
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
 
 
-from datetime import timedelta
-
-from django.utils import timezone
-from django.conf import settings as django_settings
-
-from text_to_audio.tasks import check_stale_articles
 
 
 class CheckStaleArticlesTests(TestCase):

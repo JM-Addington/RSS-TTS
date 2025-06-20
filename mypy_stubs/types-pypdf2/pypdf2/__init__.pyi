@@ -1,4 +1,4 @@
-from typing import Any, BinaryIO, Dict, Iterator, List, Optional, TextIO, Union
+from typing import BinaryIO, List, Optional, Union
 
 class PdfReader:
     pages: List["PageObject"]
