@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from django.conf import settings
 from django.test import TestCase
 
+from tests.helpers import make_chat_completion
 from text_to_audio.services.content_analysis import ContentAnalysisService
 
 # Ensure settings are configured if not already
@@ -50,9 +51,7 @@ class ContentAnalysisServiceTest(TestCase):
 
         # Mock the API call structure
         mock_completion_message = MagicMock()
-        mock_completion_message.message.content = json.dumps(
-            mock_llm_response_content
-        )  # LLM returns a JSON string
+        mock_completion_message.message.content = json.dumps(mock_llm_response_content)
 
         mock_choice = MagicMock()
         mock_choice.message = mock_completion_message
@@ -60,17 +59,6 @@ class ContentAnalysisServiceTest(TestCase):
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
         self.mock_openai_client.chat.completions.create.return_value = mock_response
-
-        # We need json.loads to return the actual dict when the service calls it
-        # The patch should apply to the json.loads call within analyze_content
-        original_json_loads = json.loads
-
-        def side_effect_json_loads(s):
-            if s == json.dumps(mock_llm_response_content):
-                return mock_llm_response_content
-            return original_json_loads(s)
-
-        mock_json_loads.side_effect = side_effect_json_loads
 
         result = self.service.analyze_content(sample_text)
 
@@ -94,7 +82,9 @@ class ContentAnalysisServiceTest(TestCase):
         mock_choice.message = mock_completion_message
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
-        self.mock_openai_client.chat.completions.create.return_value = mock_response
+        self.mock_openai_client.chat.completions.create.return_value = (
+            make_chat_completion(malformed_json_string)
+        )
 
         result = self.service.analyze_content(sample_text)
 
@@ -113,12 +103,14 @@ class ContentAnalysisServiceTest(TestCase):
         non_json_response = "This is not JSON, just plain text."
 
         mock_completion_message = MagicMock()
-        mock_completion_message.message.content = non_json_response
+        mock_completion_message.message.content = non_json_response  # plain string
         mock_choice = MagicMock()
         mock_choice.message = mock_completion_message
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
-        self.mock_openai_client.chat.completions.create.return_value = mock_response
+        self.mock_openai_client.chat.completions.create.return_value = (
+            make_chat_completion(non_json_response)
+        )
 
         result = self.service.analyze_content(sample_text)
 
