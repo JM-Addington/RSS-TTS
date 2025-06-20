@@ -129,7 +129,6 @@ def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[st
 
     # Define break characters in priority order
     sentence_breaks = {".", "!", "?"}
-    clause_breaks = {";", ","}
 
     i = 0
     text_len = len(text)
