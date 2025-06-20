@@ -178,7 +178,9 @@ class Command(BaseCommand):
                     # Re-raise the exception to trigger rollback
                     raise
 
-    def _migrate_single_article(self, article: Article, force: bool, rollback_on_error: bool = False) -> None:
+    def _migrate_single_article(
+        self, article: Article, force: bool, rollback_on_error: bool = False
+    ) -> None:
         """Migrate a single article's audio file to canonical location."""
         legacy_path = os.path.join(settings.MEDIA_ROOT, article.audio_file_path)
         canonical_path = article.get_canonical_audio_path()

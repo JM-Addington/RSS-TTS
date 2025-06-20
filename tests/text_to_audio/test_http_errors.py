@@ -161,9 +161,12 @@ class HttpErrorHandlingTests(TestCase):
         # Verify get was called 3 times (initial + 2 retries)
         self.assertEqual(mock_get.call_count, 3)
 
+    @patch("text_to_audio.tasks.openai.OpenAI")
     @patch("text_to_audio.tasks.process_url_to_text")
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_process_article_permanent_error_no_retry(self, mock_process_url):
+    def test_process_article_permanent_error_no_retry(
+        self, mock_process_url, mock_openai
+    ):
         """Test that permanent errors (404, 403) are not retried."""
         # Setup mock to return 404 error
         mock_process_url.return_value = (

@@ -42,5 +42,5 @@ class UserPreferencesFunctionsTest(TestCase):
         self.assertEqual(prefs, {"voice": "nova", "speed": 1.2})
 
     def test_get_feed_voice_mode_default(self):
-        """Feed voice mode defaults to single_default."""
-        self.assertEqual(self.service.get_feed_voice_mode(self.feed), "single_default")
+        """Feed voice mode defaults to auto."""
+        self.assertEqual(self.service.get_feed_voice_mode(self.feed), "auto")

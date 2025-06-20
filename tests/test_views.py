@@ -322,7 +322,7 @@ class ArticleDetailViewTests(TestCase):
             "title": "New",
             "text_content": "new text",
             "summary": "new sum",
-            "voice": "echo",  # Standard voice should be in voice field
+            "voice_id": "echo",  # Standard voice should be in voice_id field for form
             "speed": "1.1",
         }
         response = self.client.post(

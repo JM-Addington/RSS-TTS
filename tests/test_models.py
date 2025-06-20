@@ -12,8 +12,13 @@ from django.db import models
 from django.test import TestCase
 
 # Import models needed for tests
-from text_to_audio.models import (VOICE_CHOICES, Article, Feed,
-                                  OpenAIUsageStats, UserVoicePreset)
+from text_to_audio.models import (
+    VOICE_CHOICES,
+    Article,
+    Feed,
+    OpenAIUsageStats,
+    UserVoicePreset,
+)
 
 User = get_user_model()  # type: ignore
 

@@ -173,7 +173,7 @@ class MigrateAudioPathsTestCase(TestCase):
 
                 # Article path should remain unchanged
                 self.article1.refresh_from_db()
-                self.assertTrue(self.article1.audio_file_path.startswith("articles/"))
+                self.assertTrue(self.article1.audio_file_path.startswith("audio/"))
 
     def test_migration_handles_permission_errors(self):
         """Test migration handles permission errors gracefully."""

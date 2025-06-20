@@ -135,6 +135,13 @@ class MultiVoiceProcessingTest(TestCase):
 
     def setUp(self):
         """Set up test data."""
+        # Create media directory for tests
+        import os
+
+        from django.conf import settings
+
+        os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
+
         # Create user, feed, and article
         # Create a test user, ignoring mypy type error for Django's create_user method
         self.user = User.objects.create_user(  # type: ignore
@@ -192,7 +199,7 @@ class MultiVoiceProcessingTest(TestCase):
     @patch(
         "text_to_audio.services.content_analysis.ContentAnalysisService.analyze_content"
     )
-    @patch("text_to_audio.tasks.process_article._is_valid_multi_voice_data")
+    @patch("text_to_audio.tasks._is_valid_multi_voice_data")
     @patch("text_to_audio.tasks.ContentAnalysisService")
     def test_multi_voice_activation_in_auto_mode(
         self, mock_content_service, mock_is_valid, mock_analyze_content

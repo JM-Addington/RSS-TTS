@@ -44,7 +44,7 @@ class TestProjectStructure(unittest.TestCase):
 
         self.assertIn("features", data)
         self.assertIn(
-            "ghcr.io/devcontainers/features/docker-in-docker:1", data["features"]
+            "ghcr.io/devcontainers/features/docker-in-docker:2.12.2", data["features"]
         )
         self.assertIn("remoteUser", data)
         self.assertEqual("vscode", data["remoteUser"])
