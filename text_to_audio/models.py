@@ -377,6 +377,23 @@ class Article(models.Model):
         null=True,
         help_text="Notes about processing warnings, such as failed chunks in parallel TTS.",
     )
+    uploaded_file: models.FileField = models.FileField(
+        upload_to="uploads/",
+        null=True,
+        blank=True,
+        help_text="Uploaded PDF or HTML file to convert to audio.",
+    )
+    file_type: models.CharField = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        choices=[
+            ("pdf", "PDF Document"),
+            ("html", "HTML Document"),
+            ("txt", "Text Document"),
+        ],
+        help_text="Type of uploaded file for processing.",
+    )
 
     def clean(self) -> None:
         """Validate and enforce single source of truth for voice fields.

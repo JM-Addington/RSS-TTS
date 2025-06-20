@@ -22,11 +22,17 @@ class ArticleSubmissionForm(forms.ModelForm):
         required=False, help_text="Or select a saved voice preset."
     )
 
+    uploaded_file = forms.FileField(
+        required=False,
+        help_text="Upload a PDF, HTML, or text file to convert to audio.",
+        widget=forms.ClearableFileInput(attrs={'accept': '.pdf,.html,.htm,.txt'})
+    )
+
     class Meta:
         """Meta options for the ArticleSubmissionForm."""
 
         model = Article
-        fields = ["title", "source_url", "text_content", "voice_id", "speed"]
+        fields = ["title", "source_url", "text_content", "uploaded_file", "voice_id", "speed"]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -75,7 +81,7 @@ class ArticleSubmissionForm(forms.ModelForm):
         preset_field.choices = preset_choices
 
     def clean(self):
-        """Validate that either source_url or text_content is provided."""
+        """Validate that either source_url, text_content, or uploaded_file is provided."""
         cleaned_data = super().clean()
         if cleaned_data is None:
             return cleaned_data
@@ -83,9 +89,15 @@ class ArticleSubmissionForm(forms.ModelForm):
 
         source_url = cleaned_data.get("source_url", "")
         text_content = cleaned_data.get("text_content", "")
+        uploaded_file = cleaned_data.get("uploaded_file")
 
-        if not source_url and not text_content:
-            raise ValidationError("You must provide either a URL or text content.")
+        # Count how many input methods are provided
+        input_count = sum([bool(source_url), bool(text_content), bool(uploaded_file)])
+
+        if input_count == 0:
+            raise ValidationError("You must provide either a URL, text content, or upload a file.")
+        elif input_count > 1:
+            raise ValidationError("Please provide only one input method: URL, text content, or file upload.")
 
         # Enforce 30,000-word limit for pasted text content
         if text_content:
@@ -96,6 +108,21 @@ class ArticleSubmissionForm(forms.ModelForm):
                     f"Please limit to 30,000 words or less. "
                     f"Consider using a URL instead for longer articles."
                 )
+
+        # Validate uploaded file if provided
+        if uploaded_file:
+            # Check file size (50MB limit)
+            max_size = 50 * 1024 * 1024  # 50MB
+            if uploaded_file.size > max_size:
+                raise ValidationError(f"File too large. Maximum size is {max_size // (1024 * 1024)}MB.")
+
+            # Check file type
+            allowed_extensions = ['.pdf', '.html', '.htm', '.txt']
+            if uploaded_file.name:
+                import os
+                file_extension = os.path.splitext(uploaded_file.name.lower())[1]
+                if file_extension not in allowed_extensions:
+                    raise ValidationError(f"Unsupported file type. Allowed types: {', '.join(allowed_extensions)}")
 
         voice_preset = cleaned_data.get("voice_preset")
         voice_id = cleaned_data.get("voice_id")

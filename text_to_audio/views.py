@@ -479,8 +479,40 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             if speed:
                 article.speed = float(speed)
 
+        # Handle file upload if provided
+        uploaded_file = form.cleaned_data.get("uploaded_file")
+        if uploaded_file:
+            from .services.file_processing import FileProcessingService
+
+            file_service = FileProcessingService()
+            success, extracted_text, detected_file_type, error = file_service.process_uploaded_file(uploaded_file)
+
+            if not success:
+                form.add_error("uploaded_file", error)
+                return self.form_invalid(form)
+
+            # Set the extracted content
+            article.text_content = extracted_text
+            article.file_type = detected_file_type
+
+            # If no title provided, generate one from content or filename
+            if not article.title:
+                if extracted_text:
+                    # Try to extract title from first line or first few words
+                    lines = extracted_text.strip().split('\n')
+                    if lines and len(lines[0]) < 100:
+                        title = lines[0].strip()
+                    else:
+                        title = extracted_text[:100] + ("..." if len(extracted_text) > 100 else "")
+                else:
+                    # Fall back to filename
+                    import os
+                    title = os.path.splitext(uploaded_file.name)[0] if uploaded_file.name else "Uploaded Document"
+
+                article.title = title
+
         # If URL is provided, validate it first
-        if article.source_url:
+        elif article.source_url:
             success, html, error = fetch_url_content(article.source_url)
             if not success:
                 form.add_error("source_url", error)
