@@ -19,30 +19,24 @@ class FileUploadFormTests(TestCase):
     def setUp(self):
         """Set up test user and form."""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass"
+            username="testuser", email="test@example.com", password="testpass"
         )
 
     def test_form_validation_with_file(self):
         """Test form validation with uploaded file."""
         uploaded_file = SimpleUploadedFile(
-            "test.txt",
-            b"This is test content.",
-            content_type="text/plain"
+            "test.txt", b"This is test content.", content_type="text/plain"
         )
 
         form_data = {
-            'title': 'Test Article',
-            'voice_id': '',
-            'speed': '',
-            'voice_preset': '',
+            "title": "Test Article",
+            "voice_id": "",
+            "speed": "",
+            "voice_preset": "",
         }
 
         form = ArticleSubmissionForm(
-            data=form_data,
-            files={'uploaded_file': uploaded_file},
-            user=self.user
+            data=form_data, files={"uploaded_file": uploaded_file}, user=self.user
         )
 
         self.assertTrue(form.is_valid())
@@ -50,92 +44,80 @@ class FileUploadFormTests(TestCase):
     def test_form_validation_multiple_inputs(self):
         """Test form validation fails with multiple input methods."""
         uploaded_file = SimpleUploadedFile(
-            "test.txt",
-            b"This is test content.",
-            content_type="text/plain"
+            "test.txt", b"This is test content.", content_type="text/plain"
         )
 
         form_data = {
-            'title': 'Test Article',
-            'source_url': 'https://example.com/article',
-            'text_content': 'Some text content',
-            'voice_id': '',
-            'speed': '',
-            'voice_preset': '',
+            "title": "Test Article",
+            "source_url": "https://example.com/article",
+            "text_content": "Some text content",
+            "voice_id": "",
+            "speed": "",
+            "voice_preset": "",
         }
 
         form = ArticleSubmissionForm(
-            data=form_data,
-            files={'uploaded_file': uploaded_file},
-            user=self.user
+            data=form_data, files={"uploaded_file": uploaded_file}, user=self.user
         )
 
         self.assertFalse(form.is_valid())
-        self.assertIn('only one input method', str(form.errors))
+        self.assertIn("only one input method", str(form.errors))
 
     def test_form_validation_no_input(self):
         """Test form validation fails with no input."""
         form_data = {
-            'title': 'Test Article',
-            'voice_id': '',
-            'speed': '',
-            'voice_preset': '',
+            "title": "Test Article",
+            "voice_id": "",
+            "speed": "",
+            "voice_preset": "",
         }
 
         form = ArticleSubmissionForm(data=form_data, user=self.user)
 
         self.assertFalse(form.is_valid())
-        self.assertIn('must provide either', str(form.errors))
+        self.assertIn("must provide either", str(form.errors))
 
     def test_form_validation_unsupported_file_type(self):
         """Test form validation fails with unsupported file type."""
         uploaded_file = SimpleUploadedFile(
-            "test.doc",
-            b"This is a Word document.",
-            content_type="application/msword"
+            "test.doc", b"This is a Word document.", content_type="application/msword"
         )
 
         form_data = {
-            'title': 'Test Article',
-            'voice_id': '',
-            'speed': '',
-            'voice_preset': '',
+            "title": "Test Article",
+            "voice_id": "",
+            "speed": "",
+            "voice_preset": "",
         }
 
         form = ArticleSubmissionForm(
-            data=form_data,
-            files={'uploaded_file': uploaded_file},
-            user=self.user
+            data=form_data, files={"uploaded_file": uploaded_file}, user=self.user
         )
 
         self.assertFalse(form.is_valid())
-        self.assertIn('Unsupported file type', str(form.errors))
+        self.assertIn("Unsupported file type", str(form.errors))
 
     def test_form_validation_file_too_large(self):
         """Test form validation fails with file too large."""
         # Create a file larger than 50MB
         large_content = b"x" * (51 * 1024 * 1024)  # 51MB
         uploaded_file = SimpleUploadedFile(
-            "test.txt",
-            large_content,
-            content_type="text/plain"
+            "test.txt", large_content, content_type="text/plain"
         )
 
         form_data = {
-            'title': 'Test Article',
-            'voice_id': '',
-            'speed': '',
-            'voice_preset': '',
+            "title": "Test Article",
+            "voice_id": "",
+            "speed": "",
+            "voice_preset": "",
         }
 
         form = ArticleSubmissionForm(
-            data=form_data,
-            files={'uploaded_file': uploaded_file},
-            user=self.user
+            data=form_data, files={"uploaded_file": uploaded_file}, user=self.user
         )
 
         self.assertFalse(form.is_valid())
-        self.assertIn('too large', str(form.errors))
+        self.assertIn("too large", str(form.errors))
 
 
 class FileUploadViewTests(TestCase):
@@ -144,59 +126,63 @@ class FileUploadViewTests(TestCase):
     def setUp(self):
         """Set up test user and feed."""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass"
+            username="testuser", email="test@example.com", password="testpass"
         )
-        self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed"
-        )
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
         self.client.login(username="testuser", password="testpass")
 
-    @patch('text_to_audio.services.file_processing.FileProcessingService.process_uploaded_file')
-    @patch('text_to_audio.tasks.process_article.delay')
-    def test_article_creation_with_file_upload(self, mock_process_task, mock_file_processing):
+    @patch(
+        "text_to_audio.services.file_processing.FileProcessingService.process_uploaded_file"
+    )
+    @patch("text_to_audio.tasks.process_article.delay")
+    def test_article_creation_with_file_upload(
+        self, mock_process_task, mock_file_processing
+    ):
         """Test article creation with file upload."""
         # Mock file processing
         mock_file_processing.return_value = (
             True,  # success
             "This is the extracted text content from the uploaded file.",  # extracted_text
             "txt",  # detected_file_type
-            None   # error
+            None,  # error
         )
 
         # Mock Celery task
-        mock_task = type('MockTask', (), {'id': 'test-task-id'})()
+        mock_task = type("MockTask", (), {"id": "test-task-id"})()
         mock_process_task.return_value = mock_task
 
         uploaded_file = SimpleUploadedFile(
             "test_article.txt",
             b"This is test content for article processing.",
-            content_type="text/plain"
+            content_type="text/plain",
         )
 
         response = self.client.post(
-            reverse('feed-article-create', kwargs={'feed_id': self.feed.id}),
+            reverse("feed-article-create", kwargs={"feed_id": self.feed.id}),
             {
-                'title': 'Uploaded Article',
-                'uploaded_file': uploaded_file,
-                'voice_id': '',
-                'speed': '',
-                'voice_preset': '',
-            }
+                "title": "Uploaded Article",
+                "uploaded_file": uploaded_file,
+                "voice_id": "",
+                "speed": "",
+                "voice_preset": "",
+            },
         )
 
         # Should redirect to feed articles page
         self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, reverse('feed-articles', kwargs={'feed_id': self.feed.id}))
+        self.assertRedirects(
+            response, reverse("feed-articles", kwargs={"feed_id": self.feed.id})
+        )
 
         # Check that article was created
         self.assertEqual(Article.objects.count(), 1)
 
         article = Article.objects.first()
-        self.assertEqual(article.title, 'Uploaded Article')
-        self.assertEqual(article.text_content, "This is the extracted text content from the uploaded file.")
+        self.assertEqual(article.title, "Uploaded Article")
+        self.assertEqual(
+            article.text_content,
+            "This is the extracted text content from the uploaded file.",
+        )
         self.assertEqual(article.file_type, "txt")
         self.assertEqual(article.feed, self.feed)
         self.assertEqual(article.status, Article.PROCESSING)
@@ -207,32 +193,32 @@ class FileUploadViewTests(TestCase):
         # Check that processing task was queued
         mock_process_task.assert_called_once_with(article.id)
 
-    @patch('text_to_audio.services.file_processing.FileProcessingService.process_uploaded_file')
+    @patch(
+        "text_to_audio.services.file_processing.FileProcessingService.process_uploaded_file"
+    )
     def test_article_creation_with_file_processing_error(self, mock_file_processing):
         """Test article creation when file processing fails."""
         # Mock file processing failure
         mock_file_processing.return_value = (
             False,  # success
-            "",     # extracted_text
+            "",  # extracted_text
             "txt",  # detected_file_type
-            "Failed to extract text from the file"  # error
+            "Failed to extract text from the file",  # error
         )
 
         uploaded_file = SimpleUploadedFile(
-            "test_article.txt",
-            b"This is test content.",
-            content_type="text/plain"
+            "test_article.txt", b"This is test content.", content_type="text/plain"
         )
 
         response = self.client.post(
-            reverse('feed-article-create', kwargs={'feed_id': self.feed.id}),
+            reverse("feed-article-create", kwargs={"feed_id": self.feed.id}),
             {
-                'title': 'Uploaded Article',
-                'uploaded_file': uploaded_file,
-                'voice_id': '',
-                'speed': '',
-                'voice_preset': '',
-            }
+                "title": "Uploaded Article",
+                "uploaded_file": uploaded_file,
+                "voice_id": "",
+                "speed": "",
+                "voice_preset": "",
+            },
         )
 
         # Should return to form with error
@@ -242,37 +228,39 @@ class FileUploadViewTests(TestCase):
         # No article should be created
         self.assertEqual(Article.objects.count(), 0)
 
-    @patch('text_to_audio.services.file_processing.FileProcessingService.process_uploaded_file')
-    @patch('text_to_audio.tasks.process_article.delay')
-    def test_article_creation_title_generation_from_file(self, mock_process_task, mock_file_processing):
+    @patch(
+        "text_to_audio.services.file_processing.FileProcessingService.process_uploaded_file"
+    )
+    @patch("text_to_audio.tasks.process_article.delay")
+    def test_article_creation_title_generation_from_file(
+        self, mock_process_task, mock_file_processing
+    ):
         """Test automatic title generation from file content."""
         # Mock file processing
         mock_file_processing.return_value = (
             True,  # success
             "Article Title\n\nThis is the body content of the article.",  # extracted_text
             "txt",  # detected_file_type
-            None   # error
+            None,  # error
         )
 
         # Mock Celery task
-        mock_task = type('MockTask', (), {'id': 'test-task-id'})()
+        mock_task = type("MockTask", (), {"id": "test-task-id"})()
         mock_process_task.return_value = mock_task
 
         uploaded_file = SimpleUploadedFile(
-            "document.txt",
-            b"File content here.",
-            content_type="text/plain"
+            "document.txt", b"File content here.", content_type="text/plain"
         )
 
         response = self.client.post(
-            reverse('feed-article-create', kwargs={'feed_id': self.feed.id}),
+            reverse("feed-article-create", kwargs={"feed_id": self.feed.id}),
             {
                 # No title provided
-                'uploaded_file': uploaded_file,
-                'voice_id': '',
-                'speed': '',
-                'voice_preset': '',
-            }
+                "uploaded_file": uploaded_file,
+                "voice_id": "",
+                "speed": "",
+                "voice_preset": "",
+            },
         )
 
         # Should redirect successfully
@@ -280,40 +268,47 @@ class FileUploadViewTests(TestCase):
 
         # Check that article was created with auto-generated title
         article = Article.objects.first()
-        self.assertEqual(article.title, 'Article Title')  # First line becomes title
-        self.assertEqual(article.text_content, "Article Title\n\nThis is the body content of the article.")
+        self.assertEqual(article.title, "Article Title")  # First line becomes title
+        self.assertEqual(
+            article.text_content,
+            "Article Title\n\nThis is the body content of the article.",
+        )
 
-    @patch('text_to_audio.services.file_processing.FileProcessingService.process_uploaded_file')
-    @patch('text_to_audio.tasks.process_article.delay')
-    def test_article_creation_title_from_filename(self, mock_process_task, mock_file_processing):
+    @patch(
+        "text_to_audio.services.file_processing.FileProcessingService.process_uploaded_file"
+    )
+    @patch("text_to_audio.tasks.process_article.delay")
+    def test_article_creation_title_from_filename(
+        self, mock_process_task, mock_file_processing
+    ):
         """Test title generation from filename when content doesn't have a clear title."""
         # Mock file processing with content that doesn't have a clear title
         mock_file_processing.return_value = (
             True,  # success
             "This is a long paragraph that starts immediately without a clear title and continues for a while...",  # extracted_text
             "txt",  # detected_file_type
-            None   # error
+            None,  # error
         )
 
         # Mock Celery task
-        mock_task = type('MockTask', (), {'id': 'test-task-id'})()
+        mock_task = type("MockTask", (), {"id": "test-task-id"})()
         mock_process_task.return_value = mock_task
 
         uploaded_file = SimpleUploadedFile(
             "my_interesting_document.txt",
             b"File content here.",
-            content_type="text/plain"
+            content_type="text/plain",
         )
 
         response = self.client.post(
-            reverse('feed-article-create', kwargs={'feed_id': self.feed.id}),
+            reverse("feed-article-create", kwargs={"feed_id": self.feed.id}),
             {
                 # No title provided
-                'uploaded_file': uploaded_file,
-                'voice_id': '',
-                'speed': '',
-                'voice_preset': '',
-            }
+                "uploaded_file": uploaded_file,
+                "voice_id": "",
+                "speed": "",
+                "voice_preset": "",
+            },
         )
 
         # Should redirect successfully
@@ -332,14 +327,9 @@ class FileUploadModelTests(TestCase):
     def setUp(self):
         """Set up test user and feed."""
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass"
+            username="testuser", email="test@example.com", password="testpass"
         )
-        self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed"
-        )
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
 
     def test_article_with_file_fields(self):
         """Test creating an article with file upload fields."""
@@ -348,7 +338,7 @@ class FileUploadModelTests(TestCase):
             title="Test Article",
             text_content="Extracted content from uploaded file",
             file_type="pdf",
-            status=Article.PROCESSING
+            status=Article.PROCESSING,
         )
 
         # Verify the fields are saved correctly
@@ -368,7 +358,7 @@ class FileUploadModelTests(TestCase):
                 title=f"Test Article {file_type}",
                 text_content="Test content",
                 file_type=file_type,
-                status=Article.PROCESSING
+                status=Article.PROCESSING,
             )
             self.assertEqual(article.file_type, file_type)
 
@@ -378,7 +368,7 @@ class FileUploadModelTests(TestCase):
             feed=self.feed,
             title="URL Article",
             source_url="https://example.com/article",
-            status=Article.PROCESSING
+            status=Article.PROCESSING,
         )
 
         # File fields should be None/empty

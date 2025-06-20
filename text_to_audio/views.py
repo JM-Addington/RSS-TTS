@@ -485,7 +485,9 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             from .services.file_processing import FileProcessingService
 
             file_service = FileProcessingService()
-            success, extracted_text, detected_file_type, error = file_service.process_uploaded_file(uploaded_file)
+            success, extracted_text, detected_file_type, error = (
+                file_service.process_uploaded_file(uploaded_file)
+            )
 
             if not success:
                 form.add_error("uploaded_file", error)
@@ -499,15 +501,22 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             if not article.title:
                 if extracted_text:
                     # Try to extract title from first line or first few words
-                    lines = extracted_text.strip().split('\n')
+                    lines = extracted_text.strip().split("\n")
                     if lines and len(lines[0]) < 100:
                         title = lines[0].strip()
                     else:
-                        title = extracted_text[:100] + ("..." if len(extracted_text) > 100 else "")
+                        title = extracted_text[:100] + (
+                            "..." if len(extracted_text) > 100 else ""
+                        )
                 else:
                     # Fall back to filename
                     import os
-                    title = os.path.splitext(uploaded_file.name)[0] if uploaded_file.name else "Uploaded Document"
+
+                    title = (
+                        os.path.splitext(uploaded_file.name)[0]
+                        if uploaded_file.name
+                        else "Uploaded Document"
+                    )
 
                 article.title = title
 

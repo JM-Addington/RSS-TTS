@@ -25,14 +25,21 @@ class ArticleSubmissionForm(forms.ModelForm):
     uploaded_file = forms.FileField(
         required=False,
         help_text="Upload a PDF, HTML, or text file to convert to audio.",
-        widget=forms.ClearableFileInput(attrs={'accept': '.pdf,.html,.htm,.txt'})
+        widget=forms.ClearableFileInput(attrs={"accept": ".pdf,.html,.htm,.txt"}),
     )
 
     class Meta:
         """Meta options for the ArticleSubmissionForm."""
 
         model = Article
-        fields = ["title", "source_url", "text_content", "uploaded_file", "voice_id", "speed"]
+        fields = [
+            "title",
+            "source_url",
+            "text_content",
+            "uploaded_file",
+            "voice_id",
+            "speed",
+        ]
         widgets = {
             "title": forms.TextInput(
                 attrs={
@@ -95,9 +102,13 @@ class ArticleSubmissionForm(forms.ModelForm):
         input_count = sum([bool(source_url), bool(text_content), bool(uploaded_file)])
 
         if input_count == 0:
-            raise ValidationError("You must provide either a URL, text content, or upload a file.")
+            raise ValidationError(
+                "You must provide either a URL, text content, or upload a file."
+            )
         elif input_count > 1:
-            raise ValidationError("Please provide only one input method: URL, text content, or file upload.")
+            raise ValidationError(
+                "Please provide only one input method: URL, text content, or file upload."
+            )
 
         # Enforce 30,000-word limit for pasted text content
         if text_content:
@@ -114,15 +125,20 @@ class ArticleSubmissionForm(forms.ModelForm):
             # Check file size (50MB limit)
             max_size = 50 * 1024 * 1024  # 50MB
             if uploaded_file.size > max_size:
-                raise ValidationError(f"File too large. Maximum size is {max_size // (1024 * 1024)}MB.")
+                raise ValidationError(
+                    f"File too large. Maximum size is {max_size // (1024 * 1024)}MB."
+                )
 
             # Check file type
-            allowed_extensions = ['.pdf', '.html', '.htm', '.txt']
+            allowed_extensions = [".pdf", ".html", ".htm", ".txt"]
             if uploaded_file.name:
                 import os
+
                 file_extension = os.path.splitext(uploaded_file.name.lower())[1]
                 if file_extension not in allowed_extensions:
-                    raise ValidationError(f"Unsupported file type. Allowed types: {', '.join(allowed_extensions)}")
+                    raise ValidationError(
+                        f"Unsupported file type. Allowed types: {', '.join(allowed_extensions)}"
+                    )
 
         voice_preset = cleaned_data.get("voice_preset")
         voice_id = cleaned_data.get("voice_id")

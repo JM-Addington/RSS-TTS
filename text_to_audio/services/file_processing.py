@@ -42,17 +42,19 @@ class FileProcessingService:
         # Determine file type
         if mime_type == "application/pdf" or extension == ".pdf":
             return "pdf"
-        elif (
-            mime_type in ["text/html", "application/xhtml+xml"]
-            or extension in [".html", ".htm"]
-        ):
+        elif mime_type in ["text/html", "application/xhtml+xml"] or extension in [
+            ".html",
+            ".htm",
+        ]:
             return "html"
         elif mime_type == "text/plain" or extension == ".txt":
             return "txt"
 
         return None
 
-    def extract_text_from_pdf(self, file_content: bytes) -> Tuple[bool, str, Optional[str]]:
+    def extract_text_from_pdf(
+        self, file_content: bytes
+    ) -> Tuple[bool, str, Optional[str]]:
         """Extract text content from a PDF file.
 
         Args:
@@ -62,8 +64,9 @@ class FileProcessingService:
             Tuple of (success, extracted_text, error_message).
         """
         try:
-            import PyPDF2
             from io import BytesIO
+
+            import PyPDF2
 
             # Create a BytesIO object from the file content
             pdf_file = BytesIO(file_content)
@@ -79,7 +82,9 @@ class FileProcessingService:
                     if page_text.strip():
                         text_parts.append(page_text.strip())
                 except Exception as e:
-                    logger.warning(f"Error extracting text from page {page_num + 1}: {e}")
+                    logger.warning(
+                        f"Error extracting text from page {page_num + 1}: {e}"
+                    )
                     continue
 
             if not text_parts:
@@ -99,7 +104,9 @@ class FileProcessingService:
             logger.error(error_msg)
             return False, "", error_msg
 
-    def extract_text_from_html(self, file_content: bytes) -> Tuple[bool, str, Optional[str]]:
+    def extract_text_from_html(
+        self, file_content: bytes
+    ) -> Tuple[bool, str, Optional[str]]:
         """Extract text content from an HTML file.
 
         Args:
@@ -122,7 +129,9 @@ class FileProcessingService:
             logger.error(error_msg)
             return False, "", error_msg
 
-    def extract_text_from_txt(self, file_content: bytes) -> Tuple[bool, str, Optional[str]]:
+    def extract_text_from_txt(
+        self, file_content: bytes
+    ) -> Tuple[bool, str, Optional[str]]:
         """Extract text content from a plain text file.
 
         Args:
@@ -173,9 +182,10 @@ class FileProcessingService:
                 return False, "", error
 
             # Use GPT-4.1 to clean and structure the content
-            from django.conf import settings
-            import openai
             import time
+
+            import openai
+            from django.conf import settings
 
             client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
 
@@ -283,7 +293,9 @@ CLEANED TEXT FOR NARRATION:"""
                 error_msg = f"Error calling GPT-4.1 for file processing: {str(e)}"
                 logger.error(error_msg)
                 # Fall back to raw extracted text
-                logger.info("Falling back to raw extracted text due to processing error")
+                logger.info(
+                    "Falling back to raw extracted text due to processing error"
+                )
                 return True, raw_text, None
 
         except Exception as e:
@@ -291,7 +303,9 @@ CLEANED TEXT FOR NARRATION:"""
             logger.error(error_message)
             return False, "", error_message
 
-    def process_uploaded_file(self, uploaded_file: UploadedFile) -> Tuple[bool, str, str, Optional[str]]:
+    def process_uploaded_file(
+        self, uploaded_file: UploadedFile
+    ) -> Tuple[bool, str, str, Optional[str]]:
         """Process an uploaded file and extract its text content.
 
         Args:
@@ -305,7 +319,12 @@ CLEANED TEXT FOR NARRATION:"""
             file_type = self.detect_file_type(uploaded_file)
             if not file_type:
                 supported_types = ["PDF (.pdf)", "HTML (.html, .htm)", "Text (.txt)"]
-                return False, "", "", f"Unsupported file type. Supported types: {', '.join(supported_types)}"
+                return (
+                    False,
+                    "",
+                    "",
+                    f"Unsupported file type. Supported types: {', '.join(supported_types)}",
+                )
 
             # Read file content
             uploaded_file.seek(0)  # Reset file pointer
@@ -317,10 +336,16 @@ CLEANED TEXT FOR NARRATION:"""
             # Check file size (limit to 50MB for processing)
             max_size = 50 * 1024 * 1024  # 50MB
             if len(file_content) > max_size:
-                return False, "", file_type, f"File too large. Maximum size is {max_size // (1024 * 1024)}MB"
+                return (
+                    False,
+                    "",
+                    file_type,
+                    f"File too large. Maximum size is {max_size // (1024 * 1024)}MB",
+                )
 
             # Use GPT processing for better results
             from django.conf import settings
+
             use_gpt_processing = getattr(settings, "USE_GPT_FOR_FILE_PROCESSING", True)
 
             if use_gpt_processing:

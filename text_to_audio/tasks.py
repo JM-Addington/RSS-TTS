@@ -507,7 +507,9 @@ def process_article(self, article_id: int) -> str:
                             chunk_text, title=chunk_title
                         )
 
-                        if chunk_analysis and "audio_segments" in chunk_analysis: # Ensure summary is also present if needed for combined
+                        if (
+                            chunk_analysis and "audio_segments" in chunk_analysis
+                        ):  # Ensure summary is also present if needed for combined
                             chunk_analyses.append(chunk_analysis)
 
                         chunk_start = chunk_end
@@ -515,11 +517,15 @@ def process_article(self, article_id: int) -> str:
 
                     # Combine all chunk analyses into a single multi_voice_data structure
                     if chunk_analyses:
-                        combined_analysis = _combine_chunk_analyses(chunk_analyses) # This helper needs to handle summary
+                        combined_analysis = _combine_chunk_analyses(
+                            chunk_analyses
+                        )  # This helper needs to handle summary
                         article.multi_voice_data = combined_analysis
                         # Assuming summary from the first chunk or a combined summary is handled by _combine_chunk_analyses
                         # If not, this needs to be set explicitly e.g. article.summary = chunk_analyses[0].get("summary", "") if chunk_analyses else ""
-                        article.summary = combined_analysis.get("summary", "") # _combine_chunk_analyses should add this
+                        article.summary = combined_analysis.get(
+                            "summary", ""
+                        )  # _combine_chunk_analyses should add this
                         logger.info(
                             f"Combined {len(chunk_analyses)} chunk analyses for Article ID: {article_id}"
                         )
@@ -532,7 +538,7 @@ def process_article(self, article_id: int) -> str:
                     article.multi_voice_data, "_mock_name"
                 ):
                     article.multi_voice_data = None
-                    article.summary = "" # Also clear summary if data is mock
+                    article.summary = ""  # Also clear summary if data is mock
 
                 article.save(update_fields=["multi_voice_data", "summary"])
                 logger.info(
@@ -545,7 +551,7 @@ def process_article(self, article_id: int) -> str:
                 )
                 logger.debug(traceback.format_exc())
                 article.multi_voice_data = None  # Ensure it's None on failure
-                article.summary = "" # Ensure summary is cleared on failure
+                article.summary = ""  # Ensure summary is cleared on failure
                 article.save(update_fields=["multi_voice_data", "summary"])
                 # Do not re-raise here; allow fallback to single voice processing later.
 
@@ -1382,7 +1388,6 @@ def _combine_chunk_analyses(chunk_analyses: list[dict]) -> dict:
         # Example of concatenation (can get long):
         # combined_summary = " ".join(ca.get("summary", "") for ca in chunk_analyses if ca.get("summary"))
 
-
     for chunk_analysis in chunk_analyses:
         voices = chunk_analysis.get("voices", [])
         segments = chunk_analysis.get("audio_segments", [])
@@ -1411,7 +1416,11 @@ def _combine_chunk_analyses(chunk_analyses: list[dict]) -> dict:
     # Convert voices dict back to list
     unique_voices = list(all_voices.values())
 
-    return {"voices": unique_voices, "audio_segments": all_segments, "summary": combined_summary}
+    return {
+        "voices": unique_voices,
+        "audio_segments": all_segments,
+        "summary": combined_summary,
+    }
 
 
 @shared_task

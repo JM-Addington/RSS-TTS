@@ -1,7 +1,5 @@
 """Tests for file processing functionality."""
 
-import io
-import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -21,7 +19,9 @@ class TestFileProcessingService(TestCase):
     def test_detect_file_type_pdf(self):
         """Test detection of PDF files."""
         # Test with PDF MIME type
-        pdf_file = SimpleUploadedFile("test.pdf", b"content", content_type="application/pdf")
+        pdf_file = SimpleUploadedFile(
+            "test.pdf", b"content", content_type="application/pdf"
+        )
         self.assertEqual(self.service.detect_file_type(pdf_file), "pdf")
 
         # Test with PDF extension
@@ -31,7 +31,9 @@ class TestFileProcessingService(TestCase):
     def test_detect_file_type_html(self):
         """Test detection of HTML files."""
         # Test with HTML MIME type
-        html_file = SimpleUploadedFile("test.html", b"content", content_type="text/html")
+        html_file = SimpleUploadedFile(
+            "test.html", b"content", content_type="text/html"
+        )
         self.assertEqual(self.service.detect_file_type(html_file), "html")
 
         # Test with HTML extension
@@ -58,7 +60,9 @@ class TestFileProcessingService(TestCase):
         content = "This is a test document.\nWith multiple lines."
         content_bytes = content.encode("utf-8")
 
-        success, extracted_text, error = self.service.extract_text_from_txt(content_bytes)
+        success, extracted_text, error = self.service.extract_text_from_txt(
+            content_bytes
+        )
 
         self.assertTrue(success)
         self.assertEqual(extracted_text, content)
@@ -68,7 +72,9 @@ class TestFileProcessingService(TestCase):
         """Test text extraction from empty text file."""
         content_bytes = b""
 
-        success, extracted_text, error = self.service.extract_text_from_txt(content_bytes)
+        success, extracted_text, error = self.service.extract_text_from_txt(
+            content_bytes
+        )
 
         self.assertFalse(success)
         self.assertEqual(extracted_text, "")
@@ -88,14 +94,16 @@ class TestFileProcessingService(TestCase):
         """
         content_bytes = html_content.encode("utf-8")
 
-        success, extracted_text, error = self.service.extract_text_from_html(content_bytes)
+        success, extracted_text, error = self.service.extract_text_from_html(
+            content_bytes
+        )
 
         self.assertTrue(success)
         self.assertIn("Main Heading", extracted_text)
         self.assertIn("This is a paragraph", extracted_text)
         self.assertIsNone(error)
 
-    @patch('builtins.__import__')
+    @patch("builtins.__import__")
     def test_extract_text_from_pdf_success(self, mock_import):
         """Test successful PDF text extraction."""
         # Mock PyPDF2 import and components
@@ -109,7 +117,7 @@ class TestFileProcessingService(TestCase):
         mock_pypdf2.PdfReader.return_value = mock_reader
 
         def side_effect(name, *args, **kwargs):
-            if name == 'PyPDF2':
+            if name == "PyPDF2":
                 return mock_pypdf2
             return __import__(name, *args, **kwargs)
 
@@ -117,17 +125,20 @@ class TestFileProcessingService(TestCase):
 
         content_bytes = b"fake_pdf_content"
 
-        success, extracted_text, error = self.service.extract_text_from_pdf(content_bytes)
+        success, extracted_text, error = self.service.extract_text_from_pdf(
+            content_bytes
+        )
 
         self.assertTrue(success)
         self.assertEqual(extracted_text, "This is text from a PDF page.")
         self.assertIsNone(error)
 
-    @patch('builtins.__import__')
+    @patch("builtins.__import__")
     def test_extract_text_from_pdf_no_pypdf2(self, mock_import):
         """Test PDF extraction when PyPDF2 is not available."""
+
         def side_effect(name, *args, **kwargs):
-            if name == 'PyPDF2':
+            if name == "PyPDF2":
                 raise ImportError("PyPDF2 not available")
             return __import__(name, *args, **kwargs)
 
@@ -135,7 +146,9 @@ class TestFileProcessingService(TestCase):
 
         content_bytes = b"fake_pdf_content"
 
-        success, extracted_text, error = self.service.extract_text_from_pdf(content_bytes)
+        success, extracted_text, error = self.service.extract_text_from_pdf(
+            content_bytes
+        )
 
         self.assertFalse(success)
         self.assertEqual(extracted_text, "")
@@ -144,9 +157,13 @@ class TestFileProcessingService(TestCase):
     def test_process_uploaded_file_txt(self):
         """Test processing of uploaded text file."""
         content = "This is a test document."
-        txt_file = SimpleUploadedFile("test.txt", content.encode("utf-8"), content_type="text/plain")
+        txt_file = SimpleUploadedFile(
+            "test.txt", content.encode("utf-8"), content_type="text/plain"
+        )
 
-        success, extracted_text, file_type, error = self.service.process_uploaded_file(txt_file)
+        success, extracted_text, file_type, error = self.service.process_uploaded_file(
+            txt_file
+        )
 
         self.assertTrue(success)
         self.assertEqual(extracted_text, content)
@@ -157,7 +174,9 @@ class TestFileProcessingService(TestCase):
         """Test processing of unsupported file type."""
         doc_file = SimpleUploadedFile("test.doc", b"content")
 
-        success, extracted_text, file_type, error = self.service.process_uploaded_file(doc_file)
+        success, extracted_text, file_type, error = self.service.process_uploaded_file(
+            doc_file
+        )
 
         self.assertFalse(success)
         self.assertEqual(extracted_text, "")
@@ -168,7 +187,9 @@ class TestFileProcessingService(TestCase):
         """Test processing of empty file."""
         empty_file = SimpleUploadedFile("test.txt", b"", content_type="text/plain")
 
-        success, extracted_text, file_type, error = self.service.process_uploaded_file(empty_file)
+        success, extracted_text, file_type, error = self.service.process_uploaded_file(
+            empty_file
+        )
 
         self.assertFalse(success)
         self.assertEqual(extracted_text, "")
@@ -179,26 +200,32 @@ class TestFileProcessingService(TestCase):
         """Test processing of file that exceeds size limit."""
         # Create a file larger than 50MB
         large_content = b"x" * (51 * 1024 * 1024)  # 51MB
-        large_file = SimpleUploadedFile("test.txt", large_content, content_type="text/plain")
+        large_file = SimpleUploadedFile(
+            "test.txt", large_content, content_type="text/plain"
+        )
 
-        success, extracted_text, file_type, error = self.service.process_uploaded_file(large_file)
+        success, extracted_text, file_type, error = self.service.process_uploaded_file(
+            large_file
+        )
 
         self.assertFalse(success)
         self.assertEqual(extracted_text, "")
         self.assertEqual(file_type, "txt")
         self.assertIn("too large", error)
 
-    @patch('text_to_audio.services.file_processing.openai.OpenAI')
-    @patch('django.conf.settings')
+    @patch("text_to_audio.services.file_processing.openai.OpenAI")
+    @patch("django.conf.settings")
     def test_process_file_with_gpt_success(self, mock_settings, mock_openai_class):
         """Test GPT-based file processing."""
         # Mock settings
-        mock_settings.OPENAI_API_KEY = 'test-key'
+        mock_settings.OPENAI_API_KEY = "test-key"
 
         # Mock OpenAI response
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "Cleaned and structured text content."
+        mock_response.choices[0].message.content = (
+            "Cleaned and structured text content."
+        )
         mock_response.usage = MagicMock()
         mock_response.usage.prompt_tokens = 100
         mock_response.usage.completion_tokens = 50
@@ -223,17 +250,20 @@ class TestFileProcessingService(TestCase):
         self.assertEqual(cleaned_text, "Cleaned and structured text content.")
         self.assertIsNone(error)
 
-    @patch('text_to_audio.services.file_processing.openai.OpenAI')
-    @patch('django.conf.settings')
+    @patch("text_to_audio.services.file_processing.openai.OpenAI")
+    @patch("django.conf.settings")
     def test_process_file_with_gpt_api_error(self, mock_settings, mock_openai_class):
         """Test GPT processing with API error fallback."""
         # Mock settings
-        mock_settings.OPENAI_API_KEY = 'test-key'
+        mock_settings.OPENAI_API_KEY = "test-key"
 
         # Mock OpenAI API error
         import openai
+
         mock_client = MagicMock()
-        mock_client.chat.completions.create.side_effect = openai.APIError("API Error", request=None, body=None)
+        mock_client.chat.completions.create.side_effect = openai.APIError(
+            "API Error", request=None, body=None
+        )
         mock_openai_class.return_value = mock_client
 
         content = "Raw text content from file."
@@ -248,16 +278,20 @@ class TestFileProcessingService(TestCase):
         self.assertEqual(extracted_text, content)
         self.assertIsNone(error)
 
-    @patch('django.conf.settings')
+    @patch("django.conf.settings")
     def test_process_uploaded_file_without_gpt(self, mock_settings):
         """Test file processing with GPT disabled."""
         # Mock settings
         mock_settings.USE_GPT_FOR_FILE_PROCESSING = False
 
         content = "This is a test document."
-        txt_file = SimpleUploadedFile("test.txt", content.encode("utf-8"), content_type="text/plain")
+        txt_file = SimpleUploadedFile(
+            "test.txt", content.encode("utf-8"), content_type="text/plain"
+        )
 
-        success, extracted_text, file_type, error = self.service.process_uploaded_file(txt_file)
+        success, extracted_text, file_type, error = self.service.process_uploaded_file(
+            txt_file
+        )
 
         self.assertTrue(success)
         self.assertEqual(extracted_text, content)
@@ -265,5 +299,5 @@ class TestFileProcessingService(TestCase):
         self.assertIsNone(error)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
