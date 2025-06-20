@@ -16,14 +16,19 @@ from unittest.mock import MagicMock, PropertyMock, patch
 from django.conf import settings
 from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 
 # Transaction import is used by decorator
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
-from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, check_stale_articles, process_article
+from text_to_audio.tasks import (
+    _clamp_tts_speed,
+    _legacy_chunk_text,
+    check_stale_articles,
+    process_article,
+)
 
 User = get_user_model()
 
@@ -1595,8 +1600,6 @@ class SpeedClampingUnitTests(TestCase):
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
 
 
-
-
 class CheckStaleArticlesTests(TestCase):
     """Tests for the check_stale_articles task."""
 
@@ -1629,7 +1632,6 @@ class CheckStaleArticlesTests(TestCase):
         Feed.objects.filter(user=self.user).delete()
         self.user.delete()
 
-
     def test_check_stale_articles_logic(self):
         """Test that stale articles are correctly identified and processed."""
         now = timezone.now()
@@ -1648,7 +1650,6 @@ class CheckStaleArticlesTests(TestCase):
         Article.objects.filter(pk=stale_article.pk).update(updated_at=very_old_time)
         stale_article.refresh_from_db()
 
-
         recent_processing_article = Article.objects.create(
             feed=self.feed,
             title="Recent Processing Article",
@@ -1657,7 +1658,9 @@ class CheckStaleArticlesTests(TestCase):
             celery_task_id="fake_recent_task_id",
             updated_at=recent_time,
         )
-        Article.objects.filter(pk=recent_processing_article.pk).update(updated_at=recent_time)
+        Article.objects.filter(pk=recent_processing_article.pk).update(
+            updated_at=recent_time
+        )
         recent_processing_article.refresh_from_db()
 
         completed_article = Article.objects.create(
@@ -1665,7 +1668,7 @@ class CheckStaleArticlesTests(TestCase):
             title="Completed Article",
             text_content="This article is completed.",
             status=Article.COMPLETED,
-            updated_at=very_old_time, # old but completed
+            updated_at=very_old_time,  # old but completed
         )
         Article.objects.filter(pk=completed_article.pk).update(updated_at=very_old_time)
         completed_article.refresh_from_db()
@@ -1675,9 +1678,11 @@ class CheckStaleArticlesTests(TestCase):
             title="Already Failed Article",
             text_content="This article already failed.",
             status=Article.FAILED,
-            updated_at=very_old_time, # old but already failed
+            updated_at=very_old_time,  # old but already failed
         )
-        Article.objects.filter(pk=failed_article_already.pk).update(updated_at=very_old_time)
+        Article.objects.filter(pk=failed_article_already.pk).update(
+            updated_at=very_old_time
+        )
         failed_article_already.refresh_from_db()
 
         # Call the task
@@ -1693,13 +1698,13 @@ class CheckStaleArticlesTests(TestCase):
         self.assertEqual(stale_article.status, Article.FAILED)
         self.assertIn("timed out", stale_article.error_message.lower())
         self.assertIsNone(stale_article.celery_task_id)
-        self.mock_revoke.assert_called_once_with(
-            "fake_stale_task_id", terminate=True
-        )
+        self.mock_revoke.assert_called_once_with("fake_stale_task_id", terminate=True)
 
         # Assertions for recent_processing_article
         self.assertEqual(recent_processing_article.status, Article.PROCESSING)
-        self.assertIsNone(recent_processing_article.error_message) # Should not have error
+        self.assertIsNone(
+            recent_processing_article.error_message
+        )  # Should not have error
 
         # Assertions for completed_article
         self.assertEqual(completed_article.status, Article.COMPLETED)
