@@ -24,9 +24,11 @@ from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
 from .services.chunk_tone_service import ChunkToneService
-from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
+from .services.content_analysis import (MAX_ANALYSIS_WORDS,
+                                        ContentAnalysisService)
 from .services.voice_configuration import VoiceConfigurationService
-from .services.voice_parameter_generation import VoiceParameterGenerationService
+from .services.voice_parameter_generation import \
+    VoiceParameterGenerationService
 from .utils import process_url_to_text
 
 # Configure logging
@@ -1456,3 +1458,79 @@ def check_stale_articles():
         logger.debug("No stale articles found.")
 
     return f"Checked for stale articles older than {timeout_seconds} seconds."
+
+
+@shared_task
+def import_followed_feeds() -> str:
+    """Check followed RSS feeds and create articles for new entries."""
+
+    import feedparser
+
+    from .models import FollowedFeed
+
+    followed_feeds = FollowedFeed.objects.filter(is_active=True)
+    processed_feeds = 0
+
+    for followed in followed_feeds:
+        try:
+            parsed = feedparser.parse(followed.url)
+        except Exception as exc:  # pragma: no cover - safeguard
+            logger.error("Failed to fetch feed %s: %s", followed.url, exc)
+            continue
+
+        entries = getattr(parsed, "entries", [])
+        if not entries:
+            followed.last_checked = timezone.now()
+            followed.save(update_fields=["last_checked"])
+            continue
+
+        new_entries: list = []
+        for entry in entries:
+            guid = (
+                getattr(entry, "id", None)
+                or getattr(entry, "guid", None)
+                or getattr(entry, "link", None)
+            )
+            if followed.last_guid and guid == followed.last_guid:
+                break
+            new_entries.append(entry)
+
+        for entry in reversed(new_entries):
+            guid = (
+                getattr(entry, "id", None)
+                or getattr(entry, "guid", None)
+                or getattr(entry, "link", None)
+            )
+            title = getattr(entry, "title", "")[:1024]
+            link = getattr(entry, "link", "")
+            text = ""
+
+            if followed.fetch_full_text and link:
+                success, extracted, _ = process_url_to_text(link)
+                if success and extracted:
+                    text = extracted
+
+            if not text:
+                text = getattr(entry, "summary", None) or getattr(
+                    entry, "description", ""
+                )
+
+            article = Article.objects.create(
+                feed=followed.destination_feed,
+                title=title or "Untitled Article",
+                source_url=link,
+                text_content=text or "",
+                status=Article.PROCESSING,
+            )
+
+            task = process_article.delay(article.pk)
+            article.celery_task_id = task.id
+            article.save(update_fields=["celery_task_id", "updated_at"])
+
+            followed.last_guid = guid
+
+        followed.last_checked = timezone.now()
+        followed.save(update_fields=["last_guid", "last_checked"])
+        processed_feeds += 1
+
+    return f"Processed {processed_feeds} followed feeds"
