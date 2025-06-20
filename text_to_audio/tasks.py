@@ -13,6 +13,7 @@ import traceback
 import uuid
 from datetime import timedelta
 from pathlib import Path
+import math
 
 import openai
 from celery import shared_task  # type: ignore
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 # Add a short pause to the end of exported audio files
 ENDING_SILENCE_MS = 2000
+VOLUME_GAIN_DB = 20 * math.log10(1.1)  # ~10% volume increase
 
 
 def _clamp_tts_speed(speed: float) -> float:
@@ -1186,9 +1188,9 @@ def process_article(self, article_id: int) -> str:
             # It's safer to copy/process the file rather than renaming, then clean up.
             # For single files, we still re-export to apply tags and ensure format.
             audio_segment = AudioSegment.from_mp3(single_audio_path)
-            audio_segment = audio_segment.set_frame_rate(
-                44100
-            )  # Ensure consistent frame rate
+            audio_segment = (
+                audio_segment.set_frame_rate(44100).apply_gain(VOLUME_GAIN_DB)
+            )  # Ensure consistent frame rate and volume
             audio_segment += AudioSegment.silent(duration=ENDING_SILENCE_MS)
             audio_segment.export(
                 str(final_audio_path),
@@ -1216,9 +1218,9 @@ def process_article(self, article_id: int) -> str:
                     ) from e
 
             if combined_audio.duration_seconds > 0:
-                combined_audio = combined_audio.set_frame_rate(
-                    44100
-                )  # Ensure consistent frame rate
+                combined_audio = (
+                    combined_audio.set_frame_rate(44100).apply_gain(VOLUME_GAIN_DB)
+                )  # Ensure consistent frame rate and volume
                 combined_audio += AudioSegment.silent(duration=ENDING_SILENCE_MS)
                 combined_audio.export(
                     str(final_audio_path),
