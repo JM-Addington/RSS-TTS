@@ -233,7 +233,11 @@ class ContentAnalysisService:
             result = json.loads(content)
 
             # Validate the structure
-            if "voices" not in result or "audio_segments" not in result or "summary" not in result:
+            if (
+                "voices" not in result
+                or "audio_segments" not in result
+                or "summary" not in result
+            ):
                 raise ValueError(
                     "Missing 'voices', 'audio_segments', or 'summary' in LLM response."
                 )
@@ -252,7 +256,7 @@ class ContentAnalysisService:
             # For example, check if all voice_names in audio_segments refer to defined voices.
 
             # Extract summary
-            summary = result.get("summary", "") # Default to empty string if not found
+            summary = result.get("summary", "")  # Default to empty string if not found
 
             return {
                 "summary": summary,
@@ -265,10 +269,12 @@ class ContentAnalysisService:
                 f"Error parsing content analysis response or invalid structure: {e}"
             )
             # Log the problematic content
-            logger.error(f"LLM Response Content: {content if 'content' in locals() else 'Content not available'}")
+            logger.error(
+                f"LLM Response Content: {content if 'content' in locals() else 'Content not available'}"
+            )
             # Return a default structure
             return {
-                "summary": "", # Default empty summary
+                "summary": "",  # Default empty summary
                 "voices": [
                     {
                         "name": "narrator",
