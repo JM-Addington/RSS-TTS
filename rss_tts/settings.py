@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "widget_tweaks",
     "text_to_audio",
 ]
@@ -185,6 +186,19 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Django REST Framework settings
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# drf-spectacular configuration
+SPECTACULAR_SETTINGS = {
+    "TITLE": "RSS-TTS API",
+    "VERSION": "1.0.0",
+    "DESCRIPTION": "API for the RSS-TTS system that allows converting RSS feeds to audio podcasts",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
 LOGIN_REDIRECT_URL = "home"
 LOGIN_URL = "login"
 LOGOUT_REDIRECT_URL = "home"
@@ -274,4 +288,3 @@ SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection
 ARTICLE_PROCESSING_TIMEOUT_SECONDS = 3600  # 1 hour
 # Maximum number of words to analyze for content analysis (reduced from 750k for cost/performance)
 MAX_ANALYSIS_WORDS = int(os.environ.get("MAX_ANALYSIS_WORDS", "8000"))
-

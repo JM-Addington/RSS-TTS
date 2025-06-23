@@ -384,6 +384,16 @@ class FeedArticleListView(LoginRequiredMixin, ListView):
             protocol = "https" if request.is_secure() else "http"
             context["feed_url"] = f"{protocol}://{domain}{feed_path}"
 
+        # API submission URL for this feed
+        api_path = reverse("api-feed-article-submit", kwargs={"token": feed.token})
+        if hasattr(settings, "SITE_URL"):
+            context["api_url"] = f"{settings.SITE_URL.rstrip('/')}{api_path}"
+        else:
+            request = self.request
+            domain = request.get_host()
+            protocol = "https" if request.is_secure() else "http"
+            context["api_url"] = f"{protocol}://{domain}{api_path}"
+
         return context
 
 
