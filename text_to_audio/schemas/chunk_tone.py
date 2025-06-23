@@ -6,10 +6,10 @@ from typing import ClassVar, Dict, List, Optional, Set
 
 from pydantic import BaseModel
 
-try:  # pragma: no cover - support pydantic < 2
+try:  # pragma: no cover - support pydantic >= 2
     from pydantic import field_validator
-except ImportError:  # pragma: no cover - fallback for pydantic 1
-    from pydantic import validator as field_validator
+except ImportError:  # pragma: no cover - fallback for pydantic < 2
+    from pydantic import validator as field_validator  # type: ignore[no-redef]
 
 
 class TTSVoice(BaseModel):
