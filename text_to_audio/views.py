@@ -18,21 +18,34 @@ from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import (CreateView, DeleteView, ListView,
-                                  TemplateView, UpdateView)
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
-from .forms import (ArticleDetailForm, ArticleSubmissionForm, ArticleVoiceForm,
-                    FeedForm, FollowedFeedForm, UserVoicePreferenceForm,
-                    VoicePresetForm)
-from .models import (Article, Feed, FollowedFeed, UserVoicePreset,
-                     UserVoiceProfile)
+from .forms import (
+    ArticleDetailForm,
+    ArticleSubmissionForm,
+    ArticleVoiceForm,
+    FeedForm,
+    FollowedFeedForm,
+    UserVoicePreferenceForm,
+    VoicePresetForm,
+)
+from .models import Article, Feed, FollowedFeed, UserVoicePreset, UserVoiceProfile
 from .services.user_preferences import UserPreferencesService
-from .services.voice_configuration import \
-    VoiceConfigurationService  # noqa: F401
+from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
 from .tasks import process_article
-from .utils import (extract_article_text, extract_text_from_pdf,
-                    extract_title_from_html, fetch_url_content,
-                    safe_delete_audio_file)
+from .utils import (
+    extract_article_text,
+    extract_text_from_pdf,
+    extract_title_from_html,
+    fetch_url_content,
+    safe_delete_audio_file,
+)
 
 logger = logging.getLogger(__name__)
 

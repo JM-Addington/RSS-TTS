@@ -16,14 +16,19 @@ from unittest.mock import MagicMock, PropertyMock, patch
 from django.conf import settings
 from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
+
 # Transaction import is used by decorator
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from openai import APIError as OpenAIAPIError  # Renamed to avoid conflict
 
 from text_to_audio.models import Article, Feed, OpenAIUsageStats
-from text_to_audio.tasks import (_clamp_tts_speed, _legacy_chunk_text,
-                                 check_stale_articles, process_article)
+from text_to_audio.tasks import (
+    _clamp_tts_speed,
+    _legacy_chunk_text,
+    check_stale_articles,
+    process_article,
+)
 
 User = get_user_model()
 
@@ -1532,9 +1537,11 @@ class ProcessArticleTests(TestCase):
                 self.article.save()
 
                 # Configure ChunkToneService mock
-                from text_to_audio.schemas.chunk_tone import (ChunkData,
-                                                              ChunkTonePayload,
-                                                              TTSVoice)
+                from text_to_audio.schemas.chunk_tone import (
+                    ChunkData,
+                    ChunkTonePayload,
+                    TTSVoice,
+                )
 
                 mock_chunk_tone_instance = MockChunkToneService.return_value
                 mock_chunk_tone_instance.get_payload.return_value = ChunkTonePayload(
