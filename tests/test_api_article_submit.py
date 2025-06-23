@@ -22,14 +22,9 @@ class FeedArticleSubmitAPITests(TestCase):
         """Set up test data."""
         self.client = APIClient()
         self.user = User.objects.create_user(
-            username="testuser",
-            email="test@example.com",
-            password="testpass123"
+            username="testuser", email="test@example.com", password="testpass123"
         )
-        self.feed = Feed.objects.create(
-            user=self.user,
-            name="Test Feed"
-        )
+        self.feed = Feed.objects.create(user=self.user, name="Test Feed")
         self.url = reverse("api-feed-article-submit", kwargs={"token": self.feed.token})
 
     @patch("text_to_audio.api_views.process_article")
@@ -43,9 +38,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Make API request
         response = self.client.post(
-            self.url,
-            data=json.dumps(payload),
-            content_type="application/json"
+            self.url, data=json.dumps(payload), content_type="application/json"
         )
 
         # Check response
@@ -55,7 +48,9 @@ class FeedArticleSubmitAPITests(TestCase):
         # Verify article data
         article = Article.objects.first()
         self.assertEqual(article.title, "Test Article")
-        self.assertEqual(article.text_content, "This is test content for the article submission API.")
+        self.assertEqual(
+            article.text_content, "This is test content for the article submission API."
+        )
         self.assertEqual(article.feed, self.feed)
         self.assertEqual(article.status, Article.PROCESSING)
 
@@ -70,7 +65,7 @@ class FeedArticleSubmitAPITests(TestCase):
         mock_fetch.return_value = (
             True,
             "<html><head><title>Test URL Title</title></head><body>Test content</body></html>",
-            None
+            None,
         )
 
         # Prepare test data
@@ -80,9 +75,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Make API request
         response = self.client.post(
-            self.url,
-            data=json.dumps(payload),
-            content_type="application/json"
+            self.url, data=json.dumps(payload), content_type="application/json"
         )
 
         # Check response
@@ -113,9 +106,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Make API request
         response = self.client.post(
-            self.url,
-            data=json.dumps(payload),
-            content_type="application/json"
+            self.url, data=json.dumps(payload), content_type="application/json"
         )
 
         # Check response
@@ -135,9 +126,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Make API request
         response = self.client.post(
-            self.url,
-            data=json.dumps(payload),
-            content_type="application/json"
+            self.url, data=json.dumps(payload), content_type="application/json"
         )
 
         # Check response
@@ -154,9 +143,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Make API request
         response = self.client.post(
-            self.url,
-            data=json.dumps(payload),
-            content_type="application/json"
+            self.url, data=json.dumps(payload), content_type="application/json"
         )
 
         # Check response
@@ -178,9 +165,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Make API request
         response = self.client.post(
-            url,
-            data=json.dumps(payload),
-            content_type="application/json"
+            url, data=json.dumps(payload), content_type="application/json"
         )
 
         # Check response
@@ -200,9 +185,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Make API request
         response = self.client.post(
-            self.url,
-            data=json.dumps(payload),
-            content_type="application/json"
+            self.url, data=json.dumps(payload), content_type="application/json"
         )
 
         # Check response

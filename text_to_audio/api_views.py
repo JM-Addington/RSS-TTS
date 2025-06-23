@@ -25,24 +25,32 @@ class ArticleSubmissionSerializer(serializers.Serializer):
     """Serializer for article submission via API."""
 
     title = serializers.CharField(
-        max_length=1024, required=False, allow_blank=True,
-        help_text="Optional title for the article. If not provided, title will be extracted from content or generated."
+        max_length=1024,
+        required=False,
+        allow_blank=True,
+        help_text="Optional title for the article. If not provided, title will be extracted from content or generated.",
     )
     text_content = serializers.CharField(
-        required=False, allow_blank=True,
-        help_text="Text content of the article. Either text_content or source_url must be provided."
+        required=False,
+        allow_blank=True,
+        help_text="Text content of the article. Either text_content or source_url must be provided.",
     )
     source_url = serializers.URLField(
-        max_length=2000, required=False, allow_blank=True,
-        help_text="URL of the article to process. Either text_content or source_url must be provided."
+        max_length=2000,
+        required=False,
+        allow_blank=True,
+        help_text="URL of the article to process. Either text_content or source_url must be provided.",
     )
     voice_id = serializers.CharField(
-        max_length=50, required=False, allow_blank=True,
-        help_text="Voice ID to use for TTS conversion. Leave blank to auto-detect from content."
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        help_text="Voice ID to use for TTS conversion. Leave blank to auto-detect from content.",
     )
     speed = serializers.FloatField(
-        required=False, allow_null=True,
-        help_text="Speed multiplier for TTS conversion (e.g., 1.0 for normal speed)."
+        required=False,
+        allow_null=True,
+        help_text="Speed multiplier for TTS conversion (e.g., 1.0 for normal speed).",
     )
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -142,6 +150,7 @@ class FeedArticleSubmitView(APIView):
             # Generate title if not provided
             if not article.title:
                 from .utils import extract_title_from_html
+
                 article.title = extract_title_from_html(html) or "Untitled Article"
 
         # Run custom validation
