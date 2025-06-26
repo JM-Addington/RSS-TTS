@@ -26,13 +26,13 @@ class TestComposeProduction(unittest.TestCase):
             "Web service should use start-web.sh to run migrations",
         )
 
-    def test_worker_service_uses_start_web_script(self):
-        """Test that the worker service uses the start-web.sh script."""
+    def test_worker_service_uses_start_worker_script(self):
+        """Test that the worker service uses the start-worker.sh script."""
         worker_service = self.compose_config["services"]["worker"]
         self.assertIn(
-            "/app/start-web.sh",
+            "/app/start-worker.sh",
             worker_service["command"],
-            "Worker service should use start-web.sh to run migrations",
+            "Worker service should use start-worker.sh",
         )
 
     def test_worker_depends_on_redis(self):

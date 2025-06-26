@@ -21,6 +21,9 @@ settings.TESTING = True
 class MockAudioSegment:
     """Mock AudioSegment for testing."""
 
+    def __init__(self):
+        self.duration_seconds = 10.0  # Default duration for testing
+
     @classmethod
     def empty(cls):
         """Return empty mock."""
@@ -31,21 +34,31 @@ class MockAudioSegment:
         """Mock mp3 loading."""
         return cls()
 
-    def __add__(self, other):
-        """Mock addition."""
-        return self
-
-    def export(self, path, format=None):
-        """Mock export."""
-        with open(path, "w") as f:
-            f.write("mock audio data")
-
     @classmethod
     def silent(cls, duration=0):
         """Return a silent MockAudioSegment of given duration (ms)."""
         segment = cls()
         segment.duration_seconds = duration / 1000 if duration else 0
         return segment
+
+    def __add__(self, other):
+        """Mock addition."""
+        return self
+
+    def __iadd__(self, other):
+        """Mock in-place addition."""
+        return self
+
+    def set_frame_rate(self, rate):
+        """Mock frame rate setting."""
+        return self
+
+    def export(self, path, format=None, bitrate=None, tags=None, parameters=None):
+        """Mock export."""
+        # Ensure parent directory exists
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(b"mock audio data")
 
 
 # Create mock for pydub module

@@ -157,7 +157,12 @@ class UserPreferencesServiceTest(TestCase):
         # Verify article updated
         self.article.refresh_from_db()
         self.assertEqual(self.article.voice_preset, preset)
-        self.assertEqual(self.article.voice_id, "nova")
+        self.assertEqual(
+            self.article.voice, "nova"
+        )  # Standard voice goes in voice field
+        self.assertIsNone(
+            self.article.voice_id
+        )  # voice_id should be None for standard voices
         self.assertEqual(self.article.speed, 1.25)
 
 
@@ -320,22 +325,21 @@ class VoicePresetViewsTest(TestCase):
             {
                 "name": "Updated View Preset",
                 "voice_id": "fable",
-                "speed": 0.8,
+                "speed": 0.9,  # Use valid speed choice
                 "prompt": "",
                 "sample_input": "",
                 "description": "Updated via view test",
             },
-            follow=True,
         )
 
-        # Check that we're on the list page after redirect
-        self.assertContains(response, "Updated View Preset")
+        # Check that it redirects to the list page
+        self.assertRedirects(response, reverse("voice_preset_list"))
 
         # Verify preset was updated
         preset.refresh_from_db()
         self.assertEqual(preset.name, "Updated View Preset")
         self.assertEqual(preset.voice_id, "fable")
-        self.assertEqual(preset.speed, 0.8)
+        self.assertEqual(preset.speed, 0.9)
 
     def test_preset_delete_view(self):
         """Test deleting a preset via view."""

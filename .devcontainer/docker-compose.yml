@@ -6,6 +6,7 @@ x-environment: &default-environment
   DJANGO_DEBUG: "True"
   CELERY_BROKER_URL: redis://redis:6379/0
   PYTHONPATH: /workspaces/RSS-TTS
+  IN_DOCKER: "True"
 
 services:
   # Development container
@@ -20,8 +21,8 @@ services:
     environment:
       <<: *default-environment
       SITE_URL: ${CODESPACE_NAME:+https://${CODESPACE_NAME}-9084.app.github.dev}
-    entrypoint: ["/workspaces/RSS-TTS/.devcontainer/entrypoint.sh"]
-    command: ["bash", "-c", "cd /workspaces/RSS-TTS && exec bash"]
+    entrypoint: [ "/workspaces/RSS-TTS/.devcontainer/entrypoint.sh" ]
+    command: [ "bash", "-c", "cd /workspaces/RSS-TTS && exec bash" ]
     working_dir: /workspaces/RSS-TTS
     ports:
       - 9000:9000
@@ -70,7 +71,7 @@ services:
       - ../redis.conf:/usr/local/etc/redis/redis.conf
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -81,6 +82,7 @@ services:
 volumes:
   sqlite-data:
   redis-data:
+
 
 networks:
   rsstts:

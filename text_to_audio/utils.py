@@ -614,9 +614,7 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
     if use_firecrawl_default and api_key:
         success, html, error = fetch_html_with_firecrawl(url)
         if not success:
-            logger.warning(
-                "Firecrawl default fetch failed for %s: %s", url, error
-            )
+            logger.warning("Firecrawl default fetch failed for %s: %s", url, error)
 
     if not success:
         success, html, error = fetch_url_content(url, max_retries=1)

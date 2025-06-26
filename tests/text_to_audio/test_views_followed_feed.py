@@ -101,8 +101,10 @@ class FollowedFeedUITests(TestCase):
         }
         response = self.client.post(reverse("followedfeed-create"), data)
         self.assertEqual(response.status_code, 200)  # Should re-render form with errors
-        # type: ignore[arg-type]
-        self.assertFormError(response, "form", "url", "Enter a valid URL.")
+        # Check form errors in the response context
+        form = response.context["form"]
+        self.assertIn("url", form.errors)
+        self.assertIn("Enter a valid URL.", str(form.errors["url"]))
         self.assertFalse(
             FollowedFeed.objects.filter(user=self.user, url="not_a_valid_url").exists()
         )
@@ -280,7 +282,7 @@ class FollowedFeedUITests(TestCase):
         self.assertEqual(response.status_code, 200)
         form = response.context["form"]
         self.assertTrue(form.fields["destination_feed"].widget.attrs.get("disabled"))
-        self.assertContains(response, "You don't have any feeds yet.")
+        self.assertContains(response, "You don&#x27;t have any feeds yet.")
         self.client.logout()  # Clean up session for next test
 
     def test_create_followed_feed_no_destination_feeds_post_fails(self):
@@ -298,8 +300,9 @@ class FollowedFeedUITests(TestCase):
         }
         response = self.client.post(reverse("followedfeed-create"), data)
         self.assertEqual(response.status_code, 200)  # Should re-render form
-        self.assertFormError(
-            response, "form", "destination_feed", "This field is required."
-        )  # type: ignore[arg-type]
+        # Check form errors in the response context
+        form = response.context["form"]
+        self.assertIn("destination_feed", form.errors)
+        self.assertIn("This field is required.", str(form.errors["destination_feed"]))
         self.assertFalse(FollowedFeed.objects.filter(user=no_feeds_user).exists())
         self.client.logout()

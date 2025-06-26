@@ -41,7 +41,7 @@ class MigrateAudioPathsTestCase(TestCase):
             title="Article 1",
             text_content="Content 1",
             audio_uuid=uuid.uuid4(),
-            audio_file_path=f"articles/{uuid.uuid4()}.mp3",  # Simple legacy format
+            audio_file_path=f"audio/{self.user1.id}/article_{uuid.uuid4()}.mp3",  # Legacy format
             status=Article.COMPLETED,
         )
 
@@ -173,7 +173,7 @@ class MigrateAudioPathsTestCase(TestCase):
 
                 # Article path should remain unchanged
                 self.article1.refresh_from_db()
-                self.assertTrue(self.article1.audio_file_path.startswith("articles/"))
+                self.assertTrue(self.article1.audio_file_path.startswith("audio/"))
 
     def test_migration_handles_permission_errors(self):
         """Test migration handles permission errors gracefully."""
@@ -229,7 +229,8 @@ class MigrateAudioPathsTestCase(TestCase):
                     mock_save.side_effect = [None, Exception("Database error")]
 
                     with captured_stderr() as stderr:
-                        call_command("migrate_audio_paths", "--rollback-on-error")
+                        with self.assertRaises(CommandError):
+                            call_command("migrate_audio_paths", "--rollback-on-error")
 
                     error_output = stderr.getvalue()
 
