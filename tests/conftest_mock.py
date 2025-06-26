@@ -36,8 +36,10 @@ class MockAudioSegment:
 
     @classmethod
     def silent(cls, duration=0):
-        """Mock silent audio segment."""
-        return cls()
+        """Return a silent MockAudioSegment of given duration (ms)."""
+        segment = cls()
+        segment.duration_seconds = duration / 1000 if duration else 0
+        return segment
 
     def __add__(self, other):
         """Mock addition."""
@@ -57,13 +59,6 @@ class MockAudioSegment:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
             f.write(b"mock audio data")
-
-    @classmethod
-    def silent(cls, duration=0):
-        """Return a silent MockAudioSegment of given duration (ms)."""
-        segment = cls()
-        segment.duration_seconds = duration / 1000 if duration else 0
-        return segment
 
 
 # Create mock for pydub module

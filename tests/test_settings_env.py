@@ -83,4 +83,3 @@ class TestSettingsEnvironment(unittest.TestCase):
         os.environ["DJANGO_SECRET_KEY"] = "test"
         settings = self._import_settings()
         self.assertFalse(settings.USE_FIRECRAWL_BY_DEFAULT)
-

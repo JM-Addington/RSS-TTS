@@ -14,9 +14,7 @@ class FirecrawlTests(SimpleTestCase):
     @patch("text_to_audio.utils.fetch_url_content")
     @patch("text_to_audio.utils.fetch_html_with_firecrawl")
     @patch("text_to_audio.utils.extract_article_text")
-    def test_use_firecrawl_by_default(
-        self, mock_extract, mock_firecrawl, mock_fetch
-    ):
+    def test_use_firecrawl_by_default(self, mock_extract, mock_firecrawl, mock_fetch):
         """Firecrawl should be used when enabled by default."""
         mock_firecrawl.return_value = (True, "<html></html>", None)
         mock_extract.return_value = (True, "txt", None)
@@ -33,9 +31,7 @@ class FirecrawlTests(SimpleTestCase):
     @patch("text_to_audio.utils.fetch_url_content")
     @patch("text_to_audio.utils.fetch_html_with_firecrawl")
     @patch("text_to_audio.utils.extract_article_text")
-    def test_firecrawl_fallback_on_4xx(
-        self, mock_extract, mock_firecrawl, mock_fetch
-    ):
+    def test_firecrawl_fallback_on_4xx(self, mock_extract, mock_firecrawl, mock_fetch):
         """Firecrawl should be used when direct fetch returns 4xx."""
         mock_fetch.return_value = (
             False,
@@ -52,4 +48,3 @@ class FirecrawlTests(SimpleTestCase):
         self.assertIsNone(error)
         mock_fetch.assert_called_once_with("https://example.com")
         mock_firecrawl.assert_called_once_with("https://example.com")
-
