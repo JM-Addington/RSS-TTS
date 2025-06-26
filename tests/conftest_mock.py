@@ -58,6 +58,13 @@ class MockAudioSegment:
         with open(path, "wb") as f:
             f.write(b"mock audio data")
 
+    @classmethod
+    def silent(cls, duration=0):
+        """Return a silent MockAudioSegment of given duration (ms)."""
+        segment = cls()
+        segment.duration_seconds = duration / 1000 if duration else 0
+        return segment
+
 
 # Create mock for pydub module
 mock_pydub = MagicMock()

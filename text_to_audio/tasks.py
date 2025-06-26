@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import time  # Added for timing API calls
 import traceback
@@ -24,9 +25,11 @@ from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
 from .services.chunk_tone_service import ChunkToneService
-from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
+from .services.content_analysis import (MAX_ANALYSIS_WORDS,
+                                        ContentAnalysisService)
 from .services.voice_configuration import VoiceConfigurationService
-from .services.voice_parameter_generation import VoiceParameterGenerationService
+from .services.voice_parameter_generation import \
+    VoiceParameterGenerationService
 from .utils import process_url_to_text
 
 # Configure logging
@@ -34,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Add a short pause to the end of exported audio files
 ENDING_SILENCE_MS = 2000
+VOLUME_GAIN_DB = 20 * math.log10(1.1)  # ~10% volume increase
 
 
 def _clamp_tts_speed(speed: float) -> float:
@@ -1209,9 +1213,9 @@ def process_article(self, article_id: int) -> str:
             # It's safer to copy/process the file rather than renaming, then clean up.
             # For single files, we still re-export to apply tags and ensure format.
             audio_segment = AudioSegment.from_mp3(single_audio_path)
-            audio_segment = audio_segment.set_frame_rate(
-                44100
-            )  # Ensure consistent frame rate
+            audio_segment = audio_segment.set_frame_rate(44100).apply_gain(
+                VOLUME_GAIN_DB
+            )  # Ensure consistent frame rate and volume
             audio_segment += AudioSegment.silent(duration=ENDING_SILENCE_MS)
             audio_segment.export(
                 str(final_audio_path),
@@ -1239,9 +1243,9 @@ def process_article(self, article_id: int) -> str:
                     ) from e
 
             if combined_audio.duration_seconds > 0:
-                combined_audio = combined_audio.set_frame_rate(
-                    44100
-                )  # Ensure consistent frame rate
+                combined_audio = combined_audio.set_frame_rate(44100).apply_gain(
+                    VOLUME_GAIN_DB
+                )  # Ensure consistent frame rate and volume
                 combined_audio += AudioSegment.silent(duration=ENDING_SILENCE_MS)
                 combined_audio.export(
                     str(final_audio_path),
@@ -1496,3 +1500,79 @@ def check_stale_articles():
         logger.debug("No stale articles found.")
 
     return f"Checked for stale articles older than {timeout_seconds} seconds."
+
+
+@shared_task
+def import_followed_feeds() -> str:
+    """Check followed RSS feeds and create articles for new entries."""
+
+    import feedparser
+
+    from .models import FollowedFeed
+
+    followed_feeds = FollowedFeed.objects.filter(is_active=True)
+    processed_feeds = 0
+
+    for followed in followed_feeds:
+        try:
+            parsed = feedparser.parse(followed.url)
+        except Exception as exc:  # pragma: no cover - safeguard
+            logger.error("Failed to fetch feed %s: %s", followed.url, exc)
+            continue
+
+        entries = getattr(parsed, "entries", [])
+        if not entries:
+            followed.last_checked = timezone.now()
+            followed.save(update_fields=["last_checked"])
+            continue
+
+        new_entries: list = []
+        for entry in entries:
+            guid = (
+                getattr(entry, "id", None)
+                or getattr(entry, "guid", None)
+                or getattr(entry, "link", None)
+            )
+            if followed.last_guid and guid == followed.last_guid:
+                break
+            new_entries.append(entry)
+
+        for entry in reversed(new_entries):
+            guid = (
+                getattr(entry, "id", None)
+                or getattr(entry, "guid", None)
+                or getattr(entry, "link", None)
+            )
+            title = getattr(entry, "title", "")[:1024]
+            link = getattr(entry, "link", "")
+            text = ""
+
+            if followed.fetch_full_text and link:
+                success, extracted, _ = process_url_to_text(link)
+                if success and extracted:
+                    text = extracted
+
+            if not text:
+                text = getattr(entry, "summary", None) or getattr(
+                    entry, "description", ""
+                )
+
+            article = Article.objects.create(
+                feed=followed.destination_feed,
+                title=title or "Untitled Article",
+                source_url=link,
+                text_content=text or "",
+                status=Article.PROCESSING,
+            )
+
+            task = process_article.delay(article.pk)
+            article.celery_task_id = task.id
+            article.save(update_fields=["celery_task_id", "updated_at"])
+
+            followed.last_guid = guid
+
+        followed.last_checked = timezone.now()
+        followed.save(update_fields=["last_guid", "last_checked"])
+        processed_feeds += 1
+
+    return f"Processed {processed_feeds} followed feeds"

@@ -14,3 +14,4 @@ dj-database-url>=2.1.0,<3.0.0
 psycopg2-binary>=2.9.0,<3.0.0
 PyPDF2>=3.0.0,<4.0.0
 pydantic>=2.0,<3.0
+feedparser>=6.0,<7.0

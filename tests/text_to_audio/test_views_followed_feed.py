@@ -44,11 +44,13 @@ class FollowedFeedUITests(TestCase):
             user=self.user,
             url="https://example.com/feed1",
             destination_feed=self.user_destination_feed,
+            fetch_full_text=True,
         )
         FollowedFeed.objects.create(
             user=self.user,
             url="https://example.com/feed2",
             destination_feed=self.user_destination_feed,
+            fetch_full_text=True,
         )
         # Create a followed feed for another user (should not be visible)
         other_user_feed = Feed.objects.create(
@@ -58,6 +60,7 @@ class FollowedFeedUITests(TestCase):
             user=self.other_user,
             url="https://example.com/feed_other",
             destination_feed=other_user_feed,
+            fetch_full_text=True,
         )
 
         response = self.client.get(reverse("followedfeed-list"))
@@ -78,6 +81,7 @@ class FollowedFeedUITests(TestCase):
         data = {
             "url": "https://example.com/new_feed_valid",
             "destination_feed": self.user_destination_feed.pk,
+            "fetch_full_text": True,
             "is_active": True,
         }
         response = self.client.post(reverse("followedfeed-create"), data)
@@ -93,6 +97,7 @@ class FollowedFeedUITests(TestCase):
         data = {
             "url": "not_a_valid_url",  # Invalid URL
             "destination_feed": self.user_destination_feed.pk,
+            "fetch_full_text": True,
         }
         response = self.client.post(reverse("followedfeed-create"), data)
         self.assertEqual(response.status_code, 200)  # Should re-render form with errors
@@ -110,6 +115,7 @@ class FollowedFeedUITests(TestCase):
             user=self.user,
             url="https://example.com/to_update",
             destination_feed=self.user_destination_feed,
+            fetch_full_text=True,
         )
         response = self.client.get(
             reverse("followedfeed-edit", kwargs={"pk": followed_feed.pk})
@@ -125,10 +131,12 @@ class FollowedFeedUITests(TestCase):
             url="https://example.com/to_update_post",
             destination_feed=self.user_destination_feed,
             is_active=True,
+            fetch_full_text=True,
         )
         data = {
             "url": "https://example.com/updated_url",
             "destination_feed": self.user_destination_feed_2.pk,  # Change destination
+            "fetch_full_text": True,
             "is_active": False,  # Change active status
         }
         response = self.client.post(
@@ -150,6 +158,7 @@ class FollowedFeedUITests(TestCase):
             user=self.other_user,
             url="https://example.com/other_user_feed",
             destination_feed=other_user_feed_dest,
+            fetch_full_text=True,
         )
         response = self.client.get(
             reverse("followedfeed-edit", kwargs={"pk": other_followed_feed.pk})
@@ -163,6 +172,7 @@ class FollowedFeedUITests(TestCase):
             user=self.user,
             url="https://example.com/to_delete",
             destination_feed=self.user_destination_feed,
+            fetch_full_text=True,
         )
         response = self.client.get(
             reverse("followedfeed-delete", kwargs={"pk": followed_feed.pk})
@@ -176,6 +186,7 @@ class FollowedFeedUITests(TestCase):
             user=self.user,
             url="https://example.com/to_delete_post",
             destination_feed=self.user_destination_feed,
+            fetch_full_text=True,
         )
         feed_pk = followed_feed.pk
         response = self.client.post(
@@ -193,6 +204,7 @@ class FollowedFeedUITests(TestCase):
             user=self.other_user,
             url="https://example.com/other_user_feed_del",
             destination_feed=other_user_feed_dest,
+            fetch_full_text=True,
         )
         response = self.client.post(
             reverse("followedfeed-delete", kwargs={"pk": other_followed_feed.pk})
@@ -205,6 +217,7 @@ class FollowedFeedUITests(TestCase):
         data = {
             "url": "https://example.com/valid_form_url",
             "destination_feed": self.user_destination_feed.pk,
+            "fetch_full_text": True,
             "is_active": True,
         }
         form = FollowedFeedForm(data=data, user=self.user)
@@ -215,6 +228,7 @@ class FollowedFeedUITests(TestCase):
         data = {
             "url": "invalid-url",
             "destination_feed": self.user_destination_feed.pk,
+            "fetch_full_text": True,
         }
         form = FollowedFeedForm(data=data, user=self.user)
         self.assertFalse(form.is_valid())
@@ -224,6 +238,7 @@ class FollowedFeedUITests(TestCase):
     def test_followed_feed_form_missing_destination(self):
         """Test FollowedFeedForm with missing destination_feed."""
         data = {"url": "https://example.com/valid_form_url"}  # Missing destination_feed
+        data["fetch_full_text"] = True
         form = FollowedFeedForm(data=data, user=self.user)
         self.assertFalse(form.is_valid())
         self.assertIn("destination_feed", form.errors)
@@ -282,6 +297,7 @@ class FollowedFeedUITests(TestCase):
         data = {
             "url": "https://example.com/feed_no_dest",
             # No destination_feed provided, and user has none
+            "fetch_full_text": True,
             "is_active": True,
         }
         response = self.client.post(reverse("followedfeed-create"), data)

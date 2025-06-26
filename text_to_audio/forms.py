@@ -440,11 +440,12 @@ class FollowedFeedForm(forms.ModelForm):
         """Meta options for the FollowedFeedForm."""
 
         model = FollowedFeed
-        fields = ["url", "destination_feed", "is_active"]
+        fields = ["url", "destination_feed", "fetch_full_text", "is_active"]
         widgets = {
             "url": forms.URLInput(
                 attrs={"placeholder": "https://example.com/rss_feed"}
             ),
+            "fetch_full_text": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from django.conf import settings
 from django.test import TestCase
 
+from tests.helpers import make_chat_completion
 from text_to_audio.services.content_analysis import ContentAnalysisService
 
 # Ensure settings are configured if not already
@@ -72,7 +73,6 @@ class ContentAnalysisServiceTest(TestCase):
             raise ValueError(f"Unexpected json.loads call with: {s[:100]}...")
 
         mock_json_loads.side_effect = side_effect_json_loads
-
         result = self.service.analyze_content(sample_text)
 
         self.assertEqual(result, mock_llm_response_content)
@@ -95,7 +95,9 @@ class ContentAnalysisServiceTest(TestCase):
         mock_choice.message = mock_message
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
-        self.mock_openai_client.chat.completions.create.return_value = mock_response
+        self.mock_openai_client.chat.completions.create.return_value = (
+            make_chat_completion(malformed_json_string)
+        )
 
         result = self.service.analyze_content(sample_text)
 
@@ -119,7 +121,9 @@ class ContentAnalysisServiceTest(TestCase):
         mock_choice.message = mock_message
         mock_response = MagicMock()
         mock_response.choices = [mock_choice]
-        self.mock_openai_client.chat.completions.create.return_value = mock_response
+        self.mock_openai_client.chat.completions.create.return_value = (
+            make_chat_completion(non_json_response)
+        )
 
         result = self.service.analyze_content(sample_text)
 
