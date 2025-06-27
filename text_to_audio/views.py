@@ -570,9 +570,12 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             if not success:
                 # If regular fetch fails, try Firecrawl for HTML
                 from django.conf import settings
+
                 api_key = getattr(settings, "FIRECRAWL_API_KEY", None)
                 if api_key and any(code in error for code in ["404", "403", "400"]):
-                    fc_success, html, fc_error = fetch_html_with_firecrawl(article.source_url)
+                    fc_success, html, fc_error = fetch_html_with_firecrawl(
+                        article.source_url
+                    )
                     if not fc_success:
                         # If both fail, we still have the text from process_url_to_text
                         html = f"<html><body><p>{url_text}</p></body></html>"
