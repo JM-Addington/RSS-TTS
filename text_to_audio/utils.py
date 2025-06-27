@@ -216,14 +216,14 @@ def fetch_html_with_firecrawl(url: str) -> Tuple[bool, str, Optional[str]]:
             )
 
         data = response.json()
-        
+
         # The new API returns data in the 'data' field
         if 'data' in data:
             html = data['data'].get("html", "")
         else:
             # Fallback for older API responses
             html = data.get("html") or data.get("content", "")
-            
+
         if not html:
             return False, "", "Firecrawl response contained no HTML"
 

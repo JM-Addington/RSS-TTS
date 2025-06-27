@@ -563,7 +563,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             if not url_success:
                 form.add_error("source_url", url_error)
                 return self.form_invalid(form)
-            
+
             # We need HTML for title extraction, so fetch it separately if needed
             # Since process_url_to_text returns text, we may need HTML for title extraction
             success, html, error = fetch_url_content(article.source_url)
