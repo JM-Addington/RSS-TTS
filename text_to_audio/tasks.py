@@ -583,10 +583,8 @@ def process_article(self, article_id: int) -> str:
                         or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
                     )
 
-                # Prepare text for chunking (include title)
+                # Prepare text for chunking (title removed to prevent duplication)
                 text_for_chunking = article.text_content
-                if article.title:
-                    text_for_chunking = f"{article.title}.\n\n{article.text_content}"
 
                 # Check if article has a voice preset (user explicitly selected a voice)
                 if article.voice_preset:
@@ -1029,9 +1027,8 @@ def process_article(self, article_id: int) -> str:
                         os.remove(temp_file)
                 generated_audio_files = []
 
+            # Use article content without title to prevent duplication
             text_for_audio = article.text_content
-            if article.title:
-                text_for_audio = f"{article.title}.\n\n{article.text_content}"
 
             _, text_chunks = _legacy_chunk_text(text_for_audio)
             if not text_chunks:

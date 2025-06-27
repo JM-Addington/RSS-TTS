@@ -159,6 +159,7 @@ class FeedArticleSubmitView(APIView):
                 api_key = getattr(settings, "FIRECRAWL_API_KEY", None)
                 if api_key and any(code in error for code in ["404", "403", "400"]):
                     from .utils import fetch_html_with_firecrawl
+
                     fc_success, html, fc_error = fetch_html_with_firecrawl(
                         article.source_url
                     )
