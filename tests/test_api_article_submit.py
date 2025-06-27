@@ -58,10 +58,13 @@ class FeedArticleSubmitAPITests(TestCase):
         mock_process.delay.assert_called_once_with(article.id)
 
     @patch("text_to_audio.api_views.fetch_url_content")
+    @patch("text_to_audio.api_views.process_url_to_text")
     @patch("text_to_audio.api_views.process_article")
-    def test_submit_url_article(self, mock_process, mock_fetch):
+    def test_submit_url_article(self, mock_process, mock_process_url, mock_fetch):
         """Test submitting a new article with a URL."""
-        # Mock URL content fetch
+        # Mock URL text extraction
+        mock_process_url.return_value = (True, "Test content extracted", None)
+        # Mock URL HTML fetch for title extraction
         mock_fetch.return_value = (
             True,
             "<html><head><title>Test URL Title</title></head><body>Test content</body></html>",
@@ -86,18 +89,20 @@ class FeedArticleSubmitAPITests(TestCase):
         article = Article.objects.first()
         self.assertEqual(article.title, "Test URL Title")
         self.assertEqual(article.source_url, "https://example.com/test-article")
+        self.assertEqual(article.text_content, "Test content extracted")
         self.assertEqual(article.feed, self.feed)
         self.assertEqual(article.status, Article.PROCESSING)
 
         # Verify task was called
         mock_process.delay.assert_called_once_with(article.id)
+        mock_process_url.assert_called_once_with("https://example.com/test-article")
         mock_fetch.assert_called_once_with("https://example.com/test-article")
 
-    @patch("text_to_audio.api_views.fetch_url_content")
-    def test_submit_invalid_url(self, mock_fetch):
+    @patch("text_to_audio.api_views.process_url_to_text")
+    def test_submit_invalid_url(self, mock_process_url):
         """Test submitting an article with an invalid URL."""
         # Mock URL content fetch failure
-        mock_fetch.return_value = (False, None, "Failed to fetch URL")
+        mock_process_url.return_value = (False, "", "Failed to fetch URL")
 
         # Prepare test data
         payload = {
