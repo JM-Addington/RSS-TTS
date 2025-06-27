@@ -23,7 +23,7 @@ services:
     env_file:
       - ../.env
     entrypoint: [ "/workspaces/RSS-TTS/.devcontainer/entrypoint.sh" ]
-    command: [ "bash", "-c", "cd /workspaces/RSS-TTS && exec bash -c 'sleep infinity'" ]
+    command: [ "bash", "-c", "cd /workspaces/RSS-TTS && exec bash" ]
     working_dir: /workspaces/RSS-TTS
     ports:
       - 9000:9000

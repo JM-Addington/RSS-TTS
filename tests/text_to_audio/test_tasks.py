@@ -129,6 +129,17 @@ class ChunkTextTests(TestCase):
         for chunk in chunks:
             self.assertLessEqual(len(chunk), 20)
 
+        # Test edge case: text length equals max_length with no natural breaks
+        text_exact = "abcdefghijklmnopqrst"  # exactly 20 chars, no spaces
+        success_exact, chunks_exact = _legacy_chunk_text(text_exact, max_length=20)
+        # Since there are no natural breaks, this should still be considered a forced split
+        # But with our current logic, if len(text) < max_length, it returns len(text)
+        # Since 20 == 20 (not < 20), it should go through the natural break search
+        # and since no natural breaks are found, should return 0, leading to forced split
+        self.assertTrue(success_exact)  # This should be True since text fits exactly
+        self.assertEqual(len(chunks_exact), 1)
+        self.assertEqual(chunks_exact[0], text_exact)
+
     def test_mixed_content_with_various_breaks(self):
         text = ("Short. Longer sentence here.\n\nNew paragraph. Another sentence. And a final one.")
         success, chunks = _legacy_chunk_text(text, max_length=30)
@@ -244,6 +255,8 @@ class ProcessArticleTests(TestCase):
         if TEST_MEDIA_ROOT.exists():
             shutil.rmtree(TEST_MEDIA_ROOT)
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
+    @patch("text_to_audio.tasks.AudioSegment.silent")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_single_chunk(self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient):
@@ -341,10 +354,23 @@ class ProcessArticleTests(TestCase):
         mock_tts_response.usage = MagicMock(total_tokens=50)
         mock_tts_response.stream_to_file.side_effect = self.create_dummy_file_side_effect
         mock_speech_create.return_value = mock_tts_response
-        chunks_data = ["Chunk 1 content.", "Second chunk here."]
+        chunks_data = ["Chunk 1 content.", "Second chunk here."]  # 3 words, 3 words
 
-        with patch("text_to_audio.tasks._legacy_chunk_text", return_value=(True, chunks_data)), \
-             patch.object(Path, "rename"):
+        # Create a patch to force return of multiple chunks and to mock audio processing
+        with patch(
+            "text_to_audio.tasks._legacy_chunk_text"
+        ) as mock_legacy_chunk_text, patch(
+            "text_to_audio.tasks.AudioSegment"
+        ) as mock_audio_segment_cls, patch.object(
+            Path, "rename"
+        ):  # Prevent file rename attempts
+
+            # Return 2 chunks to force multi-chunk processing
+            mock_legacy_chunk_text.return_value = (True, chunks_data)
+            mock_audio_segment_cls.from_mp3.return_value = MagicMock()
+            mock_audio_segment_cls.empty.return_value = MagicMock()
+            mock_audio_segment_cls.silent.return_value = MagicMock()
+
             process_article(self.article.id)
 
         self.article.refresh_from_db()
@@ -504,6 +530,7 @@ class ProcessArticleTests(TestCase):
                     process_article(self.article.id)
                 self.assertTrue(mock_os_remove.call_count >= 1) # At least the first successful chunk's temp file
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
