@@ -1,4 +1,3 @@
-version: "3.9"
 
 # Environment variables applied to all services
 x-environment: &default-environment
@@ -21,8 +20,10 @@ services:
     environment:
       <<: *default-environment
       SITE_URL: ${CODESPACE_NAME:+https://${CODESPACE_NAME}-9084.app.github.dev}
+    env_file:
+      - ../.env
     entrypoint: [ "/workspaces/RSS-TTS/.devcontainer/entrypoint.sh" ]
-    command: [ "bash", "-c", "cd /workspaces/RSS-TTS && exec bash" ]
+    command: [ "bash", "-c", "cd /workspaces/RSS-TTS && exec bash -c 'sleep infinity'" ]
     working_dir: /workspaces/RSS-TTS
     ports:
       - 9000:9000
@@ -49,6 +50,8 @@ services:
       - redis
     networks:
       - rsstts
+    env_file:
+      - ../.env
 
   # Caddy web server for serving static files and reverse proxy
   caddy:
