@@ -43,3 +43,4 @@ source ~/.bashrc
 
 # Keep container running with a proper interactive shell
 exec "$@"
+sleep infinity

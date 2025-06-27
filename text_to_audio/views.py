@@ -43,7 +43,9 @@ from .utils import (
     extract_article_text,
     extract_text_from_pdf,
     extract_title_from_html,
+    fetch_html_with_firecrawl,
     fetch_url_content,
+    process_url_to_text,
     safe_delete_audio_file,
 )
 
@@ -556,10 +558,27 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                     article.title = os.path.splitext(filename)[0]
 
         elif article.source_url:  # Process URL only if no document is uploaded
+            # Use process_url_to_text to get both HTML and text with Firecrawl fallback support
+            url_success, url_text, url_error = process_url_to_text(article.source_url)
+            if not url_success:
+                form.add_error("source_url", url_error)
+                return self.form_invalid(form)
+            
+            # We need HTML for title extraction, so fetch it separately if needed
+            # Since process_url_to_text returns text, we may need HTML for title extraction
             success, html, error = fetch_url_content(article.source_url)
             if not success:
-                form.add_error("source_url", error)
-                return self.form_invalid(form)
+                # If regular fetch fails, try Firecrawl for HTML
+                from django.conf import settings
+                api_key = getattr(settings, "FIRECRAWL_API_KEY", None)
+                if api_key and any(code in error for code in ["404", "403", "400"]):
+                    fc_success, html, fc_error = fetch_html_with_firecrawl(article.source_url)
+                    if not fc_success:
+                        # If both fail, we still have the text from process_url_to_text
+                        html = f"<html><body><p>{url_text}</p></body></html>"
+                else:
+                    # If no API key or different error, create basic HTML from text
+                    html = f"<html><body><p>{url_text}</p></body></html>"
 
             if not article.title:
                 title = extract_title_from_html(html)
@@ -602,16 +621,9 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
 
                 article.title = title or f"Article from {article.source_url}"
             # If text_content is still empty (e.g. not file upload, and no direct text input)
-            # then extract from URL
+            # then use the text we already extracted from process_url_to_text
             if not article.text_content:
-                success, text_from_url, error_extraction = extract_article_text(html)
-                if not success:
-                    form.add_error(
-                        "source_url",
-                        error_extraction or "Failed to extract text from URL.",
-                    )
-                    return self.form_invalid(form)
-                article.text_content = text_from_url
+                article.text_content = url_text
 
         article.save()
         task = process_article.delay(article.pk)
