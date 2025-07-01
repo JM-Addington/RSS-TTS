@@ -43,6 +43,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Check response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json(), {"success": True})
         self.assertEqual(Article.objects.count(), 1)
 
         # Verify article data
@@ -83,6 +84,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Check response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json(), {"success": True})
         self.assertEqual(Article.objects.count(), 1)
 
         # Verify article data
@@ -195,6 +197,7 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Check response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json(), {"success": True})
         self.assertEqual(Article.objects.count(), 1)
 
         # Verify article data

@@ -191,14 +191,5 @@ class FeedArticleSubmitView(APIView):
         # Start processing the article
         process_article.delay(article.id)
 
-        # Return success response with article details
-        return Response(
-            {
-                "id": article.id,
-                "title": article.title,
-                "status": article.status,
-                "created_at": article.created_at,
-                "message": "Article submitted successfully and is being processed.",
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        # Return success response without article details
+        return Response({"success": True}, status=status.HTTP_201_CREATED)
