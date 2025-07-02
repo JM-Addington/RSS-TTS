@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import logging
-import math
 import os
 import time  # Added for timing API calls
 import traceback
@@ -35,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 # Add a short pause to the end of exported audio files
 ENDING_SILENCE_MS = 2000
-VOLUME_GAIN_DB = 20 * math.log10(1.1)  # ~10% volume increase
+VOLUME_GAIN_DB = 3.0  # ~3dB volume increase
 
 
 def _clamp_tts_speed(speed: float) -> float:

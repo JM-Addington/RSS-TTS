@@ -9,6 +9,7 @@ functionality.
 from __future__ import annotations
 
 import shutil
+import math
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -1236,5 +1237,14 @@ class SpeedClampingUnitTests(TestCase):
         self.assertEqual(_clamp_tts_speed(2.5), 2.5)
         self.assertEqual(_clamp_tts_speed(4.0), 4.0)
 
+
+# New tests for volume gain constant
+class VolumeGainConstantTests(TestCase):
+    def test_volume_gain_constant(self):
+        """Ensure volume is increased by about 3dB."""
+        from text_to_audio.tasks import VOLUME_GAIN_DB
+
+        expected_gain = 3.0
+        self.assertAlmostEqual(VOLUME_GAIN_DB, expected_gain, places=2)
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
