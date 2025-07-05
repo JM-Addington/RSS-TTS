@@ -8,8 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import ValidationError
 
-from text_to_audio.schemas.chunk_tone import (ChunkData, ChunkTonePayload,
-                                              TTSVoice)
+from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoice
 from text_to_audio.services.chunk_tone_service import ChunkToneService
 
 

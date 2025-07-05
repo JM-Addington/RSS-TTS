@@ -3,10 +3,8 @@
 import logging
 
 from text_to_audio.services.content_analysis import ContentAnalysisService
-from text_to_audio.services.genre_classification import \
-    GenreClassificationService
-from text_to_audio.services.voice_genre_templates import \
-    VoiceGenreTemplateService
+from text_to_audio.services.genre_classification import GenreClassificationService
+from text_to_audio.services.voice_genre_templates import VoiceGenreTemplateService
 
 logger = logging.getLogger(__name__)
 

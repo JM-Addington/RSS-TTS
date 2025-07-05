@@ -5,8 +5,7 @@
 from django.test import TestCase, override_settings
 
 from text_to_audio.services.content_analysis import ContentAnalysisService
-from text_to_audio.services.genre_classification import \
-    GenreClassificationService
+from text_to_audio.services.genre_classification import GenreClassificationService
 
 
 class ServiceHelperFunctionTests(TestCase):
