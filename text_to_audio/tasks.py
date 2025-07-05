@@ -14,6 +14,7 @@ import uuid
 from datetime import timedelta
 from pathlib import Path
 
+import feedparser
 import openai
 from celery import shared_task  # type: ignore
 from django.conf import settings
@@ -1508,8 +1509,6 @@ def check_stale_articles():
 @shared_task
 def import_followed_feeds() -> str:
     """Check followed RSS feeds and create articles for new entries."""
-
-    import feedparser
 
     from .models import FollowedFeed
 

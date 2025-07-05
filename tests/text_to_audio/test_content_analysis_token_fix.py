@@ -119,6 +119,7 @@ class ContentAnalysisTokenFixTest(TestCase):
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = json.dumps(
             {
+                "summary": "This is a test article summary.",
                 "voices": [
                     {
                         "name": "narrator",
@@ -145,8 +146,8 @@ class ContentAnalysisTokenFixTest(TestCase):
         call_args = self.mock_client.chat.completions.create.call_args
 
         # Verify dynamic max_completion_tokens was calculated (not the default 500)
-        self.assertIn("max_tokens", call_args.kwargs)
-        self.assertNotEqual(call_args.kwargs["max_tokens"], 500)
+        self.assertIn("max_completion_tokens", call_args.kwargs)
+        self.assertNotEqual(call_args.kwargs["max_completion_tokens"], 500)
 
         # Verify result structure
         self.assertIn("voices", result)
@@ -159,6 +160,7 @@ class ContentAnalysisTokenFixTest(TestCase):
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = json.dumps(
             {
+                "summary": "This is a test summary.",
                 "voices": [
                     {
                         "name": "narrator",
@@ -178,7 +180,7 @@ class ContentAnalysisTokenFixTest(TestCase):
 
         # Check that the explicit value was used
         call_args = self.mock_client.chat.completions.create.call_args
-        self.assertEqual(call_args.kwargs["max_tokens"], 1000)
+        self.assertEqual(call_args.kwargs["max_completion_tokens"], 1000)
 
     def test_analyze_long_content_no_truncation(self):
         """Test that long content analysis doesn't get truncated."""
@@ -204,7 +206,11 @@ class ContentAnalysisTokenFixTest(TestCase):
                 }
             )
 
-        large_response = {"voices": voices, "audio_segments": segments}
+        large_response = {
+            "summary": "This is a long article summary.",
+            "voices": voices,
+            "audio_segments": segments,
+        }
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
@@ -221,7 +227,7 @@ class ContentAnalysisTokenFixTest(TestCase):
 
         # Check that a large max_completion_tokens was used
         call_args = self.mock_client.chat.completions.create.call_args
-        max_tokens = call_args.kwargs["max_tokens"]
+        max_tokens = call_args.kwargs["max_completion_tokens"]
         # With 8000 words (~10666 tokens) and gpt-4o-mini (128k), should get much more than 500
         self.assertGreater(max_tokens, 10000)
 
@@ -236,6 +242,7 @@ class ContentAnalysisTokenFixTest(TestCase):
         mock_response1.choices = [MagicMock()]
         mock_response1.choices[0].message.content = json.dumps(
             {
+                "summary": "This is the first chunk summary.",
                 "voices": [
                     {
                         "name": "narrator",
@@ -261,6 +268,7 @@ class ContentAnalysisTokenFixTest(TestCase):
         mock_response2.choices = [MagicMock()]
         mock_response2.choices[0].message.content = json.dumps(
             {
+                "summary": "This is the second chunk summary.",
                 "voices": [
                     {
                         "name": "narrator",
@@ -298,8 +306,8 @@ class ContentAnalysisTokenFixTest(TestCase):
         self.assertEqual(len(result2["voices"]), 2)
         self.assertEqual(len(result2["audio_segments"]), 2)
 
-        # Check that appropriate max_tokens were used for both
+        # Check that appropriate max_completion_tokens were used for both
         calls = self.mock_client.chat.completions.create.call_args_list
         for call in calls:
-            max_tokens = call.kwargs["max_tokens"]
+            max_tokens = call.kwargs["max_completion_tokens"]
             self.assertGreater(max_tokens, 10000)

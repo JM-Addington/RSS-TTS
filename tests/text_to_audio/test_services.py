@@ -27,6 +27,7 @@ class ContentAnalysisServiceTest(TestCase):
         """Test with valid multi-voice JSON output from LLM."""
         sample_text = "This is a test text."
         mock_llm_response_content = {
+            "summary": "This is a test summary with multiple voices.",
             "voices": [
                 {
                     "name": "narrator",
