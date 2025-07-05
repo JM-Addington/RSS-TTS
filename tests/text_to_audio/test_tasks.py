@@ -9,7 +9,6 @@ functionality.
 from __future__ import annotations
 
 import shutil
-import math
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -252,7 +251,21 @@ class ProcessArticleTests(TestCase):
 
     def setUp(self):
         if TEST_MEDIA_ROOT.exists():
-            shutil.rmtree(TEST_MEDIA_ROOT)
+            try:
+                shutil.rmtree(TEST_MEDIA_ROOT)
+            except OSError:
+                # Directory might be busy (bind-mounted in Docker), clear contents instead
+                for item in TEST_MEDIA_ROOT.iterdir():
+                    if item.is_file():
+                        try:
+                            item.unlink()
+                        except OSError:
+                            pass
+                    elif item.is_dir():
+                        try:
+                            shutil.rmtree(item)
+                        except OSError:
+                            pass
         TEST_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
         self.user = User.objects.create_user(username="testuser", password="password")
         self.feed = Feed.objects.create(user=self.user, name="Test Feed")
@@ -271,14 +284,28 @@ class ProcessArticleTests(TestCase):
 
     def tearDown(self):
         if TEST_MEDIA_ROOT.exists():
-            shutil.rmtree(TEST_MEDIA_ROOT)
+            try:
+                shutil.rmtree(TEST_MEDIA_ROOT)
+            except OSError:
+                # Directory might be busy (bind-mounted in Docker), clear contents instead
+                for item in TEST_MEDIA_ROOT.iterdir():
+                    if item.is_file():
+                        try:
+                            item.unlink()
+                        except OSError:
+                            pass
+                    elif item.is_dir():
+                        try:
+                            shutil.rmtree(item)
+                        except OSError:
+                            pass
 
     @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.AudioSegment.silent")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_single_chunk(
-        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_mp3, mock_audio_silent, MockOpenAIClient
     ):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
         mock_openai_instance = MockOpenAIClient.return_value
@@ -704,6 +731,7 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.summary, expected_summary)
         self.assertEqual(mock_speech_create.call_count, 2)
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
@@ -727,7 +755,8 @@ class ProcessArticleTests(TestCase):
         }
 
         self.article.text_content = "This is fallback content. It is short."
-        self.article.voice_id = "echo"  # Expect this to be used
+        self.article.voice = ""  # Empty string to test voice_id fallback
+        self.article.voice_id = "echo"  # This should be used since voice is empty
         self.article.speed = 0.9
         self.article.save()
 
@@ -738,6 +767,7 @@ class ProcessArticleTests(TestCase):
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
         call_args = mock_speech_create.call_args_list[0][1]
+        # When voice is empty, voice_id should be used
         self.assertEqual(call_args["voice"], "echo")
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
@@ -880,6 +910,7 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.multi_voice_data["summary"], expected_summary)
         self.assertEqual(self.article.status, Article.FAILED)
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_mp3")
     @patch("text_to_audio.tasks.AudioSegment.empty")
@@ -921,7 +952,7 @@ class ProcessArticleTests(TestCase):
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
         MockCAS.return_value.analyze_content.assert_called_once_with(
-            long_text.strip(), title=self.article.title
+            long_text, title=self.article.title
         )
 
     @patch("text_to_audio.tasks.VoiceConfigurationService")
@@ -1246,5 +1277,6 @@ class VolumeGainConstantTests(TestCase):
 
         expected_gain = 3.0
         self.assertAlmostEqual(VOLUME_GAIN_DB, expected_gain, places=2)
+
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks

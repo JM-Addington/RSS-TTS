@@ -211,7 +211,8 @@ class SignUpView(CreateView):
         else:
             messages.info(
                 self.request,
-                "Your account has been created successfully. Please wait for an administrator to approve your account before you can log in.",
+                "Your account has been created successfully. Please wait for an administrator to approve "
+                "your account before you can log in.",
             )
             logger.info(f"New user {user.username} created, waiting for admin approval")
 
