@@ -564,7 +564,9 @@ def process_article(self, article_id: int) -> str:
 
         # --- ChunkTone LLM Service (New) or Multi-Voice TTS Generation (Legacy) ---
         chunk_tone_generation_successful = False
-        if settings.ENABLE_CHUNK_TONE_LLM:
+        from appconfig.utils import get_enable_chunk_tone_llm
+
+        if get_enable_chunk_tone_llm():
             try:
                 logger.info(f"Using ChunkToneService for Article ID: {article_id}")
                 chunk_tone_service = ChunkToneService()
@@ -582,9 +584,7 @@ def process_article(self, article_id: int) -> str:
                     )
                 else:
                     fallback_voice = (
-                        article.voice
-                        or article.voice_id
-                        or get_openai_tts_voice()
+                        article.voice or article.voice_id or get_openai_tts_voice()
                     )
 
                 # Prepare text for chunking (title removed to prevent duplication)
@@ -1072,9 +1072,7 @@ def process_article(self, article_id: int) -> str:
             else:
                 # Check voice field first, then voice_id, then default
                 fallback_voice = (
-                    article.voice
-                    or article.voice_id
-                    or get_openai_tts_voice()
+                    article.voice or article.voice_id or get_openai_tts_voice()
                 )
                 fallback_speed = article.speed or 1.0
 

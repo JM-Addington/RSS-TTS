@@ -9,7 +9,6 @@ functionality.
 from __future__ import annotations
 
 import shutil
-import math
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -1246,5 +1245,6 @@ class VolumeGainConstantTests(TestCase):
 
         expected_gain = 3.0
         self.assertAlmostEqual(VOLUME_GAIN_DB, expected_gain, places=2)
+
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks

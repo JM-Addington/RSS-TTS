@@ -26,6 +26,7 @@ from django.views.generic import (
 )
 
 from accounts.forms import CustomUserCreationForm
+from appconfig.utils import get_site_url
 
 from .forms import (
     ArticleDetailForm,
@@ -211,7 +212,10 @@ class SignUpView(CreateView):
         else:
             messages.info(
                 self.request,
-                "Your account has been created successfully. Please wait for an administrator to approve your account before you can log in.",
+                (
+                    "Your account has been created successfully. "
+                    "Please wait for an administrator to approve your account before you can log in."
+                ),
             )
             logger.info(f"New user {user.username} created, waiting for admin approval")
 
@@ -239,8 +243,8 @@ class FeedListView(LoginRequiredMixin, ListView):
 
             # Generate RSS URL
             feed_path = reverse("feed", kwargs={"token": feed.token})
-            if hasattr(settings, "SITE_URL"):
-                feed.rss_url = f"{settings.SITE_URL.rstrip('/')}{feed_path}"
+            if get_site_url():
+                feed.rss_url = f"{get_site_url().rstrip('/')}{feed_path}"
             else:
                 request = self.request
                 domain = request.get_host()
@@ -399,8 +403,8 @@ class FeedArticleListView(LoginRequiredMixin, ListView):
 
         # Generate RSS URL for this specific feed
         feed_path = reverse("feed", kwargs={"token": feed.token})
-        if hasattr(settings, "SITE_URL"):
-            context["feed_url"] = f"{settings.SITE_URL.rstrip('/')}{feed_path}"
+        if get_site_url():
+            context["feed_url"] = f"{get_site_url().rstrip('/')}{feed_path}"
         else:
             request = self.request
             domain = request.get_host()
@@ -409,8 +413,8 @@ class FeedArticleListView(LoginRequiredMixin, ListView):
 
         # API submission URL for this feed
         api_path = reverse("api-feed-article-submit", kwargs={"token": feed.token})
-        if hasattr(settings, "SITE_URL"):
-            context["api_url"] = f"{settings.SITE_URL.rstrip('/')}{api_path}"
+        if get_site_url():
+            context["api_url"] = f"{get_site_url().rstrip('/')}{api_path}"
         else:
             request = self.request
             domain = request.get_host()

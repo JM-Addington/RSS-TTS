@@ -13,6 +13,12 @@ from django.http import Http404
 from django.urls import reverse
 from django.utils.feedgenerator import Rss201rev2Feed
 
+from appconfig.utils import (
+    get_podcast_image_url,
+    get_rss_external_hostname,
+    get_site_url,
+)
+
 from .models import Article
 from .models import Feed as FeedModel
 
@@ -37,13 +43,7 @@ class ExtendedRSSFeed(Rss201rev2Feed):
         handler.addQuickElement(
             "itunes:image",
             "",
-            {
-                "href": (
-                    settings.PODCAST_IMAGE_URL
-                    if hasattr(settings, "PODCAST_IMAGE_URL")
-                    else ""
-                )
-            },
+            {"href": (get_podcast_image_url() or "")},
         )
 
         # Author info
@@ -154,13 +154,13 @@ class UserFeed(Feed):
             hasattr(settings, "RSS_EXTERNAL_HOSTNAME")
             and settings.RSS_EXTERNAL_HOSTNAME
         ):
-            domain = settings.RSS_EXTERNAL_HOSTNAME
+            domain = get_rss_external_hostname()
             protocol = "https"  # Assume HTTPS for external hostnames
             return f"{protocol}://{domain}{media_url}"
 
         # Otherwise use SITE_URL if available
-        elif hasattr(settings, "SITE_URL"):
-            return f"{settings.SITE_URL.rstrip('/')}{media_url}"
+        elif get_site_url():
+            return f"{get_site_url().rstrip('/')}{media_url}"
 
         # Fallback to request.get_host() if available
         if hasattr(self, "request"):
@@ -232,13 +232,13 @@ class UserFeed(Feed):
             hasattr(settings, "RSS_EXTERNAL_HOSTNAME")
             and settings.RSS_EXTERNAL_HOSTNAME
         ):
-            domain = settings.RSS_EXTERNAL_HOSTNAME
+            domain = get_rss_external_hostname()
             protocol = "https"  # Assume HTTPS for external hostnames
             return f"{protocol}://{domain}{media_url}"
 
         # Otherwise use SITE_URL if available
-        elif hasattr(settings, "SITE_URL"):
-            return f"{settings.SITE_URL.rstrip('/')}{media_url}"
+        elif get_site_url():
+            return f"{get_site_url().rstrip('/')}{media_url}"
 
         # Fallback to request.get_host() if available
         if hasattr(self, "request"):
