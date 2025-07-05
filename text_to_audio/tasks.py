@@ -36,6 +36,14 @@ logger = logging.getLogger(__name__)
 # Add a short pause to the end of exported audio files
 ENDING_SILENCE_MS = 2000
 VOLUME_GAIN_DB = 3.0  # ~3dB volume increase
+DEESSER_FILTER_ARGS = ["-af", "deesser"]
+
+# Determine temporary file extension based on configured response format
+AUDIO_RESPONSE_FORMAT = getattr(settings, "OPENAI_TTS_RESPONSE_FORMAT", "wav")
+if AUDIO_RESPONSE_FORMAT == "pcm":
+    TEMP_FILE_EXT = ".pcm"
+else:
+    TEMP_FILE_EXT = f".{AUDIO_RESPONSE_FORMAT}"
 
 
 def _clamp_tts_speed(speed: float) -> float:
@@ -637,7 +645,7 @@ def process_article(self, article_id: int) -> str:
                 for chunk_idx, chunk_data in enumerate(chunk_tone_payload.chunks):
                     chunk_temp_file_path = (
                         article_media_dir
-                        / f"temp_article_{article.audio_uuid}_chunk_{chunk_idx}_{uuid.uuid4()}.mp3"
+                        / f"temp_article_{article.audio_uuid}_chunk_{chunk_idx}_{uuid.uuid4()}{TEMP_FILE_EXT}"
                     )
                     start_time = time.monotonic()
 
@@ -655,6 +663,7 @@ def process_article(self, article_id: int) -> str:
                         "voice": chunk_data.voice.voice,
                         "input": chunk_data.text,
                         "speed": resolved_speed,
+                        "response_format": AUDIO_RESPONSE_FORMAT,
                     }
 
                     # Add instructions parameter only for supported models
@@ -843,7 +852,7 @@ def process_article(self, article_id: int) -> str:
                     for chunk_idx, chunk_text in enumerate(segment_text_chunks):
                         chunk_temp_file_path = (
                             article_media_dir
-                            / f"temp_article_{article.audio_uuid}_segment_{segment_idx}_chunk_{chunk_idx}_{uuid.uuid4()}.mp3"
+                            / f"temp_article_{article.audio_uuid}_segment_{segment_idx}_chunk_{chunk_idx}_{uuid.uuid4()}{TEMP_FILE_EXT}"
                         )
                         start_time = time.monotonic()
 
@@ -858,6 +867,7 @@ def process_article(self, article_id: int) -> str:
                             "voice": tts_api_voice,  # This is 'alloy', 'echo', etc.
                             "input": chunk_text,
                             "speed": tts_speed,
+                            "response_format": AUDIO_RESPONSE_FORMAT,
                         }
 
                         # Add instructions parameter only for supported models
@@ -1082,7 +1092,7 @@ def process_article(self, article_id: int) -> str:
             for i, chunk in enumerate(text_chunks):
                 temp_file_path = (
                     article_media_dir
-                    / f"temp_article_{article.audio_uuid}_fallback_chunk_{i}_{uuid.uuid4()}.mp3"
+                    / f"temp_article_{article.audio_uuid}_fallback_chunk_{i}_{uuid.uuid4()}{TEMP_FILE_EXT}"
                 )
                 start_time = time.monotonic()
 
@@ -1093,6 +1103,7 @@ def process_article(self, article_id: int) -> str:
                     "voice": fallback_voice,
                     "input": chunk,
                     "speed": fallback_speed,
+                    "response_format": AUDIO_RESPONSE_FORMAT,
                 }
 
                 # Add voice prompt instructions if available and model supports it
@@ -1207,13 +1218,25 @@ def process_article(self, article_id: int) -> str:
             "artist": feed_name,
             "album": feed_name,
         }
-        export_parameters = ["-id3v2_version", "3", "-write_id3v1", "1"]
+        export_parameters = [
+            "-id3v2_version",
+            "3",
+            "-write_id3v1",
+            "1",
+        ] + DEESSER_FILTER_ARGS
 
         if len(generated_audio_files) == 1:
             single_audio_path = generated_audio_files[0]
             # It's safer to copy/process the file rather than renaming, then clean up.
             # For single files, we still re-export to apply tags and ensure format.
-            audio_segment = AudioSegment.from_mp3(single_audio_path)
+            if AUDIO_RESPONSE_FORMAT == "pcm":
+                audio_segment = AudioSegment.from_file(
+                    single_audio_path, format="s16le", frame_rate=24000, channels=1
+                )
+            else:
+                audio_segment = AudioSegment.from_file(
+                    single_audio_path, format=AUDIO_RESPONSE_FORMAT
+                )
             audio_segment = audio_segment.set_frame_rate(44100).apply_gain(
                 VOLUME_GAIN_DB
             )  # Ensure consistent frame rate and volume
@@ -1232,7 +1255,17 @@ def process_article(self, article_id: int) -> str:
             combined_audio = AudioSegment.empty()
             for temp_file_path_item in generated_audio_files:
                 try:
-                    segment_audio = AudioSegment.from_mp3(temp_file_path_item)
+                    if AUDIO_RESPONSE_FORMAT == "pcm":
+                        segment_audio = AudioSegment.from_file(
+                            temp_file_path_item,
+                            format="s16le",
+                            frame_rate=24000,
+                            channels=1,
+                        )
+                    else:
+                        segment_audio = AudioSegment.from_file(
+                            temp_file_path_item, format=AUDIO_RESPONSE_FORMAT
+                        )
                     combined_audio += segment_audio
                 except Exception as e:  # Catch specific pydub errors if known
                     logger.error(
