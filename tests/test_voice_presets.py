@@ -8,8 +8,7 @@ from django.urls import reverse
 
 from text_to_audio.models import Article, Feed, UserVoicePreset
 from text_to_audio.services.user_preferences import UserPreferencesService
-from text_to_audio.services.voice_configuration import \
-    VoiceConfigurationService
+from text_to_audio.services.voice_configuration import VoiceConfigurationService
 
 
 class VoicePresetModelTest(TestCase):

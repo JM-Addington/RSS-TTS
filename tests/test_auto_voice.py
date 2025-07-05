@@ -5,17 +5,14 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from text_to_audio.models import (Article, Feed, UserVoicePreset,
-                                  VoiceGenreTemplate)
-from text_to_audio.services.genre_classification import \
-    GenreClassificationService
+from text_to_audio.models import Article, Feed, UserVoicePreset, VoiceGenreTemplate
+from text_to_audio.services.genre_classification import GenreClassificationService
 from text_to_audio.services.user_preferences import UserPreferencesService
-from text_to_audio.services.voice_configuration import \
-    VoiceConfigurationService
-from text_to_audio.services.voice_genre_templates import \
-    VoiceGenreTemplateService
-from text_to_audio.services.voice_parameter_generation import \
-    VoiceParameterGenerationService
+from text_to_audio.services.voice_configuration import VoiceConfigurationService
+from text_to_audio.services.voice_genre_templates import VoiceGenreTemplateService
+from text_to_audio.services.voice_parameter_generation import (
+    VoiceParameterGenerationService,
+)
 
 
 class VoiceGenreTemplateModelTest(TestCase):

@@ -3,11 +3,11 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from text_to_audio.models import (VOICE_ALLOY, VOICE_NOVA, Article, Feed,
-                                  UserVoicePreset)
+from text_to_audio.models import VOICE_ALLOY, VOICE_NOVA, Article, Feed, UserVoicePreset
 from text_to_audio.services.user_preferences import UserPreferencesService
-from text_to_audio.services.voice_parameter_generation import \
-    VoiceParameterGenerationService
+from text_to_audio.services.voice_parameter_generation import (
+    VoiceParameterGenerationService,
+)
 
 User = get_user_model()
 
