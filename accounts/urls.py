@@ -16,6 +16,8 @@ urlpatterns = [
         views.user_reset_password,
         name="user-reset-password",
     ),
+    path("users/<int:user_id>/promote/", views.user_promote, name="user-promote"),
+    path("users/<int:user_id>/demote/", views.user_demote, name="user-demote"),
     path(
         "users/<int:user_id>/delete/",
         views.UserDeleteView.as_view(),

@@ -157,6 +157,48 @@ class UserManagementViewTests(TestCase):
         self.assertFalse(new_user.is_super_admin)
         self.assertFalse(new_user.is_approved)
 
+    def test_promote_user_to_super_admin(self):
+        """Test promoting a user via view."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.get(reverse("user-promote", args=[self.regular_user.id]))
+        self.assertEqual(response.status_code, 302)
+
+        self.regular_user.refresh_from_db()
+        self.assertTrue(self.regular_user.is_super_admin)
+        self.assertTrue(self.regular_user.is_approved)
+        self.assertTrue(self.regular_user.is_staff)
+        self.assertTrue(self.regular_user.is_superuser)
+
+    def test_demote_user_from_super_admin(self):
+        """Test demoting a user via view."""
+        self.client.login(username="admin", password="testpass123")
+
+        self.regular_user.profile.is_super_admin = True
+        self.regular_user.profile.is_approved = True
+        self.regular_user.profile.save()
+        self.regular_user.is_staff = True
+        self.regular_user.is_superuser = True
+        self.regular_user.save()
+
+        response = self.client.get(reverse("user-demote", args=[self.regular_user.id]))
+        self.assertEqual(response.status_code, 302)
+
+        self.regular_user.refresh_from_db()
+        self.assertFalse(self.regular_user.is_super_admin)
+        self.assertFalse(self.regular_user.is_staff)
+        self.assertFalse(self.regular_user.is_superuser)
+
+    def test_cannot_demote_last_super_admin(self):
+        """Ensure last super admin cannot be demoted."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.get(reverse("user-demote", args=[self.super_admin.id]))
+        self.assertEqual(response.status_code, 302)
+
+        self.super_admin.refresh_from_db()
+        self.assertTrue(self.super_admin.is_super_admin)
+
 
 @override_settings(
     MIDDLEWARE=[
