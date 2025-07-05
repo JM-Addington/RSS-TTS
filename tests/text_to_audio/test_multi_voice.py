@@ -246,7 +246,7 @@ class MultiVoiceProcessingTest(TestCase):
 
             # Configure AudioSegment class methods
             mock_audio_segment.empty.return_value = mock_segment
-            mock_audio_segment.from_mp3.return_value = mock_segment
+            mock_audio_segment.from_file.return_value = mock_segment
             mock_audio_segment.silent.return_value = mock_segment
 
             # The test will fail at the audio processing stage but that's expected
