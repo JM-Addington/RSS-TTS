@@ -97,8 +97,10 @@ class Command(BaseCommand):
             elif user.is_super_admin:
                 style = self.style.SUCCESS
             else:
+
                 def no_style(x):
                     return x
+
                 style = no_style
 
             self.stdout.write(
