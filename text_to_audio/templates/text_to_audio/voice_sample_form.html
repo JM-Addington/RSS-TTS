@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Sample{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Generate Sample for {{ preset.name }}</h1>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="{{ form.text.id_for_label }}" class="form-label">{{ form.text.label }}</label>
+            {{ form.text }}
+            {% if form.text.help_text %}<div class="form-text">{{ form.text.help_text }}</div>{% endif %}
+            {% if form.text.errors %}
+            <div class="text-danger">
+                {% for error in form.text.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Generate Sample</button>
+        <a href="{% url 'voice_preset_list' %}" class="btn btn-outline-secondary">Back</a>
+    </form>
+</div>
+{% endblock %}

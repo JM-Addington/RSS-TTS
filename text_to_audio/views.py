@@ -7,6 +7,8 @@ submission, listing, media serving, and article deletion.
 import logging
 import os
 import uuid
+import tempfile
+import openai
 
 from django.conf import settings
 from django.contrib import messages
@@ -35,6 +37,7 @@ from .forms import (
     FollowedFeedForm,
     UserVoicePreferenceForm,
     VoicePresetForm,
+    VoiceSampleForm,
 )
 from .models import Article, Feed, FollowedFeed, UserVoicePreset, UserVoiceProfile
 from .services.user_preferences import UserPreferencesService
@@ -991,6 +994,44 @@ def voice_preset_delete(request, preset_id):
         {
             "preset": preset,
         },
+    )
+
+
+@login_required
+def voice_preset_sample(request, preset_id):
+    """Generate an audio sample for a voice preset."""
+    preset = get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
+
+    if request.method == "POST":
+        form = VoiceSampleForm(request.POST)
+        if form.is_valid():
+            text = " ".join(form.cleaned_data["text"].split()[:100])
+
+            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd")
+            response = client.audio.speech.create(
+                model=tts_model,
+                voice=preset.voice_id,
+                input=text,
+                speed=preset.speed,
+                response_format="mp3",
+            )
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+                response.stream_to_file(tmp.name)
+                tmp_path = tmp.name
+
+            with open(tmp_path, "rb") as f:
+                audio_data = f.read()
+            os.remove(tmp_path)
+            return FileResponse(audio_data, content_type="audio/mpeg")
+    else:
+        form = VoiceSampleForm()
+
+    return render(
+        request,
+        "text_to_audio/voice_sample_form.html",
+        {"form": form, "preset": preset},
     )
 
 

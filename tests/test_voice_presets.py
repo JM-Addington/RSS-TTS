@@ -1,6 +1,7 @@
 """Tests for voice presets functionality."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
@@ -386,3 +387,54 @@ class VoicePresetViewsTest(TestCase):
 
             article = Article.objects.get(title="A")
             self.assertEqual(article.voice_preset, default_preset)
+
+
+@patch("text_to_audio.views.openai.OpenAI")
+class VoicePresetSampleViewTests(TestCase):
+    """Tests for generating voice samples from presets."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="sampleuser", password="password123"
+        )
+        self.client.login(username="sampleuser", password="password123")
+        self.preset = UserVoicePreset.objects.create(
+            user=self.user, name="Preset", voice_id="alloy", speed=1.0
+        )
+
+    def create_dummy_file(self, path):
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(b"dummy audio")
+
+    def test_get_sample_form(self, MockOpenAI):
+        url = reverse("voice_preset_sample", args=[self.preset.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Generate Sample")
+
+    def test_generate_sample(self, MockOpenAI):
+        mock_client = MockOpenAI.return_value
+        mock_response = MagicMock()
+        mock_response.stream_to_file.side_effect = self.create_dummy_file
+        mock_client.audio.speech.create.return_value = mock_response
+
+        url = reverse("voice_preset_sample", args=[self.preset.pk])
+        response = self.client.post(url, {"text": "hello world"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "audio/mpeg")
+        mock_client.audio.speech.create.assert_called_once()
+        args = mock_client.audio.speech.create.call_args.kwargs
+        self.assertEqual(args["voice"], "alloy")
+        self.assertEqual(args["speed"], 1.0)
+        self.assertEqual(args["input"], "hello world")
+
+    def test_word_limit_validation(self, MockOpenAI):
+        text = "word " * 101
+        url = reverse("voice_preset_sample", args=[self.preset.pk])
+        response = self.client.post(url, {"text": text})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "100 words or fewer")
+        MockOpenAI.assert_not_called()

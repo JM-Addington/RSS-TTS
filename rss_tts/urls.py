@@ -35,6 +35,7 @@ from text_to_audio.views import (
     voice_preset_delete,
     voice_preset_edit,
     voice_preset_list,
+    voice_preset_sample,
 )
 
 urlpatterns = [
@@ -126,6 +127,11 @@ urlpatterns = [
         "presets/voice/<int:preset_id>/delete/",
         voice_preset_delete,
         name="voice_preset_delete",
+    ),
+    path(
+        "presets/voice/<int:preset_id>/sample/",
+        voice_preset_sample,
+        name="voice_preset_sample",
     ),
     path("", HomeView.as_view(), name="home"),
 ]

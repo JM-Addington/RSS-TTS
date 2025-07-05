@@ -475,3 +475,22 @@ class FollowedFeedForm(forms.ModelForm):
                 self.fields["destination_feed"].help_text = (
                     "You don't have any feeds yet."
                 )
+
+
+class VoiceSampleForm(forms.Form):
+    """Form for generating a voice sample from custom text."""
+
+    text = forms.CharField(
+        label="Sample Text",
+        widget=forms.Textarea(
+            attrs={"rows": 3, "placeholder": "Enter up to 100 words"}
+        ),
+        help_text="Provide text to preview this voice preset.",
+    )
+
+    def clean_text(self) -> str:
+        """Validate text length does not exceed 100 words."""
+        text = self.cleaned_data.get("text", "")
+        if len(text.split()) > 100:
+            raise ValidationError("Sample text must be 100 words or fewer.")
+        return text
