@@ -26,9 +26,7 @@ OPENAI_TITLE_MODEL = os.environ.get("OPENAI_TITLE_MODEL", "gpt-4o-mini")
 # TTS model and voice settings
 OPENAI_TTS_MODEL = os.environ.get("OPENAI_TTS_MODEL", "tts-1-hd")
 OPENAI_TTS_VOICE = os.environ.get("OPENAI_TTS_VOICE", "alloy")
-OPENAI_TTS_RESPONSE_FORMAT = os.environ.get(
-    "OPENAI_TTS_RESPONSE_FORMAT", "wav"
-)
+OPENAI_TTS_RESPONSE_FORMAT = os.environ.get("OPENAI_TTS_RESPONSE_FORMAT", "wav")
 # Models used for content analysis and genre classification
 OPENAI_ANALYSIS_MODEL = os.environ.get("OPENAI_ANALYSIS_MODEL", "gpt-4.1")
 OPENAI_CLASSIFICATION_MODEL = os.environ.get(

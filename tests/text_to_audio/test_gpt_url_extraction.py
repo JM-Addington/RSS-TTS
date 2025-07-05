@@ -4,11 +4,9 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
 
-from text_to_audio.utils import (
-    clean_html_minimal,
-    extract_article_text_with_gpt,
-    process_url_to_text,
-)
+from text_to_audio.utils import (clean_html_minimal,
+                                 extract_article_text_with_gpt,
+                                 process_url_to_text)
 
 
 class GptUrlExtractionTests(TestCase):

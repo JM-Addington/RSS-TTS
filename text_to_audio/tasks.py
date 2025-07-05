@@ -25,9 +25,11 @@ from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
 from .services.chunk_tone_service import ChunkToneService
-from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
+from .services.content_analysis import (MAX_ANALYSIS_WORDS,
+                                        ContentAnalysisService)
 from .services.voice_configuration import VoiceConfigurationService
-from .services.voice_parameter_generation import VoiceParameterGenerationService
+from .services.voice_parameter_generation import \
+    VoiceParameterGenerationService
 from .utils import process_url_to_text
 
 # Configure logging

@@ -82,11 +82,9 @@ class SpeedControlChunkToneTests(TestCase):
         mock_chunk_tone_service = MockChunkToneService.return_value
 
         # Create mock chunk payload with 2 chunks for each article
-        from text_to_audio.schemas.chunk_tone import (
-            ChunkData,
-            ChunkTonePayload,
-            TTSVoice,
-        )
+        from text_to_audio.schemas.chunk_tone import (ChunkData,
+                                                      ChunkTonePayload,
+                                                      TTSVoice)
 
         mock_payload_125 = ChunkTonePayload(
             chunks=[
@@ -225,11 +223,9 @@ class SpeedControlChunkToneTests(TestCase):
         # Mock ChunkToneService
         mock_chunk_tone_service = MockChunkToneService.return_value
 
-        from text_to_audio.schemas.chunk_tone import (
-            ChunkData,
-            ChunkTonePayload,
-            TTSVoice,
-        )
+        from text_to_audio.schemas.chunk_tone import (ChunkData,
+                                                      ChunkTonePayload,
+                                                      TTSVoice)
 
         mock_payload = ChunkTonePayload(
             chunks=[
@@ -326,11 +322,9 @@ class SpeedControlChunkToneTests(TestCase):
         # Mock ChunkToneService
         mock_chunk_tone_service = MockChunkToneService.return_value
 
-        from text_to_audio.schemas.chunk_tone import (
-            ChunkData,
-            ChunkTonePayload,
-            TTSVoice,
-        )
+        from text_to_audio.schemas.chunk_tone import (ChunkData,
+                                                      ChunkTonePayload,
+                                                      TTSVoice)
 
         mock_payload = ChunkTonePayload(
             chunks=[
