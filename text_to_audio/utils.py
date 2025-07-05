@@ -487,7 +487,7 @@ Return only the article text that should be narrated, including:
 - The main title/headline
 - All body paragraphs
 - Any relevant quotes or excerpts
-- Image descriptions from alt text (format as: [Image: description])
+- Only include image descriptions from alt text or image captions if they are needed for context; skip credit lines (format as: [Image: description])
 - Table data if present (format as: [Table: brief description])
 
 Do not include:
