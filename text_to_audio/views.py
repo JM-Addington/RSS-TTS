@@ -10,10 +10,9 @@ import uuid
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-from accounts.forms import CustomUserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.models import User
 from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -25,6 +24,8 @@ from django.views.generic import (
     TemplateView,
     UpdateView,
 )
+
+from accounts.forms import CustomUserCreationForm
 
 from .forms import (
     ArticleDetailForm,
@@ -173,21 +174,26 @@ class SignUpView(CreateView):
         # AIDEV-NOTE: Custom User model handles first user logic automatically
         # The first user becomes super admin, others wait for approval
 
+        # Refresh user to ensure profile is loaded
+        user.refresh_from_db()
+
         # Show appropriate message based on user status
-        if user.is_super_admin:
+        if hasattr(user, 'profile') and user.profile.is_super_admin:
             messages.success(
                 self.request,
-                "Welcome! You are the first user and have been granted admin privileges."
+                "Welcome! You are the first user and have been granted admin privileges.",
             )
             # Create the user's first feed to improve onboarding experience
             Feed.objects.create(
                 user=user, name="My Articles", voice_mode=Feed.VOICE_MODE_AUTO
             )
-            logger.info(f"Created first feed 'My Articles' for new super admin {user.username}")
+            logger.info(
+                f"Created first feed 'My Articles' for new super admin {user.username}"
+            )
         else:
             messages.info(
                 self.request,
-                "Your account has been created successfully. Please wait for an administrator to approve your account before you can log in."
+                "Your account has been created successfully. Please wait for an administrator to approve your account before you can log in.",
             )
             logger.info(f"New user {user.username} created, waiting for admin approval")
 
