@@ -731,6 +731,7 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.summary, expected_summary)
         self.assertEqual(mock_speech_create.call_count, 2)
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
@@ -754,7 +755,8 @@ class ProcessArticleTests(TestCase):
         }
 
         self.article.text_content = "This is fallback content. It is short."
-        self.article.voice_id = "echo"  # Expect this to be used
+        self.article.voice = ""  # Empty string to test voice_id fallback
+        self.article.voice_id = "echo"  # This should be used since voice is empty
         self.article.speed = 0.9
         self.article.save()
 
@@ -765,6 +767,7 @@ class ProcessArticleTests(TestCase):
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
         call_args = mock_speech_create.call_args_list[0][1]
+        # When voice is empty, voice_id should be used
         self.assertEqual(call_args["voice"], "echo")
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
@@ -907,6 +910,7 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.multi_voice_data["summary"], expected_summary)
         self.assertEqual(self.article.status, Article.FAILED)
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
@@ -948,7 +952,7 @@ class ProcessArticleTests(TestCase):
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
         MockCAS.return_value.analyze_content.assert_called_once_with(
-            long_text.strip(), title=self.article.title
+            long_text, title=self.article.title
         )
 
     @patch("text_to_audio.tasks.VoiceConfigurationService")
