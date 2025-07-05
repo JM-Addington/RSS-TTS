@@ -10,9 +10,9 @@ import uuid
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
+from accounts.forms import CustomUserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -161,38 +161,35 @@ class ArticleMediaView(View):
 class SignUpView(CreateView):
     """View for registering a new user."""
 
-    form_class = UserCreationForm
+    form_class = CustomUserCreationForm
     template_name = "registration/signup.html"
     success_url = reverse_lazy("login")
 
-    def get(self, request, *args, **kwargs):
-        """Render signup form only if no users exist, otherwise redirect to login."""
-        User = get_user_model()
-        if User.objects.exists():
-            return redirect("login")
-        return super().get(request, *args, **kwargs)
-
-    def post(self, request, *args, **kwargs):
-        """Process signup only if no users exist, otherwise redirect to login."""
-        User = get_user_model()
-        if User.objects.exists():
-            return redirect("login")
-        return super().post(request, *args, **kwargs)
-
     def form_valid(self, form):
-        """Make the first user a superuser and create their first feed."""
+        """Create new user and handle admin approval logic."""
         response = super().form_valid(form)
-        # Make the first user a superuser
         user = self.object
-        user.is_superuser = True
-        user.is_staff = True
-        user.save(update_fields=["is_superuser", "is_staff"])
 
-        # Create the user's first feed to improve onboarding experience
-        Feed.objects.create(
-            user=user, name="My Articles", voice_mode=Feed.VOICE_MODE_AUTO
-        )
-        logger.info(f"Created first feed 'My Articles' for new user {user.username}")
+        # AIDEV-NOTE: Custom User model handles first user logic automatically
+        # The first user becomes super admin, others wait for approval
+
+        # Show appropriate message based on user status
+        if user.is_super_admin:
+            messages.success(
+                self.request,
+                "Welcome! You are the first user and have been granted admin privileges."
+            )
+            # Create the user's first feed to improve onboarding experience
+            Feed.objects.create(
+                user=user, name="My Articles", voice_mode=Feed.VOICE_MODE_AUTO
+            )
+            logger.info(f"Created first feed 'My Articles' for new super admin {user.username}")
+        else:
+            messages.info(
+                self.request,
+                "Your account has been created successfully. Please wait for an administrator to approve your account before you can log in."
+            )
+            logger.info(f"New user {user.username} created, waiting for admin approval")
 
         return response
 

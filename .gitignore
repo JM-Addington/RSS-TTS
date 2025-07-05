@@ -28,3 +28,5 @@ mike2.txt
 
 # Log files
 logs/
+googlegemini.json
+*.sqlite3
