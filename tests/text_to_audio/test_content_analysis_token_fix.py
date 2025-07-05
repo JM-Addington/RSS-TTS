@@ -206,7 +206,11 @@ class ContentAnalysisTokenFixTest(TestCase):
                 }
             )
 
-        large_response = {"summary": "This is a long article summary.", "voices": voices, "audio_segments": segments}
+        large_response = {
+            "summary": "This is a long article summary.",
+            "voices": voices,
+            "audio_segments": segments,
+        }
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
