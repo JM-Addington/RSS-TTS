@@ -30,8 +30,8 @@ class MockAudioSegment:
         return cls()
 
     @classmethod
-    def from_mp3(cls, file_path):
-        """Mock mp3 loading."""
+    def from_file(cls, file_path, format=None, frame_rate=None, channels=None):
+        """Mock audio loading regardless of format."""
         return cls()
 
     @classmethod
