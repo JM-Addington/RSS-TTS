@@ -11,7 +11,8 @@ import openai
 from django.conf import settings
 from pydantic import ValidationError
 
-from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoice
+from text_to_audio.schemas.chunk_tone import (ChunkData, ChunkTonePayload,
+                                              TTSVoice)
 
 logger = logging.getLogger(__name__)
 

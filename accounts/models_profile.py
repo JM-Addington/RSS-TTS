@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.db import models
+from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -35,13 +35,15 @@ class UserProfile(models.Model):
 
     def save(self, *args, **kwargs):
         # AIDEV-NOTE: First user created becomes super admin automatically
-        if not UserProfile.objects.exists():
-            self.is_approved = True
-            self.is_super_admin = True
-            # Also make the Django user staff and superuser
-            self.user.is_staff = True
-            self.user.is_superuser = True
-            self.user.save()
+        # Use atomic transaction with select_for_update to prevent race conditions
+        with transaction.atomic():
+            if not UserProfile.objects.select_for_update().exists():
+                self.is_approved = True
+                self.is_super_admin = True
+                # Also make the Django user staff and superuser
+                self.user.is_staff = True
+                self.user.is_superuser = True
+                self.user.save()
         super().save(*args, **kwargs)
 
     def can_manage_users(self):

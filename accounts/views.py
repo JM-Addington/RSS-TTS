@@ -20,7 +20,8 @@ class SuperAdminRequiredMixin:
             return HttpResponseForbidden(
                 "You don't have permission to access this page."
             )
-        return super().dispatch(request, *args, **kwargs)
+        # Call parent dispatch method from the view class
+        return super().dispatch(request, *args, **kwargs)  # type: ignore
 
 
 class UserManagementView(SuperAdminRequiredMixin, LoginRequiredMixin, ListView):
@@ -144,9 +145,9 @@ class UserDeleteView(SuperAdminRequiredMixin, LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("user-management")
     pk_url_kwarg = "user_id"
 
-    def get_object(self):
+    def get_object(self, queryset=None):
         """Prevent deletion of super admin users."""
-        user = super().get_object()
+        user = super().get_object(queryset)
         if user.is_super_admin:
             messages.error(self.request, "Cannot delete super admin users.")
             return redirect("user-management")

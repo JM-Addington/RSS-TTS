@@ -26,8 +26,10 @@ class AdminApprovalRequiredMiddleware:
 
     def __call__(self, request):
         # Check if user is authenticated and not approved
+        # AIDEV-NOTE: Check for profile existence before accessing is_approved
         if (
             request.user.is_authenticated
+            and hasattr(request.user, "profile")
             and not request.user.is_approved
             and not request.path.startswith(tuple(self.exempt_urls))
         ):
