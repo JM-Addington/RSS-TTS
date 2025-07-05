@@ -185,9 +185,9 @@ def fetch_html_with_firecrawl(url: str) -> Tuple[bool, str, Optional[str]]:
     Returns:
         Tuple of (success, html, error_message).
     """
-    from django.conf import settings
+    from appconfig.utils import get_firecrawl_api_key
 
-    api_key = getattr(settings, "FIRECRAWL_API_KEY", None)
+    api_key = get_firecrawl_api_key()
     if not api_key:
         return False, "", "Firecrawl API key not configured"
 
@@ -509,9 +509,9 @@ EXTRACTED ARTICLE TEXT:"""
 
         # Use GPT-4.1 to extract the content
         import openai
-        from django.conf import settings
+        from appconfig.utils import get_openai_api_key
 
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        client = openai.OpenAI(api_key=get_openai_api_key())
 
         # Log the API call
         start_time = time.monotonic()
@@ -609,14 +609,17 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
         Tuple of (success, extracted_text, error_message).
         If successful, error_message will be None.
     """
-    from django.conf import settings
+    from appconfig.utils import (
+        get_firecrawl_api_key,
+        get_use_firecrawl_by_default,
+    )
 
     html = ""
     success = False
     error: Optional[str] = None
 
-    use_firecrawl_default = getattr(settings, "USE_FIRECRAWL_BY_DEFAULT", False)
-    api_key = getattr(settings, "FIRECRAWL_API_KEY", None)
+    use_firecrawl_default = get_use_firecrawl_by_default()
+    api_key = get_firecrawl_api_key()
 
     if use_firecrawl_default and api_key:
         success, html, error = fetch_html_with_firecrawl(url)

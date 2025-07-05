@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "widget_tweaks",
+    "appconfig",
     "accounts",
     "text_to_audio",
 ]

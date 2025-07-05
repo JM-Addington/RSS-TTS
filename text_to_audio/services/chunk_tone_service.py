@@ -8,7 +8,6 @@ import time
 from typing import Optional
 
 import openai
-from django.conf import settings
 from pydantic import ValidationError
 
 from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoice
@@ -33,8 +32,10 @@ class ChunkToneService:
     def client(self):
         """Lazily initialize OpenAI client."""
         if self._client is None:
+            from appconfig.utils import get_openai_api_key
+
             self._client = openai.OpenAI(
-                api_key=self.openai_api_key or settings.OPENAI_API_KEY
+                api_key=self.openai_api_key or get_openai_api_key()
             )
         return self._client
 

@@ -154,9 +154,9 @@ class FeedArticleSubmitView(APIView):
             success, html, error = fetch_url_content(article.source_url)
             if not success:
                 # If regular fetch fails, try Firecrawl for HTML
-                from django.conf import settings
+                from appconfig.utils import get_firecrawl_api_key
 
-                api_key = getattr(settings, "FIRECRAWL_API_KEY", None)
+                api_key = get_firecrawl_api_key()
                 if api_key and any(code in error for code in ["404", "403", "400"]):
                     from .utils import fetch_html_with_firecrawl
 
