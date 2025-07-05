@@ -178,7 +178,7 @@ class SignUpView(CreateView):
         user.refresh_from_db()
 
         # Show appropriate message based on user status
-        if hasattr(user, 'profile') and user.profile.is_super_admin:
+        if hasattr(user, "profile") and user.profile.is_super_admin:
             messages.success(
                 self.request,
                 "Welcome! You are the first user and have been granted admin privileges.",

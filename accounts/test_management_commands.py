@@ -4,7 +4,6 @@ from io import StringIO
 from django.contrib.auth.models import User
 from django.core.management import CommandError, call_command
 from django.test import TestCase
-from django.test.utils import override_settings
 
 
 class ManagementCommandTests(TestCase):
@@ -96,7 +95,7 @@ class ManagementCommandTests(TestCase):
     def test_approveuser_revoke_approval(self):
         """Test revoking user approval."""
         # Create first user (super admin)
-        super_admin = User.objects.create_user(username="admin", password="testpass123")
+        User.objects.create_user(username="admin", password="testpass123")
 
         # Create regular user
         user = User.objects.create_user(username="regularuser", password="testpass123")
@@ -110,7 +109,7 @@ class ManagementCommandTests(TestCase):
 
     def test_approveuser_cannot_revoke_super_admin(self):
         """Test that super admin approval cannot be revoked."""
-        super_admin = User.objects.create_user(username="admin", password="testpass123")
+        User.objects.create_user(username="admin", password="testpass123")
 
         with self.assertRaises(CommandError) as context:
             call_command("approveuser", "admin", "--revoke")
@@ -152,7 +151,7 @@ class ManagementCommandTests(TestCase):
     def test_promoteuser_demote_from_super_admin(self):
         """Test demoting a user from super admin."""
         # Create two super admins
-        admin1 = User.objects.create_user(username="admin1", password="testpass123")
+        User.objects.create_user(username="admin1", password="testpass123")
         admin2 = User.objects.create_user(username="admin2", password="testpass123")
         admin2.profile.is_super_admin = True
         admin2.profile.save()
@@ -169,7 +168,7 @@ class ManagementCommandTests(TestCase):
 
     def test_promoteuser_cannot_demote_last_super_admin(self):
         """Test that the last super admin cannot be demoted."""
-        admin = User.objects.create_user(username="admin", password="testpass123")
+        User.objects.create_user(username="admin", password="testpass123")
 
         with self.assertRaises(CommandError) as context:
             call_command("promoteuser", "admin", "--demote")
@@ -179,7 +178,7 @@ class ManagementCommandTests(TestCase):
     def test_promoteuser_list_admins(self):
         """Test listing super admin users."""
         # Create super admin
-        admin = User.objects.create_user(username="admin", password="testpass123")
+        User.objects.create_user(username="admin", password="testpass123")
 
         out = StringIO()
         call_command("promoteuser", "dummy", "--list-admins", stdout=out)
@@ -191,7 +190,7 @@ class ManagementCommandTests(TestCase):
     def test_listusers_table_format(self):
         """Test listing users in table format."""
         # Create test users
-        admin = User.objects.create_user(username="admin", password="testpass123")
+        User.objects.create_user(username="admin", password="testpass123")
         regular = User.objects.create_user(username="regular", password="testpass123")
         regular.profile.is_approved = True
         regular.profile.save()
@@ -222,7 +221,7 @@ class ManagementCommandTests(TestCase):
 
     def test_listusers_json_format(self):
         """Test listing users in JSON format."""
-        admin = User.objects.create_user(
+        User.objects.create_user(
             username="admin", email="admin@example.com", password="testpass123"
         )
 

@@ -1,9 +1,6 @@
 from django.contrib.auth.models import User
-from django.contrib.messages import get_messages
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-
-from accounts.models_profile import UserProfile
 
 
 class UserProfileTests(TestCase):

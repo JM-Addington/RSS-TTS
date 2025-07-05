@@ -50,7 +50,14 @@ class Command(BaseCommand):
         approved = options.get("approved", False)
         interactive = options.get("interactive", True)
 
-        # Get username
+        username = self._get_username(username, interactive)
+        email = self._get_email(email, interactive)
+        password = self._get_password(password, interactive)
+
+        self._create_user(username, email, password, approved)
+
+    def _get_username(self, username, interactive):
+        """Get and validate username."""
         if not username:
             if not interactive:
                 raise CommandError("Username is required when running with --noinput")
@@ -63,36 +70,22 @@ class Command(BaseCommand):
         if User.objects.filter(username=username).exists():
             raise CommandError(f'User with username "{username}" already exists')
 
-        # Get email (optional)
+        return username
+
+    def _get_email(self, email, interactive):
+        """Get email address (optional)."""
         if not email and interactive:
             email = input("Email address (optional): ").strip()
             if not email:
                 email = None
+        return email
 
-        # Get password
+    def _get_password(self, password, interactive):
+        """Get and validate password."""
         if not password:
             if not interactive:
                 raise CommandError("Password is required when running with --noinput")
-            while not password:
-                password = getpass.getpass("Password: ")
-                if not password:
-                    self.stdout.write(self.style.ERROR("Password cannot be empty"))
-                    continue
-
-                # Validate password
-                try:
-                    validate_password(password)
-                except ValidationError as e:
-                    for error in e.messages:
-                        self.stdout.write(self.style.ERROR(f"Password error: {error}"))
-                    password = None
-                    continue
-
-                # Confirm password
-                password_confirm = getpass.getpass("Password (again): ")
-                if password != password_confirm:
-                    self.stdout.write(self.style.ERROR("Passwords do not match"))
-                    password = None
+            password = self._prompt_for_password()
 
         # Validate password if provided
         if password:
@@ -102,7 +95,36 @@ class Command(BaseCommand):
                 for error in e.messages:
                     raise CommandError(f"Password error: {error}")
 
-        # Create user
+        return password
+
+    def _prompt_for_password(self):
+        """Prompt user for password with validation."""
+        password = None
+        while not password:
+            password = getpass.getpass("Password: ")
+            if not password:
+                self.stdout.write(self.style.ERROR("Password cannot be empty"))
+                continue
+
+            # Validate password
+            try:
+                validate_password(password)
+            except ValidationError as e:
+                for error in e.messages:
+                    self.stdout.write(self.style.ERROR(f"Password error: {error}"))
+                password = None
+                continue
+
+            # Confirm password
+            password_confirm = getpass.getpass("Password (again): ")
+            if password != password_confirm:
+                self.stdout.write(self.style.ERROR("Passwords do not match"))
+                password = None
+
+        return password
+
+    def _create_user(self, username, email, password, approved):
+        """Create user and handle approval logic."""
         try:
             user = User.objects.create_user(
                 username=username, email=email, password=password
@@ -113,29 +135,32 @@ class Command(BaseCommand):
                 user.profile.is_approved = True
                 user.profile.save()
 
-            # Show success message
-            approval_status = "approved" if user.is_approved else "pending approval"
-            user_type = "super admin" if user.is_super_admin else "regular user"
-
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Successfully created {user_type} "{username}" ({approval_status})'
-                )
-            )
-
-            # Show additional info for first user
-            if user.is_super_admin:
-                self.stdout.write(
-                    self.style.WARNING(
-                        "This is the first user and has been automatically granted super admin privileges."
-                    )
-                )
-            elif not user.is_approved:
-                self.stdout.write(
-                    self.style.WARNING(
-                        "User created but requires admin approval before they can access the system."
-                    )
-                )
+            self._show_success_message(user, username)
 
         except Exception as e:
             raise CommandError(f"Error creating user: {e}")
+
+    def _show_success_message(self, user, username):
+        """Show appropriate success message based on user status."""
+        approval_status = "approved" if user.is_approved else "pending approval"
+        user_type = "super admin" if user.is_super_admin else "regular user"
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'Successfully created {user_type} "{username}" ({approval_status})'
+            )
+        )
+
+        # Show additional info for first user
+        if user.is_super_admin:
+            self.stdout.write(
+                self.style.WARNING(
+                    "This is the first user and has been automatically granted super admin privileges."
+                )
+            )
+        elif not user.is_approved:
+            self.stdout.write(
+                self.style.WARNING(
+                    "User created but requires admin approval before they can access the system."
+                )
+            )

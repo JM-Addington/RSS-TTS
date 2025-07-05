@@ -1,8 +1,5 @@
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.utils import timezone
-
-from accounts.models_profile import UserProfile
 
 
 class Command(BaseCommand):
@@ -100,7 +97,9 @@ class Command(BaseCommand):
             elif user.is_super_admin:
                 style = self.style.SUCCESS
             else:
-                style = lambda x: x  # No styling
+                def no_style(x):
+                    return x
+                style = no_style
 
             self.stdout.write(
                 style(
