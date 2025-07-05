@@ -45,6 +45,7 @@ Once an article is submitted, its processing is handled by the `process_article`
 
 6.  **Finalization**:
     *   The complete audio file is saved to a designated media storage location.
+    *   A de-essing filter is applied during export to reduce harsh sibilance.
     *   The path to this audio file is stored in `article.audio_file_path`.
     *   The `article.status` is updated to `COMPLETED`.
     *   Other relevant fields, including `article.summary`, `article.multi_voice_data`, and `article.voice_parameters` (if applicable), are saved to the database.

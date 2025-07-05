@@ -1248,3 +1248,10 @@ class VolumeGainConstantTests(TestCase):
         self.assertAlmostEqual(VOLUME_GAIN_DB, expected_gain, places=2)
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
+
+class DeesserFilterTests(TestCase):
+    def test_deesser_filter_constant(self):
+        """Ensure de-essing filter parameters are defined correctly."""
+        from text_to_audio.tasks import DEESSER_FILTER_ARGS
+
+        self.assertEqual(DEESSER_FILTER_ARGS, ["-af", "deesser"])

@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # Add a short pause to the end of exported audio files
 ENDING_SILENCE_MS = 2000
 VOLUME_GAIN_DB = 3.0  # ~3dB volume increase
+DEESSER_FILTER_ARGS = ["-af", "deesser"]
 
 
 def _clamp_tts_speed(speed: float) -> float:
@@ -1206,7 +1207,7 @@ def process_article(self, article_id: int) -> str:
             "artist": feed_name,
             "album": feed_name,
         }
-        export_parameters = ["-id3v2_version", "3", "-write_id3v1", "1"]
+        export_parameters = ["-id3v2_version", "3", "-write_id3v1", "1"] + DEESSER_FILTER_ARGS
 
         if len(generated_audio_files) == 1:
             single_audio_path = generated_audio_files[0]
