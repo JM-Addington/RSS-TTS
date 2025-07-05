@@ -166,6 +166,22 @@ class SignUpView(CreateView):
     template_name = "registration/signup.html"
     success_url = reverse_lazy("login")
 
+    def get(self, request, *args, **kwargs):
+        """Redirect to login if users already exist."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        if User.objects.exists():
+            return redirect('login')
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        """Redirect to login if users already exist."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        if User.objects.exists():
+            return redirect('login')
+        return super().post(request, *args, **kwargs)
+
     def form_valid(self, form):
         """Create new user and handle admin approval logic."""
         response = super().form_valid(form)
@@ -760,6 +776,22 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
     def get_queryset(self):
         """Ensure users can only delete their own articles."""
         return Article.objects.filter(feed__user=self.request.user)
+
+    def dispatch(self, request, *args, **kwargs):
+        """Override dispatch to check for article ownership early."""
+        from django.http import Http404
+        from django.shortcuts import get_object_or_404
+
+        # Get the article_id from URL kwargs
+        article_id = kwargs.get('article_id')
+        if article_id:
+            # Check if the article exists and belongs to the current user
+            try:
+                get_object_or_404(Article, pk=article_id, feed__user=request.user)
+            except:
+                raise Http404("Article not found or access denied")
+
+        return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
         """Redirect to the article list of the feed."""

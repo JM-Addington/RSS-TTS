@@ -232,6 +232,9 @@ class ArticleDeleteViewTests(TestCase):
         user2 = User.objects.create_user(
             username="user2", password="password2", email="user2@example.com"
         )
+        # Approve user2 so they can get past the middleware
+        user2.profile.is_approved = True
+        user2.profile.save()
         # Article belongs to self.user, but self.client is logged in as self.user
         # We need to log in as user2
         self.client.logout()
