@@ -24,9 +24,11 @@ from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
 from .services.chunk_tone_service import ChunkToneService
-from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
+from .services.content_analysis import (MAX_ANALYSIS_WORDS,
+                                        ContentAnalysisService)
 from .services.voice_configuration import VoiceConfigurationService
-from .services.voice_parameter_generation import VoiceParameterGenerationService
+from .services.voice_parameter_generation import \
+    VoiceParameterGenerationService
 from .utils import process_url_to_text
 
 # Configure logging
@@ -1207,7 +1209,12 @@ def process_article(self, article_id: int) -> str:
             "artist": feed_name,
             "album": feed_name,
         }
-        export_parameters = ["-id3v2_version", "3", "-write_id3v1", "1"] + DEESSER_FILTER_ARGS
+        export_parameters = [
+            "-id3v2_version",
+            "3",
+            "-write_id3v1",
+            "1",
+        ] + DEESSER_FILTER_ARGS
 
         if len(generated_audio_files) == 1:
             single_audio_path = generated_audio_files[0]

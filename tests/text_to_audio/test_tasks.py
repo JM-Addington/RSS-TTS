@@ -9,13 +9,12 @@ functionality.
 from __future__ import annotations
 
 import shutil
-import math
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
-from django.conf import (
-    settings as django_settings,  # Use a different alias to avoid conflict with fixture
-)
+from django.conf import \
+    settings as \
+    django_settings  # Use a different alias to avoid conflict with fixture
 from django.contrib.auth import get_user_model
 
 # Configure Django settings before importing models and tasks
@@ -56,7 +55,8 @@ from django.test import TestCase, override_settings
 from openai import APIError as OpenAIAPIError
 
 from text_to_audio.models import Article, Feed
-from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
+from text_to_audio.tasks import (_clamp_tts_speed, _legacy_chunk_text,
+                                 process_article)
 
 User = get_user_model()
 TEST_MEDIA_ROOT = Path(django_settings.MEDIA_ROOT)
@@ -252,7 +252,21 @@ class ProcessArticleTests(TestCase):
 
     def setUp(self):
         if TEST_MEDIA_ROOT.exists():
-            shutil.rmtree(TEST_MEDIA_ROOT)
+            try:
+                shutil.rmtree(TEST_MEDIA_ROOT)
+            except OSError:
+                # Directory might be busy (bind-mounted in Docker), clear contents instead
+                for item in TEST_MEDIA_ROOT.iterdir():
+                    if item.is_file():
+                        try:
+                            item.unlink()
+                        except OSError:
+                            pass
+                    elif item.is_dir():
+                        try:
+                            shutil.rmtree(item)
+                        except OSError:
+                            pass
         TEST_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
         self.user = User.objects.create_user(username="testuser", password="password")
         self.feed = Feed.objects.create(user=self.user, name="Test Feed")
@@ -271,7 +285,21 @@ class ProcessArticleTests(TestCase):
 
     def tearDown(self):
         if TEST_MEDIA_ROOT.exists():
-            shutil.rmtree(TEST_MEDIA_ROOT)
+            try:
+                shutil.rmtree(TEST_MEDIA_ROOT)
+            except OSError:
+                # Directory might be busy (bind-mounted in Docker), clear contents instead
+                for item in TEST_MEDIA_ROOT.iterdir():
+                    if item.is_file():
+                        try:
+                            item.unlink()
+                        except OSError:
+                            pass
+                    elif item.is_dir():
+                        try:
+                            shutil.rmtree(item)
+                        except OSError:
+                            pass
 
     @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.AudioSegment.silent")
@@ -1188,11 +1216,9 @@ class ProcessArticleTests(TestCase):
         MockOpenAIClient,
     ):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
-        from text_to_audio.schemas.chunk_tone import (
-            ChunkData,
-            ChunkTonePayload,
-            TTSVoice,
-        )
+        from text_to_audio.schemas.chunk_tone import (ChunkData,
+                                                      ChunkTonePayload,
+                                                      TTSVoice)
 
         test_cases = [(0.2, 0.25), (2.5, 2.5), (4.5, 4.0)]
         for input_speed, expected_speed in test_cases:
@@ -1247,7 +1273,9 @@ class VolumeGainConstantTests(TestCase):
         expected_gain = 3.0
         self.assertAlmostEqual(VOLUME_GAIN_DB, expected_gain, places=2)
 
+
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
+
 
 class DeesserFilterTests(TestCase):
     def test_deesser_filter_constant(self):

@@ -9,33 +9,18 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from text_to_audio.api_views import FeedArticleSubmitView
 from text_to_audio.feeds import UserFeed
-from text_to_audio.views import (
-    ArticleCreateView,
-    ArticleDeleteView,
-    ArticleDetailView,
-    ArticleListView,
-    ArticleMediaView,
-    FeedArticleCreateView,
-    FeedArticleListView,
-    FeedArticleStatusView,
-    FeedCreateView,
-    FeedDeleteView,
-    FeedListView,
-    FeedUpdateView,
-    FollowedFeedCreateView,
-    FollowedFeedDeleteView,
-    FollowedFeedListView,
-    FollowedFeedUpdateView,
-    HomeView,
-    RegenerateArticleView,
-    SignUpView,
-    article_voice_settings,
-    voice_preferences,
-    voice_preset_create,
-    voice_preset_delete,
-    voice_preset_edit,
-    voice_preset_list,
-)
+from text_to_audio.views import (ArticleCreateView, ArticleDeleteView,
+                                 ArticleDetailView, ArticleListView,
+                                 ArticleMediaView, FeedArticleCreateView,
+                                 FeedArticleListView, FeedArticleStatusView,
+                                 FeedCreateView, FeedDeleteView, FeedListView,
+                                 FeedUpdateView, FollowedFeedCreateView,
+                                 FollowedFeedDeleteView, FollowedFeedListView,
+                                 FollowedFeedUpdateView, HomeView,
+                                 RegenerateArticleView, SignUpView,
+                                 article_voice_settings, voice_preferences,
+                                 voice_preset_create, voice_preset_delete,
+                                 voice_preset_edit, voice_preset_list)
 
 urlpatterns = [
     path("admin/", admin.site.urls),

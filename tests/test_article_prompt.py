@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from text_to_audio.models import Article, Feed
-from text_to_audio.services.voice_configuration import VoiceConfigurationService
+from text_to_audio.services.voice_configuration import \
+    VoiceConfigurationService
 
 User = get_user_model()
 
