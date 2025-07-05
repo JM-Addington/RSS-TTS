@@ -9,7 +9,6 @@ functionality.
 from __future__ import annotations
 
 import shutil
-import math
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -252,7 +251,21 @@ class ProcessArticleTests(TestCase):
 
     def setUp(self):
         if TEST_MEDIA_ROOT.exists():
-            shutil.rmtree(TEST_MEDIA_ROOT)
+            try:
+                shutil.rmtree(TEST_MEDIA_ROOT)
+            except OSError:
+                # Directory might be busy (bind-mounted in Docker), clear contents instead
+                for item in TEST_MEDIA_ROOT.iterdir():
+                    if item.is_file():
+                        try:
+                            item.unlink()
+                        except OSError:
+                            pass
+                    elif item.is_dir():
+                        try:
+                            shutil.rmtree(item)
+                        except OSError:
+                            pass
         TEST_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
         self.user = User.objects.create_user(username="testuser", password="password")
         self.feed = Feed.objects.create(user=self.user, name="Test Feed")
@@ -271,7 +284,21 @@ class ProcessArticleTests(TestCase):
 
     def tearDown(self):
         if TEST_MEDIA_ROOT.exists():
-            shutil.rmtree(TEST_MEDIA_ROOT)
+            try:
+                shutil.rmtree(TEST_MEDIA_ROOT)
+            except OSError:
+                # Directory might be busy (bind-mounted in Docker), clear contents instead
+                for item in TEST_MEDIA_ROOT.iterdir():
+                    if item.is_file():
+                        try:
+                            item.unlink()
+                        except OSError:
+                            pass
+                    elif item.is_dir():
+                        try:
+                            shutil.rmtree(item)
+                        except OSError:
+                            pass
 
     @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.AudioSegment.silent")
@@ -1247,4 +1274,13 @@ class VolumeGainConstantTests(TestCase):
         expected_gain = 3.0
         self.assertAlmostEqual(VOLUME_GAIN_DB, expected_gain, places=2)
 
+
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
+
+
+class DeesserFilterTests(TestCase):
+    def test_deesser_filter_constant(self):
+        """Ensure de-essing filter parameters are defined correctly."""
+        from text_to_audio.tasks import DEESSER_FILTER_ARGS
+
+        self.assertEqual(DEESSER_FILTER_ARGS, ["-af", "deesser"])
