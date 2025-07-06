@@ -1082,8 +1082,8 @@ def voice_preset_test(request, preset_id=None):
 
             audio_file = BytesIO(audio_data)
             response = FileResponse(audio_file, content_type="audio/mpeg")
-            response["Content-Disposition"] = 'inline; filename="voice_test.mp3"'
-            response["Cache-Control"] = "no-cache"
+            response["Content-Disposition"] = 'inline; filename="voice_test.mp3"'  # type: ignore[index]
+            response["Cache-Control"] = "no-cache"  # type: ignore[index]
             return response
         finally:
             # Always clean up the temporary file
@@ -1127,7 +1127,7 @@ def voice_preset_sample(request, preset_id):
 
                     audio_file = BytesIO(audio_data)
                     response = FileResponse(audio_file, content_type="audio/mpeg")
-                    response["Content-Disposition"] = (
+                    response["Content-Disposition"] = (  # type: ignore[index]
                         'inline; filename="voice_sample.mp3"'
                     )
                     return response
