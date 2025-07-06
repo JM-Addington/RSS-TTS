@@ -1073,17 +1073,20 @@ def voice_preset_test(request, preset_id=None):
             response.stream_to_file(tmp.name)
             tmp_path = tmp.name
 
-        with open(tmp_path, "rb") as f:
-            audio_data = f.read()
-        os.remove(tmp_path)
+        try:
+            with open(tmp_path, "rb") as f:
+                audio_data = f.read()
 
-        from io import BytesIO
+            from io import BytesIO
 
-        audio_file = BytesIO(audio_data)
-        response = FileResponse(audio_file, content_type="audio/mpeg")
-        response["Content-Disposition"] = 'inline; filename="voice_test.mp3"'
-        response["Cache-Control"] = "no-cache"
-        return response
+            audio_file = BytesIO(audio_data)
+            response = FileResponse(audio_file, content_type="audio/mpeg")
+            response["Content-Disposition"] = 'inline; filename="voice_test.mp3"'
+            response["Cache-Control"] = "no-cache"
+            return response
+        finally:
+            # Always clean up the temporary file
+            os.remove(tmp_path)
 
     except Exception as e:
         logger.error(f"Error generating voice sample: {e}")
@@ -1098,29 +1101,51 @@ def voice_preset_sample(request, preset_id):
     if request.method == "POST":
         form = VoiceSampleForm(request.POST)
         if form.is_valid():
-            text = " ".join(form.cleaned_data["text"].split()[:100])
+            text = form.cleaned_data["text"]
 
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-            tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd")
-            response = client.audio.speech.create(
-                model=tts_model,
-                voice=preset.voice_id,
-                input=text,
-                speed=preset.speed,
-                response_format="mp3",
-            )
+            try:
+                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd")
+                response = client.audio.speech.create(
+                    model=tts_model,
+                    voice=preset.voice_id,
+                    input=text,
+                    speed=preset.speed,
+                    response_format="mp3",
+                )
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
-                response.stream_to_file(tmp.name)
-                tmp_path = tmp.name
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+                    response.stream_to_file(tmp.name)
+                    tmp_path = tmp.name
 
-            with open(tmp_path, "rb") as f:
-                audio_data = f.read()
-            os.remove(tmp_path)
+                try:
+                    with open(tmp_path, "rb") as f:
+                        audio_data = f.read()
 
-            response = FileResponse(audio_data, content_type="audio/mpeg")
-            response["Content-Disposition"] = 'inline; filename="voice_sample.mp3"'
-            return response
+                    from io import BytesIO
+
+                    audio_file = BytesIO(audio_data)
+                    response = FileResponse(audio_file, content_type="audio/mpeg")
+                    response["Content-Disposition"] = (
+                        'inline; filename="voice_sample.mp3"'
+                    )
+                    return response
+                finally:
+                    # Always clean up the temporary file
+                    os.remove(tmp_path)
+
+            except Exception as e:
+                logger.error(f"Error generating voice sample: {e}")
+                # Handle AJAX errors
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return HttpResponseBadRequest(
+                        "Error generating voice sample. Please try again."
+                    )
+                else:
+                    # For regular form submission, add error to form
+                    form.add_error(
+                        None, "Error generating voice sample. Please try again."
+                    )
         else:
             # Handle AJAX form validation errors
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
