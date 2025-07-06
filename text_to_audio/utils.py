@@ -510,6 +510,7 @@ EXTRACTED ARTICLE TEXT:"""
 
         # Use GPT-4.1 to extract the content
         import openai
+
         from appconfig.utils import get_openai_api_key
 
         client = openai.OpenAI(api_key=get_openai_api_key())
