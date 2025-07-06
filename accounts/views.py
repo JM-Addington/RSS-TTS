@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView
 
+from accounts.models_profile import UserProfile
+
 from .forms import CustomUserCreationForm
 
 # User is now imported directly from django.contrib.auth.models
@@ -135,6 +137,60 @@ def user_reset_password(request, user_id):
         return redirect("user-management")
 
     return render(request, "accounts/user_reset_password.html", {"target_user": user})
+
+
+@login_required
+def user_promote(request, user_id):
+    """Promote a user to super admin."""
+    if not request.user.can_manage_users():
+        return HttpResponseForbidden(
+            "You don't have permission to perform this action."
+        )
+
+    user = get_object_or_404(User, id=user_id)
+
+    if user.is_super_admin:
+        messages.warning(request, f'User "{user.username}" is already a super admin.')
+        return redirect("user-management")
+
+    user.profile.is_super_admin = True
+    user.profile.is_approved = True
+    user.profile.save()
+    user.is_staff = True
+    user.is_superuser = True
+    user.save()
+
+    messages.success(request, f'User "{user.username}" promoted to super admin.')
+    return redirect("user-management")
+
+
+@login_required
+def user_demote(request, user_id):
+    """Demote a user from super admin."""
+    if not request.user.can_manage_users():
+        return HttpResponseForbidden(
+            "You don't have permission to perform this action."
+        )
+
+    user = get_object_or_404(User, id=user_id)
+
+    if not user.is_super_admin:
+        messages.warning(request, f'User "{user.username}" is not a super admin.')
+        return redirect("user-management")
+
+    super_admin_count = UserProfile.objects.filter(is_super_admin=True).count()
+    if super_admin_count <= 1:
+        messages.error(request, "Cannot demote the last super admin.")
+        return redirect("user-management")
+
+    user.profile.is_super_admin = False
+    user.profile.save()
+    user.is_staff = False
+    user.is_superuser = False
+    user.save()
+
+    messages.success(request, f'User "{user.username}" demoted from super admin.')
+    return redirect("user-management")
 
 
 class UserDeleteView(SuperAdminRequiredMixin, LoginRequiredMixin, DeleteView):

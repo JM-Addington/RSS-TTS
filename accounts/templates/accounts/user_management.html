@@ -64,7 +64,10 @@
                                                 <a href="{% url 'user-revoke-approval' user.id %}" class="btn btn-sm btn-warning">Revoke</a>
                                             {% endif %}
                                             <a href="{% url 'user-reset-password' user.id %}" class="btn btn-sm btn-info">Reset Password</a>
-                                            {% if not user.is_super_admin %}
+                                            {% if user.is_super_admin %}
+                                                <a href="{% url 'user-demote' user.id %}" class="btn btn-sm btn-warning">Demote</a>
+                                            {% else %}
+                                                <a href="{% url 'user-promote' user.id %}" class="btn btn-sm btn-primary">Make Super Admin</a>
                                                 <a href="{% url 'user-delete' user.id %}" class="btn btn-sm btn-danger">Delete</a>
                                             {% endif %}
                                         </div>

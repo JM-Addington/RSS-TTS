@@ -53,12 +53,12 @@ class SpeedControlChunkToneTests(TestCase):
             shutil.rmtree(TEST_MEDIA_ROOT)
 
     @patch("text_to_audio.tasks.ChunkToneService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_speed_control_propagated_to_chunk_tone_service(
         self,
         mock_audio_empty,
-        mock_audio_from_mp3,
+        mock_audio_from_file,
         MockChunkToneService,
         MockOpenAIClient,
     ):
@@ -132,7 +132,7 @@ class SpeedControlChunkToneTests(TestCase):
         mock_audio_segment = MagicMock()
         mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
         mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
-        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_from_file.return_value = mock_audio_segment
 
         from unittest.mock import PropertyMock
 
@@ -203,12 +203,12 @@ class SpeedControlChunkToneTests(TestCase):
             self.assertTrue(len(call_kwargs["instructions"]) > 0)
 
     @patch("text_to_audio.tasks.ChunkToneService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_speed_from_voice_parameters_prioritized(
         self,
         mock_audio_empty,
-        mock_audio_from_mp3,
+        mock_audio_from_file,
         MockChunkToneService,
         MockOpenAIClient,
     ):
@@ -257,7 +257,7 @@ class SpeedControlChunkToneTests(TestCase):
         mock_audio_segment = MagicMock()
         mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
         mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
-        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_from_file.return_value = mock_audio_segment
 
         from unittest.mock import PropertyMock
 
@@ -305,12 +305,12 @@ class SpeedControlChunkToneTests(TestCase):
             self.assertTrue(len(call_kwargs["instructions"]) > 0)
 
     @patch("text_to_audio.tasks.ChunkToneService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_speed_fallback_when_none_specified(
         self,
         mock_audio_empty,
-        mock_audio_from_mp3,
+        mock_audio_from_file,
         MockChunkToneService,
         MockOpenAIClient,
     ):
@@ -357,7 +357,7 @@ class SpeedControlChunkToneTests(TestCase):
         mock_audio_segment = MagicMock()
         mock_audio_segment.set_frame_rate.return_value = mock_audio_segment
         mock_audio_segment.export.side_effect = self.create_dummy_file_side_effect
-        mock_audio_from_mp3.return_value = mock_audio_segment
+        mock_audio_from_file.return_value = mock_audio_segment
 
         from unittest.mock import PropertyMock
 

@@ -125,6 +125,7 @@ MP3 files are stored in the `./media/articles/` directory and served directly by
 - Saved by the worker as `./media/articles/{uuid}.mp3`
 - Accessible via HTTP at `/audio/{uuid}/`
 - Shared between containers via a bind mount
+- During export, a de-essing filter reduces harsh "s" sounds for better playback quality.
 
 To use Docker volumes instead of bind mounts for media files, uncomment the relevant sections in the docker-compose files.
 

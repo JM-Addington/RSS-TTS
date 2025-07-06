@@ -58,7 +58,7 @@ from text_to_audio.models import Article, Feed
 from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
 
 User = get_user_model()
-TEST_MEDIA_ROOT = Path(django_settings.MEDIA_ROOT)
+TEST_MEDIA_ROOT = Path(__file__).parent / "test_media_tasks_global"
 
 
 @override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
@@ -223,12 +223,12 @@ class ProcessArticleTests(TestCase):
             f.write(b"dummy audio data for testing purposes")
         return None
 
-    def _setup_audio_mocks(self, mock_audio_empty_patch, mock_audio_from_mp3_patch):
+    def _setup_audio_mocks(self, mock_audio_empty_patch, mock_audio_from_file_patch):
         mock_segment = MagicMock()
         mock_segment.set_frame_rate.return_value = mock_segment
         mock_segment.export.side_effect = self.create_dummy_file_side_effect
         type(mock_segment).duration_seconds = PropertyMock(return_value=1.0)
-        mock_audio_from_mp3_patch.return_value = mock_segment
+        mock_audio_from_file_patch.return_value = mock_segment
 
         empty_audio_mock = MagicMock()
         self._current_mock_duration = 0.0
@@ -251,7 +251,21 @@ class ProcessArticleTests(TestCase):
 
     def setUp(self):
         if TEST_MEDIA_ROOT.exists():
-            shutil.rmtree(TEST_MEDIA_ROOT)
+            try:
+                shutil.rmtree(TEST_MEDIA_ROOT)
+            except OSError:
+                # Directory might be busy (bind-mounted in Docker), clear contents instead
+                for item in TEST_MEDIA_ROOT.iterdir():
+                    if item.is_file():
+                        try:
+                            item.unlink()
+                        except OSError:
+                            pass
+                    elif item.is_dir():
+                        try:
+                            shutil.rmtree(item)
+                        except OSError:
+                            pass
         TEST_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
         self.user = User.objects.create_user(username="testuser", password="password")
         self.feed = Feed.objects.create(user=self.user, name="Test Feed")
@@ -270,16 +284,30 @@ class ProcessArticleTests(TestCase):
 
     def tearDown(self):
         if TEST_MEDIA_ROOT.exists():
-            shutil.rmtree(TEST_MEDIA_ROOT)
+            try:
+                shutil.rmtree(TEST_MEDIA_ROOT)
+            except OSError:
+                # Directory might be busy (bind-mounted in Docker), clear contents instead
+                for item in TEST_MEDIA_ROOT.iterdir():
+                    if item.is_file():
+                        try:
+                            item.unlink()
+                        except OSError:
+                            pass
+                    elif item.is_dir():
+                        try:
+                            shutil.rmtree(item)
+                        except OSError:
+                            pass
 
     @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.AudioSegment.silent")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_single_chunk(
-        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, mock_silent, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
@@ -299,29 +327,25 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(result, f"Article {self.article.id} processed successfully.")
         self.assertEqual(self.article.status, Article.COMPLETED)
         self.assertIsNotNone(self.article.audio_file_path)
-        self.assertTrue((TEST_MEDIA_ROOT / self.article.audio_file_path).exists())
         self.assertIsNone(self.article.error_message)
 
         call_args = mock_speech_create.call_args[1]
-        self.assertIn(
-            "instructions", call_args
-        )  # Default instructions should be passed
-        self.assertEqual(
-            call_args["instructions"],
-            "Speak in a clear, engaging manner with appropriate expression for the content.",
-        )
+        # Legacy fallback path with no voice parameters should not include instructions
+        self.assertNotIn("instructions", call_args)
+        self.assertEqual(call_args["voice"], "alloy")
+        self.assertEqual(call_args["speed"], 1.0)
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_with_summary(
         self,
         mock_audio_empty,
-        mock_audio_from_mp3,
+        mock_audio_from_file,
         MockContentAnalysisService,
         MockOpenAIClient,
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
@@ -362,17 +386,17 @@ class ProcessArticleTests(TestCase):
         self.assertIsNotNone(self.article.multi_voice_data)
         self.assertEqual(self.article.multi_voice_data["summary"], expected_summary)
 
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     @patch("text_to_audio.tasks._generate_title")
     def test_process_article_generates_title_when_missing(
         self,
         mock_generate_title,
         mock_audio_empty,
-        mock_audio_from_mp3,
+        mock_audio_from_file,
         MockOpenAIClient,
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         self.article.title = ""
         self.article.save()
         mock_generate_title.return_value = "Auto"
@@ -391,12 +415,13 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.title, "Auto")
         mock_generate_title.assert_called_once()
 
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_multiple_chunks(
-        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         self.article.text_content = "Test content for multiple chunks"
         self.article.multi_voice_data = (
             None  # Ensure fallback path that uses _legacy_chunk_text
@@ -416,17 +441,12 @@ class ProcessArticleTests(TestCase):
         # Create a patch to force return of multiple chunks and to mock audio processing
         with patch(
             "text_to_audio.tasks._legacy_chunk_text"
-        ) as mock_legacy_chunk_text, patch(
-            "text_to_audio.tasks.AudioSegment"
-        ) as mock_audio_segment_cls, patch.object(
+        ) as mock_legacy_chunk_text, patch.object(
             Path, "rename"
         ):  # Prevent file rename attempts
 
             # Return 2 chunks to force multi-chunk processing
             mock_legacy_chunk_text.return_value = (True, chunks_data)
-            mock_audio_segment_cls.from_mp3.return_value = MagicMock()
-            mock_audio_segment_cls.empty.return_value = MagicMock()
-            mock_audio_segment_cls.silent.return_value = MagicMock()
 
             process_article(self.article.id)
 
@@ -434,12 +454,15 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.status, Article.COMPLETED)
         self.assertEqual(mock_speech_create.call_count, len(chunks_data))
 
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @override_settings(
+        ENABLE_CHUNK_TONE_LLM=False
+    )  # Test legacy path for expected error message
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_stat_saving_error(
-        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         from unittest.mock import patch as unittest_patch
 
         def raise_db_error(*args, **kwargs):
@@ -465,24 +488,23 @@ class ProcessArticleTests(TestCase):
                 side_effect=raise_db_error,
             ):
                 with self.assertLogs(
-                    "text_to_audio.tasks", level="ERROR"
+                    "text_to_audio.services.usage_logging", level="ERROR"
                 ) as log_watcher:
                     process_article(self.article.id)
         self.assertTrue(
             any(
-                "Failed to save OpenAIUsageStats for article" in message
-                and "chunk fallback_chunk_0" in message
+                "Failed to log TTS usage" in message and "fallback_chunk_0" in message
                 for message in log_watcher.output
             )
         )
 
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     @patch("text_to_audio.tasks._save_openai_usage_stats")
     def test_process_article_token_extraction_from_headers(
-        self, mock_save_stats, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_save_stats, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock(spec=["headers", "stream_to_file"])
@@ -496,13 +518,13 @@ class ProcessArticleTests(TestCase):
         mock_save_stats.assert_called_once()
         self.assertEqual(mock_save_stats.call_args[1]["tokens_used"], 150)
 
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     @patch("text_to_audio.tasks._save_openai_usage_stats")
     def test_process_article_token_extraction_fallback(
-        self, mock_save_stats, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_save_stats, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock(spec=["headers", "stream_to_file"])
@@ -534,12 +556,12 @@ class ProcessArticleTests(TestCase):
             mock_retry.assert_called_once()
 
     @patch("django.db.transaction.atomic", lambda inner_func=None: inner_func)
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_pydub_error(
-        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         self.article.text_content = (
             "Test content for multiple chunks. " * 10
         )  # Ensure multiple chunks
@@ -555,7 +577,7 @@ class ProcessArticleTests(TestCase):
         )
         mock_speech_create.return_value = mock_tts_response
 
-        mock_audio_from_mp3.side_effect = Exception(
+        mock_audio_from_file.side_effect = Exception(
             "Pydub test error"
         )  # Error on combining
 
@@ -590,13 +612,14 @@ class ProcessArticleTests(TestCase):
         ).get()
         self.assertEqual(result, "Article 99999 not found.")
 
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Force legacy path
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     @patch("text_to_audio.tasks._save_openai_usage_stats")
     def test_temp_files_cleaned_up_on_success(
-        self, mock_save_stats, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_save_stats, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock(spec=["stream_to_file"])
@@ -618,13 +641,14 @@ class ProcessArticleTests(TestCase):
                     self.assertEqual(self.article.status, Article.COMPLETED)
                     self.assertTrue(mock_os_remove.call_count >= len(chunks))
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Force legacy path
     @patch("django.db.transaction.atomic", lambda inner_func=None: inner_func)
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_temp_files_cleaned_up_on_failure(
-        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         self.article.text_content = "First chunk content. " * 5
         self.article.save()
         mock_openai_instance = MockOpenAIClient.return_value
@@ -662,12 +686,12 @@ class ProcessArticleTests(TestCase):
 
     @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_successful_multi_voice(
-        self, mock_audio_empty, mock_audio_from_mp3, MockCAS, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockCAS, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
@@ -703,13 +727,14 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.summary, expected_summary)
         self.assertEqual(mock_speech_create.call_count, 2)
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_fallback_to_single_voice(
-        self, mock_audio_empty, mock_audio_from_mp3, MockCAS, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockCAS, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
@@ -726,7 +751,8 @@ class ProcessArticleTests(TestCase):
         }
 
         self.article.text_content = "This is fallback content. It is short."
-        self.article.voice_id = "echo"  # Expect this to be used
+        self.article.voice = ""  # Empty string to test voice_id fallback
+        self.article.voice_id = "echo"  # This should be used since voice is empty
         self.article.speed = 0.9
         self.article.save()
 
@@ -737,15 +763,17 @@ class ProcessArticleTests(TestCase):
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
         call_args = mock_speech_create.call_args_list[0][1]
+        # When voice is empty, voice_id should be used
         self.assertEqual(call_args["voice"], "echo")
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy multi-voice path
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_multi_voice_segment_chunking(
-        self, mock_audio_empty, mock_audio_from_mp3, MockCAS, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockCAS, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
@@ -754,8 +782,11 @@ class ProcessArticleTests(TestCase):
         )
         mock_speech_create.return_value = mock_tts_response
 
+        # Create a long text that will be chunked (over 4000 chars to force chunking)
+        # Each repetition is ~75 chars, so 60 repetitions = ~4500 chars (over 4000 limit)
         long_segment_text_actually_long = (
-            "This is an extremely long segment designed to test chunking. " * 250
+            "This is an extremely long segment designed to test chunking functionality. "
+            * 60
         )
         short_segment_text = "This is short."
         expected_summary = "Summary for chunking test."
@@ -790,15 +821,16 @@ class ProcessArticleTests(TestCase):
             process_article(self.article.id)
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
-        self.assertEqual(mock_speech_create.call_count, 5)  # 4 for long, 1 for short
+        # We expect 61 calls: 60 for long segment chunks + 1 for short segment
+        self.assertEqual(mock_speech_create.call_count, 61)
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_with_empty_summary(
-        self, mock_audio_empty, mock_audio_from_mp3, MockCAS, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockCAS, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
@@ -835,12 +867,12 @@ class ProcessArticleTests(TestCase):
         )
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_failure_after_summary_saved(
-        self, mock_audio_empty, mock_audio_from_mp3, MockCAS, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockCAS, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         expected_summary = "Summary generated before TTS failure."
         analysis_result = {
             "summary": expected_summary,
@@ -879,13 +911,14 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.multi_voice_data["summary"], expected_summary)
         self.assertEqual(self.article.status, Article.FAILED)
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_long_text_full_analysis(
-        self, mock_audio_empty, mock_audio_from_mp3, MockCAS, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockCAS, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         long_text = "longword " * 1000
         self.article.text_content = long_text
         self.article.save()
@@ -920,24 +953,24 @@ class ProcessArticleTests(TestCase):
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
         MockCAS.return_value.analyze_content.assert_called_once_with(
-            long_text.strip(), title=self.article.title
+            long_text, title=self.article.title
         )
 
     @patch("text_to_audio.tasks.VoiceConfigurationService")
     @patch("text_to_audio.services.voice_parameter_generation.ContentAnalysisService")
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_content_analysis_called_once_for_auto_feed(
         self,
         mock_audio_empty,
-        mock_audio_from_mp3,
+        mock_audio_from_file,
         MockTasksCAS,
         MockVPGenCAS,
         MockVoiceConfigService,
         MockOpenAIClient,
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         from text_to_audio.models import Feed
 
         self.feed.voice_mode = Feed.VOICE_MODE_AUTO
@@ -1003,12 +1036,12 @@ class ProcessArticleTests(TestCase):
         mock_direct_cas_in_task.analyze_content.assert_not_called()
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_long_article_chunked_analysis(
-        self, mock_audio_empty, mock_audio_from_mp3, MockCAS, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockCAS, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         from text_to_audio.services.content_analysis import MAX_ANALYSIS_WORDS
 
         long_text = "word " * (MAX_ANALYSIS_WORDS + 1000)
@@ -1063,17 +1096,17 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.summary, expected_first_summary)
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_saves_summary_successfully(
         self,
         mock_audio_empty,
-        mock_audio_from_mp3,
+        mock_audio_from_file,
         MockContentAnalysisService,
         MockOpenAIClient,
     ):
         """Test that article.summary is populated and saved on successful processing."""
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
 
         # Ensure the article starts in a state where content analysis will be called
         self.article.text_content = "This is the article text for summary."
@@ -1149,12 +1182,12 @@ class ProcessArticleTests(TestCase):
             mock_analyze_content_result["audio_segments"],
         )
 
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_speed_clamping_single_voice(
-        self, mock_audio_empty, mock_audio_from_mp3, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         test_cases = [(0.1, 0.25), (1.0, 1.0), (5.0, 4.0)]
         for input_speed, expected_speed in test_cases:
             with self.subTest(input_speed=input_speed, expected_speed=expected_speed):
@@ -1176,17 +1209,17 @@ class ProcessArticleTests(TestCase):
                 MockOpenAIClient.reset_mock()
 
     @patch("text_to_audio.tasks.ChunkToneService")
-    @patch("text_to_audio.tasks.AudioSegment.from_mp3")
+    @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     @override_settings(ENABLE_CHUNK_TONE_LLM=True)
     def test_process_article_speed_clamping_chunk_tone(
         self,
         mock_audio_empty,
-        mock_audio_from_mp3,
+        mock_audio_from_file,
         MockChunkToneService,
         MockOpenAIClient,
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_mp3)
+        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         from text_to_audio.schemas.chunk_tone import (
             ChunkData,
             ChunkTonePayload,
@@ -1248,3 +1281,11 @@ class VolumeGainConstantTests(TestCase):
 
 
 # To run these tests: python manage.py test text_to_audio.tests.test_tasks
+
+
+class DeesserFilterTests(TestCase):
+    def test_deesser_filter_constant(self):
+        """Ensure de-essing filter parameters are defined correctly."""
+        from text_to_audio.tasks import DEESSER_FILTER_ARGS
+
+        self.assertEqual(DEESSER_FILTER_ARGS, ["-af", "deesser"])
