@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Sample{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Generate Sample for {{ preset.name }}</h1>
+    <form id="sampleForm" method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="{{ form.text.id_for_label }}" class="form-label">{{ form.text.label }}</label>
+            {{ form.text }}
+            {% if form.text.help_text %}<div class="form-text">{{ form.text.help_text }}</div>{% endif %}
+            {% if form.text.errors %}
+            <div class="text-danger">
+                {% for error in form.text.errors %}{{ error }}{% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary" id="generateBtn">
+            <span id="btnText">Generate Sample</span>
+            <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+        </button>
+        <a href="{% url 'voice_preset_list' %}" class="btn btn-outline-secondary">Back</a>
+    </form>
+
+    <div id="audioPlayer" class="mt-4 d-none">
+        <h5>Voice Sample:</h5>
+        <audio controls class="w-100" id="audioElement">
+            Your browser does not support the audio element.
+        </audio>
+    </div>
+
+    <div id="errorMessage" class="alert alert-danger mt-3 d-none"></div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('sampleForm');
+    const generateBtn = document.getElementById('generateBtn');
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const audioElement = document.getElementById('audioElement');
+    const errorMessage = document.getElementById('errorMessage');
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Show loading state
+        generateBtn.disabled = true;
+        btnText.textContent = 'Generating...';
+        btnSpinner.classList.remove('d-none');
+        audioPlayer.classList.add('d-none');
+        errorMessage.classList.add('d-none');
+
+        // Create FormData and submit
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (response.ok && response.headers.get('content-type') === 'audio/mpeg') {
+                return response.blob();
+            } else if (response.status === 400) {
+                return response.text().then(text => {
+                    throw new Error(text);
+                });
+            } else {
+                return response.text().then(text => {
+                    throw new Error('Invalid response format');
+                });
+            }
+        })
+        .then(blob => {
+            // Create object URL and play audio
+            const audioUrl = URL.createObjectURL(blob);
+            audioElement.src = audioUrl;
+            audioPlayer.classList.remove('d-none');
+
+            // Clean up object URL when audio ends
+            audioElement.addEventListener('ended', function() {
+                URL.revokeObjectURL(audioUrl);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            errorMessage.textContent = error.message || 'Error generating sample. Please try again.';
+            errorMessage.classList.remove('d-none');
+        })
+        .finally(() => {
+            // Reset button state
+            generateBtn.disabled = false;
+            btnText.textContent = 'Generate Sample';
+            btnSpinner.classList.add('d-none');
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -625,7 +625,16 @@ def process_article(self, article_id: int) -> str:
                 # This ensures ChunkTone reuses sophisticated analysis from AUTO mode when available
                 # (voice_parameters populated by VoiceParameterGenerationService in AUTO feeds)
                 enhanced_voice_prompt = None
-                if article.voice_parameters:
+
+                # AIDEV-NOTE: Voice preset prompt extraction - keep in sync with voice_preset_test view
+                # Check for voice preset prompt first (highest priority when preset is used)
+                if article.voice_preset and article.voice_preset.prompt:
+                    enhanced_voice_prompt = article.voice_preset.prompt
+                    resolved_speed = article.voice_preset.speed or article.speed or 1.0
+                    logger.info(
+                        f"Using voice preset prompt for Article {article_id}: '{enhanced_voice_prompt}'"
+                    )
+                elif article.voice_parameters:
                     resolved_speed = (
                         article.voice_parameters.get("speed") or article.speed or 1.0
                     )
@@ -1052,7 +1061,17 @@ def process_article(self, article_id: int) -> str:
 
             # Use enhanced voice parameters if available (from auto-voice)
             voice_prompt = None
-            if article.voice_parameters:
+
+            # AIDEV-NOTE: Voice preset prompt extraction - keep in sync with voice_preset_test view
+            # Check for voice preset prompt first (highest priority when preset is used)
+            if article.voice_preset and article.voice_preset.prompt:
+                voice_prompt = article.voice_preset.prompt
+                fallback_voice = article.voice_preset.voice_id
+                fallback_speed = article.voice_preset.speed or article.speed or 1.0
+                logger.info(
+                    f"Using voice preset prompt for fallback TTS Article {article_id}: '{voice_prompt}'"
+                )
+            elif article.voice_parameters:
                 # Check voice field first, then voice_id, then voice_parameters, then default
                 fallback_voice = (
                     article.voice

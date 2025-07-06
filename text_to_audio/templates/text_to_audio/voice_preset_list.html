@@ -42,6 +42,9 @@
                             <a href="{% url 'voice_preset_delete' preset.id %}" class="btn btn-sm btn-outline-danger">
                                 <i class="bi bi-trash"></i> Delete
                             </a>
+                            <a href="{% url 'voice_preset_sample' preset.id %}" class="btn btn-sm btn-outline-success">
+                                <i class="bi bi-play-circle"></i> Sample
+                            </a>
                         </td>
                     </tr>
                     {% endfor %}
