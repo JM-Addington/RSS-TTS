@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import PyPDF2
 import requests
 from bs4 import BeautifulSoup, Comment, Tag
+from django.conf import settings
 
 # Configure logging
 logger = logging.getLogger(__name__)
