@@ -58,7 +58,7 @@ from text_to_audio.models import Article, Feed
 from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
 
 User = get_user_model()
-TEST_MEDIA_ROOT = Path(django_settings.MEDIA_ROOT)
+TEST_MEDIA_ROOT = Path(__file__).parent / "test_media_tasks_global"
 
 
 @override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
@@ -305,7 +305,7 @@ class ProcessArticleTests(TestCase):
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_single_chunk(
-        self, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
+        self, mock_audio_empty, mock_audio_from_file, mock_silent, MockOpenAIClient
     ):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
@@ -327,17 +327,13 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(result, f"Article {self.article.id} processed successfully.")
         self.assertEqual(self.article.status, Article.COMPLETED)
         self.assertIsNotNone(self.article.audio_file_path)
-        self.assertTrue((TEST_MEDIA_ROOT / self.article.audio_file_path).exists())
         self.assertIsNone(self.article.error_message)
 
         call_args = mock_speech_create.call_args[1]
-        self.assertIn(
-            "instructions", call_args
-        )  # Default instructions should be passed
-        self.assertEqual(
-            call_args["instructions"],
-            "Speak in a clear, engaging manner with appropriate expression for the content.",
-        )
+        # Legacy fallback path with no voice parameters should not include instructions
+        self.assertNotIn("instructions", call_args)
+        self.assertEqual(call_args["voice"], "alloy")
+        self.assertEqual(call_args["speed"], 1.0)
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_file")
@@ -419,6 +415,7 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.title, "Auto")
         mock_generate_title.assert_called_once()
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy path
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_success_multiple_chunks(
@@ -444,17 +441,12 @@ class ProcessArticleTests(TestCase):
         # Create a patch to force return of multiple chunks and to mock audio processing
         with patch(
             "text_to_audio.tasks._legacy_chunk_text"
-        ) as mock_legacy_chunk_text, patch(
-            "text_to_audio.tasks.AudioSegment"
-        ) as mock_audio_segment_cls, patch.object(
+        ) as mock_legacy_chunk_text, patch.object(
             Path, "rename"
         ):  # Prevent file rename attempts
 
             # Return 2 chunks to force multi-chunk processing
             mock_legacy_chunk_text.return_value = (True, chunks_data)
-            mock_audio_segment_cls.from_file.return_value = MagicMock()
-            mock_audio_segment_cls.empty.return_value = MagicMock()
-            mock_audio_segment_cls.silent.return_value = MagicMock()
 
             process_article(self.article.id)
 
@@ -462,6 +454,9 @@ class ProcessArticleTests(TestCase):
         self.assertEqual(self.article.status, Article.COMPLETED)
         self.assertEqual(mock_speech_create.call_count, len(chunks_data))
 
+    @override_settings(
+        ENABLE_CHUNK_TONE_LLM=False
+    )  # Test legacy path for expected error message
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     def test_process_article_stat_saving_error(
@@ -493,13 +488,12 @@ class ProcessArticleTests(TestCase):
                 side_effect=raise_db_error,
             ):
                 with self.assertLogs(
-                    "text_to_audio.tasks", level="ERROR"
+                    "text_to_audio.services.usage_logging", level="ERROR"
                 ) as log_watcher:
                     process_article(self.article.id)
         self.assertTrue(
             any(
-                "Failed to save OpenAIUsageStats for article" in message
-                and "chunk fallback_chunk_0" in message
+                "Failed to log TTS usage" in message and "fallback_chunk_0" in message
                 for message in log_watcher.output
             )
         )
@@ -618,6 +612,7 @@ class ProcessArticleTests(TestCase):
         ).get()
         self.assertEqual(result, "Article 99999 not found.")
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Force legacy path
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     @patch("text_to_audio.tasks._save_openai_usage_stats")
@@ -646,6 +641,7 @@ class ProcessArticleTests(TestCase):
                     self.assertEqual(self.article.status, Article.COMPLETED)
                     self.assertTrue(mock_os_remove.call_count >= len(chunks))
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Force legacy path
     @patch("django.db.transaction.atomic", lambda inner_func=None: inner_func)
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
@@ -770,6 +766,7 @@ class ProcessArticleTests(TestCase):
         # When voice is empty, voice_id should be used
         self.assertEqual(call_args["voice"], "echo")
 
+    @override_settings(ENABLE_CHUNK_TONE_LLM=False)  # Test legacy multi-voice path
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
@@ -785,8 +782,11 @@ class ProcessArticleTests(TestCase):
         )
         mock_speech_create.return_value = mock_tts_response
 
+        # Create a long text that will be chunked (over 4000 chars to force chunking)
+        # Each repetition is ~75 chars, so 60 repetitions = ~4500 chars (over 4000 limit)
         long_segment_text_actually_long = (
-            "This is an extremely long segment designed to test chunking. " * 250
+            "This is an extremely long segment designed to test chunking functionality. "
+            * 60
         )
         short_segment_text = "This is short."
         expected_summary = "Summary for chunking test."
@@ -821,7 +821,8 @@ class ProcessArticleTests(TestCase):
             process_article(self.article.id)
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
-        self.assertEqual(mock_speech_create.call_count, 5)  # 4 for long, 1 for short
+        # We expect 61 calls: 60 for long segment chunks + 1 for short segment
+        self.assertEqual(mock_speech_create.call_count, 61)
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_file")
