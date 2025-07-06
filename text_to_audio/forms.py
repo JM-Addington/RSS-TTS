@@ -483,9 +483,13 @@ class VoiceSampleForm(forms.Form):
     text = forms.CharField(
         label="Sample Text",
         widget=forms.Textarea(
-            attrs={"rows": 3, "placeholder": "Enter up to 100 words"}
+            attrs={
+                "rows": 3,
+                "placeholder": "Enter up to 100 words to preview this voice preset",
+            }
         ),
         help_text="Provide text to preview this voice preset.",
+        initial="Welcome to our text-to-speech service. This is a sample of how your voice preset will sound when converting articles to audio.",
     )
 
     def clean_text(self) -> str:

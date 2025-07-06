@@ -6,16 +6,21 @@ submission, listing, media serving, and article deletion.
 
 import logging
 import os
-import uuid
 import tempfile
-import openai
+import uuid
 
+import openai
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
-from django.http import FileResponse, HttpResponseNotFound, JsonResponse
+from django.http import (
+    FileResponse,
+    HttpResponseBadRequest,
+    HttpResponseNotFound,
+    JsonResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
@@ -998,6 +1003,94 @@ def voice_preset_delete(request, preset_id):
 
 
 @login_required
+def voice_preset_test(request, preset_id=None):
+    """Generate a real-time voice sample with current form values."""
+    if (
+        request.method != "POST"
+        or request.headers.get("X-Requested-With") != "XMLHttpRequest"
+    ):
+        return HttpResponseBadRequest("Invalid request")
+
+    # Get form data
+    voice_id = request.POST.get("voice_id")
+    speed = request.POST.get("speed")
+    text = request.POST.get("text", "").strip()
+    prompt = request.POST.get("prompt", "").strip()
+
+    # Validate inputs
+    if not voice_id or not speed or not text:
+        return HttpResponseBadRequest("Missing required fields")
+
+    try:
+        speed = float(speed)
+        if speed < 0.25 or speed > 4.0:
+            return HttpResponseBadRequest("Speed must be between 0.25 and 4.0")
+    except (ValueError, TypeError):
+        return HttpResponseBadRequest("Invalid speed value")
+
+    # Limit text length
+    words = text.split()
+    if len(words) > 100:
+        return HttpResponseBadRequest("Text must be 100 words or fewer")
+    text = " ".join(words[:100])
+
+    # If preset_id is provided, verify user owns it
+    if preset_id:
+        get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
+
+    try:
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd")
+
+        # Prepare TTS request data
+        tts_request_data = {
+            "model": tts_model,
+            "voice": voice_id,
+            "input": text,
+            "speed": speed,
+            "response_format": "mp3",
+        }
+
+        # AIDEV-NOTE: TTS prompt/instructions handling - keep in sync with TTS pipeline in tasks.py
+        # Add instructions parameter only for supported models
+        if prompt and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
+            tts_request_data["instructions"] = prompt
+            logger.info(
+                f"Voice test with instructions: model={tts_model}, voice={voice_id}, instructions='{prompt}'"
+            )
+        elif prompt:
+            logger.info(
+                f"Voice test prompt ignored (unsupported model): model={tts_model}, prompt='{prompt}'"
+            )
+        else:
+            logger.info(
+                f"Voice test without instructions: model={tts_model}, voice={voice_id}"
+            )
+
+        response = client.audio.speech.create(**tts_request_data)
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+            response.stream_to_file(tmp.name)
+            tmp_path = tmp.name
+
+        with open(tmp_path, "rb") as f:
+            audio_data = f.read()
+        os.remove(tmp_path)
+
+        from io import BytesIO
+
+        audio_file = BytesIO(audio_data)
+        response = FileResponse(audio_file, content_type="audio/mpeg")
+        response["Content-Disposition"] = 'inline; filename="voice_test.mp3"'
+        response["Cache-Control"] = "no-cache"
+        return response
+
+    except Exception as e:
+        logger.error(f"Error generating voice sample: {e}")
+        return HttpResponseBadRequest("Error generating voice sample")
+
+
+@login_required
 def voice_preset_sample(request, preset_id):
     """Generate an audio sample for a voice preset."""
     preset = get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
@@ -1024,7 +1117,18 @@ def voice_preset_sample(request, preset_id):
             with open(tmp_path, "rb") as f:
                 audio_data = f.read()
             os.remove(tmp_path)
-            return FileResponse(audio_data, content_type="audio/mpeg")
+
+            response = FileResponse(audio_data, content_type="audio/mpeg")
+            response["Content-Disposition"] = 'inline; filename="voice_sample.mp3"'
+            return response
+        else:
+            # Handle AJAX form validation errors
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                errors = []
+                for field, field_errors in form.errors.items():
+                    for error in field_errors:
+                        errors.append(f"{field}: {error}")
+                return HttpResponseBadRequest("; ".join(errors))
     else:
         form = VoiceSampleForm()
 

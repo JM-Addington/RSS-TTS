@@ -85,6 +85,43 @@
             {% endif %}
         </div>
 
+        <!-- Voice Sample Testing Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-play-circle"></i> Test Voice Settings
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="testText" class="form-label">Sample Text</label>
+                    <textarea
+                        class="form-control"
+                        id="testText"
+                        rows="3"
+                        placeholder="Enter text to test the voice (up to 100 words)"
+                    >Welcome to our text-to-speech service. This is a sample of how your voice preset will sound when converting articles to audio.</textarea>
+                    <div class="form-text">Change voice settings above and click "Test Voice" to hear how it sounds. The prompt will be applied as instructions to the TTS model (if supported).
+                    <!-- AIDEV-NOTE: Prompt handling here must match TTS pipeline in tasks.py --></div>
+                </div>
+
+                <button type="button" class="btn btn-success" id="testVoiceBtn">
+                    <span id="testBtnText">
+                        <i class="bi bi-play-circle"></i> Test Voice
+                    </span>
+                    <span id="testBtnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                </button>
+
+                <div id="audioPlayer" class="mt-3 d-none">
+                    <audio controls class="w-100" id="audioElement" preload="none">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+
+                <div id="testErrorMessage" class="alert alert-danger mt-3 d-none"></div>
+            </div>
+        </div>
+
         <div class="mt-4 d-flex">
             <button type="submit" class="btn btn-primary me-2">
                 {% if is_create %}Create Preset{% else %}Update Preset{% endif %}
@@ -111,5 +148,190 @@
     textarea {
         min-height: 100px;
     }
+    .card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 0.75rem 1rem;
+    }
+    .card-body {
+        padding: 1rem;
+    }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const testVoiceBtn = document.getElementById('testVoiceBtn');
+    const testBtnText = document.getElementById('testBtnText');
+    const testBtnSpinner = document.getElementById('testBtnSpinner');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const audioElement = document.getElementById('audioElement');
+    const testErrorMessage = document.getElementById('testErrorMessage');
+    const testText = document.getElementById('testText');
+
+    // Debug: Log elements
+    console.log('Elements found:', {
+        testVoiceBtn: !!testVoiceBtn,
+        audioPlayer: !!audioPlayer,
+        audioElement: !!audioElement,
+        testText: !!testText
+    });
+
+    // Get form elements
+    const voiceIdField = document.getElementById('{{ form.voice_id.id_for_label }}');
+    const speedField = document.getElementById('{{ form.speed.id_for_label }}');
+    const promptField = document.getElementById('{{ form.prompt.id_for_label }}');
+
+    console.log('Form elements found:', {
+        voiceIdField: !!voiceIdField,
+        speedField: !!speedField,
+        promptField: !!promptField
+    });
+
+    if (!testVoiceBtn || !voiceIdField || !speedField || !testText || !audioPlayer) {
+        console.error('Required elements not found');
+        return;
+    }
+
+    testVoiceBtn.addEventListener('click', function(e) {
+        e.preventDefault(); // Prevent any default action
+        e.stopPropagation(); // Stop event bubbling
+        console.log('Test voice button clicked');
+        // Get current form values
+        const voiceId = voiceIdField.value;
+        const speed = speedField.value;
+        const text = testText.value.trim();
+        const prompt = promptField ? promptField.value.trim() : '';
+
+        console.log('Form values:', { voiceId, speed, textLength: text.length, promptLength: prompt.length });
+
+        // Validate inputs
+        if (!voiceId || !speed || !text) {
+            console.log('Validation failed');
+            testErrorMessage.textContent = 'Please fill in voice, speed, and sample text fields.';
+            testErrorMessage.classList.remove('d-none');
+            return;
+        }
+
+        // Show loading state
+        testVoiceBtn.disabled = true;
+        testBtnText.innerHTML = '<i class="bi bi-clock"></i> Generating...';
+        testBtnSpinner.classList.remove('d-none');
+        audioPlayer.classList.add('d-none');
+        testErrorMessage.classList.add('d-none');
+
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('voice_id', voiceId);
+        formData.append('speed', speed);
+        formData.append('text', text);
+        formData.append('prompt', prompt);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        // Make AJAX request
+        fetch('{% url "voice_preset_test" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            console.log('Response content-type:', response.headers.get('content-type'));
+
+            if (response.ok && response.headers.get('content-type') === 'audio/mpeg') {
+                return response.blob();
+            } else if (response.status === 400) {
+                return response.text().then(text => {
+                    throw new Error(text);
+                });
+            } else {
+                console.error('Unexpected response:', response.status, response.headers.get('content-type'));
+                throw new Error('Failed to generate voice sample');
+            }
+        })
+        .then(blob => {
+            console.log('Audio blob received:', blob.size, 'bytes');
+            console.log('Blob type:', blob.type);
+
+            // Clean up any existing blob URL
+            if (audioElement.src && audioElement.src.startsWith('blob:')) {
+                URL.revokeObjectURL(audioElement.src);
+                audioElement.src = '';
+            }
+
+            // Create object URL for the audio
+            const audioUrl = URL.createObjectURL(blob);
+            console.log('Audio URL created:', audioUrl);
+
+            // Add error handler for audio loading
+            audioElement.addEventListener('error', function(e) {
+                console.error('Audio loading error:', e);
+                console.error('Audio element error details:', audioElement.error);
+                testErrorMessage.textContent = 'Error loading audio. Please try again.';
+                testErrorMessage.classList.remove('d-none');
+                URL.revokeObjectURL(audioUrl);
+            }, { once: true });
+
+            // Add success handler
+            audioElement.addEventListener('loadeddata', function() {
+                console.log('Audio loaded successfully');
+            }, { once: true });
+
+            // Add canplay handler - auto-play when ready
+            audioElement.addEventListener('canplay', function() {
+                console.log('Audio can play - starting playback');
+                audioElement.play().catch(error => {
+                    console.log('Auto-play failed (browser policy):', error);
+                    // Auto-play failed, but that's okay - user can click play manually
+                });
+            }, { once: true });
+
+            // Set the source and show player
+            audioElement.src = audioUrl;
+            audioPlayer.classList.remove('d-none');
+            console.log('Audio player shown');
+
+            // Clean up URL when audio ends
+            audioElement.addEventListener('ended', function() {
+                URL.revokeObjectURL(audioUrl);
+            }, { once: true });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            testErrorMessage.textContent = error.message || 'Error generating voice sample. Please try again.';
+            testErrorMessage.classList.remove('d-none');
+        })
+        .finally(() => {
+            // Reset button state
+            testVoiceBtn.disabled = false;
+            testBtnText.innerHTML = '<i class="bi bi-play-circle"></i> Test Voice';
+            testBtnSpinner.classList.add('d-none');
+        });
+    });
+
+    // Auto-test when voice or speed changes (with debouncing)
+    let autoTestTimeout;
+    function scheduleAutoTest() {
+        clearTimeout(autoTestTimeout);
+        autoTestTimeout = setTimeout(() => {
+            if (voiceIdField.value && speedField.value && testText.value.trim()) {
+                testVoiceBtn.click();
+            }
+        }, 1000); // 1 second delay
+    }
+
+    voiceIdField.addEventListener('change', scheduleAutoTest);
+    speedField.addEventListener('input', scheduleAutoTest);
+    if (promptField) {
+        promptField.addEventListener('input', scheduleAutoTest);
+    }
+});
+</script>
 {% endblock %}
