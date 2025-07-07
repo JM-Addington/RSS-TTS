@@ -11,8 +11,14 @@
           <a class="nav-link" href="{% url 'feed-list' %}">My Feeds</a>
         </li>
         {% if user.can_manage_users %}
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'user-management' %}">User Management</a>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Admin
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+            <li><a class="dropdown-item" href="{% url 'user-management' %}">User Management</a></li>
+            <li><a class="dropdown-item" href="{% url 'global-config' %}">Global Configuration</a></li>
+          </ul>
         </li>
         {% endif %}
         <li class="nav-item dropdown">
