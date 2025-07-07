@@ -33,6 +33,7 @@ from django.views.generic import (
 )
 
 from accounts.forms import CustomUserCreationForm
+from appconfig.utils import get_site_url
 
 from .forms import (
     ArticleDetailForm,
@@ -248,8 +249,8 @@ class FeedListView(LoginRequiredMixin, ListView):
 
             # Generate RSS URL
             feed_path = reverse("feed", kwargs={"token": feed.token})
-            if hasattr(settings, "SITE_URL"):
-                feed.rss_url = f"{settings.SITE_URL.rstrip('/')}{feed_path}"
+            if get_site_url():
+                feed.rss_url = f"{get_site_url().rstrip('/')}{feed_path}"
             else:
                 request = self.request
                 domain = request.get_host()
@@ -408,8 +409,8 @@ class FeedArticleListView(LoginRequiredMixin, ListView):
 
         # Generate RSS URL for this specific feed
         feed_path = reverse("feed", kwargs={"token": feed.token})
-        if hasattr(settings, "SITE_URL"):
-            context["feed_url"] = f"{settings.SITE_URL.rstrip('/')}{feed_path}"
+        if get_site_url():
+            context["feed_url"] = f"{get_site_url().rstrip('/')}{feed_path}"
         else:
             request = self.request
             domain = request.get_host()
@@ -418,8 +419,8 @@ class FeedArticleListView(LoginRequiredMixin, ListView):
 
         # API submission URL for this feed
         api_path = reverse("api-feed-article-submit", kwargs={"token": feed.token})
-        if hasattr(settings, "SITE_URL"):
-            context["api_url"] = f"{settings.SITE_URL.rstrip('/')}{api_path}"
+        if get_site_url():
+            context["api_url"] = f"{get_site_url().rstrip('/')}{api_path}"
         else:
             request = self.request
             domain = request.get_host()
@@ -599,9 +600,9 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
             success, html, error = fetch_url_content(article.source_url)
             if not success:
                 # If regular fetch fails, try Firecrawl for HTML
-                from django.conf import settings
+                from appconfig.utils import get_firecrawl_api_key
 
-                api_key = getattr(settings, "FIRECRAWL_API_KEY", None)
+                api_key = get_firecrawl_api_key()
                 if api_key and any(code in error for code in ["404", "403", "400"]):
                     fc_success, html, fc_error = fetch_html_with_firecrawl(
                         article.source_url
@@ -1081,8 +1082,8 @@ def voice_preset_test(request, preset_id=None):
 
             audio_file = BytesIO(audio_data)
             response = FileResponse(audio_file, content_type="audio/mpeg")
-            response["Content-Disposition"] = 'inline; filename="voice_test.mp3"'
-            response["Cache-Control"] = "no-cache"
+            response["Content-Disposition"] = 'inline; filename="voice_test.mp3"'  # type: ignore[index]
+            response["Cache-Control"] = "no-cache"  # type: ignore[index]
             return response
         finally:
             # Always clean up the temporary file
@@ -1126,7 +1127,7 @@ def voice_preset_sample(request, preset_id):
 
                     audio_file = BytesIO(audio_data)
                     response = FileResponse(audio_file, content_type="audio/mpeg")
-                    response["Content-Disposition"] = (
+                    response["Content-Disposition"] = (  # type: ignore[index]
                         'inline; filename="voice_sample.mp3"'
                     )
                     return response

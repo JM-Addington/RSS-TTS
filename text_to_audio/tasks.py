@@ -368,7 +368,9 @@ def process_article(self, article_id: int) -> str:
     final_audio_path: Path | None = None
 
     # Initialize OpenAI client and user once
-    client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+    from appconfig.utils import get_openai_api_key
+
+    client = openai.OpenAI(api_key=get_openai_api_key())
     user = article.feed.user  # For _save_openai_usage_stats
 
     try:
@@ -570,25 +572,27 @@ def process_article(self, article_id: int) -> str:
 
         # --- ChunkTone LLM Service (New) or Multi-Voice TTS Generation (Legacy) ---
         chunk_tone_generation_successful = False
-        if settings.ENABLE_CHUNK_TONE_LLM:
+        from appconfig.utils import get_enable_chunk_tone_llm
+
+        if get_enable_chunk_tone_llm():
             try:
                 logger.info(f"Using ChunkToneService for Article ID: {article_id}")
                 chunk_tone_service = ChunkToneService()
 
                 # Determine fallback voice for ChunkToneService
                 # Use the same logic as single-voice fallback
+                from appconfig.utils import get_openai_tts_voice
+
                 if article.voice_parameters:
                     fallback_voice = (
                         article.voice
                         or article.voice_parameters.get("voice_id")
                         or article.voice_id
-                        or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
+                        or get_openai_tts_voice()
                     )
                 else:
                     fallback_voice = (
-                        article.voice
-                        or article.voice_id
-                        or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
+                        article.voice or article.voice_id or get_openai_tts_voice()
                     )
 
                 # Prepare text for chunking (title removed to prevent duplication)
@@ -666,7 +670,9 @@ def process_article(self, article_id: int) -> str:
                     )
 
                     # Prepare TTS request data for logging
-                    tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
+                    from appconfig.utils import get_openai_tts_model
+
+                    tts_model = get_openai_tts_model()
                     tts_request_data = {
                         "model": tts_model,
                         "voice": chunk_data.voice.voice,
@@ -870,7 +876,9 @@ def process_article(self, article_id: int) -> str:
                         segment_voice_prompt = f"Use a {voice_tone} tone. Speak in a clear, engaging manner."
 
                         # Prepare TTS request data for logging
-                        tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
+                        from appconfig.utils import get_openai_tts_model
+
+                        tts_model = get_openai_tts_model()
                         tts_request_data = {
                             "model": tts_model,  # tts-1 or tts-1-hd
                             "voice": tts_api_voice,  # This is 'alloy', 'echo', etc.
@@ -1061,6 +1069,7 @@ def process_article(self, article_id: int) -> str:
 
             # Use enhanced voice parameters if available (from auto-voice)
             voice_prompt = None
+            from appconfig.utils import get_openai_tts_voice
 
             # AIDEV-NOTE: Voice preset prompt extraction - keep in sync with voice_preset_test view
             # Check for voice preset prompt first (highest priority when preset is used)
@@ -1077,7 +1086,7 @@ def process_article(self, article_id: int) -> str:
                     article.voice
                     or article.voice_parameters.get("voice_id")
                     or article.voice_id
-                    or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
+                    or get_openai_tts_voice()
                 )
                 fallback_speed = (
                     article.voice_parameters.get("speed") or article.speed or 1.0
@@ -1091,9 +1100,7 @@ def process_article(self, article_id: int) -> str:
             else:
                 # Check voice field first, then voice_id, then default
                 fallback_voice = (
-                    article.voice
-                    or article.voice_id
-                    or getattr(settings, "OPENAI_TTS_VOICE", "alloy")
+                    article.voice or article.voice_id or get_openai_tts_voice()
                 )
                 fallback_speed = article.speed or 1.0
 
@@ -1116,7 +1123,9 @@ def process_article(self, article_id: int) -> str:
                 start_time = time.monotonic()
 
                 # Create TTS request
-                tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1")
+                from appconfig.utils import get_openai_tts_model
+
+                tts_model = get_openai_tts_model()
                 tts_args = {
                     "model": tts_model,
                     "voice": fallback_voice,

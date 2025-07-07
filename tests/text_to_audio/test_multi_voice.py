@@ -221,7 +221,7 @@ class MultiVoiceProcessingTest(TestCase):
         ) as mock_exists, patch(
             "text_to_audio.tasks.os.remove"
         ), patch(
-            "text_to_audio.tasks.settings.ENABLE_CHUNK_TONE_LLM", False
+            "appconfig.utils.get_enable_chunk_tone_llm", return_value=False
         ), patch(
             "text_to_audio.tasks.Path.exists", return_value=False
         ):

@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -5,9 +6,10 @@ from django.contrib.auth.models import User
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, DeleteView, ListView
+from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
 from accounts.models_profile import UserProfile
+from appconfig.models import GlobalConfig
 
 from .forms import CustomUserCreationForm
 
@@ -216,3 +218,134 @@ class UserDeleteView(SuperAdminRequiredMixin, LoginRequiredMixin, DeleteView):
         response = super().delete(request, *args, **kwargs)
         messages.success(request, f'User "{username}" deleted successfully.')
         return response
+
+
+class GlobalConfigView(SuperAdminRequiredMixin, LoginRequiredMixin, UpdateView):
+    """View for managing global configuration settings."""
+
+    model = GlobalConfig
+    template_name = "accounts/global_config.html"
+    success_url = reverse_lazy("global-config")
+    fields = [
+        "openai_api_key",
+        "openai_title_model",
+        "openai_tts_model",
+        "openai_tts_voice",
+        "openai_tts_response_format",
+        "openai_analysis_model",
+        "openai_classification_model",
+        "use_gpt_for_url_extraction",
+        "max_analysis_words",
+        "firecrawl_api_key",
+        "use_firecrawl_by_default",
+        "enable_chunk_tone_llm",
+        "default_tts_provider",
+        "podcast_image_url",
+        "site_url",
+        "rss_external_hostname",
+    ]
+
+    def get_object(self, queryset=None):
+        """Get or create the global config singleton."""
+        return GlobalConfig.get_or_create_with_env_migration()
+
+    def get_form(self, form_class=None):
+        """Add Bootstrap classes to form fields."""
+        form = super().get_form(form_class)
+
+        # Add Bootstrap classes to form fields
+        for field_name, field in form.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs.update({"class": "form-check-input"})
+            elif isinstance(field.widget, forms.Textarea):
+                field.widget.attrs.update({"class": "form-control", "rows": 3})
+            else:
+                field.widget.attrs.update({"class": "form-control"})
+
+        return form
+
+    def form_valid(self, form):
+        """Save config and show success message."""
+        response = super().form_valid(form)
+        messages.success(self.request, "Global configuration updated successfully.")
+        return response
+
+    def get_context_data(self, **kwargs):
+        """Add additional context for template."""
+        context = super().get_context_data(**kwargs)
+        context["conflicts"] = GlobalConfig.get_configuration_conflicts()
+        return context
+
+
+@login_required
+def migrate_env_to_config(request):
+    """View to trigger environment to database migration."""
+    if not request.user.can_manage_users():
+        return HttpResponseForbidden(
+            "You don't have permission to perform this action."
+        )
+
+    if request.method == "POST":
+        config = GlobalConfig.get_or_create_with_env_migration()
+
+        # Force migration from environment variables
+        env_mappings = {
+            "openai_api_key": ("OPENAI_API_KEY", None),
+            "openai_title_model": ("OPENAI_TITLE_MODEL", "gpt-4o-mini"),
+            "openai_tts_model": ("OPENAI_TTS_MODEL", "tts-1-hd"),
+            "openai_tts_voice": ("OPENAI_TTS_VOICE", "alloy"),
+            "openai_tts_response_format": ("OPENAI_TTS_RESPONSE_FORMAT", "wav"),
+            "openai_analysis_model": ("OPENAI_ANALYSIS_MODEL", "gpt-4.1"),
+            "openai_classification_model": (
+                "OPENAI_CLASSIFICATION_MODEL",
+                "gpt-4o-mini",
+            ),
+            "use_gpt_for_url_extraction": ("USE_GPT_FOR_URL_EXTRACTION", True),
+            "max_analysis_words": ("MAX_ANALYSIS_WORDS", 8000),
+            "firecrawl_api_key": ("FIRECRAWL_API_KEY", None),
+            "use_firecrawl_by_default": ("USE_FIRECRAWL_BY_DEFAULT", False),
+            "enable_chunk_tone_llm": ("ENABLE_CHUNK_TONE_LLM", True),
+            "default_tts_provider": ("DEFAULT_TTS_PROVIDER", "openai"),
+            "podcast_image_url": ("PODCAST_IMAGE_URL", None),
+            "site_url": ("SITE_URL", "http://localhost:8000"),
+            "rss_external_hostname": ("RSS_EXTERNAL_HOSTNAME", None),
+        }
+
+        force = request.POST.get("force", False)
+        migrated_count = 0
+
+        from django.conf import settings
+
+        for field_name, (env_var, default) in env_mappings.items():
+            env_value = getattr(settings, env_var, default)
+            current_value = getattr(config, field_name)
+
+            if env_value is not None and (force or not current_value):
+                # Convert string boolean values
+                if isinstance(default, bool) and isinstance(env_value, str):
+                    env_value = env_value.lower() in ("true", "1", "yes", "on")
+
+                # Convert string integer values
+                if isinstance(default, int) and isinstance(env_value, str):
+                    try:
+                        env_value = int(env_value)
+                    except ValueError:
+                        continue
+
+                setattr(config, field_name, env_value)
+                migrated_count += 1
+
+        if migrated_count > 0:
+            config.save()
+            messages.success(
+                request,
+                f"Successfully migrated {migrated_count} settings from environment variables.",
+            )
+        else:
+            messages.info(
+                request, "No settings were migrated (all database values already set)."
+            )
+
+        return redirect("global-config")
+
+    return redirect("global-config")

@@ -31,10 +31,10 @@ class GenreClassificationService:
         """Lazily initialize OpenAI client."""
         if self._client is None:
             import openai
-            from django.conf import settings
+            from appconfig.utils import get_openai_api_key
 
             self._client = openai.OpenAI(
-                api_key=self.openai_api_key or settings.OPENAI_API_KEY
+                api_key=self.openai_api_key or get_openai_api_key()
             )
         return self._client
 

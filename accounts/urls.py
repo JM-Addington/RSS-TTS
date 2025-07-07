@@ -23,4 +23,6 @@ urlpatterns = [
         views.UserDeleteView.as_view(),
         name="user-delete",
     ),
+    path("config/", views.GlobalConfigView.as_view(), name="global-config"),
+    path("config/migrate/", views.migrate_env_to_config, name="migrate-env-to-config"),
 ]
