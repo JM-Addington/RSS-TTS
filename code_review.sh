@@ -2,25 +2,42 @@
 set -euo pipefail
 
 # Configuration constants
-MIKE_MODEL="gemini-2.5-pro-preview-05-06"
+MIKE_MODEL="gemini-2.5-pro"
 JOE_MODEL="o3"
 MARKDOWN_ROOT="./"
 CODE_ROOT="./"
+INCLUDE_TESTS=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --include-tests)
+      INCLUDE_TESTS=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 [--include-tests] [--help]"
+      echo "  --include-tests  Include test files in the code review"
+      echo "  --help          Show this help message"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option $1"
+      echo "Use --help for usage information"
+      exit 1
+      ;;
+  esac
+done
+
 EXTRA_MESSAGE="
 Keep in mind, that as of now this is a single-instance app that runs in my basement
 for personal use. I'll probably extend it to some family and friends, and eventually
 a limited set of customers, but this is never gonna be a huge platform. It's my hobby,.
 
-For today's review please focus on giving color to the contents of issues.md
-
-First, which are problems, and how can we fix them?
-
-Second, what is a good plan for implementing the new features?
-
-Third -- unreleated, _is all legacy code removed_?
-I want to make sure that the codebase is clean and modern.
+For today's review please focus on checking for bugs and inconsistencies.
 
 The latest docs for the TTS API are here: openai-tts-docs.md
+$(if [ "$INCLUDE_TESTS" = true ]; then echo "NOTE: Test files are included in this review."; fi)
 "
 
 datestring=$(date +%Y-%m-%d-%H-%M)
@@ -39,6 +56,11 @@ echo "<mike2_review>" > mike2_review.md
 echo "<joe2_review>" > joe2_review.md
 
 echo "Starting at `date`"
+echo "Configuration:"
+echo "  Include tests: $INCLUDE_TESTS"
+echo "  Mike model: $MIKE_MODEL"
+echo "  Joe model: $JOE_MODEL"
+echo ""
 
 # Function to emit the project plan and all Python source files
 emit_all() {
@@ -51,6 +73,7 @@ emit_all() {
     -not -name '*final_report*' \
     -not -name 'mike*_review.md' \
     -not -name 'joe*_review.md' \
+    -not -name '*_review.md' \
     -not -path '*/venv/*' \
     -not -path '*/.venv/*' \
     -not -path '*/env/*' \
@@ -60,6 +83,11 @@ emit_all() {
     -not -path '*/__pycache__/*' \
     -not -path '*/build/*' \
     -not -path '*/dist/*' \
+    -not -path '*/logs/*' \
+    -not -path '*/media/*' \
+    -not -path '*/articles/*' \
+    -not -path '*/mypy_stubs/*' \
+    -not -path '*/data/*' \
     -exec sh -c '
     echo "# Contents of $1"
     echo "<$1>"
@@ -68,7 +96,8 @@ emit_all() {
   ' _ {} \;
 
   # Then output all Python files (excluding venv, .git, and other common directories)
-  find "$CODE_ROOT" -name '*.py' \
+  # Build the find command dynamically based on INCLUDE_TESTS flag
+  FIND_CMD="find \"$CODE_ROOT\" -name '*.py' \
     -not -path '*/venv/*' \
     -not -path '*/.venv/*' \
     -not -path '*/env/*' \
@@ -79,12 +108,32 @@ emit_all() {
     -not -path '*/build/*' \
     -not -path '*/dist/*' \
     -not -path '*/migrations/*' \
+    -not -path '.devcontainer/*' \
+    -not -path '*/logs/*' \
+    -not -path '*/media/*' \
+    -not -path '*/articles/*' \
+    -not -path '*/mypy_stubs/*' \
+    -not -path '*/data/*'"
+
+  # Add test exclusions if INCLUDE_TESTS is false
+  if [ "$INCLUDE_TESTS" = false ]; then
+    FIND_CMD="$FIND_CMD \
+    -not -path '*/tests/*' \
+    -not -name 'test_*.py' \
+    -not -name '*_test.py'"
+  fi
+
+  # Add the exec part
+  FIND_CMD="$FIND_CMD \
     -exec sh -c '
-    echo "# Contents of $1"
-    echo "<$1>"
-    cat "$1"
-    echo "</$1>"
-  ' _ {} \;
+    echo \"# Contents of \$1\"
+    echo \"<\$1>\"
+    cat \"\$1\"
+    echo \"</\$1>\"
+  ' _ {} \\;"
+
+  # Execute the command
+  eval "$FIND_CMD"
 }
 
 echo "Asking Mike for a code review of the project..."
