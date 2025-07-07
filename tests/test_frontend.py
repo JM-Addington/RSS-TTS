@@ -3,6 +3,7 @@
 # mypy: disable-error-code="attr-defined"
 
 import os
+import uuid
 from unittest.mock import MagicMock, patch
 
 from django.conf import settings
@@ -267,3 +268,25 @@ class TestFeedArticleAutoUpdate(TestCase):
         self.assertContains(response, "data-article-id")
         self.assertContains(response, "status-badge")
         self.assertContains(response, "action-cell")
+
+class TestPlayButtonToggle(TestCase):
+    """Tests for play button pause functionality."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = get_user_model().objects.create_user(
+            username="playuser", password="pass123"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Default")
+        Article.objects.create(
+            feed=self.feed,
+            title="Toggle Test",
+            text_content="sample",
+            status=Article.COMPLETED,
+            audio_uuid=str(uuid.uuid4()),
+        )
+
+    def test_article_list_contains_pause_script(self):
+        self.client.login(username="playuser", password="pass123")
+        response = self.client.get(f"/feeds/{self.feed.pk}/")
+        self.assertContains(response, "audioPlayer.pause(")
