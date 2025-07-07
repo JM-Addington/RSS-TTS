@@ -155,6 +155,13 @@ class GptUrlExtractionTests(TestCase):
         self.assertEqual(call_args[1]["model"], "gpt-4.1-2025-04-14")
         self.assertEqual(call_args[1]["max_tokens"], 32768)
         self.assertEqual(call_args[1]["temperature"], 0.1)
+        # Prompt should instruct GPT to ignore most image captions and credits
+        user_prompt = call_args[1]["messages"][1]["content"]
+        self.assertIn(
+            "alt text or image captions",
+            user_prompt,
+        )
+        self.assertIn("skip credit lines", user_prompt)
 
     @patch("openai.OpenAI")
     @override_settings(OPENAI_API_KEY="test-key")
