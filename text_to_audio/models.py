@@ -50,6 +50,15 @@ class Feed(models.Model):
         (VOICE_MODE_AUTO, "Auto-generated voice"),
     ]
 
+    # Provider choices for LLM and TTS
+    PROVIDER_OPENAI = "openai"
+    PROVIDER_ANTHROPIC = "anthropic"
+
+    PROVIDER_CHOICES = [
+        (PROVIDER_OPENAI, "OpenAI"),
+        (PROVIDER_ANTHROPIC, "Anthropic Claude"),
+    ]
+
     user: models.ForeignKey = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -80,6 +89,12 @@ class Feed(models.Model):
         choices=VOICE_MODE_CHOICES,
         default=VOICE_MODE_AUTO,
         help_text="Voice mode preference for this feed",
+    )
+    llm_provider: models.CharField = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        default=PROVIDER_OPENAI,
+        help_text="LLM provider to use for content analysis and processing",
     )
     created_at: models.DateTimeField = models.DateTimeField(
         auto_now_add=True, help_text="When the feed was created."
@@ -493,11 +508,16 @@ class Article(models.Model):
 
 
 class OpenAIUsageStats(models.Model):
-    """Model to track OpenAI API usage statistics with cost tracking."""
+    """Model to track LLM API usage statistics with cost tracking across providers."""
 
     OPERATION_TYPE_CHOICES = [
         ("LLM", "Language Model"),
         ("TTS", "Text-to-Speech"),
+    ]
+
+    PROVIDER_CHOICES = [
+        ("openai", "OpenAI"),
+        ("anthropic", "Anthropic"),
     ]
 
     user: models.ForeignKey = models.ForeignKey(
@@ -533,7 +553,13 @@ class OpenAIUsageStats(models.Model):
         null=False,
         blank=False,
         default="unknown",
-        help_text="The OpenAI model used for the request.",
+        help_text="The model used for the request (e.g., gpt-4, claude-3-sonnet).",
+    )
+    provider: models.CharField = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        default="openai",
+        help_text="The LLM provider used for the request.",
     )
     operation_type: models.CharField = models.CharField(
         max_length=10,
@@ -584,7 +610,7 @@ class OpenAIUsageStats(models.Model):
         username = getattr(self.user, "username", "unknown")
         cost_str = f" (${self.estimated_cost})" if self.estimated_cost else ""
         return (
-            f"{self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
+            f"{self.provider.title()} {self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
         )
 
 

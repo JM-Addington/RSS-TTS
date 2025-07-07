@@ -477,7 +477,7 @@ def process_article(self, article_id: int) -> str:
                 logger.info(
                     f"Performing content analysis for Article ID: {article_id} to get multi-voice data."
                 )
-                content_service = ContentAnalysisService()
+                content_service = ContentAnalysisService(feed=article.feed)
 
                 # For legacy multi-voice path, we need to ensure the entire article is processed
                 # Split into chunks if the article is longer than MAX_ANALYSIS_WORDS
@@ -577,7 +577,7 @@ def process_article(self, article_id: int) -> str:
         if get_enable_chunk_tone_llm():
             try:
                 logger.info(f"Using ChunkToneService for Article ID: {article_id}")
-                chunk_tone_service = ChunkToneService()
+                chunk_tone_service = ChunkToneService(feed=article.feed)
 
                 # Determine fallback voice for ChunkToneService
                 # Use the same logic as single-voice fallback

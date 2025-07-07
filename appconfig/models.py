@@ -47,6 +47,19 @@ class GlobalConfig(models.Model):
         help_text="OpenAI model used for genre classification",
     )
 
+    # Anthropic API Configuration
+    anthropic_api_key = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Your Anthropic API key for Claude models",
+    )
+    anthropic_model = models.CharField(
+        max_length=100,
+        default="claude-3-5-sonnet-20241022",
+        help_text="Anthropic Claude model for content analysis and text processing",
+    )
+
     # Content Processing Settings
     use_gpt_for_url_extraction = models.BooleanField(
         default=True, help_text="Use GPT for extracting article text from URLs"

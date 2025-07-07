@@ -321,7 +321,8 @@ class ProcessArticleTests(TestCase):
         self.article.multi_voice_data = None  # Ensure it goes to fallback
         self.article.save()
 
-        result = process_article(self.article.id)
+        with patch("appconfig.utils.get_enable_chunk_tone_llm", return_value=False):
+            result = process_article(self.article.id)
 
         self.article.refresh_from_db()
         self.assertEqual(result, f"Article {self.article.id} processed successfully.")
@@ -443,7 +444,9 @@ class ProcessArticleTests(TestCase):
             "text_to_audio.tasks._legacy_chunk_text"
         ) as mock_legacy_chunk_text, patch.object(
             Path, "rename"
-        ):  # Prevent file rename attempts
+        ), patch(  # Prevent file rename attempts
+            "appconfig.utils.get_enable_chunk_tone_llm", return_value=False
+        ):
 
             # Return 2 chunks to force multi-chunk processing
             mock_legacy_chunk_text.return_value = (True, chunks_data)
@@ -486,6 +489,8 @@ class ProcessArticleTests(TestCase):
             with unittest_patch(
                 "text_to_audio.models.OpenAIUsageStats.objects.create",
                 side_effect=raise_db_error,
+            ), unittest_patch(
+                "appconfig.utils.get_enable_chunk_tone_llm", return_value=False
             ):
                 with self.assertLogs(
                     "text_to_audio.services.usage_logging", level="ERROR"
@@ -633,6 +638,8 @@ class ProcessArticleTests(TestCase):
         chunks = ["Chunk one for cleanup.", "Chunk two for cleanup."]
         with patch(
             "text_to_audio.tasks._legacy_chunk_text", return_value=(True, chunks)
+        ), patch(
+            "appconfig.utils.get_enable_chunk_tone_llm", return_value=False
         ):
             with patch("django.db.transaction.atomic", lambda func=None: func):
                 with patch("text_to_audio.tasks.os.remove") as mock_os_remove:
@@ -677,6 +684,8 @@ class ProcessArticleTests(TestCase):
             ), patch(
                 "text_to_audio.tasks.process_article.retry",
                 side_effect=Exception("Celery failure cleanup retry"),
+            ), patch(
+                "appconfig.utils.get_enable_chunk_tone_llm", return_value=False
             ):
                 with self.assertRaisesRegex(Exception, "Celery failure cleanup retry"):
                     process_article(self.article.id)
@@ -721,7 +730,9 @@ class ProcessArticleTests(TestCase):
 
         with patch(
             "text_to_audio.tasks._is_valid_multi_voice_data", return_value=True
-        ), patch("text_to_audio.tasks._save_openai_usage_stats"):
+        ), patch("text_to_audio.tasks._save_openai_usage_stats"), patch(
+            "appconfig.utils.get_enable_chunk_tone_llm", return_value=False
+        ):
             process_article(self.article.id)
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
@@ -817,7 +828,9 @@ class ProcessArticleTests(TestCase):
 
         with patch(
             "text_to_audio.tasks._is_valid_multi_voice_data", return_value=True
-        ), patch("text_to_audio.tasks._save_openai_usage_stats"):
+        ), patch("text_to_audio.tasks._save_openai_usage_stats"), patch(
+            "appconfig.utils.get_enable_chunk_tone_llm", return_value=False
+        ):
             process_article(self.article.id)
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)

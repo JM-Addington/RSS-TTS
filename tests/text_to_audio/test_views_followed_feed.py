@@ -1,7 +1,7 @@
 """Tests for the FollowedFeed UI (Forms and Views)."""
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from text_to_audio.forms import FollowedFeedForm
@@ -10,6 +10,7 @@ from text_to_audio.models import Feed, FollowedFeed
 User = get_user_model()
 
 
+@override_settings(ALLOWED_HOSTS=['testserver'])
 class FollowedFeedUITests(TestCase):
     """Tests for the FollowedFeed UI (Forms and Views)."""
 
@@ -275,7 +276,10 @@ class FollowedFeedUITests(TestCase):
     def test_create_followed_feed_no_destination_feeds_get(self):
         """Test GET create view when user has no destination feeds."""
         # Login as a user with no feeds
-        User.objects.create_user(username="nofeedsuser_get", password="password")
+        no_feeds_user = User.objects.create_user(username="nofeedsuser_get", password="password")
+        # Approve the user so they can access the view
+        no_feeds_user.profile.is_approved = True
+        no_feeds_user.profile.save()
         self.client.login(username="nofeedsuser_get", password="password")
 
         response = self.client.get(reverse("followedfeed-create"))
@@ -290,6 +294,9 @@ class FollowedFeedUITests(TestCase):
         no_feeds_user = User.objects.create_user(
             username="nofeedsuser_post", password="password"
         )
+        # Approve the user so they can access the view
+        no_feeds_user.profile.is_approved = True
+        no_feeds_user.profile.save()
         self.client.login(username="nofeedsuser_post", password="password")
 
         data = {

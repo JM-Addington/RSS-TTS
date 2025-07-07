@@ -24,20 +24,25 @@ def _is_mock_object(obj):
 class ChunkToneService:
     """Service for LLM-driven text chunking and tone analysis."""
 
-    def __init__(self, openai_api_key: Optional[str] = None):
-        """Initialize with optional OpenAI API key override."""
+    def __init__(self, openai_api_key: Optional[str] = None, feed=None):
+        """Initialize with optional OpenAI API key override and feed for provider selection."""
         self.openai_api_key = openai_api_key
+        self.feed = feed
         self._client: Optional[openai.OpenAI] = None
 
     @property
     def client(self):
-        """Lazily initialize OpenAI client."""
+        """Lazily initialize the appropriate client based on provider."""
         if self._client is None:
-            from appconfig.utils import get_openai_api_key
-
-            self._client = openai.OpenAI(
-                api_key=self.openai_api_key or get_openai_api_key()
-            )
+            if self.feed and hasattr(self.feed, 'llm_provider'):
+                from text_to_audio.provider_utils import get_content_analysis_client
+                self._client = get_content_analysis_client(self.feed)
+            else:
+                # Fallback to OpenAI for backwards compatibility
+                from appconfig.utils import get_openai_api_key
+                self._client = openai.OpenAI(
+                    api_key=self.openai_api_key or get_openai_api_key()
+                )
         return self._client
 
     def get_payload(
@@ -255,12 +260,18 @@ IMPORTANT: All chunks must use voice "{voice}" and character_name "narrator".
 The text in each chunk should expand abbreviations normally spoken as words while leaving letter-by-letter abbreviations unchanged. Numbers should be converted to spoken form.
 Break at natural pauses like paragraphs or sentence boundaries when possible."""
 
+    def _is_anthropic_client(self):
+        """Check if the current client is an Anthropic client."""
+        client = self.client
+        # Check by class name to avoid false positives with mocks
+        return "anthropic" in str(type(client)).lower()
+
     def _call_openai(self, prompt: str) -> dict:
         """
-        Call OpenAI API and return parsed JSON response.
+        Call LLM API (OpenAI or Anthropic) and return parsed JSON response.
 
         Args:
-            prompt: The prompt to send to OpenAI
+            prompt: The prompt to send to the LLM
 
         Returns:
             Parsed JSON response as dict
@@ -268,6 +279,9 @@ Break at natural pauses like paragraphs or sentence boundaries when possible."""
         Raises:
             ValidationError: If response cannot be parsed or validated
         """
+        if self._is_anthropic_client():
+            return self._call_anthropic(prompt)
+
         model = getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4.1")
 
         # Prepare request data for logging
@@ -362,3 +376,66 @@ Break at natural pauses like paragraphs or sentence boundaries when possible."""
 
             logger.error(f"OpenAI API call failed: {e}")
             raise Exception(f"OpenAI API error: {e}") from e
+
+    def _call_anthropic(self, prompt: str) -> dict:
+        """
+        Call Anthropic API and return parsed JSON response.
+
+        Args:
+            prompt: The prompt to send to Anthropic
+
+        Returns:
+            Parsed JSON response as dict
+
+        Raises:
+            Exception: If API call fails or response cannot be parsed
+        """
+        from text_to_audio.provider_utils import get_anthropic_model_name
+
+        model = get_anthropic_model_name(self.feed) if self.feed else "claude-3-5-sonnet-20241022"
+
+        logger.info(
+            f"ChunkToneService Anthropic API Call: model={model}, "
+            f"max_tokens=4000, temperature=0.3, "
+            f"prompt_length={len(prompt)} chars"
+        )
+
+        start_time = time.monotonic()
+        try:
+            response = self.client.messages.create(
+                model=model,
+                max_tokens=4000,
+                temperature=0.3,
+                messages=[
+                    {"role": "user", "content": f"You are a professional text-to-speech specialist. Return only valid JSON.\n\n{prompt}"}
+                ]
+            )
+            end_time = time.monotonic()
+            duration_ms = int((end_time - start_time) * 1000)
+
+            logger.info(
+                f"ChunkToneService Anthropic API success: duration={duration_ms}ms, "
+                f"input_tokens={getattr(response.usage, 'input_tokens', 0)}, "
+                f"output_tokens={getattr(response.usage, 'output_tokens', 0)}"
+            )
+
+            # Extract text content from Anthropic's response
+            if hasattr(response, 'content') and response.content:
+                response_text = response.content[0].text.strip()
+            else:
+                raise Exception("No content in Anthropic response")
+
+            # Parse JSON response
+            try:
+                return json.loads(response_text)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response from Anthropic: {e}")
+                logger.debug(f"Raw response: {response_text}")
+                raise Exception(f"Invalid JSON response from Anthropic: {e}") from e
+
+        except Exception as e:
+            end_time = time.monotonic()
+            duration_ms = int((end_time - start_time) * 1000)
+
+            logger.error(f"Anthropic API call failed: {e}")
+            raise Exception(f"Anthropic API error: {e}") from e

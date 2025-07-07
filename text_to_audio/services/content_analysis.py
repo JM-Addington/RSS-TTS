@@ -34,22 +34,89 @@ logger = logging.getLogger(__name__)
 class ContentAnalysisService:
     """Service for analyzing article content."""
 
-    def __init__(self, openai_api_key=None):
-        """Initialize with optional API key override."""
+    def __init__(self, openai_api_key=None, provider="openai", feed=None):
+        """Initialize with optional API key override and provider selection."""
         self.openai_api_key = openai_api_key
+        self.provider = provider
+        self.feed = feed
         self._client = None
 
     @property
     def client(self):
-        """Lazily initialize OpenAI client."""
+        """Lazily initialize the appropriate client based on provider."""
         if self._client is None:
-            import openai
-            from appconfig.utils import get_openai_api_key
-
-            self._client = openai.OpenAI(
-                api_key=self.openai_api_key or get_openai_api_key()
-            )
+            if self.feed and hasattr(self.feed, 'llm_provider'):
+                from ..provider_utils import get_content_analysis_client
+                self._client = get_content_analysis_client(self.feed)
+            else:
+                # Fallback to OpenAI for backwards compatibility
+                import openai
+                from appconfig.utils import get_openai_api_key
+                self._client = openai.OpenAI(
+                    api_key=self.openai_api_key or get_openai_api_key()
+                )
         return self._client
+
+    def _is_anthropic_client(self):
+        """Check if the current client is an Anthropic client."""
+        client = self.client
+        # Check by class name to avoid false positives with mocks
+        return "anthropic" in str(type(client)).lower()
+
+    def _call_anthropic_api(self, prompt, max_completion_tokens):
+        """Call Anthropic API with the given prompt."""
+        from ..provider_utils import get_anthropic_model_name
+
+        model = get_anthropic_model_name(self.feed) if self.feed else "claude-3-5-sonnet-20241022"
+
+        # Anthropic uses different parameter names
+        response = self.client.messages.create(
+            model=model,
+            max_tokens=min(max_completion_tokens, 4096),  # Anthropic has different limits
+            temperature=0.3,
+            messages=[
+                {"role": "user", "content": f"You are an expert content analyzer. {prompt}\n\nPlease respond with valid JSON only."}
+            ]
+        )
+
+        # Convert Anthropic response to OpenAI-like format for compatibility
+        class AnthropicResponseAdapter:
+            def __init__(self, anthropic_response):
+                self.id = getattr(anthropic_response, 'id', 'anthropic-response')
+                self.model = getattr(anthropic_response, 'model', model)
+                self.object = "chat.completion"
+                self.created = int(time.time())
+                self.choices = [AnthropicChoiceAdapter(anthropic_response)]
+                self.usage = AnthropicUsageAdapter(anthropic_response)
+
+        class AnthropicChoiceAdapter:
+            def __init__(self, anthropic_response):
+                self.index = 0
+                self.message = AnthropicMessageAdapter(anthropic_response)
+                self.finish_reason = getattr(anthropic_response, 'stop_reason', 'stop')
+
+        class AnthropicMessageAdapter:
+            def __init__(self, anthropic_response):
+                self.role = "assistant"
+                # Extract text content from Anthropic's content blocks
+                if hasattr(anthropic_response, 'content') and anthropic_response.content:
+                    self.content = anthropic_response.content[0].text if anthropic_response.content else ""
+                else:
+                    self.content = ""
+
+        class AnthropicUsageAdapter:
+            def __init__(self, anthropic_response):
+                usage = getattr(anthropic_response, 'usage', None)
+                if usage:
+                    self.prompt_tokens = getattr(usage, 'input_tokens', 0)
+                    self.completion_tokens = getattr(usage, 'output_tokens', 0)
+                    self.total_tokens = self.prompt_tokens + self.completion_tokens
+                else:
+                    self.prompt_tokens = 0
+                    self.completion_tokens = 0
+                    self.total_tokens = 0
+
+        return AnthropicResponseAdapter(response)
 
     def _estimate_token_count(self, text):
         """Estimate token count for text using simple approximation.
@@ -167,10 +234,13 @@ class ContentAnalysisService:
             f"title='{title or 'None'}'"
         )
 
-        # Call OpenAI API with JSON mode and detailed logging
+        # Call API with provider-specific logic
         start_time = time.monotonic()
         try:
-            response = self.client.chat.completions.create(**request_data)
+            if self._is_anthropic_client():
+                response = self._call_anthropic_api(prompt, max_completion_tokens)
+            else:
+                response = self.client.chat.completions.create(**request_data)
             end_time = time.monotonic()
             duration_ms = int((end_time - start_time) * 1000)
 
@@ -457,6 +527,9 @@ class ContentAnalysisService:
 
     def _get_analysis_model(self):
         """Get the model to use for content analysis."""
-        from django.conf import settings
-
-        return getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4.1")
+        if self._is_anthropic_client():
+            from ..provider_utils import get_anthropic_model_name
+            return get_anthropic_model_name(self.feed) if self.feed else "claude-3-5-sonnet-20241022"
+        else:
+            from django.conf import settings
+            return getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4.1")

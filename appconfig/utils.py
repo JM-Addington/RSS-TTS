@@ -51,6 +51,25 @@ def get_openai_tts_voice() -> str:
     )
 
 
+# Anthropic API Configuration
+def get_anthropic_api_key() -> Optional[str]:
+    config = get_global_config()
+    return (
+        config.anthropic_api_key
+        if config and config.anthropic_api_key
+        else getattr(settings, "ANTHROPIC_API_KEY", None)
+    )
+
+
+def get_anthropic_model() -> str:
+    config = get_global_config()
+    return (
+        config.anthropic_model
+        if config
+        else getattr(settings, "ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+    )
+
+
 def get_openai_tts_response_format() -> str:
     config = get_global_config()
     return (

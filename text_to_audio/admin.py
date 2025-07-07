@@ -13,10 +13,23 @@ from .models import Article, Feed
 class FeedAdmin(admin.ModelAdmin):
     """Admin interface for the Feed model."""
 
-    list_display = ["name", "user", "created_at"]
-    list_filter = ["created_at"]
+    list_display = ["name", "user", "llm_provider", "created_at"]
+    list_filter = ["llm_provider", "created_at"]
     search_fields = ["name", "user__username"]
     readonly_fields = ["token", "created_at"]
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'user', 'voice_mode', 'llm_provider')
+        }),
+        ('Voice Settings', {
+            'fields': ('default_voice_preset',),
+            'classes': ('collapse',)
+        }),
+        ('System', {
+            'fields': ('token', 'created_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
 
 @admin.register(Article)

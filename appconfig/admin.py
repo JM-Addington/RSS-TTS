@@ -31,6 +31,15 @@ class GlobalConfigAdmin(admin.ModelAdmin):
             },
         ),
         (
+            "Anthropic Configuration",
+            {
+                "fields": [
+                    "anthropic_api_key",
+                    "anthropic_model",
+                ]
+            },
+        ),
+        (
             "Content Processing",
             {
                 "fields": [

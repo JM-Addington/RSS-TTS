@@ -1,4 +1,4 @@
-"""Utility functions for logging OpenAI API usage across services."""
+"""Utility functions for logging LLM API usage across services and providers."""
 
 import logging
 from typing import Optional
@@ -6,7 +6,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-def log_openai_usage(
+def log_llm_usage(
     user,
     article,
     operation: str,
@@ -15,11 +15,12 @@ def log_openai_usage(
     word_count: int,
     operation_type: str = "LLM",
     model_name: str = "gpt-4o-mini",
+    provider: str = "openai",
     input_tokens: Optional[int] = None,
     output_tokens: Optional[int] = None,
 ):
     """
-    Log OpenAI API usage to the OpenAIUsageStats model with cost calculation.
+    Log LLM API usage to the OpenAIUsageStats model with cost calculation across providers.
 
     This is a centralized function that can be used by all services
     to consistently log their API usage and calculate costs.
@@ -32,7 +33,8 @@ def log_openai_usage(
         processing_time_ms: Processing time in milliseconds
         word_count: Number of words processed
         operation_type: Type of operation (LLM, TTS, etc.) for logging
-        model_name: Name of the OpenAI model used
+        model_name: Name of the model used (e.g., gpt-4, claude-3-sonnet)
+        provider: The provider used (openai, anthropic)
         input_tokens: Number of input tokens (if available)
         output_tokens: Number of output tokens (if available)
     """
@@ -73,6 +75,7 @@ def log_openai_usage(
                 word_count=word_count,
                 operation_type=operation_type,
                 model_name=model_name,
+                provider=provider,
                 estimated_cost=estimated_cost,
             )
 
@@ -89,3 +92,34 @@ def log_openai_usage(
     except Exception as exc:
         logger.error(f"Failed to log {operation_type} usage for {operation}: {exc}")
         return None
+
+
+# Backward compatibility function
+def log_openai_usage(
+    user,
+    article,
+    operation: str,
+    tokens_used: int,
+    processing_time_ms: int,
+    word_count: int,
+    operation_type: str = "LLM",
+    model_name: str = "gpt-4o-mini",
+    input_tokens: Optional[int] = None,
+    output_tokens: Optional[int] = None,
+):
+    """
+    Backward compatibility wrapper for log_llm_usage with OpenAI provider.
+    """
+    return log_llm_usage(
+        user=user,
+        article=article,
+        operation=operation,
+        tokens_used=tokens_used,
+        processing_time_ms=processing_time_ms,
+        word_count=word_count,
+        operation_type=operation_type,
+        model_name=model_name,
+        provider="openai",
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
