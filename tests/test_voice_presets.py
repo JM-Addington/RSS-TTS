@@ -84,6 +84,8 @@ class UserPreferencesServiceTest(TestCase):
             voice_id="fable",
             speed=0.9,
             description="Created via service",
+            prompt="Speak clearly",
+            sample_input="Sample text",
         )
 
         self.assertEqual(preset.name, "Service Test Preset")
@@ -95,6 +97,8 @@ class UserPreferencesServiceTest(TestCase):
             id=preset.id
         )  # type: ignore[attr-defined]
         self.assertEqual(saved_preset.name, "Service Test Preset")
+        self.assertEqual(saved_preset.prompt, "Speak clearly")
+        self.assertEqual(saved_preset.sample_input, "Sample text")
 
     def test_update_preset(self):
         """Test updating a preset via service."""
@@ -295,6 +299,8 @@ class VoicePresetViewsTest(TestCase):
                 "name": "New View Preset",
                 "voice_id": "alloy",
                 "speed": 1.0,
+                "prompt": "View prompt",
+                "sample_input": "View sample",
                 "description": "Created via view test",
             },
         )
@@ -306,6 +312,8 @@ class VoicePresetViewsTest(TestCase):
         preset = UserVoicePreset.objects.get(name="New View Preset")
         self.assertEqual(preset.voice_id, "alloy")
         self.assertEqual(preset.user, self.user)
+        self.assertEqual(preset.prompt, "View prompt")
+        self.assertEqual(preset.sample_input, "View sample")
 
     def test_preset_edit_view(self):
         """Test editing a preset via view."""

@@ -166,6 +166,8 @@ class UserPreferencesService:
         voice_id,
         speed,
         description="",
+        prompt="",
+        sample_input="",
         affect=None,
         tone=None,
         pacing=None,
@@ -181,6 +183,8 @@ class UserPreferencesService:
             voice_id: Voice ID for the preset
             speed: Speed for the preset
             description: Optional description
+            prompt: Optional TTS instructions
+            sample_input: Optional sample text used for design
             affect: Optional emotional affect
             tone: Optional tone descriptor
             pacing: Optional pacing style
@@ -198,6 +202,8 @@ class UserPreferencesService:
             voice_id=voice_id,
             speed=float(speed),
             description=description,
+            prompt=prompt,
+            sample_input=sample_input,
             affect=affect,
             tone=tone,
             pacing=pacing,
@@ -214,6 +220,8 @@ class UserPreferencesService:
         voice_id=None,
         speed=None,
         description=None,
+        prompt=None,
+        sample_input=None,
         affect=None,
         tone=None,
         pacing=None,
@@ -229,6 +237,8 @@ class UserPreferencesService:
             voice_id: New voice ID for the preset
             speed: New speed for the preset
             description: New description for the preset
+            prompt: New TTS instructions
+            sample_input: New sample input text
             affect: New emotional affect
             tone: New tone descriptor
             pacing: New pacing style
@@ -254,6 +264,12 @@ class UserPreferencesService:
 
             if description is not None:
                 preset.description = description
+
+            if prompt is not None:
+                preset.prompt = prompt
+
+            if sample_input is not None:
+                preset.sample_input = sample_input
 
             if affect is not None:
                 preset.affect = affect
