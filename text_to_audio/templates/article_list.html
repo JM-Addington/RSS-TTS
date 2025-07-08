@@ -379,6 +379,14 @@ function handlePlayButtonClick(event) {
         return;
     }
 
+    // Validate audioUrl to prevent invalid URLs
+    if (!audioUrl) {
+        console.error('Invalid audio URL');
+        alert('Cannot play this audio: missing URL');
+        resetPlaybackUI();
+        return;
+    }
+
     const row = button.closest('tr');
 
     // Compare raw src attribute instead of using audioPlayer.src property
@@ -425,16 +433,16 @@ function handlePlayButtonClick(event) {
         button.innerHTML = pauseIconSvg;
     }
 
-    // Validate audioUrl to prevent invalid URLs
-    if (!audioUrl) {
-        console.error('Invalid audio URL');
-        alert('Cannot play this audio: missing URL');
-        resetPlaybackUI();
-        return;
-    }
-
     if (currentSrc !== audioUrl) {
         audioPlayer.setAttribute('src', audioUrl);
+        const playPromise = audioPlayer.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error('Audio playback failed:', error);
+                alert('Failed to play audio. The file may be missing or corrupted.');
+                resetPlaybackUI();
+            });
+        }
     }
 
     // Update now playing info with safe title
