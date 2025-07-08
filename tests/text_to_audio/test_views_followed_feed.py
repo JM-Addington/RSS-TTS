@@ -10,7 +10,7 @@ from text_to_audio.models import Feed, FollowedFeed
 User = get_user_model()
 
 
-@override_settings(ALLOWED_HOSTS=['testserver'])
+@override_settings(ALLOWED_HOSTS=["testserver"])
 class FollowedFeedUITests(TestCase):
     """Tests for the FollowedFeed UI (Forms and Views)."""
 
@@ -276,7 +276,9 @@ class FollowedFeedUITests(TestCase):
     def test_create_followed_feed_no_destination_feeds_get(self):
         """Test GET create view when user has no destination feeds."""
         # Login as a user with no feeds
-        no_feeds_user = User.objects.create_user(username="nofeedsuser_get", password="password")
+        no_feeds_user = User.objects.create_user(
+            username="nofeedsuser_get", password="password"
+        )
         # Approve the user so they can access the view
         no_feeds_user.profile.is_approved = True
         no_feeds_user.profile.save()

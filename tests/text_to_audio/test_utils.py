@@ -103,7 +103,9 @@ class UrlUtilsTests(TestCase):
     @patch("appconfig.utils.get_firecrawl_api_key", return_value=None)
     @patch("text_to_audio.utils.fetch_url_content")
     @patch("text_to_audio.utils.extract_article_text_with_gpt")
-    def test_process_url_to_text_success(self, mock_extract, mock_fetch, mock_api_key, mock_use_default):
+    def test_process_url_to_text_success(
+        self, mock_extract, mock_fetch, mock_api_key, mock_use_default
+    ):
         """Test the full URL processing flow with success."""
         # Setup mocks
         mock_fetch.return_value = (True, "html content", None)
@@ -122,7 +124,9 @@ class UrlUtilsTests(TestCase):
     @patch("appconfig.utils.get_use_firecrawl_by_default", return_value=False)
     @patch("appconfig.utils.get_firecrawl_api_key", return_value=None)
     @patch("text_to_audio.utils.fetch_url_content")
-    def test_process_url_to_text_fetch_failure(self, mock_fetch, mock_api_key, mock_use_default):
+    def test_process_url_to_text_fetch_failure(
+        self, mock_fetch, mock_api_key, mock_use_default
+    ):
         """Test URL processing with fetch failure."""
         # Setup mock to simulate fetch failure
         mock_fetch.return_value = (False, "", "Fetch error")

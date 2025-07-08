@@ -609,9 +609,7 @@ class OpenAIUsageStats(models.Model):
         # Use getattr to safely access username attribute - for better type checking
         username = getattr(self.user, "username", "unknown")
         cost_str = f" (${self.estimated_cost})" if self.estimated_cost else ""
-        return (
-            f"{self.provider.title()} {self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
-        )
+        return f"{self.provider.title()} {self.operation_type} usage for {username} at {timestamp_fmt}{cost_str}"
 
 
 class UserVoiceProfile(models.Model):

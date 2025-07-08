@@ -638,9 +638,7 @@ class ProcessArticleTests(TestCase):
         chunks = ["Chunk one for cleanup.", "Chunk two for cleanup."]
         with patch(
             "text_to_audio.tasks._legacy_chunk_text", return_value=(True, chunks)
-        ), patch(
-            "appconfig.utils.get_enable_chunk_tone_llm", return_value=False
-        ):
+        ), patch("appconfig.utils.get_enable_chunk_tone_llm", return_value=False):
             with patch("django.db.transaction.atomic", lambda func=None: func):
                 with patch("text_to_audio.tasks.os.remove") as mock_os_remove:
                     process_article(self.article.id)

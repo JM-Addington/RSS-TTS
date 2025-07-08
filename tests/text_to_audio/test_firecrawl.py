@@ -16,11 +16,17 @@ class FirecrawlTests(TestCase):
     @patch("text_to_audio.utils.fetch_url_content")
     @patch("text_to_audio.utils.fetch_html_with_firecrawl")
     @patch("text_to_audio.utils.extract_article_text_with_gpt")
-    def test_use_firecrawl_by_default(self, mock_extract, mock_firecrawl, mock_fetch, mock_api_key, mock_use_default):
+    def test_use_firecrawl_by_default(
+        self, mock_extract, mock_firecrawl, mock_fetch, mock_api_key, mock_use_default
+    ):
         """Firecrawl should be used when enabled by default."""
         mock_firecrawl.return_value = (True, "<html></html>", None)
         mock_extract.return_value = (True, "txt", None)
-        mock_fetch.return_value = (True, "backup html", None)  # Should not be called, but set up just in case
+        mock_fetch.return_value = (
+            True,
+            "backup html",
+            None,
+        )  # Should not be called, but set up just in case
 
         success, text, error = process_url_to_text("https://example.com")
 
@@ -37,7 +43,9 @@ class FirecrawlTests(TestCase):
     @patch("text_to_audio.utils.fetch_url_content")
     @patch("text_to_audio.utils.fetch_html_with_firecrawl")
     @patch("text_to_audio.utils.extract_article_text_with_gpt")
-    def test_firecrawl_fallback_on_4xx(self, mock_extract, mock_firecrawl, mock_fetch, mock_api_key, mock_use_default):
+    def test_firecrawl_fallback_on_4xx(
+        self, mock_extract, mock_firecrawl, mock_fetch, mock_api_key, mock_use_default
+    ):
         """Firecrawl should be used when direct fetch returns 4xx."""
         mock_fetch.return_value = (
             False,

@@ -532,7 +532,11 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 try:
                     document_file.seek(0)  # Reset file pointer to beginning
                     html_content = document_file.read().decode("utf-8")
-                    success, text, error = extract_article_text(html_content)
+                    # Clean HTML to remove unwanted elements (same as URL processing)
+                    from .utils import clean_html_minimal
+
+                    cleaned_html = clean_html_minimal(html_content)
+                    success, text, error = extract_article_text(cleaned_html)
                     if not success:
                         form.add_error(
                             "document_file",

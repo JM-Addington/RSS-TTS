@@ -34,12 +34,14 @@ class ChunkToneService:
     def client(self):
         """Lazily initialize the appropriate client based on provider."""
         if self._client is None:
-            if self.feed and hasattr(self.feed, 'llm_provider'):
+            if self.feed and hasattr(self.feed, "llm_provider"):
                 from text_to_audio.provider_utils import get_content_analysis_client
+
                 self._client = get_content_analysis_client(self.feed)
             else:
                 # Fallback to OpenAI for backwards compatibility
                 from appconfig.utils import get_openai_api_key
+
                 self._client = openai.OpenAI(
                     api_key=self.openai_api_key or get_openai_api_key()
                 )
@@ -392,7 +394,11 @@ Break at natural pauses like paragraphs or sentence boundaries when possible."""
         """
         from text_to_audio.provider_utils import get_anthropic_model_name
 
-        model = get_anthropic_model_name(self.feed) if self.feed else "claude-3-5-sonnet-20241022"
+        model = (
+            get_anthropic_model_name(self.feed)
+            if self.feed
+            else "claude-3-5-sonnet-20241022"
+        )
 
         logger.info(
             f"ChunkToneService Anthropic API Call: model={model}, "
@@ -407,8 +413,11 @@ Break at natural pauses like paragraphs or sentence boundaries when possible."""
                 max_tokens=4000,
                 temperature=0.3,
                 messages=[
-                    {"role": "user", "content": f"You are a professional text-to-speech specialist. Return only valid JSON.\n\n{prompt}"}
-                ]
+                    {
+                        "role": "user",
+                        "content": f"You are a professional text-to-speech specialist. Return only valid JSON.\n\n{prompt}",
+                    }
+                ],
             )
             end_time = time.monotonic()
             duration_ms = int((end_time - start_time) * 1000)
@@ -420,7 +429,7 @@ Break at natural pauses like paragraphs or sentence boundaries when possible."""
             )
 
             # Extract text content from Anthropic's response
-            if hasattr(response, 'content') and response.content:
+            if hasattr(response, "content") and response.content:
                 response_text = response.content[0].text.strip()
             else:
                 raise Exception("No content in Anthropic response")

@@ -1,7 +1,6 @@
 """Utility functions for provider selection and management."""
 
 import logging
-from typing import Optional
 
 from text_to_audio.models import Feed
 
@@ -24,21 +23,28 @@ def get_content_analysis_client(feed: Feed):
         # Try Anthropic first
         try:
             import anthropic
+
             from appconfig.utils import get_anthropic_api_key
 
             api_key = get_anthropic_api_key()
             if not api_key:
-                logger.warning(f"No Anthropic API key configured for feed {feed.id}, falling back to OpenAI")
+                logger.warning(
+                    f"No Anthropic API key configured for feed {feed.id}, falling back to OpenAI"
+                )
                 return _get_openai_client()
 
-            logger.info(f"Using Anthropic Claude for content analysis on feed {feed.id}")
+            logger.info(
+                f"Using Anthropic Claude for content analysis on feed {feed.id}"
+            )
             return anthropic.Anthropic(api_key=api_key)
 
         except ImportError:
             logger.warning("Anthropic SDK not installed, falling back to OpenAI")
             return _get_openai_client()
         except Exception as e:
-            logger.warning(f"Failed to initialize Anthropic client: {e}, falling back to OpenAI")
+            logger.warning(
+                f"Failed to initialize Anthropic client: {e}, falling back to OpenAI"
+            )
             return _get_openai_client()
 
     # Default to OpenAI
@@ -48,6 +54,7 @@ def get_content_analysis_client(feed: Feed):
 def _get_openai_client():
     """Get OpenAI client with error handling."""
     import openai
+
     from appconfig.utils import get_openai_api_key
 
     api_key = get_openai_api_key()
@@ -60,10 +67,12 @@ def _get_openai_client():
 def get_anthropic_model_name(feed: Feed) -> str:
     """Get the Anthropic model name for the given feed."""
     from appconfig.utils import get_anthropic_model
+
     return get_anthropic_model()
 
 
 def get_openai_analysis_model(feed: Feed) -> str:
     """Get the OpenAI analysis model name for the given feed."""
     from appconfig.utils import get_openai_analysis_model
+
     return get_openai_analysis_model()

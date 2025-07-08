@@ -18,17 +18,12 @@ class FeedAdmin(admin.ModelAdmin):
     search_fields = ["name", "user__username"]
     readonly_fields = ["token", "created_at"]
     fieldsets = (
-        (None, {
-            'fields': ('name', 'user', 'voice_mode', 'llm_provider')
-        }),
-        ('Voice Settings', {
-            'fields': ('default_voice_preset',),
-            'classes': ('collapse',)
-        }),
-        ('System', {
-            'fields': ('token', 'created_at'),
-            'classes': ('collapse',)
-        }),
+        (None, {"fields": ("name", "user", "voice_mode", "llm_provider")}),
+        (
+            "Voice Settings",
+            {"fields": ("default_voice_preset",), "classes": ("collapse",)},
+        ),
+        ("System", {"fields": ("token", "created_at"), "classes": ("collapse",)}),
     )
 
 

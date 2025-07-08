@@ -45,13 +45,16 @@ class ContentAnalysisService:
     def client(self):
         """Lazily initialize the appropriate client based on provider."""
         if self._client is None:
-            if self.feed and hasattr(self.feed, 'llm_provider'):
+            if self.feed and hasattr(self.feed, "llm_provider"):
                 from ..provider_utils import get_content_analysis_client
+
                 self._client = get_content_analysis_client(self.feed)
             else:
                 # Fallback to OpenAI for backwards compatibility
                 import openai
+
                 from appconfig.utils import get_openai_api_key
+
                 self._client = openai.OpenAI(
                     api_key=self.openai_api_key or get_openai_api_key()
                 )
@@ -67,23 +70,32 @@ class ContentAnalysisService:
         """Call Anthropic API with the given prompt."""
         from ..provider_utils import get_anthropic_model_name
 
-        model = get_anthropic_model_name(self.feed) if self.feed else "claude-3-5-sonnet-20241022"
+        model = (
+            get_anthropic_model_name(self.feed)
+            if self.feed
+            else "claude-3-5-sonnet-20241022"
+        )
 
         # Anthropic uses different parameter names
         response = self.client.messages.create(
             model=model,
-            max_tokens=min(max_completion_tokens, 4096),  # Anthropic has different limits
+            max_tokens=min(
+                max_completion_tokens, 4096
+            ),  # Anthropic has different limits
             temperature=0.3,
             messages=[
-                {"role": "user", "content": f"You are an expert content analyzer. {prompt}\n\nPlease respond with valid JSON only."}
-            ]
+                {
+                    "role": "user",
+                    "content": f"You are an expert content analyzer. {prompt}\n\nPlease respond with valid JSON only.",
+                }
+            ],
         )
 
         # Convert Anthropic response to OpenAI-like format for compatibility
         class AnthropicResponseAdapter:
             def __init__(self, anthropic_response):
-                self.id = getattr(anthropic_response, 'id', 'anthropic-response')
-                self.model = getattr(anthropic_response, 'model', model)
+                self.id = getattr(anthropic_response, "id", "anthropic-response")
+                self.model = getattr(anthropic_response, "model", model)
                 self.object = "chat.completion"
                 self.created = int(time.time())
                 self.choices = [AnthropicChoiceAdapter(anthropic_response)]
@@ -93,23 +105,30 @@ class ContentAnalysisService:
             def __init__(self, anthropic_response):
                 self.index = 0
                 self.message = AnthropicMessageAdapter(anthropic_response)
-                self.finish_reason = getattr(anthropic_response, 'stop_reason', 'stop')
+                self.finish_reason = getattr(anthropic_response, "stop_reason", "stop")
 
         class AnthropicMessageAdapter:
             def __init__(self, anthropic_response):
                 self.role = "assistant"
                 # Extract text content from Anthropic's content blocks
-                if hasattr(anthropic_response, 'content') and anthropic_response.content:
-                    self.content = anthropic_response.content[0].text if anthropic_response.content else ""
+                if (
+                    hasattr(anthropic_response, "content")
+                    and anthropic_response.content
+                ):
+                    self.content = (
+                        anthropic_response.content[0].text
+                        if anthropic_response.content
+                        else ""
+                    )
                 else:
                     self.content = ""
 
         class AnthropicUsageAdapter:
             def __init__(self, anthropic_response):
-                usage = getattr(anthropic_response, 'usage', None)
+                usage = getattr(anthropic_response, "usage", None)
                 if usage:
-                    self.prompt_tokens = getattr(usage, 'input_tokens', 0)
-                    self.completion_tokens = getattr(usage, 'output_tokens', 0)
+                    self.prompt_tokens = getattr(usage, "input_tokens", 0)
+                    self.completion_tokens = getattr(usage, "output_tokens", 0)
                     self.total_tokens = self.prompt_tokens + self.completion_tokens
                 else:
                     self.prompt_tokens = 0
@@ -529,7 +548,13 @@ class ContentAnalysisService:
         """Get the model to use for content analysis."""
         if self._is_anthropic_client():
             from ..provider_utils import get_anthropic_model_name
-            return get_anthropic_model_name(self.feed) if self.feed else "claude-3-5-sonnet-20241022"
+
+            return (
+                get_anthropic_model_name(self.feed)
+                if self.feed
+                else "claude-3-5-sonnet-20241022"
+            )
         else:
             from django.conf import settings
+
             return getattr(settings, "OPENAI_ANALYSIS_MODEL", "gpt-4.1")
