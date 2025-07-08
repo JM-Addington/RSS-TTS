@@ -222,6 +222,8 @@ The JSON must be valid and parseable. Do not include any other text or explanati
 2. Expanding abbreviations that are normally spoken as words for natural speech
 3. Converting dates and numbers to spoken form
 4. Maintaining the original meaning while optimizing for speech
+5. Do not use Markdown formatting in the final text, you can consider it during the analysis.
+6. If you include headings, like "Chapter 1", "Chapter 2", you must give them their own tone and chunk to separate them from the rest of the text.
 
 Article Title: {title}
 
