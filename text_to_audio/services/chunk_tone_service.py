@@ -223,7 +223,6 @@ The JSON must be valid and parseable. Do not include any other text or explanati
 3. Converting dates and numbers to spoken form
 4. Maintaining the original meaning while optimizing for speech
 5. Do not use Markdown formatting in the final text, you can consider it during the analysis.
-6. If you include headings, like "Chapter 1", "Chapter 2", you must give them their own tone and chunk to separate them from the rest of the text.
 
 Article Title: {title}
 
@@ -283,13 +282,13 @@ Break at natural pauses like paragraphs or sentence boundaries when possible."""
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.3,
-            "max_tokens": 4000,
+            "max_tokens": 12000,
         }
 
         # Log ChunkToneService API call details
         logger.info(
             f"ChunkToneService API Call: model={model}, "
-            f"max_tokens=4000, temperature=0.3, "
+            f"max_tokens=12000, temperature=0.3, "
             f"prompt_length={len(prompt)} chars"
         )
 
