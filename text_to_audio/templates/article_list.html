@@ -379,16 +379,47 @@ function handlePlayButtonClick(event) {
         return;
     }
 
+    const row = button.closest('tr');
+
+    // Compare raw src attribute instead of using audioPlayer.src property
+    const currentSrc = audioPlayer.getAttribute('src') || '';
+
+    // Toggle play/pause if clicking the same audio
+    if (currentSrc === audioUrl) {
+        if (audioPlayer.paused) {
+            document.querySelectorAll('tr.now-playing').forEach(r => r.classList.remove('now-playing'));
+            document.querySelectorAll('.play-audio-btn').forEach(btn => { btn.innerHTML = playIconSvg; });
+            if (row) {
+                row.classList.add('now-playing');
+                button.innerHTML = pauseIconSvg;
+            }
+            const playPromise = audioPlayer.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.error('Audio playback failed:', error);
+                    alert('Failed to play audio. The file may be missing or corrupted.');
+                    resetPlaybackUI();
+                });
+            }
+        } else {
+            audioPlayer.pause();
+            if (row) {
+                row.classList.remove('now-playing');
+                button.innerHTML = playIconSvg;
+            }
+        }
+        return;
+    }
+
     // Remove playing status from all rows
-    document.querySelectorAll('tr.now-playing').forEach(row => {
-        row.classList.remove('now-playing');
+    document.querySelectorAll('tr.now-playing').forEach(r => {
+        r.classList.remove('now-playing');
     });
     document.querySelectorAll('.play-audio-btn').forEach(btn => {
         btn.innerHTML = playIconSvg;
     });
 
     // Add playing status to current row
-    const row = button.closest('tr');
     if (row) {
         row.classList.add('now-playing');
         button.innerHTML = pauseIconSvg;
@@ -402,8 +433,6 @@ function handlePlayButtonClick(event) {
         return;
     }
 
-    // Compare raw src attribute instead of using audioPlayer.src property
-    const currentSrc = audioPlayer.getAttribute('src') || '';
     if (currentSrc !== audioUrl) {
         audioPlayer.setAttribute('src', audioUrl);
     }
