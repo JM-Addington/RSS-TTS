@@ -534,6 +534,7 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                     html_content = document_file.read().decode("utf-8")
                     # Clean HTML to remove unwanted elements (same as URL processing)
                     from .utils import clean_html_minimal
+
                     cleaned_html = clean_html_minimal(html_content)
                     success, text, error = extract_article_text(cleaned_html)
                     if not success:
