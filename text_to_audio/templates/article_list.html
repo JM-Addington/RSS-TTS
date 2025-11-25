@@ -336,7 +336,7 @@ const voiceSettingsUrlTemplate = '{% url "article_voice_settings" 0 %}'.replace(
 const regenerateUrlTemplate = '{% url "article-regenerate" 0 %}'.replace('/0/', '/');
 {% if feed %}
 const feedId = {{ feed.id }}; // Store feed ID for use in dynamic content
-const deleteUrlTemplate = '{% url "article-delete" feed_id=feed.id article_id=0 %}'.replace('/0/', '/');
+const deleteUrlTemplate = '{% url "article-delete" feed_id=feed.id article_id=0 %}';
 {% endif %}
 
 // Create URL construction functions
@@ -353,7 +353,9 @@ function getRegenerateUrl(articleId) {
 }
 
 function getDeleteUrl(articleId) {
-    return deleteUrlTemplate + articleId + '/';
+    // URL pattern is feeds/<feed_id>/articles/<article_id>/delete/
+    // Replace the placeholder 0 with the actual article ID
+    return deleteUrlTemplate.replace('/articles/0/', '/articles/' + articleId + '/');
 }
 
 // Function to generate complete article actions HTML
