@@ -37,6 +37,18 @@
                             <div class="form-text">Choose a descriptive name to help you organize your feeds.</div>
                         </div>
 
+                        <!-- TTS Provider Selector -->
+                        <div class="mb-3">
+                            <label for="{{ form.tts_provider.id_for_label }}" class="form-label">TTS Provider</label>
+                            {{ form.tts_provider|add_class:"form-select" }}
+                            {% if form.tts_provider.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.tts_provider.errors }}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">{{ form.tts_provider.help_text }}</div>
+                        </div>
+
                         <!-- Voice Mode Selector -->
                         <div class="mb-3">
                             <label for="{{ form.voice_mode.id_for_label }}" class="form-label">Voice Generation Mode</label>
