@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 # Add a short pause to the end of exported audio files to prevent cutoff
 ENDING_SILENCE_MS = 3000  # 3 seconds of silence at the end
+SEGMENT_PAUSE_MS = 400  # Pause between audio segments (about a breath)
 VOLUME_GAIN_DB = 3.0  # ~3dB volume increase
 DEESSER_FILTER_ARGS = ["-af", "deesser"]
 
@@ -1429,7 +1430,11 @@ def process_article(self, article_id: int) -> str:
                         segment_audio = AudioSegment.from_file(
                             temp_file_path_item, format=AUDIO_RESPONSE_FORMAT
                         )
+                    # Add segment to combined audio with pause between segments
                     combined_audio += segment_audio
+                    # Add a short pause after each segment (except we'll let the last one
+                    # naturally flow into the final ending silence)
+                    combined_audio += AudioSegment.silent(duration=SEGMENT_PAUSE_MS)
                 except Exception as e:  # Catch specific pydub errors if known
                     logger.error(
                         f"Pydub error processing chunk {temp_file_path_item} for article {article_id}: {e}"
