@@ -1305,6 +1305,12 @@ def article_voice_settings(request, article_id):
             voice = form.cleaned_data.get("voice_id")
             speed = form.cleaned_data.get("speed")
             preset_id = form.cleaned_data.get("voice_preset")
+            tts_provider = form.cleaned_data.get("tts_provider")
+
+            # Save TTS provider if specified
+            if tts_provider:
+                article.tts_provider = tts_provider
+                article.save(update_fields=["tts_provider"])
 
             # Save preferences
             preferences = UserPreferencesService()
@@ -1335,8 +1341,11 @@ def article_voice_settings(request, article_id):
             return redirect("feed-articles", feed_id=feed_id)
     else:
         # Pre-fill form with current settings
+        # Voice can be in either article.voice or article.voice_id depending on whether it's standard or custom
+        current_voice = article.voice_id if article.voice_id else article.voice
         initial_data = {
-            "voice_id": article.voice_id or "",
+            "tts_provider": article.tts_provider or "",
+            "voice_id": current_voice or "",
             "speed": article.speed or "",
             "voice_preset": article.voice_preset.id if article.voice_preset else "",
         }
