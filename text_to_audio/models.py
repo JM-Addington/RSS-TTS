@@ -33,6 +33,11 @@ VOICE_CHIRP_HD_AOEDE = "en-US-Chirp3-HD-Aoede"
 VOICE_CHIRP_HD_CHARON = "en-US-Chirp3-HD-Charon"
 VOICE_CHIRP_HD_FENRIR = "en-US-Chirp3-HD-Fenrir"
 
+# Google Neural2 Voices (standard quality)
+VOICE_NEURAL2_A = "en-US-Neural2-A"
+VOICE_NEURAL2_C = "en-US-Neural2-C"
+VOICE_NEURAL2_D = "en-US-Neural2-D"
+
 VOICE_CHOICES = [
     # OpenAI Voices
     (VOICE_ALLOY, "Alloy (OpenAI)"),
@@ -53,6 +58,10 @@ VOICE_CHOICES = [
     (VOICE_CHIRP_HD_AOEDE, "Aoede (Chirp3-HD)"),
     (VOICE_CHIRP_HD_CHARON, "Charon (Chirp3-HD)"),
     (VOICE_CHIRP_HD_FENRIR, "Fenrir (Chirp3-HD)"),
+    # Google Neural2 Voices
+    (VOICE_NEURAL2_A, "Neural2-A (Google)"),
+    (VOICE_NEURAL2_C, "Neural2-C (Google)"),
+    (VOICE_NEURAL2_D, "Neural2-D (Google)"),
 ]
 
 

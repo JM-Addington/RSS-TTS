@@ -77,6 +77,59 @@ class TTSService:
 
         return self._google_provider
 
+    def _validate_voice_for_provider(self, voice: str) -> str:
+        """Validate voice is compatible with provider and return valid voice.
+
+        Args:
+            voice: Voice ID to validate
+
+        Returns:
+            Valid voice ID for the current provider
+        """
+        # Define OpenAI voices
+        openai_voices = {
+            "alloy", "ash", "ballad", "coral", "echo",
+            "fable", "onyx", "nova", "sage", "shimmer"
+        }
+
+        # Define Google voices (prefixes)
+        google_voice_prefixes = ("en-US-Journey-", "en-US-Chirp3-HD-", "en-US-Neural2-")
+
+        voice_lower = voice.lower()
+        is_openai_voice = voice_lower in openai_voices
+        is_google_voice = voice.startswith(google_voice_prefixes)
+
+        if self.provider == "openai":
+            if is_openai_voice:
+                return voice
+            else:
+                # Using Google voice with OpenAI - use default
+                logger.warning(
+                    f"Voice '{voice}' is not an OpenAI voice. Using default 'alloy'"
+                )
+                return "alloy"
+        elif self.provider == "google":
+            if is_google_voice:
+                return voice
+            else:
+                # Using OpenAI voice with Google - use default
+                from appconfig.utils import get_google_tts_voice_type
+
+                voice_type = get_google_tts_voice_type()
+                default_voice = {
+                    "gemini": "en-US-Journey-D",
+                    "chirp3": "en-US-Chirp3-HD-Charon",
+                    "neural2": "en-US-Neural2-A",
+                }.get(voice_type, "en-US-Journey-D")
+
+                logger.warning(
+                    f"Voice '{voice}' is not a Google voice. "
+                    f"Using default '{default_voice}' for provider 'google'"
+                )
+                return default_voice
+        else:
+            return voice
+
     def generate_speech(
         self,
         text: str,
@@ -102,13 +155,16 @@ class TTSService:
         Raises:
             ValueError: If provider is unknown or not configured
         """
+        # Validate voice for provider (auto-map if needed)
+        validated_voice = self._validate_voice_for_provider(voice)
+
         if self.provider == "openai":
             return self._generate_openai(
-                text, voice, speed, model, instructions, response_format
+                text, validated_voice, speed, model, instructions, response_format
             )
         elif self.provider == "google":
             return self._generate_google(
-                text, voice, speed, instructions, response_format
+                text, validated_voice, speed, instructions, response_format
             )
         else:
             raise ValueError(f"Unknown TTS provider: {self.provider}")

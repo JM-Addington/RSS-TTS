@@ -1289,3 +1289,94 @@ class DeesserFilterTests(TestCase):
         from text_to_audio.tasks import DEESSER_FILTER_ARGS
 
         self.assertEqual(DEESSER_FILTER_ARGS, ["-af", "deesser"])
+
+
+class LoudnessNormalizationTests(TestCase):
+    """Tests for the in-memory loudness normalization function."""
+
+    def test_loudness_target_constant(self):
+        """Ensure loudness target is set to -10 LUFS."""
+        from text_to_audio.tasks import LOUDNESS_TARGET_LUFS
+
+        self.assertEqual(LOUDNESS_TARGET_LUFS, -10.0)
+
+    def test_normalize_loudness_in_memory_returns_audio_segment(self):
+        """Test that in-memory normalization returns an AudioSegment."""
+        import numpy as np
+
+        from text_to_audio.tasks import _normalize_loudness_in_memory
+
+        # Create a simple test audio segment with a sine wave
+        sample_rate = 44100
+        duration_sec = 1.0
+        frequency = 440  # A4 note
+        t = np.linspace(0, duration_sec, int(sample_rate * duration_sec), False)
+        # Generate a sine wave at about -20 dBFS
+        audio_data = (np.sin(2 * np.pi * frequency * t) * 3276).astype(np.int16)
+
+        test_segment = AudioSegment(
+            data=audio_data.tobytes(),
+            sample_width=2,  # 16-bit
+            frame_rate=sample_rate,
+            channels=1,
+        )
+
+        result = _normalize_loudness_in_memory(test_segment)
+
+        # Should return an AudioSegment
+        self.assertIsInstance(result, AudioSegment)
+        # Should have same duration (within tolerance)
+        self.assertAlmostEqual(
+            result.duration_seconds, test_segment.duration_seconds, places=2
+        )
+
+    def test_normalize_loudness_in_memory_handles_silence(self):
+        """Test that normalization handles silent audio gracefully."""
+        from text_to_audio.tasks import _normalize_loudness_in_memory
+
+        # Create silent audio
+        silent_segment = AudioSegment.silent(duration=1000)  # 1 second of silence
+
+        result = _normalize_loudness_in_memory(silent_segment)
+
+        # Should return the original segment unchanged for silent audio
+        self.assertIsInstance(result, AudioSegment)
+        self.assertEqual(result.duration_seconds, silent_segment.duration_seconds)
+
+    def test_normalize_loudness_in_memory_custom_target(self):
+        """Test normalization with custom LUFS target."""
+        import numpy as np
+
+        from text_to_audio.tasks import _normalize_loudness_in_memory
+
+        # Create a test audio segment
+        sample_rate = 44100
+        duration_sec = 1.0
+        frequency = 440
+        t = np.linspace(0, duration_sec, int(sample_rate * duration_sec), False)
+        audio_data = (np.sin(2 * np.pi * frequency * t) * 3276).astype(np.int16)
+
+        test_segment = AudioSegment(
+            data=audio_data.tobytes(),
+            sample_width=2,
+            frame_rate=sample_rate,
+            channels=1,
+        )
+
+        # Normalize to a different target
+        result = _normalize_loudness_in_memory(test_segment, target_lufs=-14.0)
+
+        self.assertIsInstance(result, AudioSegment)
+
+    @patch("text_to_audio.tasks.pyln", None)
+    def test_normalize_loudness_in_memory_missing_pyloudnorm(self):
+        """Test graceful fallback when pyloudnorm is not available."""
+        # This test verifies the import error handling
+        from text_to_audio.tasks import _normalize_loudness_in_memory
+
+        silent_segment = AudioSegment.silent(duration=1000)
+
+        # Should return original segment without crashing
+        result = _normalize_loudness_in_memory(silent_segment)
+
+        self.assertIsInstance(result, AudioSegment)

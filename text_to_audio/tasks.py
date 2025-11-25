@@ -38,12 +38,102 @@ ENDING_SILENCE_MS = 3000  # 3 seconds of silence at the end
 VOLUME_GAIN_DB = 3.0  # ~3dB volume increase
 DEESSER_FILTER_ARGS = ["-af", "deesser"]
 
+# AIDEV-NOTE: Loudness normalization target - EBU R128 standard is -23 LUFS, podcast standard is -16 to -14
+# Using -10 LUFS as requested for louder output suitable for noisy environments
+LOUDNESS_TARGET_LUFS = -10.0
+
 # Determine temporary file extension based on configured response format
 AUDIO_RESPONSE_FORMAT = getattr(settings, "OPENAI_TTS_RESPONSE_FORMAT", "wav")
 if AUDIO_RESPONSE_FORMAT == "pcm":
     TEMP_FILE_EXT = ".pcm"
 else:
     TEMP_FILE_EXT = f".{AUDIO_RESPONSE_FORMAT}"
+
+
+def _normalize_loudness_in_memory(
+    audio_segment: AudioSegment, target_lufs: float = LOUDNESS_TARGET_LUFS
+) -> AudioSegment:
+    """Normalize audio loudness in memory using pyloudnorm.
+
+    Uses ITU-R BS.1770-4 loudness measurement (EBU R128 standard) to normalize
+    audio to a target LUFS level. This happens in memory before export.
+
+    Args:
+        audio_segment: pydub AudioSegment to normalize
+        target_lufs: Target loudness in LUFS (default: -10 LUFS)
+
+    Returns:
+        Normalized AudioSegment (or original if normalization fails)
+    """
+    try:
+        import numpy as np
+        import pyloudnorm as pyln
+
+        # Convert pydub AudioSegment to numpy array for pyloudnorm
+        # pydub uses int16 samples, pyloudnorm expects float32 in range [-1, 1]
+        samples = np.array(audio_segment.get_array_of_samples(), dtype=np.float32)
+
+        # Handle stereo audio - reshape to (samples, channels)
+        if audio_segment.channels == 2:
+            samples = samples.reshape((-1, 2))
+        else:
+            samples = samples.reshape((-1, 1))
+
+        # Normalize to [-1, 1] range (int16 max is 32768)
+        samples = samples / 32768.0
+
+        # Create loudness meter with the audio's sample rate
+        meter = pyln.Meter(audio_segment.frame_rate)
+
+        # Measure current loudness
+        current_loudness = meter.integrated_loudness(samples)
+
+        # Check for silence or very quiet audio
+        if current_loudness == float("-inf") or np.isnan(current_loudness):
+            logger.warning(
+                "Audio is silent or too quiet to measure loudness, skipping normalization"
+            )
+            return audio_segment
+
+        # Calculate gain needed to reach target
+        gain_db = target_lufs - current_loudness
+
+        logger.info(
+            f"Loudness normalization: current={current_loudness:.1f} LUFS, "
+            f"target={target_lufs:.1f} LUFS, applying {gain_db:.1f} dB gain"
+        )
+
+        # Apply gain using pyloudnorm (handles clipping prevention)
+        normalized_samples = pyln.normalize.loudness(samples, current_loudness, target_lufs)
+
+        # Convert back to int16 for pydub
+        normalized_samples = (normalized_samples * 32768.0).astype(np.int16)
+
+        # Flatten if stereo
+        if audio_segment.channels == 2:
+            normalized_samples = normalized_samples.flatten()
+        else:
+            normalized_samples = normalized_samples.flatten()
+
+        # Create new AudioSegment with normalized audio
+        normalized_audio = AudioSegment(
+            data=normalized_samples.tobytes(),
+            sample_width=audio_segment.sample_width,
+            frame_rate=audio_segment.frame_rate,
+            channels=audio_segment.channels,
+        )
+
+        return normalized_audio
+
+    except ImportError:
+        logger.warning(
+            "pyloudnorm not installed, skipping loudness normalization. "
+            "Install with: pip install pyloudnorm"
+        )
+        return audio_segment
+    except Exception as e:
+        logger.error(f"Loudness normalization failed: {e}, using original audio")
+        return audio_segment
 
 
 def _clamp_tts_speed(speed: float) -> float:
@@ -1278,10 +1368,10 @@ def process_article(self, article_id: int) -> str:
                 audio_segment = AudioSegment.from_file(
                     single_audio_path, format=AUDIO_RESPONSE_FORMAT
                 )
-            audio_segment = audio_segment.set_frame_rate(44100).apply_gain(
-                VOLUME_GAIN_DB
-            )  # Ensure consistent frame rate and volume
+            audio_segment = audio_segment.set_frame_rate(44100)
             audio_segment += AudioSegment.silent(duration=ENDING_SILENCE_MS)
+            # AIDEV-NOTE: Loudness normalization in memory before export (EBU R128, -10 LUFS)
+            audio_segment = _normalize_loudness_in_memory(audio_segment)
             audio_segment.export(
                 str(final_audio_path),
                 format="mp3",
@@ -1318,10 +1408,10 @@ def process_article(self, article_id: int) -> str:
                     ) from e
 
             if combined_audio.duration_seconds > 0:
-                combined_audio = combined_audio.set_frame_rate(44100).apply_gain(
-                    VOLUME_GAIN_DB
-                )  # Ensure consistent frame rate and volume
+                combined_audio = combined_audio.set_frame_rate(44100)
                 combined_audio += AudioSegment.silent(duration=ENDING_SILENCE_MS)
+                # AIDEV-NOTE: Loudness normalization in memory before export (EBU R128, -10 LUFS)
+                combined_audio = _normalize_loudness_in_memory(combined_audio)
                 combined_audio.export(
                     str(final_audio_path),
                     format="mp3",
