@@ -9,6 +9,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from text_to_audio.api_views import FeedArticleSubmitView
 from text_to_audio.feeds import UserFeed
+from text_to_audio.mailgun_views import mailgun_incoming_webhook
 from text_to_audio.views import (
     ArticleCreateView,
     ArticleDeleteView,
@@ -106,6 +107,12 @@ urlpatterns = [
         "api/v1/feeds/<uuid:token>/articles/",
         FeedArticleSubmitView.as_view(),
         name="api-feed-article-submit",
+    ),
+    # Mailgun webhook endpoint
+    path(
+        "api/v1/mailgun/incoming/",
+        mailgun_incoming_webhook,
+        name="mailgun-incoming-webhook",
     ),
     # RSS feed URL (must come after management URLs to avoid conflicts)
     path("feeds/<uuid:token>/", UserFeed(), name="feed"),

@@ -81,6 +81,20 @@ class Feed(models.Model):
         default=VOICE_MODE_AUTO,
         help_text="Voice mode preference for this feed",
     )
+    inbound_email: models.CharField = models.CharField(
+        max_length=255,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Email address for sending content to this feed (e.g., happy-river-42@mg.example.com)",
+    )
+    mailgun_route_id: models.CharField = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Mailgun route ID for this feed's inbound email",
+    )
     created_at: models.DateTimeField = models.DateTimeField(
         auto_now_add=True, help_text="When the feed was created."
     )
@@ -88,6 +102,36 @@ class Feed(models.Model):
     def __str__(self) -> str:
         """Return a string representation of the feed."""
         return str(self.name)
+
+    def generate_inbound_email(self) -> str | None:
+        """Generate an inbound email address for this feed.
+
+        Uses the feed's token to generate a deterministic, readable email address
+        in the format: adjective-noun-number@domain
+
+        Returns:
+            The generated email address, or None if Mailgun is not configured
+        """
+        from django.conf import settings
+
+        from .mailgun_utils import generate_feed_email_address, validate_mailgun_domain
+
+        domain = settings.MAILGUN_DOMAIN
+        if not domain or not validate_mailgun_domain(domain):
+            return None
+
+        return generate_feed_email_address(self.token, domain)
+
+    def regenerate_inbound_email(self) -> str | None:
+        """Regenerate the inbound email address for this feed.
+
+        Since email generation is deterministic based on the feed token,
+        this will always produce the same email address for the same feed.
+
+        Returns:
+            The regenerated email address, or None if Mailgun is not configured
+        """
+        return self.generate_inbound_email()
 
 
 class FollowedFeed(models.Model):

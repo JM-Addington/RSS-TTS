@@ -47,6 +47,11 @@ USE_FIRECRAWL_BY_DEFAULT = os.environ.get(
 # ChunkTone LLM Service Feature Flag
 ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "true").lower() == "true"
 
+# Mailgun settings (for email-to-article ingestion)
+MAILGUN_API_KEY = os.environ.get("MAILGUN_API_KEY")
+MAILGUN_DOMAIN = os.environ.get("MAILGUN_DOMAIN")
+MAILGUN_WEBHOOK_SIGNING_KEY = os.environ.get("MAILGUN_WEBHOOK_SIGNING_KEY")
+
 ALLOWED_HOSTS: list[str] = []
 ALLOWED_HOSTS += (
     os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")

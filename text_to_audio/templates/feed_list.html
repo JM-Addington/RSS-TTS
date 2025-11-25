@@ -36,6 +36,21 @@
                                         </div>
                                     </div>
 
+                                    {% if feed.inbound_email %}
+                                    <div class="mb-3">
+                                        <label class="form-label small text-muted">
+                                            <i class="bi bi-envelope"></i> Email to Feed:
+                                        </label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" value="{{ feed.inbound_email }}" readonly id="email-{{ feed.id }}">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('email-{{ feed.id }}')">
+                                                <i class="bi bi-clipboard"></i> Copy
+                                            </button>
+                                        </div>
+                                        <small class="form-text text-muted">Forward emails or newsletters to this address to add them to your feed.</small>
+                                    </div>
+                                    {% endif %}
+
                                     <div class="d-flex gap-2 flex-wrap">
                                         <a href="{% url 'feed-article-create' feed.id %}" class="btn btn-sm btn-success">
                                             <i class="bi bi-plus-circle"></i> Add Article

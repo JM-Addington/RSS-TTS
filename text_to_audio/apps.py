@@ -12,3 +12,7 @@ class TextToAudioConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "text_to_audio"
     verbose_name = "Text to Audio"
+
+    def ready(self):
+        """Import signal handlers when app is ready."""
+        import text_to_audio.signals  # noqa: F401
