@@ -1295,10 +1295,10 @@ class LoudnessNormalizationTests(TestCase):
     """Tests for the in-memory loudness normalization function."""
 
     def test_loudness_target_constant(self):
-        """Ensure loudness target is set to -10 LUFS."""
+        """Ensure loudness target is set to -14 LUFS (loud but safe for spoken word)."""
         from text_to_audio.tasks import LOUDNESS_TARGET_LUFS
 
-        self.assertEqual(LOUDNESS_TARGET_LUFS, -10.0)
+        self.assertEqual(LOUDNESS_TARGET_LUFS, -14.0)
 
     def test_normalize_loudness_in_memory_returns_audio_segment(self):
         """Test that in-memory normalization returns an AudioSegment."""

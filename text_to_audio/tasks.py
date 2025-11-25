@@ -39,8 +39,9 @@ VOLUME_GAIN_DB = 3.0  # ~3dB volume increase
 DEESSER_FILTER_ARGS = ["-af", "deesser"]
 
 # AIDEV-NOTE: Loudness normalization target - EBU R128 standard is -23 LUFS, podcast standard is -16 to -14
-# Using -10 LUFS as requested for louder output suitable for noisy environments
-LOUDNESS_TARGET_LUFS = -10.0
+# Using -14 LUFS - loud but safe for spoken word without excessive peak limiting
+# (-10 LUFS caused clipping issues, -16 is standard but quieter)
+LOUDNESS_TARGET_LUFS = -14.0
 
 # Determine temporary file extension based on configured response format
 AUDIO_RESPONSE_FORMAT = getattr(settings, "OPENAI_TTS_RESPONSE_FORMAT", "wav")
@@ -103,13 +104,29 @@ def _normalize_loudness_in_memory(
             f"target={target_lufs:.1f} LUFS, applying {gain_db:.1f} dB gain"
         )
 
-        # Apply gain using pyloudnorm (handles clipping prevention)
+        # Apply gain using pyloudnorm
         normalized_samples = pyln.normalize.loudness(
             samples, current_loudness, target_lufs
         )
 
-        # Convert back to int16 for pydub
-        normalized_samples = (normalized_samples * 32768.0).astype(np.int16)
+        # AIDEV-NOTE: Peak limiting to prevent clipping - critical for -10 LUFS target
+        # Check for peaks exceeding 0 dBFS (values > 1.0 or < -1.0)
+        peak = np.max(np.abs(normalized_samples))
+        if peak > 1.0:
+            # Apply peak limiting by scaling down to fit within [-1, 1]
+            # Leave 0.5 dB headroom (0.944) to prevent inter-sample peaks
+            headroom = 0.944
+            scale_factor = headroom / peak
+            normalized_samples = normalized_samples * scale_factor
+            logger.warning(
+                f"Peak limiting applied: peak was {20 * np.log10(peak):.1f} dBFS, "
+                f"reduced by {-20 * np.log10(scale_factor):.1f} dB"
+            )
+
+        # Convert back to int16 for pydub - clip to valid range as safety measure
+        normalized_samples = np.clip(
+            normalized_samples * 32768.0, -32768, 32767
+        ).astype(np.int16)
 
         # Flatten if stereo
         if audio_segment.channels == 2:
