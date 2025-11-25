@@ -47,7 +47,7 @@ class EmailCleaningService:
         prompt = f"""You are helping extract the main content from an email for audio narration.
 
 Your task is to:
-1. Extract ONLY the primary content that should be read aloud
+1. Extract ALL primary content that should be read aloud (including all articles/sections in newsletters)
 2. Remove boilerplate elements (headers, footers, unsubscribe links, navigation, social media buttons)
 3. Remove advertisements and sponsorships UNLESS they are the core subject of the email
 4. Remove email signatures and metadata
@@ -67,11 +67,14 @@ Return a JSON object with:
 }}
 
 Guidelines:
+- IMPORTANT: For newsletters with multiple articles/sections, extract ALL of them, not just the first one
 - If the email is ABOUT a product/service (promotional), keep the promotional content
 - If the email CONTAINS ads within an article/newsletter, remove them
 - For FORWARDED emails: Remove the sender's signature at the top, remove forward metadata (From:, Date:, Subject:, To:), extract only the original email body
 - Remove all email signatures (both at top for forwards and at bottom for regular emails)
 - Preserve important links or references that add value to the content
+- Between newsletter sections, maintain clear separation (use paragraph breaks)
+- Include article titles/headings within the newsletter to provide structure
 - If you're uncertain whether something is core content, keep it
 - Maintain natural paragraph structure for audio flow
 
@@ -84,7 +87,9 @@ Subject: [subject]
 To: [recipient]
 [ORIGINAL EMAIL CONTENT - EXTRACT THIS]
 
-Extract only the original email content below the forward headers."""
+Extract only the original email content below the forward headers.
+
+CRITICAL: If this is a newsletter with multiple stories/articles, extract EVERY article, not just the first one. The user wants to listen to the entire newsletter."""
 
         return prompt
 
