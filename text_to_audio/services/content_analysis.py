@@ -116,7 +116,9 @@ class ContentAnalysisService:
 
         return max_completion_tokens
 
-    def analyze_content(self, text, title=None, max_completion_tokens=None):
+    def analyze_content(
+        self, text, title=None, max_completion_tokens=None, tts_provider=None
+    ):
         """Analyze article text and recommend narration voices.
 
         Args:
@@ -124,6 +126,8 @@ class ContentAnalysisService:
             title: Optional article title for additional context.
             max_completion_tokens: Maximum tokens for the LLM response. If None,
                                    will be dynamically calculated based on prompt size.
+            tts_provider: TTS provider to use (openai or google). If None,
+                         defaults to global setting.
 
         Returns:
             dict with keys:
@@ -136,8 +140,8 @@ class ContentAnalysisService:
         words = text.split()
         text_sample = " ".join(words[:MAX_ANALYSIS_WORDS])
 
-        # Create the unified prompt
-        prompt = self._create_analysis_prompt(text_sample, title)
+        # Create the unified prompt with provider-specific voices
+        prompt = self._create_analysis_prompt(text_sample, title, tts_provider)
 
         # Get the model we'll use
         model = self._get_analysis_model()
@@ -291,8 +295,58 @@ class ContentAnalysisService:
                 ],
             }
 
-    def _create_analysis_prompt(self, text, title):
-        """Create the prompt for multi-voice content analysis."""
+    def _create_analysis_prompt(self, text, title, tts_provider=None):
+        """Create the prompt for multi-voice content analysis.
+
+        Args:
+            text: The article text to analyze
+            title: Optional article title
+            tts_provider: TTS provider (openai or google), defaults to global setting
+        """
+        # Determine effective provider
+        if not tts_provider:
+            from appconfig.utils import get_default_tts_provider
+
+            tts_provider = get_default_tts_provider()
+
+        # Generate provider-specific voice list
+        if tts_provider == "google":
+            from appconfig.utils import get_google_tts_voice_type
+
+            voice_type = get_google_tts_voice_type()
+
+            if voice_type == "gemini":
+                voice_list = '"en-US-Journey-D", "en-US-Journey-F", "en-US-Journey-O"'
+                voice_examples = {
+                    "narrator": "en-US-Journey-D",
+                    "character1": "en-US-Journey-F",
+                    "character2": "en-US-Journey-O",
+                }
+            elif voice_type == "chirp3":
+                voice_list = (
+                    '"en-US-Chirp3-HD-Aoede", "en-US-Chirp3-HD-Charon", '
+                    '"en-US-Chirp3-HD-Fenrir"'
+                )
+                voice_examples = {
+                    "narrator": "en-US-Chirp3-HD-Charon",
+                    "character1": "en-US-Chirp3-HD-Aoede",
+                    "character2": "en-US-Chirp3-HD-Fenrir",
+                }
+            else:  # neural2
+                voice_list = '"en-US-Neural2-A", "en-US-Neural2-C", "en-US-Neural2-D"'
+                voice_examples = {
+                    "narrator": "en-US-Neural2-A",
+                    "character1": "en-US-Neural2-C",
+                    "character2": "en-US-Neural2-D",
+                }
+        else:  # OpenAI (default)
+            voice_list = '"alloy", "echo", "fable", "onyx", "nova", "shimmer"'
+            voice_examples = {
+                "narrator": "nova",
+                "character1": "onyx",
+                "character2": "shimmer",
+            }
+
         title_context = f" for the article titled '{title}'" if title else ""
         return f"""
         Analyze the following text{title_context}. Your goal is to segment the text for narration using multiple voices where appropriate and generate a concise 2-3 sentence summary of the text.
@@ -308,7 +362,7 @@ class ContentAnalysisService:
         3.  **Define Voices:** For each distinct voice you identify, create a voice definition. Each voice definition must include:
             *   `name`: A unique string identifier for the voice (e.g., "narrator", "expert_quote", "character_jane", "historical_figure"). Use descriptive names.
             *   `tone`: A brief description of the voice's character (e.g., "Clear and neutral, like an NPR reporter", "Authoritative and academic", "Energetic and youthful", "Warm and conversational").
-            *   `tts_model`: Recommend one of the following TTS voice models: "alloy", "echo", "fable", "onyx", "nova", "shimmer".
+            *   `tts_model`: Recommend one of the following TTS voice models: {voice_list}.
             *   `tts_speed`: Recommend a speaking speed as a float between 0.75 (slower) and 1.5 (faster).
 
         4.  **Segment Text:** Divide the entire input text into `audio_segments`. Each segment must have:
@@ -353,13 +407,13 @@ class ContentAnalysisService:
             {{
               "name": "narrator",
               "tone": "Clear and informative, like a documentary narrator",
-              "tts_model": "nova",
+              "tts_model": "{voice_examples['narrator']}",
               "tts_speed": 1.0
             }},
             {{
               "name": "dr_carter",
               "tone": "Authoritative and expert, slightly academic",
-              "tts_model": "onyx",
+              "tts_model": "{voice_examples['character1']}",
               "tts_speed": 0.95
             }}
           ],
@@ -391,13 +445,13 @@ class ContentAnalysisService:
             {{
               "name": "narrator",
               "tone": "Classic storyteller, slightly amused",
-              "tts_model": "fable",
+              "tts_model": "{voice_examples['narrator']}",
               "tts_speed": 1.1
             }},
             {{
               "name": "aunt_polly",
               "tone": "Elderly, a bit flustered but stern",
-              "tts_model": "shimmer",
+              "tts_model": "{voice_examples['character2']}",
               "tts_speed": 0.9
             }}
           ],

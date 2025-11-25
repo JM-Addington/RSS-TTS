@@ -76,8 +76,12 @@ class VoiceParameterGenerationService:
         if not content_analysis:
             try:
                 logger.info(f"Performing new content analysis for article {article.id}")
+                # Pass the effective TTS provider for voice selection
+                effective_provider = article.tts_provider or article.feed.tts_provider
                 content_analysis = self.content_service.analyze_content(
-                    article.text_content, title=article.title
+                    article.text_content,
+                    title=article.title,
+                    tts_provider=effective_provider,
                 )
                 # Validate that we got actual data, not a mock
                 if _is_mock_object(content_analysis):

@@ -579,8 +579,14 @@ def process_article(self, article_id: int) -> str:
                 if total_words <= MAX_ANALYSIS_WORDS:
                     # Use the entire article text for analysis
                     analysis_text_sample = article.text_content
+                    # Pass the effective TTS provider for voice selection
+                    effective_provider = (
+                        article.tts_provider or article.feed.tts_provider
+                    )
                     analysis_result_json = content_service.analyze_content(
-                        analysis_text_sample, title=article.title
+                        analysis_text_sample,
+                        title=article.title,
+                        tts_provider=effective_provider,
                     )
                     # Store the single analysis result
                     article.summary = analysis_result_json.get("summary", "")
@@ -610,8 +616,12 @@ def process_article(self, article_id: int) -> str:
                             if article.title
                             else f"Part {chunk_number + 1}"
                         )
+                        # Pass the effective TTS provider for voice selection
+                        effective_provider = (
+                            article.tts_provider or article.feed.tts_provider
+                        )
                         chunk_analysis = content_service.analyze_content(
-                            chunk_text, title=chunk_title
+                            chunk_text, title=chunk_title, tts_provider=effective_provider
                         )
 
                         if (
