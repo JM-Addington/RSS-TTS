@@ -1,6 +1,5 @@
 """Email parsing utilities for Mailgun webhook payloads."""
 
-import base64
 import logging
 from typing import Dict, List, Tuple
 
