@@ -1,13 +1,13 @@
 """Signal handlers for Feed model to manage Mailgun routes."""
 
 import logging
+import os
 
 from django.conf import settings
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from .models import Feed
-from .services.mailgun_service import MailgunService
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,10 @@ def create_feed_email_and_route(sender, instance, created, **kwargs):
 
     # Prevent recursive signal calls
     if kwargs.get("raw", False):
+        return
+
+    # Skip in test/CI environments
+    if os.environ.get("CI") or os.environ.get("TESTING"):
         return
 
     # Check if Mailgun is configured
@@ -59,6 +63,9 @@ def create_feed_email_and_route(sender, instance, created, **kwargs):
 
     # Build webhook URL
     webhook_url = f"{site_url.rstrip('/')}/api/v1/mailgun/incoming/"
+
+    # Lazy import to avoid issues during app initialization
+    from .services.mailgun_service import MailgunService
 
     # Create Mailgun route
     mailgun_service = MailgunService()
@@ -99,6 +106,10 @@ def delete_feed_mailgun_route(sender, instance, **kwargs):
         instance: The Feed instance being deleted
         **kwargs: Additional keyword arguments
     """
+    # Skip in test/CI environments
+    if os.environ.get("CI") or os.environ.get("TESTING"):
+        return
+
     # Only process if feed has a route ID
     if not instance.mailgun_route_id:
         return
@@ -109,6 +120,9 @@ def delete_feed_mailgun_route(sender, instance, **kwargs):
             f"Mailgun not configured, cannot delete route {instance.mailgun_route_id}"
         )
         return
+
+    # Lazy import to avoid issues during app initialization
+    from .services.mailgun_service import MailgunService
 
     # Delete the route
     mailgun_service = MailgunService()
