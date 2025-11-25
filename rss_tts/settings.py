@@ -52,6 +52,13 @@ MAILGUN_API_KEY = os.environ.get("MAILGUN_API_KEY")
 MAILGUN_DOMAIN = os.environ.get("MAILGUN_DOMAIN")
 MAILGUN_WEBHOOK_SIGNING_KEY = os.environ.get("MAILGUN_WEBHOOK_SIGNING_KEY")
 
+# AIDEV-NOTE: Enable LLM-based email content cleaning to remove boilerplate/ads
+# When enabled, email body text will be processed by LLM to extract main content
+# Set to 'true' to enable, anything else (or unset) disables it
+ENABLE_EMAIL_CONTENT_CLEANING = os.environ.get(
+    "ENABLE_EMAIL_CONTENT_CLEANING", "true"
+).lower() in ("true", "1", "yes")
+
 ALLOWED_HOSTS: list[str] = []
 ALLOWED_HOSTS += (
     os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")

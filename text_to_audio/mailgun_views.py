@@ -4,11 +4,13 @@ import logging
 import os
 import uuid
 
+from django.conf import settings
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .models import Article, Feed
+from .services.email_cleaning_service import EmailCleaningService
 from .services.email_parser import EmailParser
 from .services.mailgun_service import MailgunService
 from .tasks import process_article
@@ -121,6 +123,31 @@ def mailgun_incoming_webhook(request):
         # If no attachment was processed, use email body
         if not processed_attachment:
             text_content = email_data.get("text_content", "")
+
+            # AIDEV-NOTE: Apply LLM-based email cleaning to extract main content
+            # Only applies to email body text (not attachments like PDFs/HTML files)
+            # Removes boilerplate, ads, signatures while keeping core content
+            if text_content and getattr(settings, "ENABLE_EMAIL_CONTENT_CLEANING", True):
+                logger.info(
+                    f"Applying LLM-based email content cleaning for feed {feed.id}"
+                )
+                cleaning_service = EmailCleaningService()
+                success, cleaned_text, metadata, error = (
+                    cleaning_service.clean_email_content(text_content, title)
+                )
+
+                if success and cleaned_text:
+                    logger.info(
+                        f"Email content cleaned successfully: {metadata.get('content_type', 'unknown')} "
+                        f"(confidence: {metadata.get('confidence', 'unknown')}, "
+                        f"reduction: {metadata.get('reduction_percent', 0)}%)"
+                    )
+                    text_content = cleaned_text
+                else:
+                    logger.warning(
+                        f"Email cleaning failed or returned empty, using raw text: {error}"
+                    )
+                    # Fall back to raw text if cleaning fails
 
         # Validate we have some content
         if not text_content or not text_content.strip():
