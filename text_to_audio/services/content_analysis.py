@@ -324,9 +324,13 @@ class ContentAnalysisService:
                     "character2": "en-US-Journey-O",
                 }
             elif voice_type == "chirp3":
+                # Provide a representative selection of Chirp3-HD voices to the LLM
+                # (All 30 voices are available, but we give the LLM a curated set)
                 voice_list = (
-                    '"en-US-Chirp3-HD-Aoede", "en-US-Chirp3-HD-Charon", '
-                    '"en-US-Chirp3-HD-Fenrir"'
+                    '"en-US-Chirp3-HD-Charon", "en-US-Chirp3-HD-Fenrir", '
+                    '"en-US-Chirp3-HD-Umbriel", "en-US-Chirp3-HD-Sadachbia", '
+                    '"en-US-Chirp3-HD-Aoede", "en-US-Chirp3-HD-Leda", '
+                    '"en-US-Chirp3-HD-Zephyr", "en-US-Chirp3-HD-Sulafat"'
                 )
                 voice_examples = {
                     "narrator": "en-US-Chirp3-HD-Charon",

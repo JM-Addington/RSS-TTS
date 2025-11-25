@@ -29,9 +29,38 @@ VOICE_JOURNEY_F = "en-US-Journey-F"
 VOICE_JOURNEY_O = "en-US-Journey-O"
 
 # Google Chirp 3 HD Voices (premium quality)
+# Female voices
+VOICE_CHIRP_HD_ACHERNAR = "en-US-Chirp3-HD-Achernar"
 VOICE_CHIRP_HD_AOEDE = "en-US-Chirp3-HD-Aoede"
+VOICE_CHIRP_HD_AUTONOE = "en-US-Chirp3-HD-Autonoe"
+VOICE_CHIRP_HD_CALLIRRHOE = "en-US-Chirp3-HD-Callirrhoe"
+VOICE_CHIRP_HD_DESPINA = "en-US-Chirp3-HD-Despina"
+VOICE_CHIRP_HD_ERINOME = "en-US-Chirp3-HD-Erinome"
+VOICE_CHIRP_HD_GACRUX = "en-US-Chirp3-HD-Gacrux"
+VOICE_CHIRP_HD_KORE = "en-US-Chirp3-HD-Kore"
+VOICE_CHIRP_HD_LAOMEDEIA = "en-US-Chirp3-HD-Laomedeia"
+VOICE_CHIRP_HD_LEDA = "en-US-Chirp3-HD-Leda"
+VOICE_CHIRP_HD_PULCHERRIMA = "en-US-Chirp3-HD-Pulcherrima"
+VOICE_CHIRP_HD_SULAFAT = "en-US-Chirp3-HD-Sulafat"
+VOICE_CHIRP_HD_VINDEMIATRIX = "en-US-Chirp3-HD-Vindemiatrix"
+VOICE_CHIRP_HD_ZEPHYR = "en-US-Chirp3-HD-Zephyr"
+# Male voices
+VOICE_CHIRP_HD_ACHIRD = "en-US-Chirp3-HD-Achird"
+VOICE_CHIRP_HD_ALGENIB = "en-US-Chirp3-HD-Algenib"
+VOICE_CHIRP_HD_ALGIEBA = "en-US-Chirp3-HD-Algieba"
+VOICE_CHIRP_HD_ALNILAM = "en-US-Chirp3-HD-Alnilam"
 VOICE_CHIRP_HD_CHARON = "en-US-Chirp3-HD-Charon"
+VOICE_CHIRP_HD_ENCELADUS = "en-US-Chirp3-HD-Enceladus"
 VOICE_CHIRP_HD_FENRIR = "en-US-Chirp3-HD-Fenrir"
+VOICE_CHIRP_HD_IAPETUS = "en-US-Chirp3-HD-Iapetus"
+VOICE_CHIRP_HD_ORUS = "en-US-Chirp3-HD-Orus"
+VOICE_CHIRP_HD_PUCK = "en-US-Chirp3-HD-Puck"
+VOICE_CHIRP_HD_RASALGETHI = "en-US-Chirp3-HD-Rasalgethi"
+VOICE_CHIRP_HD_SADACHBIA = "en-US-Chirp3-HD-Sadachbia"
+VOICE_CHIRP_HD_SADALTAGER = "en-US-Chirp3-HD-Sadaltager"
+VOICE_CHIRP_HD_SCHEDAR = "en-US-Chirp3-HD-Schedar"
+VOICE_CHIRP_HD_UMBRIEL = "en-US-Chirp3-HD-Umbriel"
+VOICE_CHIRP_HD_ZUBENELGENUBI = "en-US-Chirp3-HD-Zubenelgenubi"
 
 # Google Neural2 Voices (standard quality)
 VOICE_NEURAL2_A = "en-US-Neural2-A"
@@ -54,10 +83,38 @@ VOICE_CHOICES = [
     (VOICE_JOURNEY_D, "Journey-D (Gemini)"),
     (VOICE_JOURNEY_F, "Journey-F (Gemini)"),
     (VOICE_JOURNEY_O, "Journey-O (Gemini)"),
-    # Google Chirp 3 HD Voices
-    (VOICE_CHIRP_HD_AOEDE, "Aoede (Chirp3-HD)"),
-    (VOICE_CHIRP_HD_CHARON, "Charon (Chirp3-HD)"),
-    (VOICE_CHIRP_HD_FENRIR, "Fenrir (Chirp3-HD)"),
+    # Google Chirp 3 HD Voices - Female
+    (VOICE_CHIRP_HD_ACHERNAR, "Achernar (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_AOEDE, "Aoede (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_AUTONOE, "Autonoe (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_CALLIRRHOE, "Callirrhoe (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_DESPINA, "Despina (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_ERINOME, "Erinome (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_GACRUX, "Gacrux (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_KORE, "Kore (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_LAOMEDEIA, "Laomedeia (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_LEDA, "Leda (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_PULCHERRIMA, "Pulcherrima (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_SULAFAT, "Sulafat (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_VINDEMIATRIX, "Vindemiatrix (Chirp3-HD Female)"),
+    (VOICE_CHIRP_HD_ZEPHYR, "Zephyr (Chirp3-HD Female)"),
+    # Google Chirp 3 HD Voices - Male
+    (VOICE_CHIRP_HD_ACHIRD, "Achird (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_ALGENIB, "Algenib (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_ALGIEBA, "Algieba (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_ALNILAM, "Alnilam (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_CHARON, "Charon (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_ENCELADUS, "Enceladus (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_FENRIR, "Fenrir (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_IAPETUS, "Iapetus (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_ORUS, "Orus (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_PUCK, "Puck (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_RASALGETHI, "Rasalgethi (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_SADACHBIA, "Sadachbia (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_SADALTAGER, "Sadaltager (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_SCHEDAR, "Schedar (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_UMBRIEL, "Umbriel (Chirp3-HD Male)"),
+    (VOICE_CHIRP_HD_ZUBENELGENUBI, "Zubenelgenubi (Chirp3-HD Male)"),
     # Google Neural2 Voices
     (VOICE_NEURAL2_A, "Neural2-A (Google)"),
     (VOICE_NEURAL2_C, "Neural2-C (Google)"),
