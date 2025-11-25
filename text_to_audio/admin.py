@@ -13,8 +13,8 @@ from .models import Article, Feed
 class FeedAdmin(admin.ModelAdmin):
     """Admin interface for the Feed model."""
 
-    list_display = ["name", "user", "created_at"]
-    list_filter = ["created_at"]
+    list_display = ["name", "user", "tts_provider", "created_at"]
+    list_filter = ["created_at", "tts_provider"]
     search_fields = ["name", "user__username"]
     readonly_fields = ["token", "created_at"]
 
@@ -23,7 +23,7 @@ class FeedAdmin(admin.ModelAdmin):
 class ArticleAdmin(admin.ModelAdmin):
     """Admin interface for the Article model."""
 
-    list_display = ["title", "feed", "status", "created_at", "updated_at"]
-    list_filter = ["status", "created_at", "updated_at", "feed"]
+    list_display = ["title", "feed", "tts_provider", "status", "created_at", "updated_at"]
+    list_filter = ["status", "tts_provider", "created_at", "updated_at", "feed"]
     search_fields = ["title", "feed__name", "feed__user__username"]
     readonly_fields = ["created_at", "updated_at", "prompt"]

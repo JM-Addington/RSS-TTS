@@ -397,11 +397,21 @@ class FeedForm(forms.ModelForm):
         help_text="Select how voices are generated for articles in this feed.",
     )
 
+    # Add TTS provider selection
+    tts_provider = forms.ChoiceField(
+        required=False,
+        choices=[("", "Use global default")] + [
+            ("openai", "OpenAI"),
+            ("google", "Google Cloud TTS"),
+        ],
+        help_text="TTS provider for this feed (uses global default if not set).",
+    )
+
     class Meta:
         """Meta options for the FeedForm."""
 
         model = Feed
-        fields = ["name", "default_voice_preset", "voice_mode"]
+        fields = ["name", "tts_provider", "default_voice_preset", "voice_mode"]
 
     def __init__(self, *args, user=None, **kwargs):
         """Initialize form and limit presets to the current user."""

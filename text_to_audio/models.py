@@ -11,6 +11,7 @@ from django.db import models
 from django.db.models import JSONField
 
 # Available voice options for TTS (shared across models)
+# OpenAI Voices
 VOICE_ALLOY = "alloy"
 VOICE_ECHO = "echo"
 VOICE_FABLE = "fable"
@@ -22,17 +23,36 @@ VOICE_NOVA = "nova"
 VOICE_SAGE = "sage"
 VOICE_SHIMMER = "shimmer"
 
+# Google Gemini TTS Voices (Journey series - multi-speaker, prompts)
+VOICE_JOURNEY_D = "en-US-Journey-D"
+VOICE_JOURNEY_F = "en-US-Journey-F"
+VOICE_JOURNEY_O = "en-US-Journey-O"
+
+# Google Chirp 3 HD Voices (premium quality)
+VOICE_CHIRP_HD_AOEDE = "en-US-Chirp3-HD-Aoede"
+VOICE_CHIRP_HD_CHARON = "en-US-Chirp3-HD-Charon"
+VOICE_CHIRP_HD_FENRIR = "en-US-Chirp3-HD-Fenrir"
+
 VOICE_CHOICES = [
-    (VOICE_ALLOY, "Alloy"),
-    (VOICE_ASH, "Ash"),
-    (VOICE_BALLAD, "Ballad"),
-    (VOICE_CORAL, "Coral"),
-    (VOICE_ECHO, "Echo"),
-    (VOICE_FABLE, "Fable"),
-    (VOICE_ONYX, "Onyx"),
-    (VOICE_NOVA, "Nova"),
-    (VOICE_SAGE, "Sage"),
-    (VOICE_SHIMMER, "Shimmer"),
+    # OpenAI Voices
+    (VOICE_ALLOY, "Alloy (OpenAI)"),
+    (VOICE_ASH, "Ash (OpenAI)"),
+    (VOICE_BALLAD, "Ballad (OpenAI)"),
+    (VOICE_CORAL, "Coral (OpenAI)"),
+    (VOICE_ECHO, "Echo (OpenAI)"),
+    (VOICE_FABLE, "Fable (OpenAI)"),
+    (VOICE_ONYX, "Onyx (OpenAI)"),
+    (VOICE_NOVA, "Nova (OpenAI)"),
+    (VOICE_SAGE, "Sage (OpenAI)"),
+    (VOICE_SHIMMER, "Shimmer (OpenAI)"),
+    # Google Gemini Voices
+    (VOICE_JOURNEY_D, "Journey-D (Gemini)"),
+    (VOICE_JOURNEY_F, "Journey-F (Gemini)"),
+    (VOICE_JOURNEY_O, "Journey-O (Gemini)"),
+    # Google Chirp 3 HD Voices
+    (VOICE_CHIRP_HD_AOEDE, "Aoede (Chirp3-HD)"),
+    (VOICE_CHIRP_HD_CHARON, "Charon (Chirp3-HD)"),
+    (VOICE_CHIRP_HD_FENRIR, "Fenrir (Chirp3-HD)"),
 ]
 
 
