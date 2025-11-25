@@ -26,6 +26,10 @@ def create_feed_email_and_route(sender, instance, created, **kwargs):
     if not created:
         return
 
+    # Prevent recursive signal calls
+    if kwargs.get("raw", False):
+        return
+
     # Check if Mailgun is configured
     if not settings.MAILGUN_API_KEY or not settings.MAILGUN_DOMAIN:
         logger.info(
@@ -48,8 +52,9 @@ def create_feed_email_and_route(sender, instance, created, **kwargs):
             "Please set SITE_URL in your environment variables."
         )
         # Still save the email address for manual route creation
+        # Use update() to avoid triggering signals
+        Feed.objects.filter(pk=instance.pk).update(inbound_email=email_address)
         instance.inbound_email = email_address
-        instance.save(update_fields=["inbound_email"])
         return
 
     # Build webhook URL
@@ -65,16 +70,20 @@ def create_feed_email_and_route(sender, instance, created, **kwargs):
 
     if success and route_id:
         # Save email and route ID to feed
+        # Use update() to avoid triggering signals
+        Feed.objects.filter(pk=instance.pk).update(
+            inbound_email=email_address, mailgun_route_id=route_id
+        )
         instance.inbound_email = email_address
         instance.mailgun_route_id = route_id
-        instance.save(update_fields=["inbound_email", "mailgun_route_id"])
         logger.info(
             f"Created email {email_address} and route {route_id} for feed {instance.pk}"
         )
     else:
         # Save just the email address even if route creation failed
+        # Use update() to avoid triggering signals
+        Feed.objects.filter(pk=instance.pk).update(inbound_email=email_address)
         instance.inbound_email = email_address
-        instance.save(update_fields=["inbound_email"])
         logger.error(
             f"Failed to create Mailgun route for feed {instance.pk}: {error}. "
             f"Email address saved, but route must be created manually."
