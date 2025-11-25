@@ -36,6 +36,7 @@ class ArticleSubmissionForm(forms.ModelForm):
             "source_url",
             "text_content",
             "document_file",
+            "tts_provider",
             "voice_id",
             "speed",
         ]
@@ -202,6 +203,15 @@ class UserVoicePreferenceForm(forms.ModelForm):
 
 class ArticleVoiceForm(forms.Form):
     """Form for article-specific voice settings."""
+
+    tts_provider = forms.ChoiceField(
+        required=False,
+        choices=[("", "Use feed/global default")] + [
+            ("openai", "OpenAI"),
+            ("google", "Google Cloud TTS"),
+        ],
+        help_text="TTS provider for this article (uses feed/global default if not set).",
+    )
 
     voice_id = forms.ChoiceField(
         required=False, help_text="Voice for this specific article."

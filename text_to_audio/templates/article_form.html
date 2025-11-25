@@ -76,6 +76,13 @@
           <h5 class="mt-4 mb-3">Voice Settings</h5>
 
           <div class="mb-3">
+            <label for="{{ form.tts_provider.id_for_label }}" class="form-label">TTS Provider</label>
+            {{ form.tts_provider.errors }}
+            {{ form.tts_provider|add_class:"form-control" }}
+            <div class="form-text">Override TTS provider for this article (uses feed/global default if not set)</div>
+          </div>
+
+          <div class="mb-3">
             <label for="{{ form.voice_preset.id_for_label }}" class="form-label">Voice Preset</label>
             {{ form.voice_preset.errors }}
             {{ form.voice_preset|add_class:"form-control" }}
