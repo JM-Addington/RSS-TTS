@@ -120,3 +120,84 @@
   </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add data-provider attributes to voice and preset options
+    const voiceSelect = document.querySelector('#{{ form.voice_id.id_for_label }}');
+    const presetSelect = document.querySelector('#{{ form.voice_preset.id_for_label }}');
+    const providerSelect = document.querySelector('#{{ form.tts_provider.id_for_label }}');
+
+    if (voiceSelect && providerSelect) {
+        // Tag all voice options with their provider
+        Array.from(voiceSelect.options).forEach(option => {
+            if (option.value) {
+                option.dataset.provider = option.value.startsWith('en-US-') ? 'google' : 'openai';
+            }
+        });
+
+        // Tag all preset options with their provider (based on voice in label)
+        if (presetSelect) {
+            Array.from(presetSelect.options).forEach(option => {
+                if (option.value && option.text) {
+                    // Extract voice from preset label (e.g., "Preset Name (voice_id, 1.0x)")
+                    const voiceMatch = option.text.match(/\(([^,]+),/);
+                    if (voiceMatch) {
+                        const voiceId = voiceMatch[1].trim();
+                        option.dataset.provider = voiceId.startsWith('en-US-') ? 'google' : 'openai';
+                    }
+                }
+            });
+        }
+
+        // Function to filter voices and presets based on selected provider
+        function filterOptions() {
+            const selectedProvider = providerSelect.value;
+
+            // Filter voice options
+            Array.from(voiceSelect.options).forEach(option => {
+                if (!option.value) {
+                    option.style.display = '';
+                } else if (!selectedProvider) {
+                    option.style.display = '';
+                } else {
+                    option.style.display = option.dataset.provider === selectedProvider ? '' : 'none';
+                }
+            });
+
+            // Filter preset options
+            if (presetSelect) {
+                Array.from(presetSelect.options).forEach(option => {
+                    if (!option.value) {
+                        option.style.display = '';
+                    } else if (!selectedProvider) {
+                        option.style.display = '';
+                    } else {
+                        option.style.display = option.dataset.provider === selectedProvider ? '' : 'none';
+                    }
+                });
+
+                // Reset preset if hidden
+                const currentPreset = presetSelect.options[presetSelect.selectedIndex];
+                if (currentPreset && currentPreset.style.display === 'none') {
+                    presetSelect.value = '';
+                }
+            }
+
+            // Reset voice if hidden
+            const currentVoice = voiceSelect.options[voiceSelect.selectedIndex];
+            if (currentVoice && currentVoice.style.display === 'none') {
+                voiceSelect.value = '';
+            }
+        }
+
+        // Filter on provider change
+        providerSelect.addEventListener('change', filterOptions);
+
+        // Initial filter on page load
+        filterOptions();
+    }
+});
+</script>
+{% endblock %}

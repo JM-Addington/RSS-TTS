@@ -115,6 +115,29 @@ class VoiceConfigurationService:
 
         return Article.VOICE_CHOICES
 
+    def get_available_voices_with_provider(self):
+        """
+        Get list of available voices with provider metadata.
+
+        Returns:
+            List of dicts: [{"value": voice_id, "label": display_name, "provider": "openai"|"google"}, ...]
+        """
+        from text_to_audio.models import Article
+
+        voices_with_provider = []
+        for voice_id, display_name in Article.VOICE_CHOICES:
+            # Determine provider based on voice ID
+            if voice_id.startswith("en-US-"):
+                provider = "google"
+            else:
+                provider = "openai"
+
+            voices_with_provider.append(
+                {"value": voice_id, "label": display_name, "provider": provider}
+            )
+
+        return voices_with_provider
+
     def get_available_speeds(self):
         """
         Get list of available speed presets with labels.
