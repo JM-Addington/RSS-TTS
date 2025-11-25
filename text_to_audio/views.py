@@ -335,8 +335,15 @@ class GenerateFeedEmailView(LoginRequiredMixin, View):
         # Get the feed (must be owned by current user)
         feed = get_object_or_404(Feed, pk=feed_id, user=request.user)
 
+        logger.info(
+            f"User {request.user.username} requested email generation for feed {feed.id} ({feed.name})"
+        )
+
         # Check if feed already has an email
         if feed.inbound_email:
+            logger.warning(
+                f"Feed {feed.id} ({feed.name}) already has email: {feed.inbound_email}"
+            )
             messages.info(
                 request,
                 f"Feed '{feed.name}' already has an email address: {feed.inbound_email}",
@@ -349,6 +356,9 @@ class GenerateFeedEmailView(LoginRequiredMixin, View):
 
         # Check if Mailgun is configured
         if not settings.MAILGUN_API_KEY or not settings.MAILGUN_DOMAIN:
+            logger.error(
+                f"Mailgun not configured - cannot generate email for feed {feed.id} ({feed.name})"
+            )
             messages.error(
                 request,
                 "Mailgun is not configured. Please contact the administrator.",
@@ -361,6 +371,9 @@ class GenerateFeedEmailView(LoginRequiredMixin, View):
         # Generate email address
         email_address = feed.generate_inbound_email()
         if not email_address:
+            logger.error(
+                f"Failed to generate email address for feed {feed.id} ({feed.name})"
+            )
             messages.error(
                 request,
                 f"Failed to generate email address for feed '{feed.name}'.",
@@ -389,6 +402,10 @@ class GenerateFeedEmailView(LoginRequiredMixin, View):
                 feed.inbound_email = email_address
                 feed.mailgun_route_id = route_id
                 feed.save(update_fields=["inbound_email", "mailgun_route_id"])
+                logger.info(
+                    f"Successfully created email {email_address} and route {route_id} "
+                    f"for feed {feed.id} ({feed.name}) by user {request.user.username}"
+                )
                 messages.success(
                     request,
                     f"Successfully created email address: {email_address}",
@@ -397,6 +414,10 @@ class GenerateFeedEmailView(LoginRequiredMixin, View):
                 # Save just the email address
                 feed.inbound_email = email_address
                 feed.save(update_fields=["inbound_email"])
+                logger.warning(
+                    f"Created email {email_address} for feed {feed.id} ({feed.name}) "
+                    f"but failed to create Mailgun route: {error}"
+                )
                 messages.warning(
                     request,
                     f"Created email address {email_address}, but failed to create "
@@ -406,6 +427,10 @@ class GenerateFeedEmailView(LoginRequiredMixin, View):
             # No SITE_URL - just save the email
             feed.inbound_email = email_address
             feed.save(update_fields=["inbound_email"])
+            logger.warning(
+                f"Created email {email_address} for feed {feed.id} ({feed.name}) "
+                f"but SITE_URL not configured - route not created"
+            )
             messages.warning(
                 request,
                 f"Created email address {email_address}, but SITE_URL is not configured. "
