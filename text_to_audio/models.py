@@ -348,7 +348,7 @@ class Article(models.Model):
         null=False, blank=True, help_text="The text content of the article."
     )
     voice: models.CharField = models.CharField(
-        max_length=20,
+        max_length=50,  # Increased for Google voice names (e.g., "en-US-Chirp3-HD-Aoede")
         choices=VOICE_CHOICES,
         default=VOICE_ALLOY,
         null=False,
