@@ -104,7 +104,9 @@ def _normalize_loudness_in_memory(
         )
 
         # Apply gain using pyloudnorm (handles clipping prevention)
-        normalized_samples = pyln.normalize.loudness(samples, current_loudness, target_lufs)
+        normalized_samples = pyln.normalize.loudness(
+            samples, current_loudness, target_lufs
+        )
 
         # Convert back to int16 for pydub
         normalized_samples = (normalized_samples * 32768.0).astype(np.int16)
@@ -1002,7 +1004,8 @@ def process_article(self, article_id: int) -> str:
 
                             # Initialize TTS service with article's provider
                             tts_service = TTSService(
-                                provider=article.tts_provider or article.feed.tts_provider
+                                provider=article.tts_provider
+                                or article.feed.tts_provider
                             )
 
                             # Generate speech using provider-agnostic interface

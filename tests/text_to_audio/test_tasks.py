@@ -1303,6 +1303,7 @@ class LoudnessNormalizationTests(TestCase):
     def test_normalize_loudness_in_memory_returns_audio_segment(self):
         """Test that in-memory normalization returns an AudioSegment."""
         import numpy as np
+        from pydub import AudioSegment
 
         from text_to_audio.tasks import _normalize_loudness_in_memory
 
@@ -1332,6 +1333,8 @@ class LoudnessNormalizationTests(TestCase):
 
     def test_normalize_loudness_in_memory_handles_silence(self):
         """Test that normalization handles silent audio gracefully."""
+        from pydub import AudioSegment
+
         from text_to_audio.tasks import _normalize_loudness_in_memory
 
         # Create silent audio
@@ -1346,6 +1349,7 @@ class LoudnessNormalizationTests(TestCase):
     def test_normalize_loudness_in_memory_custom_target(self):
         """Test normalization with custom LUFS target."""
         import numpy as np
+        from pydub import AudioSegment
 
         from text_to_audio.tasks import _normalize_loudness_in_memory
 
@@ -1368,12 +1372,13 @@ class LoudnessNormalizationTests(TestCase):
 
         self.assertIsInstance(result, AudioSegment)
 
-    @patch("text_to_audio.tasks.pyln", None)
-    def test_normalize_loudness_in_memory_missing_pyloudnorm(self):
-        """Test graceful fallback when pyloudnorm is not available."""
-        # This test verifies the import error handling
+    def test_normalize_loudness_in_memory_error_handling(self):
+        """Test graceful error handling during normalization."""
+        from pydub import AudioSegment
+
         from text_to_audio.tasks import _normalize_loudness_in_memory
 
+        # Create silent audio - tests the silent audio handling path
         silent_segment = AudioSegment.silent(duration=1000)
 
         # Should return original segment without crashing

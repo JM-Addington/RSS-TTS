@@ -55,6 +55,7 @@ class TTSService:
         """Lazy-load OpenAI client."""
         if self._openai_client is None:
             import openai
+
             from appconfig.utils import get_openai_api_key
 
             api_key = get_openai_api_key()
@@ -88,8 +89,16 @@ class TTSService:
         """
         # Define OpenAI voices
         openai_voices = {
-            "alloy", "ash", "ballad", "coral", "echo",
-            "fable", "onyx", "nova", "sage", "shimmer"
+            "alloy",
+            "ash",
+            "ballad",
+            "coral",
+            "echo",
+            "fable",
+            "onyx",
+            "nova",
+            "sage",
+            "shimmer",
         }
 
         # Define Google voices (prefixes)
