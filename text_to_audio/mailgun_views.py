@@ -2,7 +2,6 @@
 
 import logging
 import os
-import tempfile
 import uuid
 
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
