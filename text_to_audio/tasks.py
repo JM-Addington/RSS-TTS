@@ -1707,6 +1707,177 @@ def check_stale_articles():
     return f"Checked for stale articles older than {timeout_seconds} seconds."
 
 
+@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+def process_incoming_email(self, email_payload: dict) -> str:
+    """Process an incoming email from Mailgun asynchronously.
+
+    This task handles the heavy processing that was causing webhook timeouts:
+    - Processing attachments (PDF, HTML)
+    - LLM-based email content cleaning
+    - Article creation
+
+    Args:
+        email_payload: Dictionary containing:
+            - feed_id: ID of the destination feed
+            - subject: Email subject
+            - text_content: Plain text content from email body
+            - sender: Sender email address
+            - attachments: List of dicts with filename, content_type, data (base64)
+
+    Returns:
+        Status message
+    """
+    import base64
+    import io
+    import os as os_module
+    import uuid as uuid_module
+
+    from django.conf import settings as django_settings
+
+    from .models import Article, Feed
+    from .services.email_cleaning_service import EmailCleaningService
+    from .utils import (
+        clean_html_minimal,
+        extract_article_text,
+        extract_text_from_pdf,
+        extract_title_from_html,
+    )
+
+    feed_id = email_payload.get("feed_id")
+    subject = email_payload.get("subject", "Email Article")
+    text_content = email_payload.get("text_content", "")
+    sender = email_payload.get("sender", "unknown")
+    attachments = email_payload.get("attachments", [])
+
+    logger.info(f"Processing incoming email for feed {feed_id} from {sender}")
+
+    try:
+        feed = Feed.objects.get(id=feed_id)
+    except Feed.DoesNotExist:
+        logger.error(f"Feed {feed_id} not found for incoming email")
+        return f"Feed {feed_id} not found"
+
+    title = subject
+    final_text_content = ""
+    processed_attachment = False
+
+    # AIDEV-NOTE: Process attachments first (PDF, HTML) before falling back to email body
+    for attachment in attachments:
+        filename = attachment.get("filename", "")
+        content_type = attachment.get("content_type", "")
+        data_b64 = attachment.get("data")
+
+        if not data_b64:
+            continue
+
+        try:
+            file_data = base64.b64decode(data_b64)
+            file_obj = io.BytesIO(file_data)
+
+            # Handle PDF attachments
+            if content_type == "application/pdf":
+                extracted_text = extract_text_from_pdf(file_obj)
+                if not extracted_text.startswith("Error:"):
+                    final_text_content = extracted_text
+                    processed_attachment = True
+                    if not title or title == "Email Article":
+                        title = os_module.path.splitext(filename)[0]
+                    logger.info(
+                        f"Extracted {len(final_text_content)} chars from PDF attachment"
+                    )
+                    break
+
+            # Handle HTML attachments
+            elif content_type == "text/html":
+                html_content = file_data.decode("utf-8")
+                cleaned_html = clean_html_minimal(html_content)
+                success, text, error = extract_article_text(cleaned_html)
+                if success and text:
+                    final_text_content = text
+                    processed_attachment = True
+                    if not title or title == "Email Article":
+                        extracted_title = extract_title_from_html(html_content)
+                        if extracted_title:
+                            title = extracted_title
+                        else:
+                            title = os_module.path.splitext(filename)[0]
+                    logger.info(
+                        f"Extracted {len(final_text_content)} chars from HTML attachment"
+                    )
+                    break
+
+        except Exception as e:
+            logger.warning(f"Failed to process attachment {filename}: {e}")
+            continue
+
+    # If no attachment was processed, use email body
+    if not processed_attachment:
+        final_text_content = text_content
+
+        # Apply LLM-based email cleaning to extract main content
+        if final_text_content and getattr(
+            django_settings, "ENABLE_EMAIL_CONTENT_CLEANING", True
+        ):
+            logger.info(f"Applying LLM-based email content cleaning for feed {feed_id}")
+            cleaning_service = EmailCleaningService()
+            success, cleaned_text, metadata, error = (
+                cleaning_service.clean_email_content(final_text_content, title)
+            )
+
+            if success and cleaned_text:
+                logger.info(
+                    f"Email content cleaned successfully: {metadata.get('content_type', 'unknown')} "
+                    f"(confidence: {metadata.get('confidence', 'unknown')}, "
+                    f"reduction: {metadata.get('reduction_percent', 0)}%)"
+                )
+                final_text_content = cleaned_text
+            else:
+                logger.warning(
+                    f"Email cleaning failed or returned empty, using raw text: {error}"
+                )
+
+    # Validate we have some content
+    if not final_text_content or not final_text_content.strip():
+        logger.warning(f"No text content extracted from email for feed {feed_id}")
+        return "No text content found in email"
+
+    # Create the article
+    article = Article(
+        feed=feed,
+        title=title,
+        text_content=final_text_content,
+        status=Article.PROCESSING,
+        audio_uuid=uuid_module.uuid4(),
+    )
+
+    # Use feed's default voice settings if available
+    if feed.default_voice_preset:
+        preset = feed.default_voice_preset
+        from text_to_audio.models import VOICE_CHOICES
+
+        standard_voices = [choice[0] for choice in VOICE_CHOICES]
+        if preset.voice_id in standard_voices:
+            article.voice = preset.voice_id
+            article.voice_id = None
+        else:
+            article.voice_id = preset.voice_id
+            article.voice = "alloy"
+        article.speed = preset.speed
+        article.voice_preset = preset
+
+    # Save and queue for processing
+    article.save()
+    task = process_article.delay(article.pk)
+    article.celery_task_id = task.id
+    article.save(update_fields=["celery_task_id", "updated_at"])
+
+    logger.info(
+        f"Created article {article.pk} from email for feed {feed_id} (sender: {sender})"
+    )
+
+    return f"Article {article.pk} created successfully"
+
+
 @shared_task
 def import_followed_feeds() -> str:
     """Check followed RSS feeds and create articles for new entries."""
