@@ -44,6 +44,7 @@ class ContentAnalysisService:
         """Lazily initialize OpenAI client."""
         if self._client is None:
             import openai
+
             from appconfig.utils import get_openai_api_key
 
             self._client = openai.OpenAI(

@@ -621,7 +621,9 @@ def process_article(self, article_id: int) -> str:
                             article.tts_provider or article.feed.tts_provider
                         )
                         chunk_analysis = content_service.analyze_content(
-                            chunk_text, title=chunk_title, tts_provider=effective_provider
+                            chunk_text,
+                            title=chunk_title,
+                            tts_provider=effective_provider,
                         )
 
                         if (
