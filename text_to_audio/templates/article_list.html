@@ -103,6 +103,27 @@ tr.now-playing {
             </p>
         </div>
     </div>
+    {% else %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="bi bi-envelope-plus"></i> Email to Feed
+            </h5>
+        </div>
+        <div class="card-body">
+            <p class="card-text">Generate an email address to forward emails or newsletters directly to this feed:</p>
+            <form method="post" action="{% url 'feed-generate-email' feed.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="redirect" value="feed-articles">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-envelope-plus"></i> Generate Email Address
+                </button>
+            </form>
+            <p class="card-text text-muted small mt-3">
+                <i class="bi bi-info-circle"></i> Once generated, you can forward emails or newsletters to this address to automatically convert them to audio articles.
+            </p>
+        </div>
+    </div>
     {% endif %}
 
     {% if articles %}

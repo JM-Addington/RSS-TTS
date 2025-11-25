@@ -27,6 +27,7 @@ from text_to_audio.views import (
     FollowedFeedDeleteView,
     FollowedFeedListView,
     FollowedFeedUpdateView,
+    GenerateFeedEmailView,
     HomeView,
     RegenerateArticleView,
     SignUpView,
@@ -86,6 +87,11 @@ urlpatterns = [
     ),
     path("feeds/<int:feed_id>/edit/", FeedUpdateView.as_view(), name="feed-update"),
     path("feeds/<int:feed_id>/delete/", FeedDeleteView.as_view(), name="feed-delete"),
+    path(
+        "feeds/<int:feed_id>/generate-email/",
+        GenerateFeedEmailView.as_view(),
+        name="feed-generate-email",
+    ),
     # FollowedFeed management URLs
     path("followed-feeds/", FollowedFeedListView.as_view(), name="followedfeed-list"),
     path(

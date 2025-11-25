@@ -49,6 +49,17 @@
                                         </div>
                                         <small class="form-text text-muted">Forward emails or newsletters to this address to add them to your feed.</small>
                                     </div>
+                                    {% else %}
+                                    <div class="mb-3">
+                                        <form method="post" action="{% url 'feed-generate-email' feed.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="redirect" value="feed-list">
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-envelope-plus"></i> Generate Email Address
+                                            </button>
+                                        </form>
+                                        <small class="form-text text-muted d-block mt-1">Generate an email address to forward content to this feed.</small>
+                                    </div>
                                     {% endif %}
 
                                     <div class="d-flex gap-2 flex-wrap">

@@ -319,6 +319,106 @@ class FeedDeleteView(LoginRequiredMixin, DeleteView):
         return Feed.objects.filter(user=self.request.user)
 
 
+class GenerateFeedEmailView(LoginRequiredMixin, View):
+    """View for generating an email address for a feed."""
+
+    def post(self, request, feed_id):
+        """Handle POST requests to generate an email address for a feed.
+
+        Args:
+            request: The HTTP request object
+            feed_id: The ID of the feed
+
+        Returns:
+            Redirect to the feed list or article list
+        """
+        # Get the feed (must be owned by current user)
+        feed = get_object_or_404(Feed, pk=feed_id, user=request.user)
+
+        # Check if feed already has an email
+        if feed.inbound_email:
+            messages.info(
+                request,
+                f"Feed '{feed.name}' already has an email address: {feed.inbound_email}",
+            )
+            # Check where the request came from
+            redirect_to = request.POST.get("redirect", "feed-list")
+            if redirect_to == "feed-articles":
+                return redirect("feed-articles", feed_id=feed_id)
+            return redirect("feed-list")
+
+        # Check if Mailgun is configured
+        if not settings.MAILGUN_API_KEY or not settings.MAILGUN_DOMAIN:
+            messages.error(
+                request,
+                "Mailgun is not configured. Please contact the administrator.",
+            )
+            redirect_to = request.POST.get("redirect", "feed-list")
+            if redirect_to == "feed-articles":
+                return redirect("feed-articles", feed_id=feed_id)
+            return redirect("feed-list")
+
+        # Generate email address
+        email_address = feed.generate_inbound_email()
+        if not email_address:
+            messages.error(
+                request,
+                f"Failed to generate email address for feed '{feed.name}'.",
+            )
+            redirect_to = request.POST.get("redirect", "feed-list")
+            if redirect_to == "feed-articles":
+                return redirect("feed-articles", feed_id=feed_id)
+            return redirect("feed-list")
+
+        # Try to create Mailgun route
+        site_url = getattr(settings, "SITE_URL", None)
+        if site_url:
+            webhook_url = f"{site_url.rstrip('/')}/api/v1/mailgun/incoming/"
+
+            from .services.mailgun_service import MailgunService
+
+            mailgun_service = MailgunService()
+            success, route_id, error = mailgun_service.create_route(
+                feed_email=email_address,
+                webhook_url=webhook_url,
+                description=f"Route for feed: {feed.name} (ID: {feed.id})",
+            )
+
+            if success and route_id:
+                # Save email and route ID
+                feed.inbound_email = email_address
+                feed.mailgun_route_id = route_id
+                feed.save(update_fields=["inbound_email", "mailgun_route_id"])
+                messages.success(
+                    request,
+                    f"Successfully created email address: {email_address}",
+                )
+            else:
+                # Save just the email address
+                feed.inbound_email = email_address
+                feed.save(update_fields=["inbound_email"])
+                messages.warning(
+                    request,
+                    f"Created email address {email_address}, but failed to create "
+                    f"Mailgun route. You may need to create the route manually.",
+                )
+        else:
+            # No SITE_URL - just save the email
+            feed.inbound_email = email_address
+            feed.save(update_fields=["inbound_email"])
+            messages.warning(
+                request,
+                f"Created email address {email_address}, but SITE_URL is not configured. "
+                f"Mailgun route must be created manually.",
+            )
+
+        # Redirect back to where the user came from
+        redirect_to = request.POST.get("redirect", "feed-list")
+        if redirect_to == "feed-articles":
+            return redirect("feed-articles", feed_id=feed_id)
+        return redirect("feed-list")
+
+
 class FollowedFeedListView(LoginRequiredMixin, ListView):
     """View for listing a user's followed feeds."""
 
