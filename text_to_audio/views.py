@@ -1169,54 +1169,34 @@ def voice_preset_test(request, preset_id=None):
         get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
 
     try:
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-        tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd")
+        # AIDEV-NOTE: Use TTSService for provider abstraction (supports OpenAI and Google TTS)
+        # Detect provider from voice_id
+        provider = "google" if voice_id.startswith("en-US-") else "openai"
 
-        # Prepare TTS request data
-        tts_request_data = {
-            "model": tts_model,
-            "voice": voice_id,
-            "input": text,
-            "speed": speed,
-            "response_format": "mp3",
-        }
+        from text_to_audio.services.tts_service import TTSService
 
-        # AIDEV-NOTE: TTS prompt/instructions handling - keep in sync with TTS pipeline in tasks.py
-        # Add instructions parameter only for supported models
-        if prompt and tts_model in {"gpt-4o-mini-tts", "tts-1-hd"}:
-            tts_request_data["instructions"] = prompt
-            logger.info(
-                f"Voice test with instructions: model={tts_model}, voice={voice_id}, instructions='{prompt}'"
-            )
-        elif prompt:
-            logger.info(
-                f"Voice test prompt ignored (unsupported model): model={tts_model}, prompt='{prompt}'"
-            )
-        else:
-            logger.info(
-                f"Voice test without instructions: model={tts_model}, voice={voice_id}"
-            )
+        tts_service = TTSService(provider=provider)
 
-        response = client.audio.speech.create(**tts_request_data)
+        logger.info(
+            f"Voice test: provider={provider}, voice={voice_id}, speed={speed}, "
+            f"prompt={'yes' if prompt else 'no'}"
+        )
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
-            response.stream_to_file(tmp.name)
-            tmp_path = tmp.name
+        audio_data = tts_service.generate_speech(
+            text=text,
+            voice=voice_id,
+            speed=speed,
+            instructions=prompt if prompt else None,
+            response_format="mp3",
+        )
 
-        try:
-            with open(tmp_path, "rb") as f:
-                audio_data = f.read()
+        from io import BytesIO
 
-            from io import BytesIO
-
-            audio_file = BytesIO(audio_data)
-            response = FileResponse(audio_file, content_type="audio/mpeg")
-            response["Content-Disposition"] = 'inline; filename="voice_test.mp3"'  # type: ignore[index]
-            response["Cache-Control"] = "no-cache"  # type: ignore[index]
-            return response
-        finally:
-            # Always clean up the temporary file
-            os.remove(tmp_path)
+        audio_file = BytesIO(audio_data)
+        response = FileResponse(audio_file, content_type="audio/mpeg")
+        response["Content-Disposition"] = 'inline; filename="voice_test.mp3"'  # type: ignore[index]
+        response["Cache-Control"] = "no-cache"  # type: ignore[index]
+        return response
 
     except Exception as e:
         logger.error(f"Error generating voice sample: {e}")
@@ -1234,35 +1214,37 @@ def voice_preset_sample(request, preset_id):
             text = form.cleaned_data["text"]
 
             try:
-                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-                tts_model = getattr(settings, "OPENAI_TTS_MODEL", "tts-1-hd")
-                response = client.audio.speech.create(
-                    model=tts_model,
+                # AIDEV-NOTE: Use TTSService for provider abstraction (supports OpenAI and Google TTS)
+                # Detect provider from voice_id
+                provider = (
+                    "google" if preset.voice_id.startswith("en-US-") else "openai"
+                )
+
+                from text_to_audio.services.tts_service import TTSService
+
+                tts_service = TTSService(provider=provider)
+
+                logger.info(
+                    f"Voice preset sample: provider={provider}, voice={preset.voice_id}, "
+                    f"speed={preset.speed}"
+                )
+
+                audio_data = tts_service.generate_speech(
+                    text=text,
                     voice=preset.voice_id,
-                    input=text,
                     speed=preset.speed,
+                    instructions=preset.prompt if preset.prompt else None,
                     response_format="mp3",
                 )
 
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
-                    response.stream_to_file(tmp.name)
-                    tmp_path = tmp.name
+                from io import BytesIO
 
-                try:
-                    with open(tmp_path, "rb") as f:
-                        audio_data = f.read()
-
-                    from io import BytesIO
-
-                    audio_file = BytesIO(audio_data)
-                    response = FileResponse(audio_file, content_type="audio/mpeg")
-                    response["Content-Disposition"] = (  # type: ignore[index]
-                        'inline; filename="voice_sample.mp3"'
-                    )
-                    return response
-                finally:
-                    # Always clean up the temporary file
-                    os.remove(tmp_path)
+                audio_file = BytesIO(audio_data)
+                response = FileResponse(audio_file, content_type="audio/mpeg")
+                response["Content-Disposition"] = (  # type: ignore[index]
+                    'inline; filename="voice_sample.mp3"'
+                )
+                return response
 
             except Exception as e:
                 logger.error(f"Error generating voice sample: {e}")

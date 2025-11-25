@@ -1,7 +1,6 @@
 """Tests for voice presets functionality."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
@@ -389,7 +388,7 @@ class VoicePresetViewsTest(TestCase):
             self.assertEqual(article.voice_preset, default_preset)
 
 
-@patch("text_to_audio.views.openai.OpenAI")
+@patch("text_to_audio.services.tts_service.TTSService")
 class VoicePresetSampleViewTests(TestCase):
     """Tests for generating voice samples from presets."""
 
@@ -403,22 +402,16 @@ class VoicePresetSampleViewTests(TestCase):
             user=self.user, name="Preset", voice_id="alloy", speed=1.0
         )
 
-    def create_dummy_file(self, path):
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "wb") as f:
-            f.write(b"dummy audio")
-
-    def test_get_sample_form(self, MockOpenAI):
+    def test_get_sample_form(self, MockTTSService):
         url = reverse("voice_preset_sample", args=[self.preset.pk])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Generate Sample")
 
-    def test_generate_sample(self, MockOpenAI):
-        mock_client = MockOpenAI.return_value
-        mock_response = MagicMock()
-        mock_response.stream_to_file.side_effect = self.create_dummy_file
-        mock_client.audio.speech.create.return_value = mock_response
+    def test_generate_sample_openai(self, MockTTSService):
+        """Test generating a sample with OpenAI voice."""
+        mock_instance = MockTTSService.return_value
+        mock_instance.generate_speech.return_value = b"dummy audio data"
 
         url = reverse("voice_preset_sample", args=[self.preset.pk])
         response = self.client.post(url, {"text": "hello world"})
@@ -428,21 +421,47 @@ class VoicePresetSampleViewTests(TestCase):
         self.assertEqual(
             response["Content-Disposition"], 'inline; filename="voice_sample.mp3"'
         )
-        mock_client.audio.speech.create.assert_called_once()
-        args = mock_client.audio.speech.create.call_args.kwargs
-        self.assertEqual(args["voice"], "alloy")
-        self.assertEqual(args["speed"], 1.0)
-        self.assertEqual(args["input"], "hello world")
+        # Verify TTSService was initialized with OpenAI provider
+        MockTTSService.assert_called_once_with(provider="openai")
+        mock_instance.generate_speech.assert_called_once()
+        call_kwargs = mock_instance.generate_speech.call_args.kwargs
+        self.assertEqual(call_kwargs["voice"], "alloy")
+        self.assertEqual(call_kwargs["speed"], 1.0)
+        self.assertEqual(call_kwargs["text"], "hello world")
 
-    def test_word_limit_validation(self, MockOpenAI):
+    def test_generate_sample_google(self, MockTTSService):
+        """Test generating a sample with Google TTS voice."""
+        # Create a preset with Google voice
+        google_preset = UserVoicePreset.objects.create(
+            user=self.user,
+            name="Google Preset",
+            voice_id="en-US-Chirp3-HD-Charon",
+            speed=1.2,
+        )
+        mock_instance = MockTTSService.return_value
+        mock_instance.generate_speech.return_value = b"dummy google audio"
+
+        url = reverse("voice_preset_sample", args=[google_preset.pk])
+        response = self.client.post(url, {"text": "hello from google"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "audio/mpeg")
+        # Verify TTSService was initialized with Google provider
+        MockTTSService.assert_called_once_with(provider="google")
+        mock_instance.generate_speech.assert_called_once()
+        call_kwargs = mock_instance.generate_speech.call_args.kwargs
+        self.assertEqual(call_kwargs["voice"], "en-US-Chirp3-HD-Charon")
+        self.assertEqual(call_kwargs["speed"], 1.2)
+
+    def test_word_limit_validation(self, MockTTSService):
         text = "word " * 101
         url = reverse("voice_preset_sample", args=[self.preset.pk])
         response = self.client.post(url, {"text": text})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "100 words or fewer")
-        MockOpenAI.assert_not_called()
+        MockTTSService.assert_not_called()
 
-    def test_ajax_word_limit_validation(self, MockOpenAI):
+    def test_ajax_word_limit_validation(self, MockTTSService):
         text = "word " * 101
         url = reverse("voice_preset_sample", args=[self.preset.pk])
         response = self.client.post(
@@ -450,10 +469,10 @@ class VoicePresetSampleViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("100 words or fewer", response.content.decode())
-        MockOpenAI.assert_not_called()
+        MockTTSService.assert_not_called()
 
 
-@patch("text_to_audio.views.openai.OpenAI")
+@patch("text_to_audio.services.tts_service.TTSService")
 class VoicePresetTestViewTests(TestCase):
     """Tests for real-time voice testing in preset edit form."""
 
@@ -467,24 +486,18 @@ class VoicePresetTestViewTests(TestCase):
             user=self.user, name="Test Preset", voice_id="alloy", speed=1.0
         )
 
-    def create_dummy_file(self, path):
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "wb") as f:
-            f.write(b"dummy audio")
-
-    def test_voice_test_ajax_required(self, MockOpenAI):
+    def test_voice_test_ajax_required(self, MockTTSService):
         url = reverse("voice_preset_test")
         response = self.client.post(
             url, {"voice_id": "alloy", "speed": "1.0", "text": "test"}
         )
         self.assertEqual(response.status_code, 400)
-        MockOpenAI.assert_not_called()
+        MockTTSService.assert_not_called()
 
-    def test_voice_test_success(self, MockOpenAI):
-        mock_client = MockOpenAI.return_value
-        mock_response = MagicMock()
-        mock_response.stream_to_file.side_effect = self.create_dummy_file
-        mock_client.audio.speech.create.return_value = mock_response
+    def test_voice_test_success_openai(self, MockTTSService):
+        """Test voice test with OpenAI voice."""
+        mock_instance = MockTTSService.return_value
+        mock_instance.generate_speech.return_value = b"dummy audio data"
 
         url = reverse("voice_preset_test")
         response = self.client.post(
@@ -498,9 +511,78 @@ class VoicePresetTestViewTests(TestCase):
         self.assertEqual(
             response["Content-Disposition"], 'inline; filename="voice_test.mp3"'
         )
-        mock_client.audio.speech.create.assert_called_once()
+        # Verify TTSService was initialized with OpenAI provider
+        MockTTSService.assert_called_once_with(provider="openai")
+        mock_instance.generate_speech.assert_called_once()
+        call_kwargs = mock_instance.generate_speech.call_args.kwargs
+        self.assertEqual(call_kwargs["voice"], "alloy")
+        self.assertEqual(call_kwargs["speed"], 1.0)
+        self.assertEqual(call_kwargs["text"], "test voice")
 
-    def test_voice_test_validation(self, MockOpenAI):
+    def test_voice_test_success_google(self, MockTTSService):
+        """Test voice test with Google TTS voice (Chirp3-HD)."""
+        mock_instance = MockTTSService.return_value
+        mock_instance.generate_speech.return_value = b"dummy google audio"
+
+        url = reverse("voice_preset_test")
+        response = self.client.post(
+            url,
+            {
+                "voice_id": "en-US-Chirp3-HD-Charon",
+                "speed": "1.2",
+                "text": "test google voice",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "audio/mpeg")
+        # Verify TTSService was initialized with Google provider
+        MockTTSService.assert_called_once_with(provider="google")
+        mock_instance.generate_speech.assert_called_once()
+        call_kwargs = mock_instance.generate_speech.call_args.kwargs
+        self.assertEqual(call_kwargs["voice"], "en-US-Chirp3-HD-Charon")
+        self.assertEqual(call_kwargs["speed"], 1.2)
+
+    def test_voice_test_google_journey(self, MockTTSService):
+        """Test voice test with Google Journey voice."""
+        mock_instance = MockTTSService.return_value
+        mock_instance.generate_speech.return_value = b"dummy journey audio"
+
+        url = reverse("voice_preset_test")
+        response = self.client.post(
+            url,
+            {
+                "voice_id": "en-US-Journey-D",
+                "speed": "1.0",
+                "text": "test journey voice",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        MockTTSService.assert_called_once_with(provider="google")
+
+    def test_voice_test_google_neural2(self, MockTTSService):
+        """Test voice test with Google Neural2 voice."""
+        mock_instance = MockTTSService.return_value
+        mock_instance.generate_speech.return_value = b"dummy neural2 audio"
+
+        url = reverse("voice_preset_test")
+        response = self.client.post(
+            url,
+            {
+                "voice_id": "en-US-Neural2-A",
+                "speed": "1.0",
+                "text": "test neural2 voice",
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        MockTTSService.assert_called_once_with(provider="google")
+
+    def test_voice_test_validation(self, MockTTSService):
         url = reverse("voice_preset_test")
 
         # Test missing fields
@@ -526,4 +608,4 @@ class VoicePresetTestViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("100 words or fewer", response.content.decode())
 
-        MockOpenAI.assert_not_called()
+        MockTTSService.assert_not_called()
