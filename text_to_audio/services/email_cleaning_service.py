@@ -51,8 +51,9 @@ Your task is to:
 2. Remove boilerplate elements (headers, footers, unsubscribe links, navigation, social media buttons)
 3. Remove advertisements and sponsorships UNLESS they are the core subject of the email
 4. Remove email signatures and metadata
-5. Preserve the narrative flow and essential information
-6. Keep the content engaging and coherent for audio listening{subject_context}
+5. Remove forwarding artifacts (sender's signature, "Forwarded message" headers, From/Date/Subject/To lines)
+6. Preserve the narrative flow and essential information
+7. Keep the content engaging and coherent for audio listening{subject_context}
 
 Email Content:
 {email_text}
@@ -60,17 +61,30 @@ Email Content:
 Return a JSON object with:
 {{
   "cleaned_content": "The extracted main content, ready for audio narration",
-  "content_type": "One of: newsletter, article, personal_email, promotional, announcement, other",
-  "removed_elements": ["List of element types removed, e.g., 'footer', 'advertisement', 'social_links'"],
+  "content_type": "One of: newsletter, article, personal_email, promotional, announcement, forwarded, other",
+  "removed_elements": ["List of element types removed, e.g., 'footer', 'advertisement', 'forward_headers', 'user_signature'"],
   "confidence": "high/medium/low - your confidence in the extraction quality"
 }}
 
 Guidelines:
 - If the email is ABOUT a product/service (promotional), keep the promotional content
 - If the email CONTAINS ads within an article/newsletter, remove them
+- For FORWARDED emails: Remove the sender's signature at the top, remove forward metadata (From:, Date:, Subject:, To:), extract only the original email body
+- Remove all email signatures (both at top for forwards and at bottom for regular emails)
 - Preserve important links or references that add value to the content
 - If you're uncertain whether something is core content, keep it
-- Maintain natural paragraph structure for audio flow"""
+- Maintain natural paragraph structure for audio flow
+
+Common forwarded email pattern to handle:
+[User's signature at top]
+---------- Forwarded message ---------
+From: someone@example.com
+Date: [date]
+Subject: [subject]
+To: [recipient]
+[ORIGINAL EMAIL CONTENT - EXTRACT THIS]
+
+Extract only the original email content below the forward headers."""
 
         return prompt
 
