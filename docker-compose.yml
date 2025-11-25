@@ -19,7 +19,7 @@ services:
     command: /app/start-web.sh python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
-      - ../data/sqlite-data/:/data
+      - ./data/sqlite-data/:/data
       - ./media:/app/media  # Bind mount for saving MP3 files
       - ./logs:/app/logs    # Bind mount for log files
       # For Docker volume instead of bind mount, uncomment the following:
@@ -43,7 +43,7 @@ services:
     command: /app/start-worker.sh celery -A rss_tts worker --loglevel=info
     volumes:
       - .:/app
-      - ../data/sqlite-data/:/data
+      - ./data/sqlite-data/:/data
       - ./media:/app/media  # Bind mount for saving MP3 files
       - ./logs:/app/logs    # Bind mount for log files
       # For Docker volume instead of bind mount, uncomment the following:
@@ -65,7 +65,7 @@ services:
     command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
       - .:/app
-      - ../data/redis:/data
+      - redis-data:/data
       - ./redis.conf:/usr/local/etc/redis/redis.conf
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -78,3 +78,6 @@ services:
 
 networks:
   rsstts:
+
+volumes:
+  redis-data:

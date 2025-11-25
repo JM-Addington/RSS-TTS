@@ -80,6 +80,29 @@ class GlobalConfig(models.Model):
         help_text="Default TTS provider (openai, google)",
     )
 
+    # Google Cloud TTS Configuration
+    google_tts_api_key = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Google Cloud API key (simpler alternative to service account)",
+    )
+    google_tts_credentials_json = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Google Cloud service account credentials (JSON format)",
+    )
+    google_tts_default_voice_type = models.CharField(
+        max_length=50,
+        default="gemini",
+        choices=[
+            ("gemini", "Gemini TTS (multi-speaker, prompts)"),
+            ("chirp3", "Chirp 3: HD (premium quality)"),
+            ("neural2", "Neural2 (standard quality)"),
+        ],
+        help_text="Default Google TTS voice type",
+    )
+
     # RSS/Podcast Configuration
     podcast_image_url = models.URLField(
         blank=True, null=True, help_text="URL for the default podcast cover image"

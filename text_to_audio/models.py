@@ -81,6 +81,13 @@ class Feed(models.Model):
         default=VOICE_MODE_AUTO,
         help_text="Voice mode preference for this feed",
     )
+    tts_provider: models.CharField = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        choices=[("openai", "OpenAI"), ("google", "Google Cloud TTS")],
+        help_text="TTS provider for this feed (uses global default if null)",
+    )
     inbound_email: models.CharField = models.CharField(
         max_length=255,
         unique=True,
@@ -391,6 +398,13 @@ class Article(models.Model):
             "Do not set both 'voice' and 'voice_id' - only one should be used. "
             "Leave empty when using standard voices."
         ),
+    )
+    tts_provider: models.CharField = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        choices=[("openai", "OpenAI"), ("google", "Google Cloud TTS")],
+        help_text="TTS provider override (inherits from feed if null)",
     )
     speed: models.FloatField = models.FloatField(
         null=True,

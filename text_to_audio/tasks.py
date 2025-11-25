@@ -33,8 +33,8 @@ from .utils import process_url_to_text
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Add a short pause to the end of exported audio files
-ENDING_SILENCE_MS = 2000
+# Add a short pause to the end of exported audio files to prevent cutoff
+ENDING_SILENCE_MS = 3000  # 3 seconds of silence at the end
 VOLUME_GAIN_DB = 3.0  # ~3dB volume increase
 DEESSER_FILTER_ARGS = ["-af", "deesser"]
 
@@ -702,21 +702,38 @@ def process_article(self, article_id: int) -> str:
 
                     # Call TTS API with detailed logging
                     try:
-                        response = client.audio.speech.create(**tts_request_data)  # type: ignore
-                        response.stream_to_file(chunk_temp_file_path)
+                        # AIDEV-NOTE: TTS provider abstraction - supports OpenAI and Google
+                        from .services.tts_service import TTSService
+
+                        # Initialize TTS service with article's provider (falls back to feed/global)
+                        tts_service = TTSService(
+                            provider=article.tts_provider or article.feed.tts_provider
+                        )
+
+                        # Generate speech using provider-agnostic interface
+                        audio_bytes = tts_service.generate_speech(
+                            text=chunk_data.text,
+                            voice=chunk_data.voice.voice,
+                            speed=resolved_speed,
+                            model=tts_model,
+                            instructions=chunk_voice_prompt,
+                            response_format=AUDIO_RESPONSE_FORMAT,
+                        )
+
+                        # Write audio bytes to file
+                        chunk_temp_file_path.write_bytes(audio_bytes)
+
                         end_time = time.monotonic()
                         processing_time_ms = int((end_time - start_time) * 1000)
 
-                        # Extract response data for logging (TTS doesn't return JSON, but has headers)
+                        # Extract response data for logging
                         tts_response_data = {
                             "status": "success",
                             "audio_file_generated": True,
                             "file_path": str(chunk_temp_file_path),
+                            "provider": tts_service.provider,
+                            "audio_size_bytes": len(audio_bytes),
                         }
-
-                        # Add response headers if available
-                        if hasattr(response, "headers"):
-                            tts_response_data["headers"] = dict(response.headers)
 
                         # Log successful TTS API call
                         from .utils import log_openai_api_call
@@ -743,21 +760,9 @@ def process_article(self, article_id: int) -> str:
                         )
                         raise
 
-                    tokens_used = 0
-                    if hasattr(response, "usage") and hasattr(
-                        response.usage, "total_tokens"
-                    ):
-                        try:
-                            tokens_used = int(response.usage.total_tokens)
-                        except (ValueError, TypeError):
-                            tokens_used = 0
-                    elif hasattr(response, "headers"):
-                        header_value = response.headers.get("x-openai-tokens-used")
-                        if header_value is not None:
-                            try:
-                                tokens_used = int(header_value)
-                            except (ValueError, TypeError):
-                                tokens_used = 0
+                    # For TTS, use character count as proxy for tokens
+                    # (TTS APIs typically charge by character, not tokens)
+                    tokens_used = len(chunk_data.text)
 
                     generated_audio_files.append(chunk_temp_file_path)
                     word_count = len(chunk_data.text.split())
@@ -902,23 +907,40 @@ def process_article(self, article_id: int) -> str:
 
                         # Call TTS API with detailed logging
                         try:
-                            response = client.audio.speech.create(**tts_request_data)  # type: ignore
-                            response.stream_to_file(chunk_temp_file_path)
+                            # AIDEV-NOTE: TTS provider abstraction - supports OpenAI and Google
+                            from .services.tts_service import TTSService
+
+                            # Initialize TTS service with article's provider
+                            tts_service = TTSService(
+                                provider=article.tts_provider or article.feed.tts_provider
+                            )
+
+                            # Generate speech using provider-agnostic interface
+                            audio_bytes = tts_service.generate_speech(
+                                text=chunk_text,
+                                voice=tts_api_voice,
+                                speed=tts_speed,
+                                model=tts_model,
+                                instructions=segment_voice_prompt,
+                                response_format=AUDIO_RESPONSE_FORMAT,
+                            )
+
+                            # Write audio bytes to file
+                            chunk_temp_file_path.write_bytes(audio_bytes)
+
                             end_time = time.monotonic()
                             processing_time_ms = int((end_time - start_time) * 1000)
 
-                            # Extract response data for logging (TTS doesn't return JSON, but has headers)
+                            # Extract response data for logging
                             tts_response_data = {
                                 "status": "success",
                                 "audio_file_generated": True,
                                 "file_path": str(chunk_temp_file_path),
                                 "voice_name": voice_name,
                                 "voice_tone": voice_tone,
+                                "provider": tts_service.provider,
+                                "audio_size_bytes": len(audio_bytes),
                             }
-
-                            # Add response headers if available
-                            if hasattr(response, "headers"):
-                                tts_response_data["headers"] = dict(response.headers)
 
                             # Log successful TTS API call
                             from .utils import log_openai_api_call
@@ -945,21 +967,8 @@ def process_article(self, article_id: int) -> str:
                             )
                             raise
 
-                        tokens_used = 0
-                        if hasattr(response, "usage") and hasattr(
-                            response.usage, "total_tokens"
-                        ):
-                            try:
-                                tokens_used = int(response.usage.total_tokens)
-                            except (ValueError, TypeError):
-                                tokens_used = 0
-                        elif hasattr(response, "headers"):
-                            header_value = response.headers.get("x-openai-tokens-used")
-                            if header_value is not None:
-                                try:
-                                    tokens_used = int(header_value)
-                                except (ValueError, TypeError):
-                                    tokens_used = 0
+                        # For TTS, use character count as proxy for tokens
+                        tokens_used = len(chunk_text)
 
                         generated_audio_files.append(chunk_temp_file_path)
                         word_count = len(chunk_text.split())
@@ -1148,21 +1157,38 @@ def process_article(self, article_id: int) -> str:
 
                 # Call TTS API with detailed logging
                 try:
-                    response = client.audio.speech.create(**tts_args)  # type: ignore
-                    response.stream_to_file(temp_file_path)
+                    # AIDEV-NOTE: TTS provider abstraction - supports OpenAI and Google
+                    from .services.tts_service import TTSService
+
+                    # Initialize TTS service with article's provider
+                    tts_service = TTSService(
+                        provider=article.tts_provider or article.feed.tts_provider
+                    )
+
+                    # Generate speech using provider-agnostic interface
+                    audio_bytes = tts_service.generate_speech(
+                        text=chunk,
+                        voice=fallback_voice,
+                        speed=fallback_speed,
+                        model=tts_args["model"],
+                        instructions=voice_prompt,
+                        response_format=AUDIO_RESPONSE_FORMAT,
+                    )
+
+                    # Write audio bytes to file
+                    temp_file_path.write_bytes(audio_bytes)
+
                     end_time = time.monotonic()
                     processing_time_ms = int((end_time - start_time) * 1000)
 
-                    # Extract response data for logging (TTS doesn't return JSON, but has headers)
+                    # Extract response data for logging
                     tts_response_data = {
                         "status": "success",
                         "audio_file_generated": True,
                         "file_path": str(temp_file_path),
+                        "provider": tts_service.provider,
+                        "audio_size_bytes": len(audio_bytes),
                     }
-
-                    # Add response headers if available
-                    if hasattr(response, "headers"):
-                        tts_response_data["headers"] = dict(response.headers)
 
                     # Log successful TTS API call
                     from .utils import log_openai_api_call
@@ -1189,21 +1215,8 @@ def process_article(self, article_id: int) -> str:
                     )
                     raise
 
-                tokens_used = 0
-                if hasattr(response, "usage") and hasattr(
-                    response.usage, "total_tokens"
-                ):
-                    try:
-                        tokens_used = int(response.usage.total_tokens)
-                    except (ValueError, TypeError):
-                        tokens_used = 0
-                elif hasattr(response, "headers"):
-                    header_value = response.headers.get("x-openai-tokens-used")
-                    if header_value is not None:
-                        try:
-                            tokens_used = int(header_value)
-                        except (ValueError, TypeError):
-                            tokens_used = 0
+                # For TTS, use character count as proxy for tokens
+                tokens_used = len(chunk)
 
                 generated_audio_files.append(temp_file_path)
                 word_count = len(chunk.split())

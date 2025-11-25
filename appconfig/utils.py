@@ -130,6 +130,70 @@ def get_default_tts_provider() -> str:
     )
 
 
+# Google Cloud TTS Configuration
+def get_google_tts_api_key() -> Optional[str]:
+    """Get Google TTS API key from config or environment.
+
+    Returns:
+        str or None: API key if configured
+    """
+    import os
+
+    config = get_global_config()
+
+    # Try database config first
+    if config and config.google_tts_api_key:
+        return config.google_tts_api_key
+
+    # Fall back to environment variable
+    return os.getenv("GOOGLE_TTS_API_KEY")
+
+
+def get_google_tts_credentials():
+    """Get Google TTS credentials from config or environment.
+
+    Returns:
+        dict or str: Credentials as dict (parsed JSON) or JSON string, or None
+    """
+    import json
+    import os
+
+    config = get_global_config()
+
+    # Try database config first
+    if config and config.google_tts_credentials_json:
+        credentials_str = config.google_tts_credentials_json
+        try:
+            return json.loads(credentials_str)
+        except json.JSONDecodeError:
+            # Return raw string if not valid JSON
+            return credentials_str
+
+    # Fall back to environment variable
+    env_creds = os.getenv("GOOGLE_TTS_CREDENTIALS_JSON")
+    if env_creds:
+        try:
+            return json.loads(env_creds)
+        except json.JSONDecodeError:
+            return env_creds
+
+    return None
+
+
+def get_google_tts_voice_type() -> str:
+    """Get default Google TTS voice type.
+
+    Returns:
+        str: Voice type (gemini, chirp3, or neural2)
+    """
+    config = get_global_config()
+    return (
+        config.google_tts_default_voice_type
+        if config
+        else getattr(settings, "GOOGLE_TTS_DEFAULT_VOICE_TYPE", "gemini")
+    )
+
+
 # RSS/Podcast Configuration
 def get_podcast_image_url() -> Optional[str]:
     config = get_global_config()
