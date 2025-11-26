@@ -247,12 +247,20 @@ class FeedListView(LoginRequiredMixin, ListView):
         return Feed.objects.filter(user=self.request.user).order_by("-created_at")
 
     def get_context_data(self, **kwargs):
-        """Add feed URLs and article counts to context."""
+        """Add feed URLs, article counts, and total audio duration to context."""
+        from django.db.models import Sum
+
         context = super().get_context_data(**kwargs)
 
-        # Add article count and RSS URL for each feed
+        # Add article count, total audio duration, and RSS URL for each feed
         for feed in context["feeds"]:
             feed.article_count = feed.articles.count()
+
+            # Calculate total audio duration for completed articles (in seconds)
+            total_duration = feed.articles.filter(
+                status="COMPLETED", audio_duration__isnull=False
+            ).aggregate(total=Sum("audio_duration"))["total"]
+            feed.total_audio_duration = total_duration or 0
 
             # Generate RSS URL
             feed_path = reverse("feed", kwargs={"token": feed.token})

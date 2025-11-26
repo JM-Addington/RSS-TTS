@@ -1528,6 +1528,20 @@ def process_article(self, article_id: int) -> str:
         article.set_canonical_audio_path()
         article.status = Article.COMPLETED
         article.error_message = None  # Clear any previous error
+
+        # Calculate and store audio duration
+        try:
+            final_audio = AudioSegment.from_mp3(str(final_audio_path))
+            article.audio_duration = int(final_audio.duration_seconds)
+            logger.info(
+                f"Audio duration for Article ID {article_id}: {article.audio_duration} seconds"
+            )
+        except Exception as duration_exc:
+            logger.warning(
+                f"Failed to calculate audio duration for Article ID {article_id}: {duration_exc}"
+            )
+            article.audio_duration = None
+
         # Save multi_voice_data, voice_parameters, and other details
         article.save(
             update_fields=[
@@ -1538,6 +1552,7 @@ def process_article(self, article_id: int) -> str:
                 "summary",
                 "voice_parameters",
                 "detected_genre",
+                "audio_duration",
             ]
         )
         logger.info(

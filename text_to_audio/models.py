@@ -23,12 +23,48 @@ VOICE_NOVA = "nova"
 VOICE_SAGE = "sage"
 VOICE_SHIMMER = "shimmer"
 
-# Google Gemini TTS Voices (Journey series - multi-speaker, prompts)
+# Google Gemini TTS Voices (Journey series - legacy)
 VOICE_JOURNEY_D = "en-US-Journey-D"
 VOICE_JOURNEY_F = "en-US-Journey-F"
 VOICE_JOURNEY_O = "en-US-Journey-O"
 
-# Google Chirp 3 HD Voices (premium quality)
+# AIDEV-NOTE: Gemini TTS voices use SHORT names (e.g., "Charon" not "en-US-Chirp3-HD-Charon")
+# These support prompt-based styling instructions for tone, emotion, accent, pace
+# Available models: gemini-2.5-flash-tts, gemini-2.5-pro-tts
+# Female voices
+VOICE_GEMINI_ACHERNAR = "Achernar"
+VOICE_GEMINI_AOEDE = "Aoede"
+VOICE_GEMINI_AUTONOE = "Autonoe"
+VOICE_GEMINI_CALLIRRHOE = "Callirrhoe"
+VOICE_GEMINI_DESPINA = "Despina"
+VOICE_GEMINI_ERINOME = "Erinome"
+VOICE_GEMINI_GACRUX = "Gacrux"
+VOICE_GEMINI_KORE = "Kore"
+VOICE_GEMINI_LAOMEDEIA = "Laomedeia"
+VOICE_GEMINI_LEDA = "Leda"
+VOICE_GEMINI_PULCHERRIMA = "Pulcherrima"
+VOICE_GEMINI_SULAFAT = "Sulafat"
+VOICE_GEMINI_VINDEMIATRIX = "Vindemiatrix"
+VOICE_GEMINI_ZEPHYR = "Zephyr"
+# Male voices
+VOICE_GEMINI_ACHIRD = "Achird"
+VOICE_GEMINI_ALGENIB = "Algenib"
+VOICE_GEMINI_ALGIEBA = "Algieba"
+VOICE_GEMINI_ALNILAM = "Alnilam"
+VOICE_GEMINI_CHARON = "Charon"
+VOICE_GEMINI_ENCELADUS = "Enceladus"
+VOICE_GEMINI_FENRIR = "Fenrir"
+VOICE_GEMINI_IAPETUS = "Iapetus"
+VOICE_GEMINI_ORUS = "Orus"
+VOICE_GEMINI_PUCK = "Puck"
+VOICE_GEMINI_RASALGETHI = "Rasalgethi"
+VOICE_GEMINI_SADACHBIA = "Sadachbia"
+VOICE_GEMINI_SADALTAGER = "Sadaltager"
+VOICE_GEMINI_SCHEDAR = "Schedar"
+VOICE_GEMINI_UMBRIEL = "Umbriel"
+VOICE_GEMINI_ZUBENELGENUBI = "Zubenelgenubi"
+
+# Google Chirp 3 HD Voices (premium quality, no prompt support)
 # Female voices
 VOICE_CHIRP_HD_ACHERNAR = "en-US-Chirp3-HD-Achernar"
 VOICE_CHIRP_HD_AOEDE = "en-US-Chirp3-HD-Aoede"
@@ -79,10 +115,42 @@ VOICE_CHOICES = [
     (VOICE_NOVA, "Nova (OpenAI)"),
     (VOICE_SAGE, "Sage (OpenAI)"),
     (VOICE_SHIMMER, "Shimmer (OpenAI)"),
-    # Google Gemini Voices
-    (VOICE_JOURNEY_D, "Journey-D (Gemini)"),
-    (VOICE_JOURNEY_F, "Journey-F (Gemini)"),
-    (VOICE_JOURNEY_O, "Journey-O (Gemini)"),
+    # Google Gemini Voices (Legacy Journey series)
+    (VOICE_JOURNEY_D, "Journey-D (Gemini Legacy)"),
+    (VOICE_JOURNEY_F, "Journey-F (Gemini Legacy)"),
+    (VOICE_JOURNEY_O, "Journey-O (Gemini Legacy)"),
+    # Google Gemini TTS Voices - Female (supports prompt styling)
+    (VOICE_GEMINI_ACHERNAR, "Achernar (Gemini TTS Female)"),
+    (VOICE_GEMINI_AOEDE, "Aoede (Gemini TTS Female)"),
+    (VOICE_GEMINI_AUTONOE, "Autonoe (Gemini TTS Female)"),
+    (VOICE_GEMINI_CALLIRRHOE, "Callirrhoe (Gemini TTS Female)"),
+    (VOICE_GEMINI_DESPINA, "Despina (Gemini TTS Female)"),
+    (VOICE_GEMINI_ERINOME, "Erinome (Gemini TTS Female)"),
+    (VOICE_GEMINI_GACRUX, "Gacrux (Gemini TTS Female)"),
+    (VOICE_GEMINI_KORE, "Kore (Gemini TTS Female)"),
+    (VOICE_GEMINI_LAOMEDEIA, "Laomedeia (Gemini TTS Female)"),
+    (VOICE_GEMINI_LEDA, "Leda (Gemini TTS Female)"),
+    (VOICE_GEMINI_PULCHERRIMA, "Pulcherrima (Gemini TTS Female)"),
+    (VOICE_GEMINI_SULAFAT, "Sulafat (Gemini TTS Female)"),
+    (VOICE_GEMINI_VINDEMIATRIX, "Vindemiatrix (Gemini TTS Female)"),
+    (VOICE_GEMINI_ZEPHYR, "Zephyr (Gemini TTS Female)"),
+    # Google Gemini TTS Voices - Male (supports prompt styling)
+    (VOICE_GEMINI_ACHIRD, "Achird (Gemini TTS Male)"),
+    (VOICE_GEMINI_ALGENIB, "Algenib (Gemini TTS Male)"),
+    (VOICE_GEMINI_ALGIEBA, "Algieba (Gemini TTS Male)"),
+    (VOICE_GEMINI_ALNILAM, "Alnilam (Gemini TTS Male)"),
+    (VOICE_GEMINI_CHARON, "Charon (Gemini TTS Male)"),
+    (VOICE_GEMINI_ENCELADUS, "Enceladus (Gemini TTS Male)"),
+    (VOICE_GEMINI_FENRIR, "Fenrir (Gemini TTS Male)"),
+    (VOICE_GEMINI_IAPETUS, "Iapetus (Gemini TTS Male)"),
+    (VOICE_GEMINI_ORUS, "Orus (Gemini TTS Male)"),
+    (VOICE_GEMINI_PUCK, "Puck (Gemini TTS Male)"),
+    (VOICE_GEMINI_RASALGETHI, "Rasalgethi (Gemini TTS Male)"),
+    (VOICE_GEMINI_SADACHBIA, "Sadachbia (Gemini TTS Male)"),
+    (VOICE_GEMINI_SADALTAGER, "Sadaltager (Gemini TTS Male)"),
+    (VOICE_GEMINI_SCHEDAR, "Schedar (Gemini TTS Male)"),
+    (VOICE_GEMINI_UMBRIEL, "Umbriel (Gemini TTS Male)"),
+    (VOICE_GEMINI_ZUBENELGENUBI, "Zubenelgenubi (Gemini TTS Male)"),
     # Google Chirp 3 HD Voices - Female
     (VOICE_CHIRP_HD_ACHERNAR, "Achernar (Chirp3-HD Female)"),
     (VOICE_CHIRP_HD_AOEDE, "Aoede (Chirp3-HD Female)"),
@@ -527,6 +595,11 @@ class Article(models.Model):
         blank=True,
         null=True,
         help_text="Notes about processing warnings, such as failed chunks in parallel TTS.",
+    )
+    audio_duration: models.PositiveIntegerField = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Duration of the audio file in seconds.",
     )
 
     def clean(self) -> None:
