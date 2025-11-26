@@ -16,7 +16,6 @@ from rest_framework.views import APIView
 
 from .models import Article, Feed
 from .tasks import process_article
-from .utils import fetch_url_content, process_url_to_text
 
 logger = logging.getLogger(__name__)
 
@@ -135,46 +134,11 @@ class FeedArticleSubmitView(APIView):
         if speed is not None:
             article.speed = speed
 
-        # If URL is provided, validate it first
-        if article.source_url:
-            # AIDEV-NOTE: Uses process_url_to_text for Firecrawl fallback on 403/404/400 errors (matches /feeds/5/add/)
-            # Use process_url_to_text to get both HTML and text with Firecrawl fallback support
-            url_success, url_text, url_error = process_url_to_text(article.source_url)
-            if not url_success:
-                return Response(
-                    {"error": f"Error fetching URL: {url_error}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Set text content from URL extraction
-            article.text_content = url_text
-
-            # We need HTML for title extraction, so fetch it separately if needed
-            # First try regular fetch, then fall back to Firecrawl for HTML
-            success, html, error = fetch_url_content(article.source_url)
-            if not success:
-                # If regular fetch fails, try Firecrawl for HTML
-                from appconfig.utils import get_firecrawl_api_key
-
-                api_key = get_firecrawl_api_key()
-                if api_key and any(code in error for code in ["404", "403", "400"]):
-                    from .utils import fetch_html_with_firecrawl
-
-                    fc_success, html, fc_error = fetch_html_with_firecrawl(
-                        article.source_url
-                    )
-                    if not fc_success:
-                        # If both fail, we still have the text from process_url_to_text
-                        html = f"<html><body><p>{url_text}</p></body></html>"
-                else:
-                    # If no API key or different error, create basic HTML from text
-                    html = f"<html><body><p>{url_text}</p></body></html>"
-
-            # Generate title if not provided
-            if not article.title:
-                from .utils import extract_title_from_html
-
-                article.title = extract_title_from_html(html) or "Untitled Article"
+        # AIDEV-NOTE: URL fetching is done ASYNC in process_article task to avoid blocking API
+        # For URL submissions, we just save the URL and let the Celery task handle fetching
+        # Title will be extracted from URL in the task if not provided
+        if article.source_url and not article.title:
+            article.title = "Processing..."  # Placeholder, will be updated by task
 
         # Run custom validation
         try:

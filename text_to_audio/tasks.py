@@ -533,7 +533,23 @@ def process_article(self, article_id: int) -> str:
 
             # Update the article with extracted text
             article.text_content = extracted_text
-            article.save(update_fields=["text_content"])
+
+            # AIDEV-NOTE: Extract title from URL's HTML if title is placeholder/missing
+            # This is done here (async) instead of in the API view to avoid blocking
+            if not article.title or article.title == "Processing...":
+                from .utils import extract_title_from_html, fetch_url_content
+
+                html_success, html_content, _ = fetch_url_content(article.source_url)
+                if html_success and html_content:
+                    extracted_title = extract_title_from_html(html_content)
+                    if extracted_title:
+                        article.title = extracted_title
+                        logger.info(
+                            f"Extracted title '{extracted_title}' from URL "
+                            f"for Article ID: {article_id}"
+                        )
+
+            article.save(update_fields=["text_content", "title"])
             logger.info(
                 f"Successfully extracted {len(extracted_text)} characters "
                 f"from URL for Article ID: {article_id}"

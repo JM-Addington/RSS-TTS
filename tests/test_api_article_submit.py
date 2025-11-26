@@ -58,20 +58,13 @@ class FeedArticleSubmitAPITests(TestCase):
         # Verify task was called
         mock_process.delay.assert_called_once_with(article.id)
 
-    @patch("text_to_audio.api_views.fetch_url_content")
-    @patch("text_to_audio.api_views.process_url_to_text")
     @patch("text_to_audio.api_views.process_article")
-    def test_submit_url_article(self, mock_process, mock_process_url, mock_fetch):
-        """Test submitting a new article with a URL."""
-        # Mock URL text extraction
-        mock_process_url.return_value = (True, "Test content extracted", None)
-        # Mock URL HTML fetch for title extraction
-        mock_fetch.return_value = (
-            True,
-            "<html><head><title>Test URL Title</title></head><body>Test content</body></html>",
-            None,
-        )
+    def test_submit_url_article(self, mock_process):
+        """Test submitting a new article with a URL.
 
+        AIDEV-NOTE: URL fetching is now async - the API returns immediately
+        and the Celery task handles URL fetching and title extraction.
+        """
         # Prepare test data
         payload = {
             "source_url": "https://example.com/test-article",
@@ -82,33 +75,31 @@ class FeedArticleSubmitAPITests(TestCase):
             self.url, data=json.dumps(payload), content_type="application/json"
         )
 
-        # Check response
+        # Check response - should return immediately without fetching URL
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.json(), {"success": True})
         self.assertEqual(Article.objects.count(), 1)
 
-        # Verify article data
+        # Verify article data - URL is saved, content will be fetched async
         article = Article.objects.first()
-        self.assertEqual(article.title, "Test URL Title")
+        self.assertEqual(
+            article.title, "Processing..."
+        )  # Placeholder until async task runs
         self.assertEqual(article.source_url, "https://example.com/test-article")
-        self.assertEqual(article.text_content, "Test content extracted")
+        self.assertEqual(article.text_content, "")  # Will be filled by async task
         self.assertEqual(article.feed, self.feed)
         self.assertEqual(article.status, Article.PROCESSING)
 
-        # Verify task was called
+        # Verify task was queued (URL fetching happens in task)
         mock_process.delay.assert_called_once_with(article.id)
-        mock_process_url.assert_called_once_with("https://example.com/test-article")
-        mock_fetch.assert_called_once_with("https://example.com/test-article")
 
-    @patch("text_to_audio.api_views.process_url_to_text")
-    def test_submit_invalid_url(self, mock_process_url):
-        """Test submitting an article with an invalid URL."""
-        # Mock URL content fetch failure
-        mock_process_url.return_value = (False, "", "Failed to fetch URL")
-
-        # Prepare test data
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_url_article_with_title(self, mock_process):
+        """Test submitting a URL article with a custom title."""
+        # Prepare test data with explicit title
         payload = {
-            "source_url": "https://invalid-url.com/test",
+            "source_url": "https://example.com/test-article",
+            "title": "My Custom Title",
         }
 
         # Make API request
@@ -117,10 +108,12 @@ class FeedArticleSubmitAPITests(TestCase):
         )
 
         # Check response
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Article.objects.count(), 0)
-        self.assertIn("error", response.json())
-        self.assertIn("Failed to fetch URL", response.json()["error"])
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Verify custom title is preserved
+        article = Article.objects.first()
+        self.assertEqual(article.title, "My Custom Title")
+        self.assertEqual(article.source_url, "https://example.com/test-article")
 
     def test_submit_both_text_and_url(self):
         """Test that submitting both text and URL fails."""
