@@ -1,6 +1,6 @@
 """Tests for TTSService facade."""
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
@@ -212,10 +212,10 @@ class TTSServiceTest(TestCase):
 
         service = TTSService(provider="google")
 
-        # Generate speech
+        # Generate speech with Chirp3-HD voice (not remapped)
         audio_bytes = service.generate_speech(
             text="Hello world",
-            voice="en-US-Journey-D",
+            voice="en-US-Chirp3-HD-Charon",
             speed=1.2,
             instructions="Speak slowly",
             response_format="mp3",
@@ -227,7 +227,7 @@ class TTSServiceTest(TestCase):
         # Verify provider call
         mock_provider.synthesize_speech.assert_called_once_with(
             text="Hello world",
-            voice_name="en-US-Journey-D",
+            voice_name="en-US-Chirp3-HD-Charon",
             speed=1.2,
             prompt="Speak slowly",
             output_format="mp3",
@@ -241,3 +241,227 @@ class TTSServiceTest(TestCase):
             service.generate_speech(text="Test", voice="test")
 
         self.assertIn("Unknown TTS provider: elevenlabs", str(cm.exception))
+
+    # --- Gemini Provider Tests ---
+
+    @patch("text_to_audio.services.tts_service.GeminiTTSProvider")
+    def test_gemini_provider_lazy_loading(self, mock_gemini_class):
+        """Test Gemini provider is lazy-loaded only when needed."""
+        mock_provider = MagicMock()
+        mock_gemini_class.return_value = mock_provider
+
+        service = TTSService(provider="google")
+
+        # Provider should not be loaded yet
+        self.assertIsNone(service._gemini_provider)
+
+        # Access provider property to trigger lazy loading
+        provider = service.gemini_provider
+
+        # Provider should now be loaded
+        self.assertEqual(provider, mock_provider)
+        mock_gemini_class.assert_called_once()
+
+    # --- Voice Validation Tests ---
+
+    def test_is_gemini_voice_returns_true_for_short_names(self):
+        """Test _is_gemini_voice correctly identifies Gemini short voice names."""
+        service = TTSService(provider="google")
+
+        # Test various Gemini voice names
+        self.assertTrue(service._is_gemini_voice("Kore"))
+        self.assertTrue(service._is_gemini_voice("Charon"))
+        self.assertTrue(service._is_gemini_voice("Aoede"))
+        self.assertTrue(service._is_gemini_voice("Fenrir"))
+        self.assertTrue(service._is_gemini_voice("Zephyr"))
+
+    def test_is_gemini_voice_returns_false_for_long_names(self):
+        """Test _is_gemini_voice returns False for full Cloud TTS names."""
+        service = TTSService(provider="google")
+
+        # Chirp3-HD voices
+        self.assertFalse(service._is_gemini_voice("en-US-Chirp3-HD-Charon"))
+        self.assertFalse(service._is_gemini_voice("en-US-Chirp3-HD-Kore"))
+
+        # Neural2 voices
+        self.assertFalse(service._is_gemini_voice("en-US-Neural2-A"))
+        self.assertFalse(service._is_gemini_voice("en-US-Neural2-D"))
+
+        # Journey voices
+        self.assertFalse(service._is_gemini_voice("en-US-Journey-D"))
+
+    def test_is_gemini_voice_returns_false_for_openai_voices(self):
+        """Test _is_gemini_voice returns False for OpenAI voices."""
+        service = TTSService(provider="google")
+
+        self.assertFalse(service._is_gemini_voice("alloy"))
+        self.assertFalse(service._is_gemini_voice("nova"))
+        self.assertFalse(service._is_gemini_voice("echo"))
+
+    def test_validate_voice_openai_provider_with_openai_voice(self):
+        """Test voice validation passes OpenAI voice for OpenAI provider."""
+        service = TTSService(provider="openai")
+
+        result = service._validate_voice_for_provider("alloy")
+        self.assertEqual(result, "alloy")
+
+        result = service._validate_voice_for_provider("nova")
+        self.assertEqual(result, "nova")
+
+    def test_validate_voice_openai_provider_with_google_voice(self):
+        """Test voice validation defaults to 'alloy' when Google voice used with OpenAI."""
+        service = TTSService(provider="openai")
+
+        result = service._validate_voice_for_provider("Kore")
+        self.assertEqual(result, "alloy")
+
+        result = service._validate_voice_for_provider("en-US-Chirp3-HD-Charon")
+        self.assertEqual(result, "alloy")
+
+    @patch("text_to_audio.services.tts_service.get_google_tts_voice_type")
+    def test_validate_voice_google_provider_with_openai_voice(
+        self, mock_get_voice_type
+    ):
+        """Test voice validation defaults to Gemini voice when OpenAI voice used with Google."""
+        mock_get_voice_type.return_value = "gemini"
+
+        service = TTSService(provider="google")
+
+        result = service._validate_voice_for_provider("alloy")
+        self.assertEqual(result, "Kore")  # Default Gemini voice
+
+    def test_validate_voice_google_provider_with_gemini_voice(self):
+        """Test voice validation passes Gemini short voice names for Google provider."""
+        service = TTSService(provider="google")
+
+        result = service._validate_voice_for_provider("Kore")
+        self.assertEqual(result, "Kore")
+
+        result = service._validate_voice_for_provider("Charon")
+        self.assertEqual(result, "Charon")
+
+    def test_validate_voice_google_provider_with_chirp3_voice(self):
+        """Test voice validation passes Chirp3-HD voices for Google provider."""
+        service = TTSService(provider="google")
+
+        result = service._validate_voice_for_provider("en-US-Chirp3-HD-Charon")
+        self.assertEqual(result, "en-US-Chirp3-HD-Charon")
+
+    @patch("text_to_audio.services.tts_service.get_google_tts_voice_type")
+    def test_validate_voice_google_provider_remaps_journey_voices(
+        self, mock_get_voice_type
+    ):
+        """Test Journey voices are remapped to configured default for gemini/chirp3."""
+        # AIDEV-NOTE: Journey voices are deprecated and should be remapped
+        # when the configured voice type is gemini or chirp3
+        mock_get_voice_type.return_value = "gemini"
+        service = TTSService(provider="google")
+
+        # Journey-D should be remapped to Kore (default gemini voice)
+        result = service._validate_voice_for_provider("en-US-Journey-D")
+        self.assertEqual(result, "Kore")
+
+        result = service._validate_voice_for_provider("en-US-Journey-O")
+        self.assertEqual(result, "Kore")
+
+    @patch("text_to_audio.services.tts_service.get_google_tts_voice_type")
+    def test_validate_voice_google_provider_remaps_journey_to_chirp3(
+        self, mock_get_voice_type
+    ):
+        """Test Journey voices are remapped to chirp3 default when chirp3 is configured."""
+        mock_get_voice_type.return_value = "chirp3"
+        service = TTSService(provider="google")
+
+        # Journey-D should be remapped to Chirp3-HD default
+        result = service._validate_voice_for_provider("en-US-Journey-D")
+        self.assertEqual(result, "en-US-Chirp3-HD-Charon")
+
+    # --- Gemini Voice Routing Tests ---
+
+    @patch("text_to_audio.services.tts_service.GeminiTTSProvider")
+    def test_generate_speech_routes_gemini_voice_to_gemini_provider(
+        self, mock_gemini_class
+    ):
+        """Test that Gemini short voice names are routed to GeminiTTSProvider."""
+        mock_provider = MagicMock()
+        mock_provider.synthesize_speech.return_value = b"gemini_audio_data"
+        mock_gemini_class.return_value = mock_provider
+
+        service = TTSService(provider="google")
+
+        # Generate speech with Gemini voice
+        audio_bytes = service.generate_speech(
+            text="Hello world",
+            voice="Kore",  # Gemini short name
+            speed=1.0,
+            instructions="Speak warmly",
+            response_format="wav",
+        )
+
+        # Verify result
+        self.assertEqual(audio_bytes, b"gemini_audio_data")
+
+        # Verify Gemini provider was called (not Google Cloud TTS)
+        mock_provider.synthesize_speech.assert_called_once_with(
+            text="Hello world",
+            voice_name="Kore",
+            prompt="Speak warmly",
+            output_format="wav",
+            model="flash",
+        )
+
+    @patch("text_to_audio.services.tts_service.GoogleTTSProvider")
+    def test_generate_speech_routes_chirp3_voice_to_google_provider(
+        self, mock_google_class
+    ):
+        """Test that Chirp3-HD voice names are routed to GoogleTTSProvider."""
+        mock_provider = MagicMock()
+        mock_provider.synthesize_speech.return_value = b"google_cloud_audio_data"
+        mock_google_class.return_value = mock_provider
+
+        service = TTSService(provider="google")
+
+        # Generate speech with Chirp3-HD voice
+        audio_bytes = service.generate_speech(
+            text="Hello world",
+            voice="en-US-Chirp3-HD-Charon",  # Full Cloud TTS name
+            speed=1.2,
+            response_format="mp3",
+        )
+
+        # Verify result
+        self.assertEqual(audio_bytes, b"google_cloud_audio_data")
+
+        # Verify Google Cloud TTS provider was called
+        mock_provider.synthesize_speech.assert_called_once()
+
+    @patch("text_to_audio.services.tts_service.GeminiTTSProvider")
+    @patch("text_to_audio.services.tts_service.GoogleTTSProvider")
+    def test_generate_speech_gemini_fallback_to_google_on_error(
+        self, mock_google_class, mock_gemini_class
+    ):
+        """Test that Gemini failures fall back to Google Cloud TTS."""
+        # Gemini provider fails
+        mock_gemini_provider = MagicMock()
+        mock_gemini_provider.synthesize_speech.side_effect = Exception(
+            "Gemini API error"
+        )
+        mock_gemini_class.return_value = mock_gemini_provider
+
+        # Google provider succeeds
+        mock_google_provider = MagicMock()
+        mock_google_provider.synthesize_speech.return_value = b"fallback_audio"
+        mock_google_class.return_value = mock_google_provider
+
+        service = TTSService(provider="google")
+
+        # Generate speech with Gemini voice - should fall back to Google
+        audio_bytes = service.generate_speech(
+            text="Hello world",
+            voice="Kore",  # Gemini short name
+        )
+
+        # Verify fallback to Google provider
+        self.assertEqual(audio_bytes, b"fallback_audio")
+        mock_gemini_provider.synthesize_speech.assert_called_once()
+        mock_google_provider.synthesize_speech.assert_called_once()
