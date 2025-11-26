@@ -69,13 +69,13 @@ class ArticleSubmissionSerializer(serializers.Serializer):
                 "You cannot provide both text_content and source_url."
             )
 
-        # Check text content length - max 30,000 words
+        # Check text content length - max 40,000 words
         if text_content:
             word_count = len(text_content.split())
-            if word_count > 30000:
+            if word_count > 40000:
                 raise serializers.ValidationError(
                     f"Text content is too long ({word_count:,} words). "
-                    f"Please limit to 30,000 words or less."
+                    f"Please limit to 40,000 words or less."
                 )
 
         return data

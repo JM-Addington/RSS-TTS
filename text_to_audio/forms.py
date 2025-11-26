@@ -128,13 +128,13 @@ class ArticleSubmissionForm(forms.ModelForm):
                     f"File is too large. Maximum file size is 10MB. Your file is {document_file.size / (1024 * 1024):.1f}MB."
                 )
 
-        # Enforce 30,000-word limit for pasted text content
+        # Enforce 40,000-word limit for pasted text content
         if text_content:
             word_count = len(text_content.split())
-            if word_count > 30000:
+            if word_count > 40000:
                 raise ValidationError(
                     f"Text content is too long ({word_count:,} words). "
-                    f"Please limit to 30,000 words or less. "
+                    f"Please limit to 40,000 words or less. "
                     f"Consider using a URL instead for longer articles."
                 )
 

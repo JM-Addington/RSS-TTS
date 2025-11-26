@@ -555,13 +555,13 @@ def process_article(self, article_id: int) -> str:
                 f"from URL for Article ID: {article_id}"
             )
 
-        # Enforce 30,000-word limit after URL extraction (applies to both URL and pasted content)
+        # Enforce 40,000-word limit after URL extraction (applies to both URL and pasted content)
         if article.text_content:
             word_count = len(article.text_content.split())
-            if word_count > 30000:
+            if word_count > 40000:
                 error_msg = (
                     f"Article content is too long ({word_count:,} words). "
-                    f"This system supports articles up to 30,000 words. "
+                    f"This system supports articles up to 40,000 words. "
                     f"Please try a shorter article or excerpt."
                 )
                 logger.error(
