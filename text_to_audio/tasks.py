@@ -1880,6 +1880,19 @@ def process_incoming_email(self, email_payload: dict) -> str:
                     )
                     break
 
+            # AIDEV-NOTE: Handle plaintext and markdown attachments - no extraction needed
+            elif content_type in ["text/plain", "text/markdown", "text/x-markdown"]:
+                text_content_from_file = file_data.decode("utf-8")
+                if text_content_from_file.strip():
+                    final_text_content = text_content_from_file
+                    processed_attachment = True
+                    if not title or title == "Email Article":
+                        title = os_module.path.splitext(filename)[0]
+                    logger.info(
+                        f"Read {len(final_text_content)} chars from text/markdown attachment"
+                    )
+                    break
+
         except Exception as e:
             logger.warning(f"Failed to process attachment {filename}: {e}")
             continue

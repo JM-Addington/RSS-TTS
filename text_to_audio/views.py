@@ -693,11 +693,29 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                         "Try saving the file as UTF-8 and uploading again.",
                     )
                     return self.form_invalid(form)
+            # AIDEV-NOTE: Plaintext and markdown - read content directly, no extraction needed
+            elif content_type in ["text/plain", "text/markdown", "text/x-markdown"]:
+                try:
+                    document_file.seek(0)  # Reset file pointer to beginning
+                    extracted_text = document_file.read().decode("utf-8")
+                    if not extracted_text.strip():
+                        form.add_error(
+                            "document_file",
+                            "The file appears to be empty. Please upload a file with content.",
+                        )
+                        return self.form_invalid(form)
+                except UnicodeDecodeError:
+                    form.add_error(
+                        "document_file",
+                        "Unable to decode the file. The file might use an unsupported encoding. "
+                        "Try saving the file as UTF-8 and uploading again.",
+                    )
+                    return self.form_invalid(form)
             else:
                 # This case should ideally be caught by form validation, but as a fallback:
                 form.add_error(
                     "document_file",
-                    f"Unsupported file type: {content_type}. Only PDF and HTML files are supported.",
+                    f"Unsupported file type: {content_type}. Only PDF, HTML, TXT, and Markdown files are supported.",
                 )
                 return self.form_invalid(form)
 

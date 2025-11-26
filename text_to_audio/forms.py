@@ -24,7 +24,7 @@ class ArticleSubmissionForm(forms.ModelForm):
 
     document_file = forms.FileField(
         required=False,
-        help_text="Upload a PDF or HTML file (max 10MB). Provide either a URL, text content, or a file - not multiple.",
+        help_text="Upload a PDF, HTML, TXT, or Markdown file (max 10MB). Provide either a URL, text content, or a file - not multiple.",
     )
 
     class Meta:
@@ -107,10 +107,18 @@ class ArticleSubmissionForm(forms.ModelForm):
 
         if document_file:
             # Validate file type
+            # AIDEV-NOTE: Allowed types: PDF, HTML, plaintext (.txt/.text), markdown (.md)
             content_type = document_file.content_type
-            if content_type not in ["application/pdf", "text/html"]:
+            allowed_types = [
+                "application/pdf",
+                "text/html",
+                "text/plain",
+                "text/markdown",
+                "text/x-markdown",
+            ]
+            if content_type not in allowed_types:
                 raise ValidationError(
-                    "Invalid file type. Only PDF and HTML files are allowed."
+                    "Invalid file type. Only PDF, HTML, TXT, and Markdown files are allowed."
                 )
 
             # Validate file size (10MB limit)
@@ -206,7 +214,8 @@ class ArticleVoiceForm(forms.Form):
 
     tts_provider = forms.ChoiceField(
         required=False,
-        choices=[("", "Use feed/global default")] + [
+        choices=[("", "Use feed/global default")]
+        + [
             ("openai", "OpenAI"),
             ("google", "Google Cloud TTS"),
         ],
@@ -410,7 +419,8 @@ class FeedForm(forms.ModelForm):
     # Add TTS provider selection
     tts_provider = forms.ChoiceField(
         required=False,
-        choices=[("", "Use global default")] + [
+        choices=[("", "Use global default")]
+        + [
             ("openai", "OpenAI"),
             ("google", "Google Cloud TTS"),
         ],
