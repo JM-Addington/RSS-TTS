@@ -59,6 +59,40 @@ class CostCalculatorTests(TestCase):
         # Expected: 1000 * 30.00 / 1,000,000 = 0.030
         self.assertEqual(cost, Decimal("0.030000"))
 
+    def test_calculate_tts_cost_gpt4o_mini_tts(self):
+        """Test cost calculation for gpt-4o-mini-tts model."""
+        cost = calculate_tts_cost("gpt-4o-mini-tts", character_count=1000)
+        # Expected: 1000 * 12.60 / 1,000,000 = 0.0126
+        self.assertEqual(cost, Decimal("0.012600"))
+
+    def test_calculate_tts_cost_google_provider(self):
+        """Test cost calculation for Google TTS provider."""
+        # Test Neural2 voice (via voice name)
+        cost = calculate_tts_cost(
+            "en-US-Neural2-A", character_count=1000, provider="google"
+        )
+        # Expected: 1000 * 16.00 / 1,000,000 = 0.016
+        self.assertEqual(cost, Decimal("0.016000"))
+
+        # Test Journey voice (free during experimental)
+        cost = calculate_tts_cost(
+            "en-US-Journey-D", character_count=1000, provider="google"
+        )
+        # Expected: 1000 * 0.00 / 1,000,000 = 0.00
+        self.assertEqual(cost, Decimal("0.000000"))
+
+        # Test Chirp3-HD voice
+        cost = calculate_tts_cost(
+            "en-US-Chirp3-HD-Charon", character_count=1000, provider="google"
+        )
+        # Expected: 1000 * 16.00 / 1,000,000 = 0.016
+        self.assertEqual(cost, Decimal("0.016000"))
+
+        # Test Gemini voice (short name)
+        cost = calculate_tts_cost("Kore", character_count=1000, provider="google")
+        # Expected: 1000 * 16.00 / 1,000,000 = 0.016
+        self.assertEqual(cost, Decimal("0.016000"))
+
     def test_estimate_cost_from_total_tokens(self):
         """Test cost estimation when only total tokens are available."""
         # Default 75% input, 25% output

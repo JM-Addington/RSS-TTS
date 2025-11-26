@@ -17,6 +17,7 @@ def log_openai_usage(
     model_name: str = "gpt-4o-mini",
     input_tokens: Optional[int] = None,
     output_tokens: Optional[int] = None,
+    tts_provider: Optional[str] = None,
 ):
     """
     Log OpenAI API usage to the OpenAIUsageStats model with cost calculation.
@@ -35,6 +36,7 @@ def log_openai_usage(
         model_name: Name of the OpenAI model used
         input_tokens: Number of input tokens (if available)
         output_tokens: Number of output tokens (if available)
+        tts_provider: TTS provider ("openai" or "google") for cost calculation
     """
     try:
         from django.db import transaction
@@ -59,7 +61,9 @@ def log_openai_usage(
                 )
         elif operation_type == "TTS":
             # For TTS, tokens_used contains character count
-            estimated_cost = calculate_tts_cost(model_name, tokens_used)
+            # Pass provider for accurate Google TTS pricing
+            provider = tts_provider or "openai"
+            estimated_cost = calculate_tts_cost(model_name, tokens_used, provider)
 
         # Use transaction.atomic to ensure DB operations are isolated
         with transaction.atomic():

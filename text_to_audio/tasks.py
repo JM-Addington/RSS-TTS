@@ -177,6 +177,7 @@ def _save_openai_usage_stats(
     processing_time_ms,
     word_count,
     model_name: str,
+    tts_provider: str = None,
 ):
     """Save OpenAI usage statistics in a separate function to isolate errors.
 
@@ -189,6 +190,7 @@ def _save_openai_usage_stats(
         processing_time_ms: Processing time in milliseconds
         word_count: Number of words in the chunk
         model_name: The OpenAI model used (e.g., 'tts-1', 'tts-1-hd')
+        tts_provider: TTS provider ("openai" or "google") for cost calculation
     """
     try:
         from .services.usage_logging import log_openai_usage
@@ -203,6 +205,7 @@ def _save_openai_usage_stats(
             word_count=word_count,
             operation_type="TTS",
             model_name=model_name,
+            tts_provider=tts_provider,
         )
         logger.info(
             f"OpenAI usage stats recorded for article {article_id}, "
@@ -736,11 +739,14 @@ def process_article(self, article_id: int) -> str:
                     )
                 else:
                     # Use normal multi-voice mode
+                    # AIDEV-NOTE: Pass TTS provider to ensure ChunkTone uses correct voices
+                    tts_provider = article.tts_provider or article.feed.tts_provider
                     chunk_tone_payload = chunk_tone_service.get_payload(
                         text=text_for_chunking,
                         title=article.title or "Untitled",
                         max_chars=4000,
                         fallback_voice=fallback_voice,
+                        provider=tts_provider,
                     )
 
                 logger.info(
@@ -897,6 +903,7 @@ def process_article(self, article_id: int) -> str:
                         processing_time_ms=processing_time_ms,
                         word_count=word_count,
                         model_name=tts_model,
+                        tts_provider=tts_service.provider,
                     )
 
                 if generated_audio_files:
@@ -1104,6 +1111,7 @@ def process_article(self, article_id: int) -> str:
                             processing_time_ms=processing_time_ms,
                             word_count=word_count,
                             model_name=tts_model,
+                            tts_provider=tts_service.provider,
                         )
 
                 # Validate concatenated text matches original (if possible, or a large portion of it)
@@ -1352,6 +1360,7 @@ def process_article(self, article_id: int) -> str:
                     processing_time_ms=processing_time_ms,
                     word_count=word_count,
                     model_name=tts_model,
+                    tts_provider=tts_service.provider,
                 )
 
             if (

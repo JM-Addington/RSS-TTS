@@ -73,8 +73,8 @@ class TestChunkToneService:
         # Patch the client property
         monkeypatch.setattr(service, "_client", mock_client)
 
-        # Call the service
-        result = service.get_payload(sample_text, "Test Title", 100)
+        # Call the service (pass provider to avoid DB call)
+        result = service.get_payload(sample_text, "Test Title", 100, provider="openai")
 
         # Verify result
         assert isinstance(result, ChunkTonePayload)
@@ -119,8 +119,8 @@ class TestChunkToneService:
         # Patch the client property
         monkeypatch.setattr(service, "_client", mock_client)
 
-        # Call the service
-        result = service.get_payload(sample_text, "Test Title", 100)
+        # Call the service (pass provider to avoid DB call)
+        result = service.get_payload(sample_text, "Test Title", 100, provider="openai")
 
         # Verify result is valid (from second attempt)
         assert isinstance(result, ChunkTonePayload)
@@ -145,8 +145,8 @@ class TestChunkToneService:
         # Patch the client property
         monkeypatch.setattr(service, "_client", mock_client)
 
-        # Call the service
-        result = service.get_payload(sample_text, "Test Title", 100)
+        # Call the service (pass provider to avoid DB call)
+        result = service.get_payload(sample_text, "Test Title", 100, provider="openai")
 
         # Verify fallback result
         assert isinstance(result, ChunkTonePayload)
@@ -170,8 +170,8 @@ class TestChunkToneService:
         # Patch the client property
         monkeypatch.setattr(service, "_client", mock_client)
 
-        # Call the service
-        result = service.get_payload(sample_text, "Test Title", 100)
+        # Call the service (pass provider to avoid DB call)
+        result = service.get_payload(sample_text, "Test Title", 100, provider="openai")
 
         # Verify fallback result
         assert isinstance(result, ChunkTonePayload)
@@ -194,8 +194,8 @@ class TestChunkToneService:
         # Patch the client property
         monkeypatch.setattr(service, "_client", mock_client)
 
-        # Call the service
-        result = service.get_payload(sample_text, "Test Title", 100)
+        # Call the service (pass provider to avoid DB call)
+        result = service.get_payload(sample_text, "Test Title", 100, provider="openai")
 
         # Verify fallback result
         assert isinstance(result, ChunkTonePayload)

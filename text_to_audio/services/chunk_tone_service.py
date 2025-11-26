@@ -15,6 +15,52 @@ from text_to_audio.schemas.chunk_tone import ChunkData, ChunkTonePayload, TTSVoi
 
 logger = logging.getLogger(__name__)
 
+# AIDEV-NOTE: Provider-specific voices for ChunkTone multi-voice mode
+# OpenAI voices support full expressive range with instructions
+OPENAI_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+
+# Gemini voices (AI Studio) - all 30 voices that support prompts
+# Source: https://cloud.google.com/text-to-speech/docs/chirp3-hd
+GEMINI_VOICES = [
+    # Female voices
+    "Aoede",
+    "Kore",
+    "Leda",
+    "Zephyr",
+    "Callirrhoe",
+    "Despina",
+    "Erinome",
+    "Laomedeia",
+    "Pulcherrima",
+    "Sulafat",
+    "Vindemiatrix",
+    "Achird",
+    "Algenib",
+    # Male voices
+    "Charon",
+    "Fenrir",
+    "Puck",
+    "Achernar",
+    "Alnilam",
+    "Autonoe",
+    "Enceladus",
+    "Gacrux",
+    "Iapetus",
+    "Orus",
+    "Rasalgethi",
+    "Sadachbia",
+    "Sadaltager",
+    "Schedar",
+    "Umbriel",
+    "Zubenelgenubi",
+]
+
+# Default voice mappings by provider
+DEFAULT_VOICE_BY_PROVIDER = {
+    "openai": "alloy",
+    "google": "Aoede",  # Clear, conversational, good for general narration
+}
+
 
 def _is_mock_object(obj):
     """Check if an object is a mock (for testing)."""
@@ -41,7 +87,12 @@ class ChunkToneService:
         return self._client
 
     def get_payload(
-        self, text: str, title: str, max_chars: int, fallback_voice: str = "alloy"
+        self,
+        text: str,
+        title: str,
+        max_chars: int,
+        fallback_voice: str = "alloy",
+        provider: Optional[str] = None,
     ) -> ChunkTonePayload:
         """
         Generate ChunkTonePayload using LLM analysis.
@@ -51,11 +102,25 @@ class ChunkToneService:
             title: The article title for context
             max_chars: Maximum characters per chunk
             fallback_voice: Voice to use if LLM analysis fails
+            provider: TTS provider ("openai" or "google") for voice selection
 
         Returns:
             ChunkTonePayload with analyzed chunks and voice assignments
         """
-        prompt = self._build_prompt(text, title, max_chars)
+        # Resolve provider from config if not specified
+        if provider is None:
+            from appconfig.utils import get_default_tts_provider
+
+            provider = get_default_tts_provider()
+
+        prompt = self._build_prompt(text, title, max_chars, provider)
+
+        # Determine appropriate fallback voice for provider
+        effective_fallback = fallback_voice
+        if provider == "google" and fallback_voice in OPENAI_VOICES:
+            effective_fallback = DEFAULT_VOICE_BY_PROVIDER.get("google", "Kore")
+        elif provider == "openai" and fallback_voice in GEMINI_VOICES:
+            effective_fallback = DEFAULT_VOICE_BY_PROVIDER.get("openai", "alloy")
 
         # First attempt
         try:
@@ -72,7 +137,7 @@ class ChunkToneService:
                 logger.error(
                     f"Second attempt failed: OpenAI API error: {e2}. Using fallback."
                 )
-                return self.create_fallback_payload(text, fallback_voice)
+                return self.create_fallback_payload(text, effective_fallback)
 
     def get_single_voice_payload(
         self,
@@ -174,8 +239,61 @@ class ChunkToneService:
             ]
         )
 
-    def _build_prompt(self, text: str, title: str, max_chars: int) -> str:
-        """Build the prompt for the LLM."""
+    def _build_prompt(
+        self, text: str, title: str, max_chars: int, provider: str = "openai"
+    ) -> str:
+        """Build the prompt for the LLM.
+
+        Args:
+            text: Article text content
+            title: Article title
+            max_chars: Maximum characters per chunk
+            provider: TTS provider ("openai" or "google") for voice selection
+        """
+        # Select voices based on provider with descriptions
+        if provider == "google":
+            voice_descriptions = """
+FEMALE VOICES:
+- Aoede: Clear, conversational, mid-range, thoughtful and engaging - best for podcasts, e-learning, informative content
+- Kore: Energetic, youthful, mid-to-high pitch, confident and enthusiastic - best for upbeat commercials, tutorials
+- Leda: Composed, professional, mid-pitch with authority and calm - best for corporate training, serious narration
+- Zephyr: Energetic, bright, mid-range, perky and enthusiastic - best for upbeat commercials, children's content
+- Callirrhoe: Confident, clear, mid-range, professional and articulate - best for business presentations, IVR
+- Despina: Warm, inviting, mid-range, friendly and trustworthy - best for lifestyle commercials, customer service
+- Erinome: Professional, articulate, lower mid-range, sophisticated - best for educational content, museum guides
+- Laomedeia: Clear, conversational, mid-range, inquisitive and engaging - best for e-learning, explainer videos
+- Pulcherrima: Bright, energetic, mid-to-high, youthful and upbeat - best for commercials, animation
+- Sulafat: Warm, confident, mid-range, persuasive and articulate - best for corporate narration, marketing
+- Vindemiatrix: Calm, thoughtful, mid-to-low, mature and composed - best for meditation, reflective content
+- Achird: Youthful, mid-to-high, slightly breathy and inquisitive - best for e-learning, app tutorials
+- Algenib: Warm, confident, mid-range, friendly authority - best for corporate presentations, documentaries
+
+MALE VOICES:
+- Charon: Smooth, conversational, mid-to-low, assured and trustworthy - best for podcasts, explainer videos
+- Fenrir: Friendly, clear, mid-range, conversational and approachable - best for explainers, e-learning
+- Puck: Clear, direct, mid-range, confident "guy next door" feel - best for how-to videos, product demos
+- Achernar: Clear, mid-range, friendly and engaging - best for explainer videos, podcast intros
+- Alnilam: Energetic, mid-to-low, excited and direct - best for commercials, promotional material
+- Autonoe: Mature, deeper, resonant and thoughtful - best for documentaries, audiobooks (serious)
+- Enceladus: Energetic, enthusiastic, mid-range, high-energy - best for promos, event announcements
+- Gacrux: Smooth, confident, mid-to-low, authoritative yet approachable - best for documentaries, corporate
+- Iapetus: Friendly, mid-pitch, casual "everyman" quality - best for informal tutorials, vlogs
+- Orus: Mature, deep, resonant, calming and authoritative - best for documentaries, audiobooks
+- Rasalgethi: Conversational, mid-range, slightly inquisitive - best for podcast discussions, quirky characters
+- Sadachbia: Deeper with slight rasp, confident "cool" authority - best for movie trailers, edgy commercials
+- Sadaltager: Friendly, enthusiastic, mid-range, professional - best for presentations, webinars
+- Schedar: Friendly, mid-pitch, informal and down-to-earth - best for casual tutorials, vlogs
+- Umbriel: Smooth, mid-to-low, authoritative yet friendly - best for documentaries, audiobooks
+- Zubenelgenubi: Deep, resonant, strong authority - best for movie trailers (epic), formal announcements"""
+        else:
+            voice_descriptions = """
+- alloy: balanced, neutral voice - versatile for general narration
+- echo: warm, conversational male voice - good for friendly, approachable content
+- fable: expressive, storytelling voice - good for narrative and dramatic content
+- onyx: deep, authoritative male voice - good for serious topics and formal content
+- nova: warm, friendly female voice - good for conversational and upbeat content
+- shimmer: clear, upbeat female voice - good for energetic and positive content"""
+
         return f"""You are a text-to-speech specialist. Analyze the following article and break it into \
 logical chunks for multi-voice narration.
 
@@ -187,7 +305,8 @@ Article Text:
 Requirements:
 1. Break the text into logical chunks (maximum {max_chars} characters each)
 2. Assign appropriate voices and character names for different speakers/narrators
-3. Use these available voices: alloy, echo, fable, onyx, nova, shimmer
+3. Use these available voices with their characteristics:
+{voice_descriptions}
 4. For narrative text, use character_name "narrator"
 5. For dialogue or quotes, use appropriate character names
 6. Provide detailed TTS instructions for each chunk to guide tone, pacing, and delivery style

@@ -1,10 +1,13 @@
-"""Cost calculation utilities for OpenAI API usage."""
+"""Cost calculation utilities for TTS and LLM API usage."""
 
 import logging
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+# AIDEV-NOTE: TTS pricing per million characters, LLM pricing per million tokens
+# Sources: https://openai.com/api/pricing/, https://cloud.google.com/text-to-speech/pricing
 
 # OpenAI pricing per million tokens (as of 2025-01)
 # Source: https://www.llm-prices.com/
@@ -72,6 +75,51 @@ OPENAI_PRICING = {
         "input": Decimal("30.00"),  # $30.00 per million characters
         "output": Decimal("0"),  # No output tokens for TTS
     },
+    # gpt-4o-mini-tts uses token-based pricing (~$0.015/minute, ~$12.60/million chars)
+    "gpt-4o-mini-tts": {
+        "input": Decimal("12.60"),  # ~$12.60 per million characters (estimated)
+        "output": Decimal("0"),  # No output tokens for TTS
+    },
+}
+
+# Google Cloud TTS pricing per million characters (as of 2025-01)
+# Source: https://cloud.google.com/text-to-speech/pricing
+GOOGLE_TTS_PRICING = {
+    # Standard voices - basic quality
+    "standard": {
+        "input": Decimal("4.00"),  # $4.00 per million characters
+        "output": Decimal("0"),
+    },
+    # WaveNet voices - high quality neural synthesis
+    "wavenet": {
+        "input": Decimal("16.00"),  # $16.00 per million characters
+        "output": Decimal("0"),
+    },
+    # Neural2 voices - improved neural synthesis
+    "neural2": {
+        "input": Decimal("16.00"),  # $16.00 per million characters
+        "output": Decimal("0"),
+    },
+    # Journey voices - experimental (currently free)
+    "journey": {
+        "input": Decimal("0.00"),  # Free during experimental phase
+        "output": Decimal("0"),
+    },
+    # Chirp3-HD voices - high-definition voices
+    "chirp3": {
+        "input": Decimal("16.00"),  # $16.00 per million characters (Neural2 tier)
+        "output": Decimal("0"),
+    },
+    # Gemini AI Studio TTS voices - supports prompts
+    "gemini": {
+        "input": Decimal("16.00"),  # $16.00 per million characters (estimated)
+        "output": Decimal("0"),
+    },
+    # Studio voices - premium quality
+    "studio": {
+        "input": Decimal("160.00"),  # $160.00 per million characters
+        "output": Decimal("0"),
+    },
 }
 
 # Default pricing for unknown models (use gpt-4o-mini rates)
@@ -112,19 +160,99 @@ def calculate_llm_cost(
     return rounded_cost
 
 
-def calculate_tts_cost(model_name: str, character_count: int) -> Decimal:
+def _get_google_tts_voice_type(voice_name: str) -> str:
+    """Determine Google TTS voice type from voice name.
+
+    Args:
+        voice_name: Full voice name (e.g., "en-US-Journey-D", "Kore")
+
+    Returns:
+        Voice type key for GOOGLE_TTS_PRICING
+    """
+    voice_lower = voice_name.lower()
+
+    # Check for specific voice type prefixes in full voice names
+    if "journey" in voice_lower:
+        return "journey"
+    elif "chirp3-hd" in voice_lower or "chirp3" in voice_lower:
+        return "chirp3"
+    elif "neural2" in voice_lower:
+        return "neural2"
+    elif "wavenet" in voice_lower:
+        return "wavenet"
+    elif "studio" in voice_lower:
+        return "studio"
+    elif "standard" in voice_lower:
+        return "standard"
+
+    # Check for Gemini short voice names (AI Studio voices)
+    # These are single-word names like Kore, Charon, Fenrir, etc.
+    gemini_voices = {
+        "achernar",
+        "aoede",
+        "autonoe",
+        "callirrhoe",
+        "despina",
+        "erinome",
+        "gacrux",
+        "kore",
+        "laomedeia",
+        "leda",
+        "pulcherrima",
+        "sulafat",
+        "vindemiatrix",
+        "zephyr",
+        "achird",
+        "algenib",
+        "algieba",
+        "alnilam",
+        "charon",
+        "enceladus",
+        "fenrir",
+        "iapetus",
+        "orus",
+        "puck",
+        "rasalgethi",
+        "sadachbia",
+        "sadaltager",
+        "schedar",
+        "umbriel",
+        "zubenelgenubi",
+    }
+    if voice_lower in gemini_voices:
+        return "gemini"
+
+    # Default to neural2 for unknown Google voices
+    return "neural2"
+
+
+def calculate_tts_cost(
+    model_name: str, character_count: int, provider: str = "openai"
+) -> Decimal:
     """
     Calculate the cost of a TTS API call.
 
     Args:
-        model_name: Name of the TTS model used
+        model_name: Name of the TTS model or voice used
         character_count: Number of characters processed
+        provider: TTS provider ("openai" or "google")
 
     Returns:
         Estimated cost in USD as a Decimal
     """
-    # Get pricing for the model, fall back to tts-1 if unknown
-    if model_name in OPENAI_PRICING:
+    # Handle Google TTS provider
+    if provider == "google":
+        voice_type = _get_google_tts_voice_type(model_name)
+        if voice_type in GOOGLE_TTS_PRICING:
+            pricing = GOOGLE_TTS_PRICING[voice_type]
+            logger.debug(f"Using Google TTS pricing for voice type '{voice_type}'")
+        else:
+            pricing = GOOGLE_TTS_PRICING["neural2"]
+            logger.warning(
+                f"Unknown Google TTS voice type for '{model_name}', using neural2 pricing"
+            )
+    # Handle OpenAI TTS provider
+    elif model_name in OPENAI_PRICING:
         pricing = OPENAI_PRICING[model_name]
     else:
         pricing = OPENAI_PRICING["tts-1"]
