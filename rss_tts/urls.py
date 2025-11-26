@@ -16,6 +16,7 @@ from text_to_audio.views import (
     ArticleDetailView,
     ArticleListView,
     ArticleMediaView,
+    CostAnalyticsView,
     FeedArticleCreateView,
     FeedArticleListView,
     FeedArticleStatusView,
@@ -152,6 +153,8 @@ urlpatterns = [
         voice_preset_test,
         name="voice_preset_test",
     ),
+    # Cost analytics
+    path("costs/", CostAnalyticsView.as_view(), name="cost-analytics"),
     path("", HomeView.as_view(), name="home"),
 ]
 

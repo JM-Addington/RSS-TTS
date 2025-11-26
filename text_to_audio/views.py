@@ -45,7 +45,14 @@ from .forms import (
     VoicePresetForm,
     VoiceSampleForm,
 )
-from .models import Article, Feed, FollowedFeed, UserVoicePreset, UserVoiceProfile
+from .models import (
+    Article,
+    Feed,
+    FollowedFeed,
+    OpenAIUsageStats,
+    UserVoicePreset,
+    UserVoiceProfile,
+)
 from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
 from .tasks import process_article
@@ -1338,3 +1345,138 @@ def article_voice_settings(request, article_id):
         "text_to_audio/article_voice_settings.html",
         {"form": form, "article": article},
     )
+
+
+class CostAnalyticsView(LoginRequiredMixin, TemplateView):
+    """View for displaying cost analytics dashboard.
+
+    Shows costs broken down by:
+    - Total cost
+    - Provider (OpenAI vs Google)
+    - Model/voice
+    - Feed
+    - Operation type (LLM vs TTS)
+    - Over time (daily)
+    """
+
+    template_name = "text_to_audio/cost_analytics.html"
+
+    def get_context_data(self, **kwargs):
+        """Build context with cost analytics data."""
+        from datetime import timedelta
+        from decimal import Decimal
+
+        from django.db.models import Sum
+        from django.db.models.functions import TruncDate
+        from django.utils import timezone
+
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Get date filter from query params (default 30 days)
+        days = self.request.GET.get("days", "30")
+        try:
+            days = int(days)
+        except (ValueError, TypeError):
+            days = 30
+
+        context["selected_days"] = days
+
+        # Check if user is admin and wants all-users view
+        is_admin = hasattr(user, "profile") and user.profile.is_super_admin
+        view_all = self.request.GET.get("view") == "all" and is_admin
+        context["is_admin"] = is_admin
+        context["view_all"] = view_all
+
+        # Base queryset - filter by user unless admin viewing all
+        if view_all:
+            base_qs = OpenAIUsageStats.objects.all()
+        else:
+            base_qs = OpenAIUsageStats.objects.filter(user=user)
+
+        # Apply date filter
+        if days > 0:
+            cutoff_date = timezone.now() - timedelta(days=days)
+            base_qs = base_qs.filter(request_timestamp__gte=cutoff_date)
+
+        # Total cost
+        total_result = base_qs.aggregate(total=Sum("estimated_cost"))
+        context["total_cost"] = total_result["total"] or Decimal("0")
+
+        # Costs by operation type (LLM vs TTS)
+        costs_by_operation = (
+            base_qs.values("operation_type")
+            .annotate(total=Sum("estimated_cost"))
+            .order_by("-total")
+        )
+        context["costs_by_operation"] = list(costs_by_operation)
+
+        # Costs by model
+        costs_by_model = (
+            base_qs.values("model_name")
+            .annotate(total=Sum("estimated_cost"))
+            .order_by("-total")
+        )
+        context["costs_by_model"] = list(costs_by_model)
+
+        # Costs by provider - determine provider from model name
+        # OpenAI models: tts-1, tts-1-hd, gpt-*, etc.
+        # Google models: en-US-*, chirp, neural2, etc.
+        provider_costs = {"OpenAI": Decimal("0"), "Google": Decimal("0")}
+        for stat in base_qs.iterator():
+            model = stat.model_name.lower() if stat.model_name else ""
+            cost = stat.estimated_cost or Decimal("0")
+            if model.startswith("en-us-") or "chirp" in model or "neural2" in model:
+                provider_costs["Google"] += cost
+            else:
+                provider_costs["OpenAI"] += cost
+
+        context["costs_by_provider"] = [
+            {"provider": provider, "total": total}
+            for provider, total in provider_costs.items()
+            if total > 0
+        ]
+
+        # Costs by feed
+        costs_by_feed = (
+            base_qs.filter(article__isnull=False)
+            .values("article__feed__name")
+            .annotate(total=Sum("estimated_cost"))
+            .order_by("-total")
+        )
+        context["costs_by_feed"] = [
+            {
+                "feed_name": item["article__feed__name"] or "No Feed",
+                "total": item["total"],
+            }
+            for item in costs_by_feed
+        ]
+
+        # Costs over time (daily)
+        costs_over_time = (
+            base_qs.annotate(date=TruncDate("request_timestamp"))
+            .values("date")
+            .annotate(total=Sum("estimated_cost"))
+            .order_by("date")
+        )
+        context["costs_over_time"] = list(costs_over_time)
+
+        # Costs by user (admin only, when viewing all)
+        if view_all:
+            costs_by_user = (
+                base_qs.values("user__username")
+                .annotate(total=Sum("estimated_cost"))
+                .order_by("-total")
+            )
+            context["costs_by_user"] = [
+                {"username": item["user__username"], "total": item["total"]}
+                for item in costs_by_user
+            ]
+        else:
+            # For non-admins requesting view=all, show only their own data
+            if self.request.GET.get("view") == "all":
+                context["costs_by_user"] = [
+                    {"username": user.username, "total": context["total_cost"]}
+                ]
+
+        return context

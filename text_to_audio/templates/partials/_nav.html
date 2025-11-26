@@ -10,6 +10,9 @@
         <li class="nav-item">
           <a class="nav-link" href="{% url 'feed-list' %}">My Feeds</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'cost-analytics' %}"><i class="bi bi-graph-up"></i> Costs</a>
+        </li>
         {% if user.can_manage_users %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
