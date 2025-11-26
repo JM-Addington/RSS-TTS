@@ -911,11 +911,14 @@ def process_article(self, article_id: int) -> str:
                     generated_audio_files.append(chunk_temp_file_path)
                     word_count = len(chunk_data.text.split())
 
-                    # AIDEV-NOTE: For cost tracking, use voice name for Google/Gemini
-                    # (cost calculator determines pricing from voice name)
+                    # AIDEV-NOTE: For cost tracking, use validated voice name for Google/Gemini
+                    # TTSService maps invalid voices to defaults, so use the validated voice
                     # Use OpenAI model name only for OpenAI provider
                     if tts_service.provider == "google":
-                        logged_model_name = chunk_data.voice.voice
+                        # Get the actual voice used (may differ if it was mapped to a default)
+                        logged_model_name = tts_service._validate_voice_for_provider(
+                            chunk_data.voice.voice
+                        )
                     else:
                         logged_model_name = tts_model
 
@@ -1128,9 +1131,13 @@ def process_article(self, article_id: int) -> str:
                         generated_audio_files.append(chunk_temp_file_path)
                         word_count = len(chunk_text.split())
 
-                        # AIDEV-NOTE: For cost tracking, use voice name for Google/Gemini
+                        # AIDEV-NOTE: For cost tracking, use validated voice name for Google/Gemini
+                        # TTSService maps invalid voices to defaults, so use the validated voice
                         if tts_service.provider == "google":
-                            logged_model_name = tts_api_voice
+                            # Get the actual voice used (may differ from tts_api_voice if it was mapped)
+                            logged_model_name = (
+                                tts_service._validate_voice_for_provider(tts_api_voice)
+                            )
                         else:
                             logged_model_name = tts_model
 
@@ -1384,9 +1391,13 @@ def process_article(self, article_id: int) -> str:
                 generated_audio_files.append(temp_file_path)
                 word_count = len(chunk.split())
 
-                # AIDEV-NOTE: For cost tracking, use voice name for Google/Gemini
+                # AIDEV-NOTE: For cost tracking, use validated voice name for Google/Gemini
+                # TTSService maps invalid voices to defaults, so use the validated voice
                 if tts_service.provider == "google":
-                    logged_model_name = fallback_voice
+                    # Get the actual voice used (may differ from fallback_voice if it was mapped)
+                    logged_model_name = tts_service._validate_voice_for_provider(
+                        fallback_voice
+                    )
                 else:
                     logged_model_name = tts_model
 
