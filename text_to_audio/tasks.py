@@ -910,6 +910,15 @@ def process_article(self, article_id: int) -> str:
 
                     generated_audio_files.append(chunk_temp_file_path)
                     word_count = len(chunk_data.text.split())
+
+                    # AIDEV-NOTE: For cost tracking, use voice name for Google/Gemini
+                    # (cost calculator determines pricing from voice name)
+                    # Use OpenAI model name only for OpenAI provider
+                    if tts_service.provider == "google":
+                        logged_model_name = chunk_data.voice.voice
+                    else:
+                        logged_model_name = tts_model
+
                     _save_openai_usage_stats(
                         user=user,
                         article=article,
@@ -918,7 +927,7 @@ def process_article(self, article_id: int) -> str:
                         tokens_used=tokens_used,
                         processing_time_ms=processing_time_ms,
                         word_count=word_count,
-                        model_name=tts_model,
+                        model_name=logged_model_name,
                         tts_provider=tts_service.provider,
                     )
 
@@ -1118,6 +1127,13 @@ def process_article(self, article_id: int) -> str:
 
                         generated_audio_files.append(chunk_temp_file_path)
                         word_count = len(chunk_text.split())
+
+                        # AIDEV-NOTE: For cost tracking, use voice name for Google/Gemini
+                        if tts_service.provider == "google":
+                            logged_model_name = tts_api_voice
+                        else:
+                            logged_model_name = tts_model
+
                         _save_openai_usage_stats(
                             user=user,
                             article=article,
@@ -1126,7 +1142,7 @@ def process_article(self, article_id: int) -> str:
                             tokens_used=tokens_used,
                             processing_time_ms=processing_time_ms,
                             word_count=word_count,
-                            model_name=tts_model,
+                            model_name=logged_model_name,
                             tts_provider=tts_service.provider,
                         )
 
@@ -1367,6 +1383,13 @@ def process_article(self, article_id: int) -> str:
 
                 generated_audio_files.append(temp_file_path)
                 word_count = len(chunk.split())
+
+                # AIDEV-NOTE: For cost tracking, use voice name for Google/Gemini
+                if tts_service.provider == "google":
+                    logged_model_name = fallback_voice
+                else:
+                    logged_model_name = tts_model
+
                 _save_openai_usage_stats(
                     user=user,
                     article=article,
@@ -1375,7 +1398,7 @@ def process_article(self, article_id: int) -> str:
                     tokens_used=tokens_used,
                     processing_time_ms=processing_time_ms,
                     word_count=word_count,
-                    model_name=tts_model,
+                    model_name=logged_model_name,
                     tts_provider=tts_service.provider,
                 )
 
