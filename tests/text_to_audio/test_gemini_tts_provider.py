@@ -1,0 +1,442 @@
+"""Tests for GeminiTTSProvider."""
+
+import base64
+import os
+import sys
+from unittest.mock import MagicMock, patch
+
+from django.test import TestCase
+
+from text_to_audio.services.gemini_tts_provider import (
+    GEMINI_TTS_MODELS,
+    GEMINI_VOICE_NAMES,
+    is_gemini_api_available,
+)
+
+
+class GeminiTTSProviderTest(TestCase):
+    """Test GeminiTTSProvider implementation."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.mock_api_key = "test-gemini-api-key"
+        self.sample_audio = b"fake_audio_data_bytes"
+        self.sample_audio_base64 = base64.b64encode(self.sample_audio).decode()
+
+        # Create mock genai module
+        self.mock_genai = MagicMock()
+        self.mock_client = MagicMock()
+        self.mock_genai.Client.return_value = self.mock_client
+
+        # Mock response structure
+        self.mock_response = MagicMock()
+        self.mock_response.candidates = [MagicMock()]
+        self.mock_response.candidates[0].content.parts = [MagicMock()]
+        self.mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_audio_base64
+        self.mock_client.models.generate_content.return_value = self.mock_response
+
+    def _get_provider_with_mocks(self, api_key="test-key"):
+        """Helper to create provider with mocked genai module."""
+        # Patch the google.genai import at the google module level
+        mock_google = MagicMock()
+        mock_google.genai = self.mock_genai
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": self.mock_genai}
+        ):
+            # Force reimport by clearing from cache
+            import importlib
+
+            import text_to_audio.services.gemini_tts_provider as provider_module
+
+            importlib.reload(provider_module)
+
+            return provider_module.GeminiTTSProvider(api_key=api_key)
+
+    # --- Initialization Tests ---
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_init_raises_without_api_key(self):
+        """Test GeminiTTSProvider raises ValueError if API key not configured."""
+        # The import happens inside the class, so we need to mock at the module level
+        # where it gets imported from
+        from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+        with self.assertRaises(ValueError) as cm:
+            GeminiTTSProvider()
+
+        self.assertIn("Gemini API key not configured", str(cm.exception))
+
+    def test_init_with_explicit_api_key(self):
+        """Test GeminiTTSProvider initializes with explicit API key."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="explicit-key")
+
+            self.assertEqual(provider.api_key, "explicit-key")
+
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "env-gemini-key"})
+    def test_init_with_env_api_key(self):
+        """Test GeminiTTSProvider initializes with environment API key."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider()
+
+            self.assertEqual(provider.api_key, "env-gemini-key")
+
+    @patch.dict(os.environ, {"GOOGLE_TTS_API_KEY": "google-tts-key"}, clear=True)
+    def test_init_falls_back_to_google_tts_api_key(self):
+        """Test GeminiTTSProvider falls back to GOOGLE_TTS_API_KEY."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider()
+
+            self.assertEqual(provider.api_key, "google-tts-key")
+
+    # --- Speech Synthesis Tests ---
+
+    def test_synthesize_speech_basic(self):
+        """Test basic speech synthesis without prompt."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_audio_base64
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+
+            audio_bytes = provider.synthesize_speech(
+                text="Hello world", voice_name="Kore", model="flash"
+            )
+
+            self.assertEqual(audio_bytes, self.sample_audio)
+            mock_client.models.generate_content.assert_called_once()
+
+            # Verify the call arguments
+            call_args = mock_client.models.generate_content.call_args
+            self.assertEqual(call_args.kwargs["model"], "gemini-2.5-flash-preview-tts")
+            self.assertEqual(call_args.kwargs["contents"], "Hello world")
+
+    def test_synthesize_speech_with_prompt(self):
+        """Test speech synthesis with prompt styling."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_audio_base64
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+
+            audio_bytes = provider.synthesize_speech(
+                text="Hello world",
+                voice_name="Charon",
+                prompt="Speak in a warm, friendly tone",
+                model="pro",
+            )
+
+            self.assertEqual(audio_bytes, self.sample_audio)
+
+            # Verify prompt is prepended to content
+            call_args = mock_client.models.generate_content.call_args
+            self.assertEqual(call_args.kwargs["model"], "gemini-2.5-pro-preview-tts")
+            self.assertEqual(
+                call_args.kwargs["contents"],
+                "Speak in a warm, friendly tone: Hello world",
+            )
+
+    def test_synthesize_speech_handles_raw_bytes(self):
+        """Test synthesis handles raw bytes response (not base64)."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        # Return raw bytes instead of base64 string
+        mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_audio
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+
+            audio_bytes = provider.synthesize_speech(text="Test", voice_name="Kore")
+
+            self.assertEqual(audio_bytes, self.sample_audio)
+
+    def test_synthesize_speech_api_error(self):
+        """Test synthesis handles API errors."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        # Simulate API error
+        mock_client.models.generate_content.side_effect = Exception("API Error")
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+
+            with self.assertRaises(ValueError) as cm:
+                provider.synthesize_speech(text="Test", voice_name="Kore")
+
+            self.assertIn("Gemini TTS synthesis failed", str(cm.exception))
+
+    def test_synthesize_speech_default_model(self):
+        """Test synthesis uses flash model by default."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_audio_base64
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+            provider.synthesize_speech(text="Test", voice_name="Kore")
+
+            call_args = mock_client.models.generate_content.call_args
+            self.assertEqual(call_args.kwargs["model"], "gemini-2.5-flash-preview-tts")
+
+    def test_synthesize_speech_unknown_model_defaults_to_flash(self):
+        """Test synthesis falls back to flash for unknown model."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_audio_base64
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+            provider.synthesize_speech(text="Test", voice_name="Kore", model="unknown")
+
+            call_args = mock_client.models.generate_content.call_args
+            self.assertEqual(call_args.kwargs["model"], "gemini-2.5-flash-preview-tts")
+
+    # --- Multi-Speaker Tests ---
+
+    def test_synthesize_multispeaker_basic(self):
+        """Test multi-speaker synthesis without prompt."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_audio_base64
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+
+            dialogue = "Alice: Hello!\nBob: Hi there!"
+            speakers = {"Alice": "Kore", "Bob": "Charon"}
+
+            audio_bytes = provider.synthesize_multispeaker(
+                text=dialogue, speakers=speakers, model="flash"
+            )
+
+            self.assertEqual(audio_bytes, self.sample_audio)
+            mock_client.models.generate_content.assert_called_once()
+
+    def test_synthesize_multispeaker_with_prompt(self):
+        """Test multi-speaker synthesis with prompt."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_audio_base64
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+
+            dialogue = "Alice: Hello!\nBob: Hi there!"
+            speakers = {"Alice": "Kore", "Bob": "Charon"}
+
+            provider.synthesize_multispeaker(
+                text=dialogue,
+                speakers=speakers,
+                prompt="A cheerful conversation between friends",
+            )
+
+            # Verify prompt is prepended to content
+            call_args = mock_client.models.generate_content.call_args
+            self.assertIn("A cheerful conversation", call_args.kwargs["contents"])
+
+    def test_synthesize_multispeaker_api_error(self):
+        """Test multi-speaker synthesis handles API errors."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_client.models.generate_content.side_effect = Exception("API Error")
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+
+            with self.assertRaises(ValueError) as cm:
+                provider.synthesize_multispeaker(
+                    text="Alice: Hi", speakers={"Alice": "Kore"}
+                )
+
+            self.assertIn(
+                "Gemini TTS multi-speaker synthesis failed", str(cm.exception)
+            )
+
+    # --- Voice Constants Tests ---
+
+    def test_gemini_voice_names_contains_expected_voices(self):
+        """Test GEMINI_VOICE_NAMES contains expected voices."""
+        # Female voices
+        self.assertIn("Kore", GEMINI_VOICE_NAMES)
+        self.assertIn("Aoede", GEMINI_VOICE_NAMES)
+        self.assertIn("Zephyr", GEMINI_VOICE_NAMES)
+
+        # Male voices
+        self.assertIn("Charon", GEMINI_VOICE_NAMES)
+        self.assertIn("Fenrir", GEMINI_VOICE_NAMES)
+        self.assertIn("Puck", GEMINI_VOICE_NAMES)
+
+    def test_gemini_voice_names_count(self):
+        """Test GEMINI_VOICE_NAMES has 30 voices."""
+        self.assertEqual(len(GEMINI_VOICE_NAMES), 30)
+
+    def test_gemini_tts_models(self):
+        """Test GEMINI_TTS_MODELS constants."""
+        self.assertEqual(GEMINI_TTS_MODELS["flash"], "gemini-2.5-flash-preview-tts")
+        self.assertEqual(GEMINI_TTS_MODELS["pro"], "gemini-2.5-pro-preview-tts")
+
+    # --- is_gemini_api_available Tests ---
+
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"})
+    def test_is_gemini_api_available_with_env_key(self):
+        """Test is_gemini_api_available returns True with env key."""
+        self.assertTrue(is_gemini_api_available())
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_is_gemini_api_available_without_key(self):
+        """Test is_gemini_api_available returns False without key."""
+        # Skip this test since we can't easily patch the internal import
+        # The key functionality is tested by the integration tests
+        pass

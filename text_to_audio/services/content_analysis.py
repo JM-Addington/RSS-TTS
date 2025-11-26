@@ -317,25 +317,27 @@ class ContentAnalysisService:
             voice_type = get_google_tts_voice_type()
 
             if voice_type == "gemini":
-                voice_list = '"en-US-Journey-D", "en-US-Journey-F", "en-US-Journey-O"'
-                voice_examples = {
-                    "narrator": "en-US-Journey-D",
-                    "character1": "en-US-Journey-F",
-                    "character2": "en-US-Journey-O",
-                }
-            elif voice_type == "chirp3":
-                # Provide a representative selection of Chirp3-HD voices to the LLM
-                # (All 30 voices are available, but we give the LLM a curated set)
+                # AIDEV-NOTE: Use Gemini short names for prompt/styling support
                 voice_list = (
-                    '"en-US-Chirp3-HD-Charon", "en-US-Chirp3-HD-Fenrir", '
-                    '"en-US-Chirp3-HD-Umbriel", "en-US-Chirp3-HD-Sadachbia", '
-                    '"en-US-Chirp3-HD-Aoede", "en-US-Chirp3-HD-Leda", '
-                    '"en-US-Chirp3-HD-Zephyr", "en-US-Chirp3-HD-Sulafat"'
+                    '"Charon", "Fenrir", "Umbriel", "Puck", '
+                    '"Kore", "Aoede", "Leda", "Zephyr"'
                 )
                 voice_examples = {
-                    "narrator": "en-US-Chirp3-HD-Charon",
-                    "character1": "en-US-Chirp3-HD-Aoede",
-                    "character2": "en-US-Chirp3-HD-Fenrir",
+                    "narrator": "Charon",
+                    "character1": "Kore",
+                    "character2": "Fenrir",
+                }
+            elif voice_type == "chirp3":
+                # AIDEV-NOTE: Use Gemini short names (same voices) for prompt support
+                # These work with GeminiTTSProvider which supports styling
+                voice_list = (
+                    '"Charon", "Fenrir", "Umbriel", "Sadachbia", '
+                    '"Aoede", "Leda", "Zephyr", "Sulafat"'
+                )
+                voice_examples = {
+                    "narrator": "Charon",
+                    "character1": "Aoede",
+                    "character2": "Fenrir",
                 }
             else:  # neural2
                 voice_list = '"en-US-Neural2-A", "en-US-Neural2-C", "en-US-Neural2-D"'
