@@ -10,11 +10,12 @@ from typing import Any, Dict
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import serializers, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Article, Feed
+from .models import Article, Feed, UserVoicePreset
 from .tasks import process_article
 
 logger = logging.getLogger(__name__)
@@ -157,3 +158,88 @@ class FeedArticleSubmitView(APIView):
 
         # Return success response without article details
         return Response({"success": True}, status=status.HTTP_201_CREATED)
+
+
+class VoicePresetSerializer(serializers.ModelSerializer):
+    """Serializer for UserVoicePreset model."""
+
+    class Meta:
+        model = UserVoicePreset
+        fields = [
+            "id",
+            "name",
+            "voice_id",
+            "speed",
+            "affect",
+            "tone",
+            "pacing",
+            "pitch_variation",
+            "speaking_style",
+            "prompt",
+            "sample_input",
+            "description",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="List voice presets",
+        description="Returns all voice presets for the authenticated user.",
+        responses={
+            200: VoicePresetSerializer(many=True),
+            401: {"description": "Authentication required"},
+        },
+    )
+)
+class VoicePresetListView(APIView):
+    """API endpoint for listing user's voice presets."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        """Return all voice presets for the authenticated user.
+
+        Args:
+            request: The HTTP request object.
+
+        Returns:
+            A list of voice presets with their descriptions.
+        """
+        presets = UserVoicePreset.objects.filter(user=request.user).order_by("name")
+        serializer = VoicePresetSerializer(presets, many=True)
+        return Response(serializer.data)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get voice preset detail",
+        description="Returns a single voice preset by ID.",
+        responses={
+            200: VoicePresetSerializer,
+            401: {"description": "Authentication required"},
+            404: {"description": "Preset not found"},
+        },
+    )
+)
+class VoicePresetDetailView(APIView):
+    """API endpoint for retrieving a single voice preset."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, preset_id: int) -> Response:
+        """Return a single voice preset by ID.
+
+        Args:
+            request: The HTTP request object.
+            preset_id: The ID of the preset to retrieve.
+
+        Returns:
+            The voice preset details.
+        """
+        # Only return presets belonging to the authenticated user
+        preset = get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
+        serializer = VoicePresetSerializer(preset)
+        return Response(serializer.data)

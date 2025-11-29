@@ -7,7 +7,11 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from text_to_audio.api_views import FeedArticleSubmitView
+from text_to_audio.api_views import (
+    FeedArticleSubmitView,
+    VoicePresetDetailView,
+    VoicePresetListView,
+)
 from text_to_audio.feeds import UserFeed
 from text_to_audio.mailgun_views import mailgun_incoming_webhook
 from text_to_audio.views import (
@@ -114,6 +118,17 @@ urlpatterns = [
         "api/v1/feeds/<uuid:token>/articles/",
         FeedArticleSubmitView.as_view(),
         name="api-feed-article-submit",
+    ),
+    # Voice preset API endpoints
+    path(
+        "api/v1/voice-presets/",
+        VoicePresetListView.as_view(),
+        name="api-voice-preset-list",
+    ),
+    path(
+        "api/v1/voice-presets/<int:preset_id>/",
+        VoicePresetDetailView.as_view(),
+        name="api-voice-preset-detail",
     ),
     # Mailgun webhook endpoint
     path(

@@ -609,3 +609,167 @@ class VoicePresetTestViewTests(TestCase):
         self.assertIn("100 words or fewer", response.content.decode())
 
         MockTTSService.assert_not_called()
+
+
+class VoicePresetAPITests(TestCase):
+    """Tests for voice preset API endpoints."""
+
+    def setUp(self):
+        """Set up test data."""
+        from rest_framework.test import APIClient
+
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="apiuser", email="api@example.com", password="testpass123"
+        )
+        self.other_user = User.objects.create_user(
+            username="otheruser", email="other@example.com", password="testpass123"
+        )
+
+        # Create presets for main user
+        self.preset1 = UserVoicePreset.objects.create(
+            user=self.user,
+            name="News Reader",
+            voice_id="nova",
+            speed=1.0,
+            description="A clear news reading voice",
+        )
+        self.preset2 = UserVoicePreset.objects.create(
+            user=self.user,
+            name="Storyteller",
+            voice_id="echo",
+            speed=0.9,
+            description="A warm storytelling voice",
+            prompt="Speak warmly and engagingly",
+        )
+
+        # Create preset for other user
+        self.other_preset = UserVoicePreset.objects.create(
+            user=self.other_user,
+            name="Other Voice",
+            voice_id="alloy",
+            speed=1.0,
+            description="Another user's preset",
+        )
+
+    def test_list_presets_requires_auth(self):
+        """Test that listing presets requires authentication."""
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url)
+        # DRF returns 403 for unauthenticated session requests
+        self.assertIn(response.status_code, [401, 403])
+
+    def test_list_presets_returns_user_presets_only(self):
+        """Test that listing presets returns only the authenticated user's presets."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        # Should only return 2 presets (not the other user's preset)
+        self.assertEqual(len(data), 2)
+
+        # Check preset names
+        preset_names = [p["name"] for p in data]
+        self.assertIn("News Reader", preset_names)
+        self.assertIn("Storyteller", preset_names)
+        self.assertNotIn("Other Voice", preset_names)
+
+    def test_list_presets_includes_description(self):
+        """Test that listed presets include description field."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        # Find the News Reader preset
+        news_reader = next(p for p in data if p["name"] == "News Reader")
+        self.assertEqual(news_reader["description"], "A clear news reading voice")
+
+    def test_list_presets_includes_all_fields(self):
+        """Test that listed presets include all relevant fields."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        # Find the Storyteller preset
+        storyteller = next(p for p in data if p["name"] == "Storyteller")
+
+        # Check all expected fields are present
+        expected_fields = [
+            "id",
+            "name",
+            "voice_id",
+            "speed",
+            "description",
+            "prompt",
+            "created_at",
+            "updated_at",
+        ]
+        for field in expected_fields:
+            self.assertIn(field, storyteller)
+
+        self.assertEqual(storyteller["voice_id"], "echo")
+        self.assertEqual(storyteller["speed"], 0.9)
+        self.assertEqual(storyteller["prompt"], "Speak warmly and engagingly")
+
+    def test_get_preset_detail_requires_auth(self):
+        """Test that getting a preset detail requires authentication."""
+        url = reverse("api-voice-preset-detail", kwargs={"preset_id": self.preset1.id})
+        response = self.client.get(url)
+        # DRF returns 403 for unauthenticated session requests
+        self.assertIn(response.status_code, [401, 403])
+
+    def test_get_preset_detail(self):
+        """Test getting a single preset by ID."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-detail", kwargs={"preset_id": self.preset1.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        self.assertEqual(data["id"], self.preset1.id)
+        self.assertEqual(data["name"], "News Reader")
+        self.assertEqual(data["voice_id"], "nova")
+        self.assertEqual(data["speed"], 1.0)
+        self.assertEqual(data["description"], "A clear news reading voice")
+
+    def test_get_preset_detail_not_found(self):
+        """Test getting a non-existent preset returns 404."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-detail", kwargs={"preset_id": 99999})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_get_preset_detail_other_users_preset(self):
+        """Test that users cannot access other users' presets."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse(
+            "api-voice-preset-detail", kwargs={"preset_id": self.other_preset.id}
+        )
+        response = self.client.get(url)
+
+        # Should return 404, not 403 (to not leak info about other users' presets)
+        self.assertEqual(response.status_code, 404)
+
+    def test_list_presets_empty(self):
+        """Test listing presets when user has none."""
+        # Create a new user with no presets
+        empty_user = User.objects.create_user(
+            username="emptyuser", email="empty@example.com", password="testpass123"
+        )
+        self.client.force_authenticate(user=empty_user)
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data, [])
