@@ -773,3 +773,126 @@ class VoicePresetAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data, [])
+
+    def test_create_preset_requires_auth(self):
+        """Test that creating a preset requires authentication."""
+        url = reverse("api-voice-preset-list")
+        payload = {
+            "name": "New Preset",
+            "voice_id": "nova",
+            "speed": 1.0,
+        }
+        response = self.client.post(url, payload, format="json")
+        # DRF returns 403 for unauthenticated session requests
+        self.assertIn(response.status_code, [401, 403])
+
+    def test_create_preset_success(self):
+        """Test successfully creating a voice preset."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        payload = {
+            "name": "My New Preset",
+            "voice_id": "alloy",
+            "speed": 1.1,
+            "description": "A custom voice preset",
+            "prompt": "Speak clearly and confidently",
+        }
+        response = self.client.post(url, payload, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+
+        self.assertEqual(data["name"], "My New Preset")
+        self.assertEqual(data["voice_id"], "alloy")
+        self.assertEqual(data["speed"], 1.1)
+        self.assertEqual(data["description"], "A custom voice preset")
+        self.assertEqual(data["prompt"], "Speak clearly and confidently")
+        self.assertIn("id", data)
+        self.assertIn("created_at", data)
+
+        # Verify it was saved to the database
+        preset = UserVoicePreset.objects.get(id=data["id"])
+        self.assertEqual(preset.user, self.user)
+        self.assertEqual(preset.name, "My New Preset")
+
+    def test_create_preset_minimal_fields(self):
+        """Test creating a preset with only required fields."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        payload = {
+            "name": "Minimal Preset",
+            "voice_id": "echo",
+            "speed": 1.0,
+        }
+        response = self.client.post(url, payload, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data["name"], "Minimal Preset")
+        self.assertEqual(data["voice_id"], "echo")
+
+    def test_create_preset_duplicate_name(self):
+        """Test that creating a preset with duplicate name fails."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        payload = {
+            "name": "News Reader",  # Already exists for this user
+            "voice_id": "alloy",
+            "speed": 1.0,
+        }
+        response = self.client.post(url, payload, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("name", response.json())
+
+    def test_create_preset_same_name_different_user(self):
+        """Test that different users can have presets with the same name."""
+        # Create a new user
+        new_user = User.objects.create_user(
+            username="newuser", email="new@example.com", password="testpass123"
+        )
+        self.client.force_authenticate(user=new_user)
+        url = reverse("api-voice-preset-list")
+        payload = {
+            "name": "News Reader",  # Same name as existing preset but different user
+            "voice_id": "shimmer",
+            "speed": 0.9,
+        }
+        response = self.client.post(url, payload, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data["name"], "News Reader")
+
+        # Verify it belongs to the new user
+        preset = UserVoicePreset.objects.get(id=data["id"])
+        self.assertEqual(preset.user, new_user)
+
+    def test_create_preset_missing_required_fields(self):
+        """Test that creating a preset without required fields fails."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+
+        # Missing name
+        response = self.client.post(
+            url, {"voice_id": "nova", "speed": 1.0}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+        # Missing voice_id
+        response = self.client.post(url, {"name": "Test", "speed": 1.0}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_create_preset_invalid_voice_id(self):
+        """Test that creating a preset with invalid voice_id fails."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        payload = {
+            "name": "Invalid Voice",
+            "voice_id": "not_a_real_voice",
+            "speed": 1.0,
+        }
+        response = self.client.post(url, payload, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("voice_id", response.json())

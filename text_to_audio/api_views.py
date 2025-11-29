@@ -192,10 +192,20 @@ class VoicePresetSerializer(serializers.ModelSerializer):
             200: VoicePresetSerializer(many=True),
             401: {"description": "Authentication required"},
         },
-    )
+    ),
+    post=extend_schema(
+        summary="Create voice preset",
+        description="Creates a new voice preset for the authenticated user.",
+        request=VoicePresetSerializer,
+        responses={
+            201: VoicePresetSerializer,
+            400: {"description": "Invalid input or duplicate name"},
+            401: {"description": "Authentication required"},
+        },
+    ),
 )
 class VoicePresetListView(APIView):
-    """API endpoint for listing user's voice presets."""
+    """API endpoint for listing and creating voice presets."""
 
     permission_classes = [IsAuthenticated]
 
@@ -211,6 +221,33 @@ class VoicePresetListView(APIView):
         presets = UserVoicePreset.objects.filter(user=request.user).order_by("name")
         serializer = VoicePresetSerializer(presets, many=True)
         return Response(serializer.data)
+
+    def post(self, request: Request) -> Response:
+        """Create a new voice preset for the authenticated user.
+
+        Args:
+            request: The HTTP request object.
+
+        Returns:
+            The created voice preset.
+        """
+        serializer = VoicePresetSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check for duplicate name
+        name = serializer.validated_data.get("name")
+        if UserVoicePreset.objects.filter(user=request.user, name=name).exists():
+            return Response(
+                {"name": ["A preset with this name already exists."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Save with the authenticated user
+        preset = serializer.save(user=request.user)
+        return Response(
+            VoicePresetSerializer(preset).data, status=status.HTTP_201_CREATED
+        )
 
 
 @extend_schema_view(
