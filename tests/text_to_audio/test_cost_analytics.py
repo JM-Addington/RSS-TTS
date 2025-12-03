@@ -69,6 +69,7 @@ class CostAnalyticsViewTests(TestCase):
             output_tokens=200,
             model_name="gpt-4o-mini",
             operation_type="LLM",
+            provider="openai",
             estimated_cost=Decimal("0.000240"),
             processing_time_ms=500,
             word_count=100,
@@ -82,6 +83,7 @@ class CostAnalyticsViewTests(TestCase):
             tokens_used=5000,
             model_name="tts-1-hd",
             operation_type="TTS",
+            provider="openai",
             estimated_cost=Decimal("0.150000"),
             processing_time_ms=2000,
             word_count=1000,
@@ -95,6 +97,7 @@ class CostAnalyticsViewTests(TestCase):
             tokens_used=3000,
             model_name="en-US-Chirp3-HD-Acacia",
             operation_type="TTS",
+            provider="google",
             estimated_cost=Decimal("0.048000"),
             processing_time_ms=1500,
             word_count=600,
@@ -108,6 +111,7 @@ class CostAnalyticsViewTests(TestCase):
             tokens_used=2000,
             model_name="tts-1",
             operation_type="TTS",
+            provider="openai",
             estimated_cost=Decimal("0.030000"),
             processing_time_ms=1000,
             word_count=400,
@@ -127,6 +131,7 @@ class CostAnalyticsViewTests(TestCase):
             tokens_used=10000,
             model_name="tts-1-hd",
             operation_type="TTS",
+            provider="openai",
             estimated_cost=Decimal("0.300000"),
             processing_time_ms=5000,
             word_count=2000,
@@ -169,13 +174,13 @@ class CostAnalyticsViewTests(TestCase):
             for item in response.context["costs_by_provider"]
         }
 
-        # OpenAI TTS: 0.150000 + 0.030000 = 0.180000 (plus LLM 0.000240 = 0.180240)
-        # But provider grouping is based on operation_type and model, need to verify logic
-        self.assertIn(
-            "openai",
-            [p.lower() for p in costs_by_provider.keys()]
-            + list(costs_by_provider.keys()),
-        )
+        # Should have both Openai and Google (capitalized by view)
+        # OpenAI: LLM 0.000240 + TTS 0.150000 + TTS 0.030000 = 0.180240
+        # Google: TTS 0.048000
+        self.assertIn("Openai", costs_by_provider)
+        self.assertIn("Google", costs_by_provider)
+        self.assertEqual(costs_by_provider["Openai"], Decimal("0.180240"))
+        self.assertEqual(costs_by_provider["Google"], Decimal("0.048000"))
 
     def test_cost_analytics_shows_costs_by_model(self):
         """Test that costs are grouped by model."""
@@ -319,6 +324,7 @@ class CostAnalyticsAdminViewTests(TestCase):
             tokens_used=5000,
             model_name="tts-1",
             operation_type="TTS",
+            provider="openai",
             estimated_cost=Decimal("0.075000"),
             processing_time_ms=1000,
             word_count=1000,

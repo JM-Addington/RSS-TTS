@@ -1445,22 +1445,18 @@ class CostAnalyticsView(LoginRequiredMixin, TemplateView):
         )
         context["costs_by_model"] = list(costs_by_model)
 
-        # Costs by provider - determine provider from model name
-        # OpenAI models: tts-1, tts-1-hd, gpt-*, etc.
-        # Google models: en-US-*, chirp, neural2, etc.
-        provider_costs = {"OpenAI": Decimal("0"), "Google": Decimal("0")}
-        for stat in base_qs.iterator():
-            model = stat.model_name.lower() if stat.model_name else ""
-            cost = stat.estimated_cost or Decimal("0")
-            if model.startswith("en-us-") or "chirp" in model or "neural2" in model:
-                provider_costs["Google"] += cost
-            else:
-                provider_costs["OpenAI"] += cost
-
+        # Costs by provider - use the provider field directly
+        # This is much more efficient than inferring from model name
+        costs_by_provider = (
+            base_qs.values("provider")
+            .annotate(total=Sum("estimated_cost"))
+            .order_by("-total")
+        )
+        # Format provider names for display (capitalize)
         context["costs_by_provider"] = [
-            {"provider": provider, "total": total}
-            for provider, total in provider_costs.items()
-            if total > 0
+            {"provider": (item["provider"] or "openai").capitalize(), "total": item["total"]}
+            for item in costs_by_provider
+            if item["total"] and item["total"] > 0
         ]
 
         # Costs by feed
