@@ -43,7 +43,7 @@
                                             <i class="bi bi-envelope"></i> Email to Feed:
                                         </label>
                                         <div class="input-group input-group-sm">
-                                            <input type="text" class="form-control" value="{{ feed.inbound_email }}" readonly id="email-{{ feed.id }}">
+                                            <input type="text" class="form-control" value="{{ feed.inbound_email }}" readonly id="email-{{ feed.id }}" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
                                             <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('email-{{ feed.id }}')">
                                                 <i class="bi bi-clipboard"></i> Copy
                                             </button>
