@@ -60,6 +60,61 @@ def extract_title_from_html(html: str) -> str:
         return ""
 
 
+def sanitize_text_for_tts(text: str) -> str:
+    """Sanitize text for TTS by removing URLs, markdown syntax, and HTML.
+
+    AIDEV-NOTE: This function ensures clean text is sent to TTS providers.
+    Google TTS in particular fails on long URLs which appear as one "sentence".
+
+    Args:
+        text: The raw text that may contain URLs, markdown, or HTML artifacts.
+
+    Returns:
+        Cleaned text suitable for TTS synthesis.
+    """
+    if not text:
+        return ""
+
+    result = text
+
+    # Remove markdown image syntax: ![alt](url) or ![alt][ref]
+    result = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", result)
+    result = re.sub(r"!\[[^\]]*\]\[[^\]]*\]", "", result)
+
+    # Remove markdown link syntax but keep link text: [text](url) -> text
+    result = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", result)
+    result = re.sub(r"\[([^\]]*)\]\[[^\]]*\]", r"\1", result)
+
+    # Remove bare markdown-style URLs in brackets: [https://...]
+    result = re.sub(r"\[https?://[^\]]+\]", "", result)
+
+    # Remove angle-bracket URLs: <https://...>
+    result = re.sub(r"<https?://[^>]+>", "", result)
+
+    # Remove raw URLs (http/https)
+    result = re.sub(r"https?://[^\s<>\[\]()\"']+", "", result)
+
+    # Remove any remaining HTML tags
+    result = re.sub(r"<[^>]+>", "", result)
+
+    # Remove email addresses (often appear in newsletters)
+    result = re.sub(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", "", result)
+
+    # Clean up multiple consecutive whitespace (but preserve paragraph breaks)
+    result = re.sub(r"[ \t]+", " ", result)  # Multiple spaces/tabs to single space
+    result = re.sub(r"\n{3,}", "\n\n", result)  # Max 2 consecutive newlines
+    result = re.sub(r"^\s+", "", result, flags=re.MULTILINE)  # Leading whitespace on lines
+
+    # Remove empty parentheses/brackets that may remain
+    result = re.sub(r"\(\s*\)", "", result)
+    result = re.sub(r"\[\s*\]", "", result)
+
+    # Clean up any remaining artifacts
+    result = result.strip()
+
+    return result
+
+
 def _handle_http_error(status_code: int, url: str) -> Optional[Tuple[bool, str, str]]:
     """Handle common HTTP error status codes.
 
