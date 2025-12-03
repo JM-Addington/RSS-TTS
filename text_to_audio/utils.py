@@ -804,15 +804,18 @@ def log_openai_api_call(
     response_data: Optional[Dict[str, Any]] = None,
     error: Optional[Exception] = None,
     duration_ms: Optional[int] = None,
+    provider: Optional[str] = None,
 ) -> None:
-    """Log OpenAI API calls with sensitive data redaction.
+    """Log API calls with sensitive data redaction.
 
     Args:
         operation: Description of the operation (e.g., "TTS Generation", "Content Analysis")
-        request_data: The request data sent to OpenAI
-        response_data: The response data from OpenAI (if successful)
+        request_data: The request data sent to the API
+        response_data: The response data from the API (if successful)
         error: Exception if the call failed
         duration_ms: Duration of the API call in milliseconds
+        provider: The API provider name (e.g., "openai", "google"). If not provided,
+                  will attempt to detect from response_data["provider"] or default to "OpenAI"
     """
     # Create log entry structure
     log_entry = {
@@ -836,8 +839,18 @@ def log_openai_api_call(
         log_level = logging.INFO
         status = "SUCCESS"
 
+    # Determine provider name for logging
+    # Priority: explicit provider param > response_data["provider"] > default "OpenAI"
+    provider_name = provider
+    if not provider_name and response_data:
+        provider_name = response_data.get("provider")
+    if not provider_name:
+        provider_name = "OpenAI"
+    # Capitalize provider name for display (e.g., "google" -> "Google")
+    provider_display = provider_name.capitalize() if provider_name else "OpenAI"
+
     # Log with structured format
     logger.log(
         log_level,
-        f"OpenAI API Call [{status}] - {operation}: {json.dumps(log_entry, default=str, indent=2)}",
+        f"{provider_display} API Call [{status}] - {operation}: {json.dumps(log_entry, default=str, indent=2)}",
     )

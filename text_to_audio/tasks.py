@@ -179,18 +179,20 @@ def _save_openai_usage_stats(
     model_name: str,
     tts_provider: str = None,
 ):
-    """Save OpenAI usage statistics in a separate function to isolate errors.
+    """Save TTS usage statistics in a separate function to isolate errors.
+
+    Note: Function name retained for backwards compatibility with existing test mocks.
 
     Args:
         user: The user who made the request
         article: The article being processed
         article_id: The ID of the article
         chunk_index: The index of the text chunk being processed
-        tokens_used: Number of tokens used
+        tokens_used: Number of tokens/characters used
         processing_time_ms: Processing time in milliseconds
         word_count: Number of words in the chunk
-        model_name: The OpenAI model used (e.g., 'tts-1', 'tts-1-hd')
-        tts_provider: TTS provider ("openai" or "google") for cost calculation
+        model_name: The model/voice used (e.g., 'tts-1', 'en-US-Chirp3-HD-Orus')
+        tts_provider: TTS provider ("openai" or "google") for cost calculation and logging
     """
     try:
         from .services.usage_logging import log_openai_usage
@@ -207,13 +209,17 @@ def _save_openai_usage_stats(
             model_name=model_name,
             tts_provider=tts_provider,
         )
+        # Use provider name in log message (capitalize for display)
+        provider_display = (tts_provider or "openai").capitalize()
         logger.info(
-            f"OpenAI usage stats recorded for article {article_id}, "
+            f"{provider_display} usage stats recorded for article {article_id}, "
             f"chunk {chunk_index}"
         )
     except Exception as stats_exc:
+        # Use provider name in error message too
+        provider_display = (tts_provider or "openai").capitalize()
         logger.error(
-            f"Failed to save OpenAIUsageStats for article {article_id}, "
+            f"Failed to save {provider_display} usage stats for article {article_id}, "
             f"chunk {chunk_index}: {stats_exc}"
         )
 
