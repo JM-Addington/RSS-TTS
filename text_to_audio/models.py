@@ -710,11 +710,20 @@ class Article(models.Model):
 
 
 class OpenAIUsageStats(models.Model):
-    """Model to track OpenAI API usage statistics with cost tracking."""
+    """Model to track API usage statistics with cost tracking.
+
+    Note: Model name retained as OpenAIUsageStats for backwards compatibility,
+    but this model tracks usage for all providers (OpenAI, Google, etc.).
+    """
 
     OPERATION_TYPE_CHOICES = [
         ("LLM", "Language Model"),
         ("TTS", "Text-to-Speech"),
+    ]
+
+    PROVIDER_CHOICES = [
+        ("openai", "OpenAI"),
+        ("google", "Google"),
     ]
 
     user: models.ForeignKey = models.ForeignKey(
@@ -750,13 +759,19 @@ class OpenAIUsageStats(models.Model):
         null=False,
         blank=False,
         default="unknown",
-        help_text="The OpenAI model used for the request.",
+        help_text="The model or voice used for the request (e.g., 'gpt-4o-mini', 'en-US-Chirp3-HD-Orus').",
     )
     operation_type: models.CharField = models.CharField(
         max_length=10,
         choices=OPERATION_TYPE_CHOICES,
         default="LLM",
         help_text="Type of operation performed.",
+    )
+    provider: models.CharField = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        default="openai",
+        help_text="The API provider (e.g., 'openai', 'google').",
     )
     estimated_cost: models.DecimalField = models.DecimalField(
         max_digits=10,
@@ -790,6 +805,7 @@ class OpenAIUsageStats(models.Model):
             models.Index(
                 fields=["operation_type"], name="text_to_aud_operati_2db4e5_idx"
             ),
+            models.Index(fields=["provider"], name="text_to_aud_provide_idx"),
         ]
 
     def __str__(self) -> str:
