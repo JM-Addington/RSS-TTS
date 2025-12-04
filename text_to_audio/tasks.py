@@ -229,6 +229,9 @@ def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[st
     4. Word boundaries (spaces)
     5. Force splits within words as last resort
 
+    AIDEV-NOTE: Text sanitization (URL/markdown removal) is handled by TTSService.generate_speech()
+    at the API boundary, not here. This function only handles chunking.
+
     Returns:
         tuple: (success, chunks)
             - success (bool): True if all splits were at natural boundaries

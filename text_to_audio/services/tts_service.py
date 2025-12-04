@@ -25,6 +25,7 @@ from appconfig.utils import (
 
 from .gemini_tts_provider import GeminiTTSProvider
 from .google_tts_provider import GoogleTTSProvider
+from text_to_audio.utils import sanitize_text_for_tts
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +245,10 @@ class TTSService:
         Raises:
             ValueError: If provider is unknown or not configured
         """
+        # AIDEV-NOTE: Sanitize text to remove URLs/markdown before TTS
+        # This prevents Google TTS "sentence too long" errors from URLs
+        text = sanitize_text_for_tts(text)
+
         # Validate voice for provider (auto-map if needed)
         validated_voice = self._validate_voice_for_provider(voice)
 
