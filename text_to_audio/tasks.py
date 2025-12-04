@@ -28,7 +28,7 @@ from .services.chunk_tone_service import ChunkToneService
 from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
 from .services.voice_configuration import VoiceConfigurationService
 from .services.voice_parameter_generation import VoiceParameterGenerationService
-from .utils import process_url_to_text, sanitize_text_for_tts
+from .utils import process_url_to_text
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -229,7 +229,8 @@ def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[st
     4. Word boundaries (spaces)
     5. Force splits within words as last resort
 
-    AIDEV-NOTE: Sanitizes text first to remove URLs/markdown that cause TTS errors.
+    AIDEV-NOTE: Text sanitization (URL/markdown removal) is handled by TTSService.generate_speech()
+    at the API boundary, not here. This function only handles chunking.
 
     Returns:
         tuple: (success, chunks)
@@ -239,13 +240,6 @@ def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[st
     logger.debug(
         f"_chunk_text called with text of len {len(text)} and max_length {max_length}"
     )
-
-    if not text:
-        return True, []
-
-    # Sanitize text before chunking to remove URLs and markdown artifacts
-    # that can cause TTS errors (especially Google TTS "sentence too long" errors)
-    text = sanitize_text_for_tts(text)
 
     if not text:
         return True, []

@@ -60,14 +60,16 @@ def extract_title_from_html(html: str) -> str:
         return ""
 
 
-def sanitize_text_for_tts(text: str) -> str:
+def sanitize_text_for_tts(text: Optional[str]) -> str:
     """Sanitize text for TTS by removing URLs, markdown syntax, and HTML.
 
     AIDEV-NOTE: This function ensures clean text is sent to TTS providers.
     Google TTS in particular fails on long URLs which appear as one "sentence".
+    Called at the TTSService boundary to prevent TTS API errors.
 
     Args:
         text: The raw text that may contain URLs, markdown, or HTML artifacts.
+              Can be None, which returns an empty string.
 
     Returns:
         Cleaned text suitable for TTS synthesis.
@@ -103,7 +105,9 @@ def sanitize_text_for_tts(text: str) -> str:
     # Clean up multiple consecutive whitespace (but preserve paragraph breaks)
     result = re.sub(r"[ \t]+", " ", result)  # Multiple spaces/tabs to single space
     result = re.sub(r"\n{3,}", "\n\n", result)  # Max 2 consecutive newlines
-    result = re.sub(r"^\s+", "", result, flags=re.MULTILINE)  # Leading whitespace on lines
+    result = re.sub(
+        r"^\s+", "", result, flags=re.MULTILINE
+    )  # Leading whitespace on lines
 
     # Remove empty parentheses/brackets that may remain
     result = re.sub(r"\(\s*\)", "", result)

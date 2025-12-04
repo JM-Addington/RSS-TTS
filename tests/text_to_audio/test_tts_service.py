@@ -465,3 +465,131 @@ class TTSServiceTest(TestCase):
         self.assertEqual(audio_bytes, b"fallback_audio")
         mock_gemini_provider.synthesize_speech.assert_called_once()
         mock_google_provider.synthesize_speech.assert_called_once()
+
+    # --- Text Sanitization Tests ---
+
+    @patch("text_to_audio.services.tts_service.get_openai_api_key")
+    @patch("text_to_audio.services.tts_service.openai.OpenAI")
+    @patch("text_to_audio.services.tts_service.get_openai_tts_model")
+    def test_generate_speech_sanitizes_text_urls(
+        self, mock_get_model, mock_openai_class, mock_get_key
+    ):
+        """Test that generate_speech sanitizes URLs from text before TTS API call.
+
+        AIDEV-NOTE: This is the critical test that ensures sanitization happens
+        at the TTSService boundary, preventing Google TTS 'sentence too long' errors.
+        """
+        mock_get_key.return_value = "test-key"
+        mock_get_model.return_value = "tts-1-hd"
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.iter_bytes.return_value = [b"audio"]
+        mock_client.audio.speech.create.return_value = mock_response
+
+        service = TTSService(provider="openai")
+
+        # Text with URL that would cause TTS errors
+        text_with_url = (
+            "Check out https://example.com/very/long/url/path for more info."
+        )
+
+        service.generate_speech(text=text_with_url, voice="alloy")
+
+        # Verify the URL was removed from the text sent to API
+        call_args = mock_client.audio.speech.create.call_args[1]
+        self.assertNotIn("https://", call_args["input"])
+        self.assertIn("Check out", call_args["input"])
+        self.assertIn("for more info", call_args["input"])
+
+    @patch("text_to_audio.services.tts_service.get_openai_api_key")
+    @patch("text_to_audio.services.tts_service.openai.OpenAI")
+    @patch("text_to_audio.services.tts_service.get_openai_tts_model")
+    def test_generate_speech_sanitizes_text_markdown(
+        self, mock_get_model, mock_openai_class, mock_get_key
+    ):
+        """Test that generate_speech sanitizes markdown syntax from text."""
+        mock_get_key.return_value = "test-key"
+        mock_get_model.return_value = "tts-1-hd"
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.iter_bytes.return_value = [b"audio"]
+        mock_client.audio.speech.create.return_value = mock_response
+
+        service = TTSService(provider="openai")
+
+        # Text with markdown link - link text should be preserved, URL removed
+        text_with_markdown = "Click [this link](https://example.com) for details."
+
+        service.generate_speech(text=text_with_markdown, voice="alloy")
+
+        # Verify markdown syntax was processed
+        call_args = mock_client.audio.speech.create.call_args[1]
+        self.assertIn("this link", call_args["input"])  # Link text preserved
+        self.assertNotIn("example.com", call_args["input"])  # URL removed
+        self.assertNotIn("[", call_args["input"])  # Brackets removed
+
+    @patch("text_to_audio.services.tts_service.get_openai_api_key")
+    @patch("text_to_audio.services.tts_service.openai.OpenAI")
+    @patch("text_to_audio.services.tts_service.get_openai_tts_model")
+    def test_generate_speech_sanitizes_substack_style_content(
+        self, mock_get_model, mock_openai_class, mock_get_key
+    ):
+        """Test sanitization of Substack-style newsletter content.
+
+        This is the specific pattern that caused the original gRPC errors.
+        """
+        mock_get_key.return_value = "test-key"
+        mock_get_model.return_value = "tts-1-hd"
+
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.iter_bytes.return_value = [b"audio"]
+        mock_client.audio.speech.create.return_value = mock_response
+
+        service = TTSService(provider="openai")
+
+        # Substack-style content with tracking URLs
+        substack_text = (
+            "[https://substackcdn.com/image/fetch/w_36,c_scale,f_png/path]"
+            "<https://substack.com/app-link/post?token=xyz>"
+            " Some actual content here."
+        )
+
+        service.generate_speech(text=substack_text, voice="alloy")
+
+        # Verify tracking URLs were removed
+        call_args = mock_client.audio.speech.create.call_args[1]
+        self.assertNotIn("substackcdn.com", call_args["input"])
+        self.assertNotIn("substack.com", call_args["input"])
+        self.assertIn("Some actual content here", call_args["input"])
+
+    @patch("text_to_audio.services.tts_service.GoogleTTSProvider")
+    def test_generate_speech_google_sanitizes_text(self, mock_google_class):
+        """Test that Google provider also receives sanitized text."""
+        mock_provider = MagicMock()
+        mock_provider.synthesize_speech.return_value = b"google_audio"
+        mock_google_class.return_value = mock_provider
+
+        service = TTSService(provider="google")
+
+        # Text with URL
+        text_with_url = "Visit https://example.com for more."
+
+        service.generate_speech(
+            text=text_with_url,
+            voice="en-US-Chirp3-HD-Charon",
+        )
+
+        # Verify URL was removed from text sent to Google provider
+        call_args = mock_provider.synthesize_speech.call_args[1]
+        self.assertNotIn("https://", call_args["text"])
+        self.assertIn("Visit", call_args["text"])
+        self.assertIn("for more", call_args["text"])
