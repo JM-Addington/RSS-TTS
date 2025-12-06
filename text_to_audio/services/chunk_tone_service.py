@@ -294,40 +294,108 @@ MALE VOICES:
 - nova: warm, friendly female voice - good for conversational and upbeat content
 - shimmer: clear, upbeat female voice - good for energetic and positive content"""
 
-        return f"""You are a text-to-speech specialist. Analyze the following article and break it into \
-logical chunks for multi-voice narration.
+        return f"""You are a text-to-speech specialist. Analyze the following article and break it into logical chunks for multi-voice narration.
 
 Article Title: {title}
 
 Article Text:
 {text}
 
-Requirements:
-1. Break the text into logical chunks (maximum {max_chars} characters each)
-2. Assign appropriate voices and character names for different speakers/narrators
-3. Use these available voices with their characteristics:
-{voice_descriptions}
-4. For narrative text, use character_name "narrator"
-5. For dialogue or quotes, use appropriate character names
-6. Provide detailed TTS instructions for each chunk to guide tone, pacing, and delivery style
+=== CHUNKING RULES ===
 
-Return ONLY a JSON object with this exact structure:
+Break the text into logical chunks (maximum {max_chars} characters each).
+
+CRITICAL: Keep sentences together when they form a continuous thought:
+- Quoted speech stays with its attribution
+- Parenthetical remarks stay with their parent sentence
+- Only split when the thought clearly changes (new topic, new speaker, paragraph break)
+
+<examples>
+<example>
+<input>A person with knowledge of the matter said, "the president is considering a new direction."</input>
+<correct>A person with knowledge of the matter said, "the president is considering a new direction."</correct>
+<incorrect_split>
+Chunk 1: A person with knowledge of the matter said,
+Chunk 2: "the president is considering a new direction."
+</incorrect_split>
+</example>
+
+<example>
+<input>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</input>
+<correct>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</correct>
+<incorrect_split>
+Chunk 1: Raccoons are known for their love of trash
+Chunk 2: (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).
+</incorrect_split>
+</example>
+
+<example>
+<input>The CEO announced, "We're expanding to Europe," and the crowd erupted in applause.</input>
+<correct>The CEO announced, "We're expanding to Europe," and the crowd erupted in applause.</correct>
+<incorrect_split>
+Chunk 1: The CEO announced, "We're expanding to Europe,"
+Chunk 2: and the crowd erupted in applause.
+</incorrect_split>
+</example>
+</examples>
+
+=== TEXT NORMALIZATION RULES ===
+
+Abbreviations WITHOUT periods:
+- US government (not U.S. government)
+- UK economy (not U.K. economy)
+- EU regulations (not E.U. regulations)
+
+Abbreviations that stay as letters (spoken letter-by-letter):
+- AI, GPT, CPU, FBI, CIA, NASA, CEO, CFO stay as-is
+
+<examples>
+<example>
+<input>The U.S. government announced new E.U. trade talks.</input>
+<output>The US government announced new EU trade talks.</output>
+</example>
+
+<example>
+<input>Dr. Smith from the U.K. met with CEO Johnson.</input>
+<output>Doctor Smith from the UK met with CEO Johnson.</output>
+</example>
+</examples>
+
+=== VOICE ASSIGNMENT ===
+
+Available voices:
+{voice_descriptions}
+
+Guidelines:
+- For narrative text, use character_name "narrator"
+- For dialogue or quotes, use appropriate character names
+- Provide detailed TTS instructions for each chunk
+
+=== OUTPUT FORMAT ===
+
+Return ONLY a JSON object:
 {{
   "chunks": [
     {{
       "text": "chunk text here",
       "voice": {{"voice": "voice_name"}},
       "character_name": "narrator_or_character_name",
-      "instructions": "Detailed TTS instructions describing affect, tone, pacing, pitch variation, and speaking style for this specific chunk"
+      "instructions": "Detailed TTS instructions describing affect, tone, pacing, pitch variation, and speaking style"
     }}
   ]
 }}
 
-Example instructions:
-- "Speak with enthusiasm and energy. Use an upbeat tone with varied pitch. Moderate pace for clarity."
-- "Use a calm, authoritative tone. Steady pace with clear enunciation. Professional news delivery style."
-- "Convey emotion and intimacy. Slower pace with gentle inflection. Personal storytelling style."
-- "Use dramatic emphasis. Varied pacing to build tension. Dynamic pitch variation for engagement."
+<examples>
+<example>
+<instructions>"Speak with enthusiasm and energy. Use an upbeat tone with varied pitch. Moderate pace for clarity."</instructions>
+</example>
+<example>
+<instructions>"Use a calm, authoritative tone. Steady pace with clear enunciation. Professional news delivery style."</instructions>
+</example>
+<example>
+<instructions>"Convey emotion and intimacy. Slower pace with gentle inflection. Personal storytelling style."</instructions>
+</example>
+</examples>
 
 The JSON must be valid and parseable. Do not include any other text or explanations."""
 
@@ -335,35 +403,96 @@ The JSON must be valid and parseable. Do not include any other text or explanati
         self, text: str, title: str, max_chars: int, voice: str
     ) -> str:
         """Build the prompt for single-voice mode with text normalization."""
-        return f"""You are a text-to-speech preprocessing specialist. Prepare the following article for TTS by:
-
-1. Breaking it into logical chunks (maximum {max_chars} characters each)
-2. Expanding abbreviations that are normally spoken as words for natural speech
-3. Converting dates and numbers to spoken form
-4. Maintaining the original meaning while optimizing for speech
-5. Do not use Markdown formatting in the final text, you can consider it during the analysis.
+        return f"""You are a text-to-speech preprocessing specialist. Prepare the following article for TTS.
 
 Article Title: {title}
 
 Article Text:
 {text}
 
-Text Normalization Rules:
-- Expand state abbreviations: VA → Virginia, CA → California, NY → New York, etc.
-- Expand titles: Mr. → Mister, Mrs. → Missus, Dr. → Doctor, Prof. → Professor, etc.
-- Expand common abbreviations: St. → Street, Ave. → Avenue, Co. → Company, Inc. → Incorporated, etc.
-- Keep abbreviations that are typically spoken letter by letter (e.g., AI, GPT, CPU) as-is.
-- Convert dates: 1/1/2000 → January first, two thousand; 12/25/2025 → December twenty-fifth, twenty twenty-five
-- Convert times: 3:30 PM → three thirty P M, 9:00 AM → nine o'clock A M
-- Spell out numbers in context: "5 people" → "five people", "$100" → "one hundred dollars"
-- Expand units: kg → kilograms, mi → miles, ft → feet, etc.
-- Handle special cases: U.S. → United States, U.K. → United Kingdom, E.U. → European Union
+=== CHUNKING RULES ===
 
-Return ONLY a JSON object with this exact structure:
+Break the text into logical chunks (maximum {max_chars} characters each).
+
+CRITICAL: Keep sentences together when they form a continuous thought:
+- Quoted speech stays with its attribution
+- Parenthetical remarks stay with their parent sentence
+- Only split when the thought clearly changes (new topic, new speaker, paragraph break)
+
+<examples>
+<example>
+<input>A person with knowledge of the matter said, "the president is considering a new direction."</input>
+<correct>A person with knowledge of the matter said, "the president is considering a new direction."</correct>
+<incorrect_split>
+Chunk 1: A person with knowledge of the matter said,
+Chunk 2: "the president is considering a new direction."
+</incorrect_split>
+</example>
+
+<example>
+<input>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</input>
+<correct>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</correct>
+<incorrect_split>
+Chunk 1: Raccoons are known for their love of trash
+Chunk 2: (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).
+</incorrect_split>
+</example>
+
+<example>
+<input>The CEO announced, "We're expanding to Europe," and the crowd erupted in applause.</input>
+<correct>The CEO announced, "We're expanding to Europe," and the crowd erupted in applause.</correct>
+<incorrect_split>
+Chunk 1: The CEO announced, "We're expanding to Europe,"
+Chunk 2: and the crowd erupted in applause.
+</incorrect_split>
+</example>
+</examples>
+
+=== TEXT NORMALIZATION RULES ===
+
+Abbreviations WITHOUT periods (spoken as single words or expanded):
+- US government (not U.S. government)
+- UK economy (not U.K. economy)
+- EU regulations (not E.U. regulations)
+- Expand state abbreviations: VA → Virginia, CA → California, NY → New York
+- Expand titles: Mr → Mister, Mrs → Missus, Dr → Doctor, Prof → Professor
+- Expand street terms: St → Street, Ave → Avenue, Blvd → Boulevard
+
+<examples>
+<example>
+<input>The U.S. government announced new E.U. trade talks.</input>
+<output>The US government announced new EU trade talks.</output>
+</example>
+
+<example>
+<input>Dr. Smith from the U.K. met with Mr. Johnson.</input>
+<output>Doctor Smith from the UK met with Mister Johnson.</output>
+</example>
+
+<example>
+<input>She lives at 123 Main St., Washington, D.C.</input>
+<output>She lives at one twenty-three Main Street, Washington, DC.</output>
+</example>
+</examples>
+
+Abbreviations that stay as letters (spoken letter-by-letter):
+- AI, GPT, CPU, FBI, CIA, NASA, CEO, CFO stay as-is
+- These are pronounced as individual letters, not words
+
+Numbers and dates:
+- Spell out numbers in context: "5 people" → "five people", "$100" → "one hundred dollars"
+- Convert dates: 1/1/2000 → January first, two thousand
+- Convert times: 3:30 PM → three thirty PM, 9:00 AM → nine AM
+
+Do not use Markdown formatting in the final text.
+
+=== OUTPUT FORMAT ===
+
+Return ONLY a JSON object:
 {{
   "chunks": [
     {{
-      "text": "normalized chunk text here with all abbreviations expanded",
+      "text": "normalized chunk text here",
       "voice": {{"voice": "{voice}"}},
       "character_name": "narrator",
       "instructions": "Detailed TTS instructions for tone and pacing"
@@ -371,9 +500,7 @@ Return ONLY a JSON object with this exact structure:
   ]
 }}
 
-IMPORTANT: All chunks must use voice "{voice}" and character_name "narrator".
-The text in each chunk should expand abbreviations normally spoken as words while leaving letter-by-letter abbreviations unchanged. Numbers should be converted to spoken form.
-Break at natural pauses like paragraphs or sentence boundaries when possible."""
+All chunks must use voice "{voice}" and character_name "narrator"."""
 
     def _call_openai(self, prompt: str) -> dict:
         """

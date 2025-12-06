@@ -231,7 +231,10 @@ class TestChunkToneService:
         assert "JSON" in prompt
         assert "chunks" in prompt
         assert "instructions" in prompt
-        assert "tone, pacing, and delivery style" in prompt
+        assert "tone, pacing" in prompt
+        # Verify few-shot examples are included
+        assert "<examples>" in prompt
+        assert "US government" in prompt  # Abbreviation rule without periods
 
     def test_voice_validation(self):
         """Test TTSVoice validation."""
@@ -293,5 +296,29 @@ class TestChunkToneService:
     def test_single_voice_prompt_respects_letter_abbreviations(self, service):
         """Ensure single-voice prompt keeps letter-by-letter abbreviations."""
         prompt = service._build_single_voice_prompt("Text", "Title", 1000, "alloy")
-        assert "spoken as words" in prompt
-        assert "letter by letter" in prompt
+        # Letter-by-letter abbreviations stay as-is
+        assert "letter-by-letter" in prompt or "spoken letter-by-letter" in prompt
+        assert "AI, GPT, CPU" in prompt  # These stay as letters
+        # Few-shot examples are included
+        assert "<examples>" in prompt
+        assert "US government" in prompt  # Abbreviation without periods
+
+    def test_single_voice_prompt_chunking_rules(self, service):
+        """Ensure single-voice prompt has proper chunking rules for quotes/parentheses."""
+        prompt = service._build_single_voice_prompt("Text", "Title", 1000, "alloy")
+        # Verify chunking rules for quoted speech
+        assert "Quoted speech stays with its attribution" in prompt
+        # Verify chunking rules for parenthetical remarks
+        assert "Parenthetical remarks stay with their parent sentence" in prompt
+        # Verify few-shot examples for incorrect splits
+        assert "incorrect_split" in prompt
+
+    def test_multi_voice_prompt_chunking_rules(self, service):
+        """Ensure multi-voice prompt has proper chunking rules for quotes/parentheses."""
+        prompt = service._build_prompt("Text", "Title", 1000)
+        # Verify chunking rules for quoted speech
+        assert "Quoted speech stays with its attribution" in prompt
+        # Verify chunking rules for parenthetical remarks
+        assert "Parenthetical remarks stay with their parent sentence" in prompt
+        # Verify few-shot examples for incorrect splits
+        assert "incorrect_split" in prompt
