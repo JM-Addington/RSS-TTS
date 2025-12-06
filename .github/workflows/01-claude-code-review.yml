@@ -1,0 +1,283 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "src/**/*.ts"
+    #   - "src/**/*.tsx"
+    #   - "src/**/*.js"
+    #   - "src/**/*.jsx"
+  workflow_dispatch:  # Allow manual triggering for testing
+
+jobs:
+  claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write  # Changed from read to write to allow PR comments
+      issues: write        # Changed from read to write to allow issue comments
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Please review this pull request and provide feedback on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Performance considerations
+            - Security concerns
+            - Test coverage
+            
+            Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback.
+
+            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
+          
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://docs.anthropic.com/en/docs/claude-code/sdk#command-line for available options
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+
+  security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for diff analysis
+
+      - name: Run Security Scan
+        id: security-scan
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Perform a comprehensive security scan of this pull request.
+
+            **Security Areas to Review:**
+
+            1. **Injection Vulnerabilities:**
+               - SQL injection (raw queries, ORM misuse)
+               - Command injection (subprocess, os.system)
+               - XSS (unescaped template variables, mark_safe misuse)
+               - LDAP injection, XML injection
+
+            2. **Authentication & Authorization:**
+               - Missing authentication on endpoints
+               - Broken access controls
+               - Insecure session handling
+               - Hardcoded credentials or API keys
+
+            3. **Data Exposure:**
+               - Sensitive data in logs
+               - Exposed secrets in code or config
+               - Unencrypted sensitive data storage
+               - Overly permissive serializers exposing sensitive fields
+
+            4. **Input Validation:**
+               - Missing or insufficient input validation
+               - Path traversal vulnerabilities
+               - Unsafe deserialization
+               - Regex DoS (ReDoS)
+
+            5. **Django/DRF Specific:**
+               - CSRF protection disabled
+               - DEBUG mode or insecure settings
+               - Missing security headers
+               - Unsafe file upload handling
+
+            6. **Cryptographic Issues:**
+               - Weak algorithms (MD5, SHA1 for security)
+               - Hardcoded IVs or keys
+               - Insecure random number generation
+
+            **Review Process:**
+            1. Use `gh pr diff` to get the changed files
+            2. Focus on Python files, especially views, serializers, and API endpoints
+            3. Check PowerShell scripts for injection vulnerabilities
+            4. Review any configuration changes
+
+            **Output:**
+            Use `gh pr comment` to post your security findings. For each issue found:
+            - File path and line number
+            - Security vulnerability type (OWASP category if applicable)
+            - Severity (Critical/High/Medium/Low)
+            - Description of the risk
+            - Recommended fix
+
+            If no security issues are found, post a brief comment confirming the PR passed security review.
+
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+
+  authentication-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Authentication Review
+        id: authentication-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review this PR specifically for authentication and authorization vulnerabilities across ALL Django apps.
+
+            **Focus Areas:**
+
+            1. **Django UI Views** (django/AMS/*/views/*.py):
+               - Missing @login_required decorator on sensitive views
+               - Session authentication properly configured
+
+            2. **DRF API Views** (django/AMS/*/views/*.py, django/AMS/*/api/*.py):
+               - Views that should require authentication but use @permission_classes([AllowAny])
+               - Missing authentication_classes when not using defaults
+               - Endpoints accessible without proper token validation
+               - Verify TokenAuthentication is properly applied (default or explicit)
+
+            3. **API Token Format** (per CLAUDE.md):
+               - Ensure Authorization headers use uppercase 'Token' prefix: "Token {api_key}"
+               - Check PowerShell scripts and API clients for correct format
+
+            4. **DRF Permission Classes**:
+               - APIView subclasses missing permission_classes
+               - ViewSets without proper permission configuration
+               - Custom permission classes properly implemented
+
+            5. **Device Endpoints Authentication**:
+               - Verify get_or_create_device_from_request helper is used correctly
+               - Check X-AMS-Site header validation for device creation
+
+            6. **Authorization Issues**:
+               - Users accessing resources outside their tenant/organization
+               - Missing object-level permissions checks
+               - Queryset filtering by user/tenant missing
+
+            7. **Common Vulnerabilities**:
+               - Insecure direct object references (IDOR)
+               - Mass assignment vulnerabilities in serializers
+               - API endpoints exposing sensitive data without auth
+
+            **Review Process:**
+            1. Use gh pr diff to get the changed files
+            2. Focus on Python files in django/AMS/*/views/ and django/AMS/*/api/
+            3. Check each view/endpoint for proper authentication
+            4. Look for patterns that deviate from project standards (settings.py: DEFAULT_AUTHENTICATION_CLASSES = TokenAuthentication, DEFAULT_PERMISSION_CLASSES = IsAuthenticated)
+            5. Flag any endpoints that intentionally bypass auth without clear justification
+
+            **Output:**
+            Use `gh pr comment` to post your findings. Be specific about:
+            - Which files/lines have issues
+            - What the security risk is
+            - How to fix it (reference CLAUDE.md patterns)
+
+            Only report genuine authentication/authorization concerns. Do not report on intentionally public endpoints that are properly documented (like health checks with clear comments).
+
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+
+  placeholder-detection:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Detect Placeholder Functions
+        id: placeholder-detection
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review this PR to detect incomplete or placeholder code that should not be merged to production.
+
+            **Scan for these placeholder patterns:**
+
+            **Python Files (*.py):**
+            - Functions with only `pass` statement (unless it's an intentional abstract class or empty model)
+            - Functions with only `...` (Ellipsis)
+            - Functions that only contain `raise NotImplementedError`
+            - TODO/FIXME/PLACEHOLDER comments indicating incomplete work
+            - AIDEV-TODO comments without implementation
+            - Empty function bodies with just a docstring
+
+            **PowerShell Scripts (*.ps1):**
+            - Error codes with "TODO-FIXME" or "TODO-CREATE_NEW_ERROR_CODE"
+            - Functions with empty bodies or just comments
+            - TODO/FIXME/PLACEHOLDER comments indicating incomplete work
+            - Functions that just call Write-Host with placeholder text
+
+            **Bash Scripts (*.sh):**
+            - Functions with only `:` (no-op command)
+            - Functions with empty bodies
+            - TODO/FIXME/PLACEHOLDER comments indicating incomplete work
+            - Functions that just echo placeholder text
+
+            **JavaScript Files (*.js, *.jsx, *.ts, *.tsx):**
+            - Functions that only return null or undefined without logic
+            - Functions with `throw new Error('Not implemented')`
+            - TODO/FIXME/PLACEHOLDER comments indicating incomplete work
+            - Empty function bodies with just comments
+
+            **Review Process:**
+            1. Use `gh pr diff` to get the changed files
+            2. Focus on Python, PowerShell, Bash, and JavaScript files
+            3. Identify any placeholder patterns in NEW or MODIFIED code (ignore existing placeholders)
+            4. Distinguish between:
+               - Legitimate placeholders that need implementation before merge
+               - Intentional patterns (abstract base classes, interface definitions, etc.)
+               - Documentation TODOs vs implementation TODOs
+
+            **What NOT to flag:**
+            - Abstract base class methods with `pass` (these are intentional)
+            - Django model Meta classes with `pass`
+            - Exception handlers with `pass` (intentional pass-through)
+            - TODO comments that document future enhancements (not blocking current work)
+            - Comments in third-party/vendor code (staticfiles, node_modules, etc.)
+
+            **Output:**
+            Use `gh pr comment` to post findings. For each placeholder found, specify:
+            - File path and line number
+            - What the placeholder pattern is (function name, pattern type)
+            - Why it needs attention before merge
+            - Suggested action (implement, remove, or document as intentional)
+
+            If no problematic placeholders are found, do not post a comment.
+
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+
