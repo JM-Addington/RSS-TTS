@@ -6,15 +6,12 @@ submission, listing, media serving, and article deletion.
 
 import logging
 import os
-import tempfile
 import uuid
 
-import openai
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.models import User
 from django.http import (
     FileResponse,
     HttpResponseBadRequest,

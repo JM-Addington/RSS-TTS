@@ -115,7 +115,8 @@ class UrlUtilsTests(TestCase):
         self.assertTrue(success)
         self.assertEqual(text, "Extracted text")
         self.assertIsNone(error)
-        mock_fetch.assert_called_once_with("https://example.com")
+        # fetch_url_content is called with max_retries parameter
+        mock_fetch.assert_called_once_with("https://example.com", max_retries=1)
         mock_extract.assert_called_once_with("html content")
 
     @patch("text_to_audio.utils.fetch_url_content")
@@ -131,7 +132,8 @@ class UrlUtilsTests(TestCase):
         self.assertFalse(success)
         self.assertEqual(text, "")
         self.assertEqual(error, "Fetch error")
-        mock_fetch.assert_called_once_with("https://example.com")
+        # fetch_url_content is called with max_retries parameter
+        mock_fetch.assert_called_once_with("https://example.com", max_retries=1)
 
 
 class SanitizeTextForTTSTests(TestCase):
