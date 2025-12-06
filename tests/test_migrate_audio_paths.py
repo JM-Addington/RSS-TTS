@@ -177,6 +177,10 @@ class MigrateAudioPathsTestCase(TestCase):
 
     def test_migration_handles_permission_errors(self):
         """Test migration handles permission errors gracefully."""
+        # Skip this test if running as root (permissions don't apply)
+        if os.geteuid() == 0:
+            self.skipTest("Test skipped when running as root")
+
         with tempfile.TemporaryDirectory() as temp_dir:
             with override_settings(MEDIA_ROOT=temp_dir):
                 # Create legacy file

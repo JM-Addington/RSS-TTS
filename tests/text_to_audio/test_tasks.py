@@ -312,9 +312,8 @@ class ProcessArticleTests(TestCase):
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
         mock_tts_response.usage = MagicMock(total_tokens=123)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         self.article.voice_parameters = None
@@ -350,9 +349,8 @@ class ProcessArticleTests(TestCase):
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
         mock_tts_response.usage = MagicMock(total_tokens=100)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         mock_analysis_instance = MockContentAnalysisService.return_value
@@ -404,9 +402,8 @@ class ProcessArticleTests(TestCase):
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
         mock_tts_response.usage = MagicMock(total_tokens=10)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         result = process_article(self.article.id)
@@ -432,9 +429,8 @@ class ProcessArticleTests(TestCase):
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
         mock_tts_response.usage = MagicMock(total_tokens=50)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
         chunks_data = ["Chunk 1 content.", "Second chunk here."]  # 3 words, 3 words
 
@@ -470,13 +466,12 @@ class ProcessArticleTests(TestCase):
 
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(spec=["stream_to_file"])
+        mock_tts_response = MagicMock(spec=["iter_bytes"])
         usage_mock = MagicMock()
         usage_mock.total_tokens = 100
         type(mock_tts_response).usage = PropertyMock(return_value=usage_mock)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
         self.article.multi_voice_data = None  # Ensure fallback path
         self.article.save()
@@ -507,12 +502,11 @@ class ProcessArticleTests(TestCase):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(spec=["headers", "stream_to_file"])
+        mock_tts_response = MagicMock(spec=["headers", "iter_bytes"])
         mock_tts_response.headers = {"x-openai-tokens-used": "150"}
         type(mock_tts_response).usage = PropertyMock(side_effect=AttributeError)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
         process_article(self.article.id)
         mock_save_stats.assert_called_once()
@@ -527,12 +521,11 @@ class ProcessArticleTests(TestCase):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(spec=["headers", "stream_to_file"])
+        mock_tts_response = MagicMock(spec=["headers", "iter_bytes"])
         mock_tts_response.headers = {"some-other-header": "some-value"}
         type(mock_tts_response).usage = PropertyMock(side_effect=AttributeError)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
         process_article(self.article.id)
         mock_save_stats.assert_called_once()
@@ -572,9 +565,8 @@ class ProcessArticleTests(TestCase):
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         mock_audio_from_file.side_effect = Exception(
@@ -622,13 +614,12 @@ class ProcessArticleTests(TestCase):
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(spec=["stream_to_file"])
+        mock_tts_response = MagicMock(spec=["iter_bytes"])
         usage_mock = MagicMock()
         usage_mock.total_tokens = 100
         type(mock_tts_response).usage = PropertyMock(return_value=usage_mock)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
         chunks = ["Chunk one for cleanup.", "Chunk two for cleanup."]
         with patch(
@@ -654,9 +645,8 @@ class ProcessArticleTests(TestCase):
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_successful_tts_response = MagicMock()
-        mock_successful_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_successful_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.side_effect = [
             mock_successful_tts_response,
             OpenAIAPIError(
@@ -695,9 +685,8 @@ class ProcessArticleTests(TestCase):
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         expected_summary = "Multi-voice summary."
@@ -738,9 +727,8 @@ class ProcessArticleTests(TestCase):
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         expected_summary = "Summary from invalid data"
@@ -777,9 +765,8 @@ class ProcessArticleTests(TestCase):
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         # Create a long text that will be chunked (over 4000 chars to force chunking)
@@ -835,9 +822,8 @@ class ProcessArticleTests(TestCase):
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
         mock_tts_response.usage = MagicMock(total_tokens=100)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         expected_empty_summary = ""
@@ -941,9 +927,8 @@ class ProcessArticleTests(TestCase):
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         with patch(
@@ -979,9 +964,8 @@ class ProcessArticleTests(TestCase):
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         mock_cas_for_vpgen = MockVPGenCAS.return_value
@@ -1050,9 +1034,8 @@ class ProcessArticleTests(TestCase):
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
         mock_tts_response = MagicMock()
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         mock_analysis_instance = MockCAS.return_value
@@ -1137,9 +1120,8 @@ class ProcessArticleTests(TestCase):
         # Mock OpenAI TTS client
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_response = MagicMock()
-        mock_speech_response.stream_to_file = MagicMock(
-            side_effect=self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_speech_response.iter_bytes.return_value = [b"dummy audio data"]
         # Ensure 'usage' attribute is present if your code accesses it, even if just for tokens
         mock_speech_response.usage = MagicMock(
             prompt_tokens=10, completion_tokens=20, total_tokens=30
@@ -1197,9 +1179,8 @@ class ProcessArticleTests(TestCase):
                 mock_openai_instance = MockOpenAIClient.return_value
                 mock_speech_create = mock_openai_instance.audio.speech.create
                 mock_tts_response = MagicMock()
-                mock_tts_response.stream_to_file.side_effect = (
-                    self.create_dummy_file_side_effect
-                )
+                # TTS service now uses iter_bytes() instead of stream_to_file()
+                mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
                 mock_speech_create.return_value = mock_tts_response
                 with patch("text_to_audio.tasks._save_openai_usage_stats"):
                     process_article(self.article.id)
@@ -1240,9 +1221,8 @@ class ProcessArticleTests(TestCase):
             mock_openai_instance = MockOpenAIClient.return_value
             mock_speech_create = mock_openai_instance.audio.speech.create
             mock_tts_response = MagicMock()
-            mock_tts_response.stream_to_file.side_effect = (
-                self.create_dummy_file_side_effect
-            )
+            # TTS service now uses iter_bytes() instead of stream_to_file()
+            mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
             mock_speech_create.return_value = mock_tts_response
             with patch("text_to_audio.tasks._save_openai_usage_stats"):
                 process_article(self.article.id)

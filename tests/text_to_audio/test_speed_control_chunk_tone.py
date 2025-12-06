@@ -123,9 +123,8 @@ class SpeedControlChunkToneTests(TestCase):
 
         mock_tts_response = MagicMock()
         mock_tts_response.usage = MagicMock(total_tokens=50)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         # Mock audio processing
@@ -248,9 +247,8 @@ class SpeedControlChunkToneTests(TestCase):
 
         mock_tts_response = MagicMock()
         mock_tts_response.usage = MagicMock(total_tokens=50)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         # Mock audio processing
@@ -348,9 +346,8 @@ class SpeedControlChunkToneTests(TestCase):
 
         mock_tts_response = MagicMock()
         mock_tts_response.usage = MagicMock(total_tokens=50)
-        mock_tts_response.stream_to_file.side_effect = (
-            self.create_dummy_file_side_effect
-        )
+        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
 
         # Mock audio processing

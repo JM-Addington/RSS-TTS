@@ -116,6 +116,10 @@ class CanonicalMediaPathsTestCase(TestCase):
 
     def test_canonical_path_permission_handling(self):
         """Test handling of permission issues when creating directories."""
+        # Skip this test if running as root (permissions don't apply)
+        if os.geteuid() == 0:
+            self.skipTest("Test skipped when running as root")
+
         with tempfile.TemporaryDirectory() as temp_dir:
             with override_settings(MEDIA_ROOT=temp_dir):
                 # Make the temp directory read-only

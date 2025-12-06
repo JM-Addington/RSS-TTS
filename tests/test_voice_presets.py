@@ -184,7 +184,9 @@ class VoiceConfigurationServiceTest(TestCase):
     def test_get_available_voices(self):
         """Service returns the full list of available voices."""
         voices = dict(self.service.get_available_voices())
-        expected = {
+        # Check that core OpenAI voices are present (subset check)
+        # since additional providers like Google TTS have been added
+        expected_openai_voices = {
             "alloy",
             "ash",
             "ballad",
@@ -196,7 +198,10 @@ class VoiceConfigurationServiceTest(TestCase):
             "sage",
             "shimmer",
         }
-        self.assertEqual(set(voices.keys()), expected)
+        self.assertTrue(
+            expected_openai_voices.issubset(set(voices.keys())),
+            f"Missing OpenAI voices. Expected {expected_openai_voices} to be subset of {set(voices.keys())}",
+        )
 
     def test_get_user_presets(self):
         """Test getting presets for a user."""

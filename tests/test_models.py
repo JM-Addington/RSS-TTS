@@ -405,7 +405,7 @@ class ArticleGetDisplayVoiceNameTests(TestCase):
     def test_standard_voice_only(self):
         """Test with only a standard 'voice' set (e.g., 'nova')."""
         article = Article.objects.create(feed=self.feed, title="Test", voice="nova")
-        self.assertEqual(article.get_display_voice_name, "Nova")
+        self.assertEqual(article.get_display_voice_name, "Nova (OpenAI)")
 
     def test_standard_voice_with_multivoice(self):
         """Test with a standard 'voice' and multi_voice_data."""
@@ -415,7 +415,7 @@ class ArticleGetDisplayVoiceNameTests(TestCase):
             voice="nova",
             multi_voice_data={"key": "value"},
         )
-        self.assertEqual(article.get_display_voice_name, "Nova - Multi-Voice")
+        self.assertEqual(article.get_display_voice_name, "Nova (OpenAI) - Multi-Voice")
 
     def test_custom_voice_id_only(self):
         """Test with a custom 'voice_id' set."""

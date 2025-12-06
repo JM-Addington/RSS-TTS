@@ -2,12 +2,12 @@
 
 from unittest.mock import patch
 
-from django.test import SimpleTestCase, override_settings
+from django.test import TestCase, override_settings
 
 from text_to_audio.utils import process_url_to_text
 
 
-class FirecrawlTests(SimpleTestCase):
+class FirecrawlTests(TestCase):
     """Firecrawl integration tests for URL processing."""
 
     @override_settings(FIRECRAWL_API_KEY="key", USE_FIRECRAWL_BY_DEFAULT=True)
@@ -46,5 +46,5 @@ class FirecrawlTests(SimpleTestCase):
         self.assertTrue(success)
         self.assertEqual(text, "txt")
         self.assertIsNone(error)
-        mock_fetch.assert_called_once_with("https://example.com")
+        mock_fetch.assert_called_once_with("https://example.com", max_retries=1)
         mock_firecrawl.assert_called_once_with("https://example.com")

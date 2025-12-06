@@ -274,8 +274,12 @@ class FollowedFeedUITests(TestCase):
 
     def test_create_followed_feed_no_destination_feeds_get(self):
         """Test GET create view when user has no destination feeds."""
-        # Login as a user with no feeds
-        User.objects.create_user(username="nofeedsuser_get", password="password")
+        # Login as a user with no feeds (must be approved to access views)
+        no_feeds_user = User.objects.create_user(
+            username="nofeedsuser_get", password="password"
+        )
+        no_feeds_user.profile.is_approved = True
+        no_feeds_user.profile.save()
         self.client.login(username="nofeedsuser_get", password="password")
 
         response = self.client.get(reverse("followedfeed-create"))
@@ -290,6 +294,9 @@ class FollowedFeedUITests(TestCase):
         no_feeds_user = User.objects.create_user(
             username="nofeedsuser_post", password="password"
         )
+        # Approve user so they can access views
+        no_feeds_user.profile.is_approved = True
+        no_feeds_user.profile.save()
         self.client.login(username="nofeedsuser_post", password="password")
 
         data = {

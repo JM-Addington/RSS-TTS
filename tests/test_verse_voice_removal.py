@@ -65,8 +65,9 @@ class VerseVoiceRemovalTest(TestCase):
         voice_ids = [choice[0] for choice in VOICE_CHOICES]
         self.assertNotIn("verse", voice_ids)
 
-        # Verify all expected voices are present
-        expected_voices = {
+        # Verify core OpenAI voices are present (subset check, not exact equality)
+        # since additional providers like Google TTS have been added
+        expected_openai_voices = {
             "alloy",
             "ash",
             "ballad",
@@ -78,7 +79,10 @@ class VerseVoiceRemovalTest(TestCase):
             "sage",
             "shimmer",
         }
-        self.assertEqual(set(voice_ids), expected_voices)
+        self.assertTrue(
+            expected_openai_voices.issubset(set(voice_ids)),
+            f"Missing OpenAI voices. Expected {expected_openai_voices} to be subset of {set(voice_ids)}",
+        )
 
     def test_article_accepts_valid_voices(self):
         """Test that articles can still be created with valid voices."""
