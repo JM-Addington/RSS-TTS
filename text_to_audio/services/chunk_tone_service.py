@@ -305,37 +305,33 @@ Article Text:
 
 Break the text into logical chunks (maximum {max_chars} characters each).
 
-CRITICAL: Keep sentences together when they form a continuous thought:
-- Quoted speech stays with its attribution
-- Parenthetical remarks stay with their parent sentence
-- Only split when the thought clearly changes (new topic, new speaker, paragraph break)
+Split based on what sounds natural when read aloud:
+- Prefer splitting at paragraph breaks or clear topic changes
+- Quotes and parentheticals MAY be split if it improves natural speech flow
+- Keep short attributions with their quotes
+- Long quotes or parentheticals can be their own chunk
 
 <examples>
-<example>
+<example name="short-quote-keep-together">
 <input>A person with knowledge of the matter said, "the president is considering a new direction."</input>
-<correct>A person with knowledge of the matter said, "the president is considering a new direction."</correct>
-<incorrect_split>
-Chunk 1: A person with knowledge of the matter said,
-Chunk 2: "the president is considering a new direction."
-</incorrect_split>
+<output>A person with knowledge of the matter said, "the president is considering a new direction."</output>
+<reasoning>Short quote with attribution - keep together for natural flow</reasoning>
 </example>
 
-<example>
+<example name="long-quote-can-split">
+<input>The senator explained, "We've been working on this legislation for months. The implications are far-reaching and will affect every household in America. We expect bipartisan support."</input>
+<output_option_1>The senator explained, "We've been working on this legislation for months. The implications are far-reaching and will affect every household in America. We expect bipartisan support."</output_option_1>
+<output_option_2>
+Chunk 1: The senator explained, "We've been working on this legislation for months."
+Chunk 2: "The implications are far-reaching and will affect every household in America. We expect bipartisan support."
+</output_option_2>
+<reasoning>Long quote - either keep together or split at natural pause points</reasoning>
+</example>
+
+<example name="parenthetical-context">
 <input>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</input>
-<correct>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</correct>
-<incorrect_split>
-Chunk 1: Raccoons are known for their love of trash
-Chunk 2: (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).
-</incorrect_split>
-</example>
-
-<example>
-<input>The CEO announced, "We're expanding to Europe," and the crowd erupted in applause.</input>
-<correct>The CEO announced, "We're expanding to Europe," and the crowd erupted in applause.</correct>
-<incorrect_split>
-Chunk 1: The CEO announced, "We're expanding to Europe,"
-Chunk 2: and the crowd erupted in applause.
-</incorrect_split>
+<output>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</output>
+<reasoning>Parenthetical provides immediate context - keep together when reasonable</reasoning>
 </example>
 </examples>
 
@@ -414,37 +410,33 @@ Article Text:
 
 Break the text into logical chunks (maximum {max_chars} characters each).
 
-CRITICAL: Keep sentences together when they form a continuous thought:
-- Quoted speech stays with its attribution
-- Parenthetical remarks stay with their parent sentence
-- Only split when the thought clearly changes (new topic, new speaker, paragraph break)
+Split based on what sounds natural when read aloud:
+- Prefer splitting at paragraph breaks or clear topic changes
+- Quotes and parentheticals MAY be split if it improves natural speech flow
+- Keep short attributions with their quotes
+- Long quotes or parentheticals can be their own chunk
 
 <examples>
-<example>
+<example name="short-quote-keep-together">
 <input>A person with knowledge of the matter said, "the president is considering a new direction."</input>
-<correct>A person with knowledge of the matter said, "the president is considering a new direction."</correct>
-<incorrect_split>
-Chunk 1: A person with knowledge of the matter said,
-Chunk 2: "the president is considering a new direction."
-</incorrect_split>
+<output>A person with knowledge of the matter said, "the president is considering a new direction."</output>
+<reasoning>Short quote with attribution - keep together for natural flow</reasoning>
 </example>
 
-<example>
+<example name="long-quote-can-split">
+<input>The senator explained, "We've been working on this legislation for months. The implications are far-reaching and will affect every household in America. We expect bipartisan support."</input>
+<output_option_1>The senator explained, "We've been working on this legislation for months. The implications are far-reaching and will affect every household in America. We expect bipartisan support."</output_option_1>
+<output_option_2>
+Chunk 1: The senator explained, "We've been working on this legislation for months."
+Chunk 2: "The implications are far-reaching and will affect every household in America. We expect bipartisan support."
+</output_option_2>
+<reasoning>Long quote - either keep together or split at natural pause points</reasoning>
+</example>
+
+<example name="parenthetical-context">
 <input>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</input>
-<correct>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</correct>
-<incorrect_split>
-Chunk 1: Raccoons are known for their love of trash
-Chunk 2: (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).
-</incorrect_split>
-</example>
-
-<example>
-<input>The CEO announced, "We're expanding to Europe," and the crowd erupted in applause.</input>
-<correct>The CEO announced, "We're expanding to Europe," and the crowd erupted in applause.</correct>
-<incorrect_split>
-Chunk 1: The CEO announced, "We're expanding to Europe,"
-Chunk 2: and the crowd erupted in applause.
-</incorrect_split>
+<output>Raccoons are known for their love of trash (although they aren't the only ones, as evidenced by the stories of black bears around Gatlinburg).</output>
+<reasoning>Parenthetical provides immediate context - keep together when reasonable</reasoning>
 </example>
 </examples>
 

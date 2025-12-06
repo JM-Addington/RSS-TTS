@@ -304,21 +304,21 @@ class TestChunkToneService:
         assert "US government" in prompt  # Abbreviation without periods
 
     def test_single_voice_prompt_chunking_rules(self, service):
-        """Ensure single-voice prompt has proper chunking rules for quotes/parentheses."""
+        """Ensure single-voice prompt has proper chunking rules for natural speech."""
         prompt = service._build_single_voice_prompt("Text", "Title", 1000, "alloy")
-        # Verify chunking rules for quoted speech
-        assert "Quoted speech stays with its attribution" in prompt
-        # Verify chunking rules for parenthetical remarks
-        assert "Parenthetical remarks stay with their parent sentence" in prompt
-        # Verify few-shot examples for incorrect splits
-        assert "incorrect_split" in prompt
+        # Verify natural speech flow guidance
+        assert "natural" in prompt.lower()
+        # Verify quotes/parentheticals can be split when appropriate
+        assert "MAY be split" in prompt
+        # Verify few-shot examples with reasoning
+        assert "<reasoning>" in prompt
 
     def test_multi_voice_prompt_chunking_rules(self, service):
-        """Ensure multi-voice prompt has proper chunking rules for quotes/parentheses."""
+        """Ensure multi-voice prompt has proper chunking rules for natural speech."""
         prompt = service._build_prompt("Text", "Title", 1000)
-        # Verify chunking rules for quoted speech
-        assert "Quoted speech stays with its attribution" in prompt
-        # Verify chunking rules for parenthetical remarks
-        assert "Parenthetical remarks stay with their parent sentence" in prompt
-        # Verify few-shot examples for incorrect splits
-        assert "incorrect_split" in prompt
+        # Verify natural speech flow guidance
+        assert "natural" in prompt.lower()
+        # Verify quotes/parentheticals can be split when appropriate
+        assert "MAY be split" in prompt
+        # Verify few-shot examples with reasoning
+        assert "<reasoning>" in prompt
