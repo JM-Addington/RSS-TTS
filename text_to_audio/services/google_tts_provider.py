@@ -12,73 +12,12 @@ control over tone, emotion, accent, pace, and speaking style through natural
 language instructions.
 """
 
-import io
 import logging
-import wave
 from typing import Dict, Optional
 
+from text_to_audio.audio_utils import is_valid_wav, wrap_pcm_in_wav
+
 logger = logging.getLogger(__name__)
-
-
-def _wrap_pcm_in_wav(
-    pcm_data: bytes, sample_rate: int = 24000, channels: int = 1, sample_width: int = 2
-) -> bytes:
-    """Wrap raw PCM data (LINEAR16) in a WAV container with proper RIFF header.
-
-    Note: Google Cloud TTS LINEAR16 encoding should include WAV headers per docs,
-    but this function is used as a safety fallback if raw PCM is encountered.
-    Gemini TTS via Cloud TTS API may return raw PCM in some cases.
-
-    IMPORTANT: The sample_rate parameter MUST match the actual sample rate of the
-    PCM data. Using an incorrect sample rate will result in audio playing at the
-    wrong speed/pitch. Google Cloud TTS typically uses 24000 Hz for LINEAR16.
-
-    Args:
-        pcm_data: Raw PCM audio bytes (LINEAR16 format). Can be empty.
-        sample_rate: Sample rate in Hz. Must match the actual PCM data rate.
-            Google TTS uses 24000 Hz by default.
-        channels: Number of audio channels (1 for mono)
-        sample_width: Bytes per sample (2 for 16-bit audio)
-
-    Returns:
-        WAV file bytes with proper RIFF header
-
-    Raises:
-        ValueError: If WAV container creation fails
-    """
-    # AIDEV-NOTE: LINEAR16 from Google TTS is 24kHz mono 16-bit signed little-endian
-    try:
-        wav_buffer = io.BytesIO()
-
-        with wave.open(wav_buffer, "wb") as wav_file:
-            wav_file.setnchannels(channels)
-            wav_file.setsampwidth(sample_width)
-            wav_file.setframerate(sample_rate)
-            wav_file.writeframes(pcm_data)
-
-        return wav_buffer.getvalue()
-    except wave.Error as e:
-        raise ValueError(f"Failed to create WAV container: {e}") from e
-
-
-def _is_valid_wav(data: bytes) -> bool:
-    """Check if data has a valid WAV/RIFF header.
-
-    A valid WAV file must have:
-    - Bytes 0-3: "RIFF" (RIFF container marker)
-    - Bytes 8-11: "WAVE" (format identifier)
-
-    This distinguishes WAV files from other RIFF containers like AVI or WebP.
-
-    Args:
-        data: Audio bytes to check
-
-    Returns:
-        True if data is a valid WAV file (has both RIFF and WAVE markers)
-    """
-    # AIDEV-NOTE: Must check both RIFF (bytes 0-3) AND WAVE (bytes 8-11) markers
-    # to distinguish WAV from other RIFF containers (AVI, WebP, etc.)
-    return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE"
 
 
 # AIDEV-NOTE: Gemini TTS models - use these for prompt/styling support
@@ -298,8 +237,8 @@ class GoogleTTSProvider:
 
             # AIDEV-NOTE: Cloud TTS LINEAR16 should include WAV headers per docs, but
             # check and wrap as fallback if raw PCM is encountered (safety measure)
-            if output_format.lower() == "wav" and not _is_valid_wav(audio_bytes):
-                audio_bytes = _wrap_pcm_in_wav(audio_bytes)
+            if output_format.lower() == "wav" and not is_valid_wav(audio_bytes):
+                audio_bytes = wrap_pcm_in_wav(audio_bytes)
                 logger.debug(
                     f"Wrapped LINEAR16 data in WAV container: {len(audio_bytes)} bytes"
                 )
@@ -396,8 +335,8 @@ class GoogleTTSProvider:
 
             # AIDEV-NOTE: Cloud TTS LINEAR16 should include WAV headers per docs, but
             # check and wrap as fallback if raw PCM is encountered (safety measure)
-            if output_format.lower() == "wav" and not _is_valid_wav(audio_bytes):
-                audio_bytes = _wrap_pcm_in_wav(audio_bytes)
+            if output_format.lower() == "wav" and not is_valid_wav(audio_bytes):
+                audio_bytes = wrap_pcm_in_wav(audio_bytes)
                 logger.debug(
                     f"Wrapped LINEAR16 data in WAV container: {len(audio_bytes)} bytes"
                 )

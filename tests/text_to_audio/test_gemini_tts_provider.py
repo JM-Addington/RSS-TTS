@@ -514,80 +514,80 @@ class GeminiTTSProviderTest(TestCase):
 
 
 class GeminiWrapPcmInWavTest(TestCase):
-    """Test the _wrap_pcm_in_wav and _is_valid_wav helper functions."""
+    """Test the wrap_pcm_in_wav and is_valid_wav helper functions."""
 
     def test_wrap_pcm_creates_valid_wav(self):
-        """Test that _wrap_pcm_in_wav creates valid WAV with RIFF header."""
-        from text_to_audio.services.gemini_tts_provider import _wrap_pcm_in_wav
+        """Test that wrap_pcm_in_wav creates valid WAV with RIFF header."""
+        from text_to_audio.audio_utils import wrap_pcm_in_wav
 
         pcm_data = b"\x00\x01\x02\x03" * 100
 
-        wav_bytes = _wrap_pcm_in_wav(pcm_data)
+        wav_bytes = wrap_pcm_in_wav(pcm_data)
 
         self.assertTrue(wav_bytes.startswith(b"RIFF"))
         self.assertEqual(wav_bytes[8:12], b"WAVE")
 
-    def test_is_valid_wav_returns_true_for_wav(self):
-        """Test _is_valid_wav returns True for valid WAV data."""
-        from text_to_audio.services.gemini_tts_provider import _is_valid_wav
+    def testis_valid_wav_returns_true_for_wav(self):
+        """Test is_valid_wav returns True for valid WAV data."""
+        from text_to_audio.audio_utils import is_valid_wav
 
         wav_data = b"RIFF\x00\x00\x00\x00WAVEfmt data"
 
-        self.assertTrue(_is_valid_wav(wav_data))
+        self.assertTrue(is_valid_wav(wav_data))
 
-    def test_is_valid_wav_returns_false_for_raw_pcm(self):
-        """Test _is_valid_wav returns False for raw PCM data."""
-        from text_to_audio.services.gemini_tts_provider import _is_valid_wav
+    def testis_valid_wav_returns_false_for_raw_pcm(self):
+        """Test is_valid_wav returns False for raw PCM data."""
+        from text_to_audio.audio_utils import is_valid_wav
 
         pcm_data = b"\x00\x00\x01\x00\x02\x00"
 
-        self.assertFalse(_is_valid_wav(pcm_data))
+        self.assertFalse(is_valid_wav(pcm_data))
 
-    def test_is_valid_wav_returns_false_for_empty_data(self):
-        """Test _is_valid_wav returns False for empty data."""
-        from text_to_audio.services.gemini_tts_provider import _is_valid_wav
+    def testis_valid_wav_returns_false_for_empty_data(self):
+        """Test is_valid_wav returns False for empty data."""
+        from text_to_audio.audio_utils import is_valid_wav
 
-        self.assertFalse(_is_valid_wav(b""))
-        self.assertFalse(_is_valid_wav(b"RI"))  # Too short
+        self.assertFalse(is_valid_wav(b""))
+        self.assertFalse(is_valid_wav(b"RI"))  # Too short
 
-    def test_is_valid_wav_returns_false_for_non_wav_riff(self):
-        """Test _is_valid_wav returns False for non-WAV RIFF containers (AVI, WebP)."""
-        from text_to_audio.services.gemini_tts_provider import _is_valid_wav
+    def testis_valid_wav_returns_false_for_non_wav_riff(self):
+        """Test is_valid_wav returns False for non-WAV RIFF containers (AVI, WebP)."""
+        from text_to_audio.audio_utils import is_valid_wav
 
         # AVI file header (RIFF but not WAVE)
         avi_data = b"RIFF\x00\x00\x00\x00AVI LIST"
-        self.assertFalse(_is_valid_wav(avi_data))
+        self.assertFalse(is_valid_wav(avi_data))
 
         # WebP file header (RIFF but not WAVE)
         webp_data = b"RIFF\x00\x00\x00\x00WEBPVP8 "
-        self.assertFalse(_is_valid_wav(webp_data))
+        self.assertFalse(is_valid_wav(webp_data))
 
-    def test_is_valid_wav_returns_false_for_short_riff_header(self):
-        """Test _is_valid_wav returns False when RIFF header is too short for WAVE check."""
-        from text_to_audio.services.gemini_tts_provider import _is_valid_wav
+    def testis_valid_wav_returns_false_for_short_riff_header(self):
+        """Test is_valid_wav returns False when RIFF header is too short for WAVE check."""
+        from text_to_audio.audio_utils import is_valid_wav
 
         # Has RIFF but not enough bytes to check WAVE marker
         short_riff = b"RIFF\x00\x00\x00\x00WAV"  # 11 bytes, missing last byte of WAVE
-        self.assertFalse(_is_valid_wav(short_riff))
+        self.assertFalse(is_valid_wav(short_riff))
 
     def test_wrap_pcm_handles_empty_data(self):
-        """Test _wrap_pcm_in_wav handles empty PCM data gracefully."""
-        from text_to_audio.services.gemini_tts_provider import _wrap_pcm_in_wav
+        """Test wrap_pcm_in_wav handles empty PCM data gracefully."""
+        from text_to_audio.audio_utils import wrap_pcm_in_wav
 
         # Should not raise an exception, but return a valid (empty) WAV
-        wav_bytes = _wrap_pcm_in_wav(b"")
+        wav_bytes = wrap_pcm_in_wav(b"")
 
         # Should still have valid WAV header
         self.assertTrue(wav_bytes.startswith(b"RIFF"))
         self.assertEqual(wav_bytes[8:12], b"WAVE")
 
     def test_wrap_pcm_handles_tiny_data(self):
-        """Test _wrap_pcm_in_wav handles very small PCM data."""
-        from text_to_audio.services.gemini_tts_provider import _wrap_pcm_in_wav
+        """Test wrap_pcm_in_wav handles very small PCM data."""
+        from text_to_audio.audio_utils import wrap_pcm_in_wav
 
         # Single sample (2 bytes for 16-bit audio)
         tiny_data = b"\x00\x00"
-        wav_bytes = _wrap_pcm_in_wav(tiny_data)
+        wav_bytes = wrap_pcm_in_wav(tiny_data)
 
         self.assertTrue(wav_bytes.startswith(b"RIFF"))
         self.assertEqual(wav_bytes[8:12], b"WAVE")
