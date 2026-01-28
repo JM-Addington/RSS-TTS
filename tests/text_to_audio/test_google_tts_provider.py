@@ -431,3 +431,49 @@ class IsValidWavTest(TestCase):
         self.assertFalse(_is_valid_wav(b""))
         self.assertFalse(_is_valid_wav(b"RI"))  # Too short
         self.assertFalse(_is_valid_wav(b"RIF"))  # Too short
+
+    def test_is_valid_wav_returns_false_for_non_wav_riff(self):
+        """Test _is_valid_wav returns False for non-WAV RIFF containers (AVI, WebP)."""
+        from text_to_audio.services.google_tts_provider import _is_valid_wav
+
+        # AVI file header (RIFF but not WAVE)
+        avi_data = b"RIFF\x00\x00\x00\x00AVI LIST"
+        self.assertFalse(_is_valid_wav(avi_data))
+
+        # WebP file header (RIFF but not WAVE)
+        webp_data = b"RIFF\x00\x00\x00\x00WEBPVP8 "
+        self.assertFalse(_is_valid_wav(webp_data))
+
+    def test_is_valid_wav_returns_false_for_short_riff_header(self):
+        """Test _is_valid_wav returns False when RIFF header is too short for WAVE check."""
+        from text_to_audio.services.google_tts_provider import _is_valid_wav
+
+        # Has RIFF but not enough bytes to check WAVE marker
+        short_riff = b"RIFF\x00\x00\x00\x00WAV"  # 11 bytes, missing last byte of WAVE
+        self.assertFalse(_is_valid_wav(short_riff))
+
+
+class WrapPcmEdgeCasesTest(TestCase):
+    """Test edge cases for _wrap_pcm_in_wav helper function."""
+
+    def test_wrap_pcm_handles_empty_data(self):
+        """Test _wrap_pcm_in_wav handles empty PCM data gracefully."""
+        from text_to_audio.services.google_tts_provider import _wrap_pcm_in_wav
+
+        # Should not raise an exception, but return a valid (empty) WAV
+        wav_bytes = _wrap_pcm_in_wav(b"")
+
+        # Should still have valid WAV header
+        self.assertTrue(wav_bytes.startswith(b"RIFF"))
+        self.assertEqual(wav_bytes[8:12], b"WAVE")
+
+    def test_wrap_pcm_handles_tiny_data(self):
+        """Test _wrap_pcm_in_wav handles very small PCM data."""
+        from text_to_audio.services.google_tts_provider import _wrap_pcm_in_wav
+
+        # Single sample (2 bytes for 16-bit audio)
+        tiny_data = b"\x00\x00"
+        wav_bytes = _wrap_pcm_in_wav(tiny_data)
+
+        self.assertTrue(wav_bytes.startswith(b"RIFF"))
+        self.assertEqual(wav_bytes[8:12], b"WAVE")
