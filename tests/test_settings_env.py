@@ -83,3 +83,27 @@ class TestSettingsEnvironment(unittest.TestCase):
         os.environ["DJANGO_SECRET_KEY"] = "test"
         settings = self._import_settings()
         self.assertFalse(settings.USE_FIRECRAWL_BY_DEFAULT)
+
+    def test_caddy_internal_in_allowed_hosts_by_default(self):
+        """caddy_internal should be in ALLOWED_HOSTS by default for Docker networking."""
+        os.environ["DJANGO_SECRET_KEY"] = "test"
+        settings = self._import_settings()
+        self.assertIn("caddy_internal", settings.ALLOWED_HOSTS)
+
+    def test_host_validation_allows_underscores(self):
+        """Host validation regex should allow underscores for Docker container names."""
+        os.environ["DJANGO_SECRET_KEY"] = "test"
+        self._import_settings()
+        from django.http import request as django_request
+
+        # Test that underscored hostnames pass validation
+        self.assertTrue(django_request.host_validation_re.match("caddy_internal"))
+        self.assertTrue(django_request.host_validation_re.match("my_container_name"))
+        self.assertTrue(django_request.host_validation_re.match("service_1:8000"))
+        # Standard hostnames should still work
+        self.assertTrue(django_request.host_validation_re.match("localhost"))
+        self.assertTrue(django_request.host_validation_re.match("example.com"))
+        self.assertTrue(django_request.host_validation_re.match("localhost:8000"))
+        # IPv6 should still work
+        self.assertTrue(django_request.host_validation_re.match("[::1]"))
+        self.assertTrue(django_request.host_validation_re.match("[::1]:8000"))

@@ -1,11 +1,20 @@
 """Django settings for rss_tts project."""
 
 import os
+import re
 from pathlib import Path
 
 import dj_database_url
+from django.http import request as django_request
 
 from text_to_audio.services.logging_setup import configure_logging
+
+# AIDEV-NOTE: Patch Django's host validation regex to allow underscores in hostnames.
+# This is needed for Docker internal networking where container names like 'caddy_internal'
+# contain underscores, violating RFC 952/1123 but required for container-to-container communication.
+django_request.host_validation_re = re.compile(
+    r"^([a-z0-9._-]+|\[[a-f0-9:]+\])(:[0-9]+)?$", re.IGNORECASE
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -59,7 +68,9 @@ ENABLE_EMAIL_CONTENT_CLEANING = os.environ.get(
     "ENABLE_EMAIL_CONTENT_CLEANING", "true"
 ).lower() in ("true", "1", "yes")
 
-ALLOWED_HOSTS: list[str] = []
+# AIDEV-NOTE: caddy_internal is always allowed for Docker internal health checks/proxying
+# The underscore in the hostname violates RFC but is common in Docker container naming
+ALLOWED_HOSTS: list[str] = ["caddy_internal"]
 ALLOWED_HOSTS += (
     os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
     if os.environ.get("DJANGO_ALLOWED_HOSTS")
