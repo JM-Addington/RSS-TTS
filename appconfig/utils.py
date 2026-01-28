@@ -51,6 +51,30 @@ def get_openai_tts_voice() -> str:
     )
 
 
+def get_default_voice_for_provider(provider: str) -> str:
+    """Get the default voice for a given TTS provider.
+
+    Args:
+        provider: TTS provider name ("openai" or "google")
+
+    Returns:
+        str: Default voice name for the provider
+    """
+    if provider == "openai":
+        return get_openai_tts_voice()
+    elif provider == "google":
+        # Get the configured Google TTS voice type and return appropriate default
+        voice_type = get_google_tts_voice_type()
+        return {
+            "gemini": "Kore",
+            "chirp3": "en-US-Chirp3-HD-Charon",
+            "neural2": "en-US-Neural2-A",
+        }.get(voice_type, "Kore")
+    else:
+        # Unknown provider, fall back to OpenAI voice
+        return get_openai_tts_voice()
+
+
 def get_openai_tts_response_format() -> str:
     config = get_global_config()
     return (
