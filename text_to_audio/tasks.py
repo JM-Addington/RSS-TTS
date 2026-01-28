@@ -69,7 +69,7 @@ def _normalize_loudness_in_memory(
     """
     try:
         import numpy as np
-        import pyloudnorm as pyln
+        import pyloudnorm as pyln  # type: ignore[import-untyped]
 
         # Convert pydub AudioSegment to numpy array for pyloudnorm
         # pydub uses int16 samples, pyloudnorm expects float32 in range [-1, 1]
