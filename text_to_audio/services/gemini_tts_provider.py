@@ -198,10 +198,8 @@ class GeminiTTSProvider:
             )
 
             # Validate response structure before accessing
-            if not response.candidates:
-                raise ValueError("Gemini API returned empty candidates")
-            if not response.candidates[0].content or not response.candidates[0].content.parts:
-                raise ValueError("Gemini API returned empty content parts")
+            if not response.candidates or not response.candidates[0].content.parts:
+                raise ValueError("Gemini API returned no audio data in response")
 
             # Extract audio data from response
             audio_data = response.candidates[0].content.parts[0].inline_data.data
