@@ -304,6 +304,25 @@ class GoogleTTSProviderTest(TestCase):
         # Verify MP3 data is returned as-is (not wrapped)
         self.assertEqual(audio_bytes, mp3_data)
 
+    def test_synthesize_speech_wav_with_headers_not_rewrapped(self):
+        """Test WAV data with existing RIFF header is not re-wrapped."""
+        provider, mock_client = self._create_provider_with_mocks()
+
+        # WAV data that already has RIFF header (per Google Cloud TTS docs)
+        wav_data = b"RIFF\x00\x00\x00\x00WAVEfmt " + b"\x00" * 100
+        mock_response = MagicMock()
+        mock_response.audio_content = wav_data
+        mock_client.synthesize_speech.return_value = mock_response
+
+        audio_bytes = provider.synthesize_speech(
+            text="Hello world",
+            voice_name="en-US-Neural2-A",
+            output_format="wav",
+        )
+
+        # Verify WAV data is returned as-is (not re-wrapped)
+        self.assertEqual(audio_bytes, wav_data)
+
     def test_synthesize_speech_with_speed(self):
         """Test speech synthesis includes speaking rate for non-gemini voices."""
         provider, mock_client = self._create_provider_with_mocks()
@@ -384,3 +403,31 @@ class WrapPcmInWavTest(TestCase):
             self.assertEqual(wav_file.getframerate(), 24000)
             self.assertEqual(wav_file.getnchannels(), 1)  # Mono
             self.assertEqual(wav_file.getsampwidth(), 2)  # 16-bit
+
+
+class IsValidWavTest(TestCase):
+    """Test the _is_valid_wav helper function."""
+
+    def test_is_valid_wav_returns_true_for_wav(self):
+        """Test _is_valid_wav returns True for valid WAV data."""
+        from text_to_audio.services.google_tts_provider import _is_valid_wav
+
+        wav_data = b"RIFF\x00\x00\x00\x00WAVEfmt data"
+
+        self.assertTrue(_is_valid_wav(wav_data))
+
+    def test_is_valid_wav_returns_false_for_raw_pcm(self):
+        """Test _is_valid_wav returns False for raw PCM data."""
+        from text_to_audio.services.google_tts_provider import _is_valid_wav
+
+        pcm_data = b"\x00\x00\x01\x00\x02\x00"
+
+        self.assertFalse(_is_valid_wav(pcm_data))
+
+    def test_is_valid_wav_returns_false_for_empty_data(self):
+        """Test _is_valid_wav returns False for empty or short data."""
+        from text_to_audio.services.google_tts_provider import _is_valid_wav
+
+        self.assertFalse(_is_valid_wav(b""))
+        self.assertFalse(_is_valid_wav(b"RI"))  # Too short
+        self.assertFalse(_is_valid_wav(b"RIF"))  # Too short

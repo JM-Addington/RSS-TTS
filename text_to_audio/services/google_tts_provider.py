@@ -25,8 +25,9 @@ def _wrap_pcm_in_wav(
 ) -> bytes:
     """Wrap raw PCM data (LINEAR16) in a WAV container with proper RIFF header.
 
-    Google Cloud TTS LINEAR16 encoding returns raw PCM data without headers.
-    This function adds the proper WAV/RIFF container for playback compatibility.
+    Note: Google Cloud TTS LINEAR16 encoding should include WAV headers per docs,
+    but this function is used as a safety fallback if raw PCM is encountered.
+    Gemini TTS via Cloud TTS API may return raw PCM in some cases.
 
     Args:
         pcm_data: Raw PCM audio bytes (LINEAR16 format)
@@ -47,6 +48,18 @@ def _wrap_pcm_in_wav(
         wav_file.writeframes(pcm_data)
 
     return wav_buffer.getvalue()
+
+
+def _is_valid_wav(data: bytes) -> bool:
+    """Check if data has a valid WAV/RIFF header.
+
+    Args:
+        data: Audio bytes to check
+
+    Returns:
+        True if data starts with RIFF header
+    """
+    return len(data) >= 4 and data[:4] == b"RIFF"
 
 
 # AIDEV-NOTE: Gemini TTS models - use these for prompt/styling support
@@ -264,9 +277,9 @@ class GoogleTTSProvider:
 
             audio_bytes = response.audio_content
 
-            # AIDEV-NOTE: LINEAR16 returns raw PCM without WAV headers - wrap in WAV container
-            # when wav format is requested to ensure proper RIFF header for ffmpeg/pydub
-            if output_format.lower() == "wav":
+            # AIDEV-NOTE: Cloud TTS LINEAR16 should include WAV headers per docs, but
+            # check and wrap as fallback if raw PCM is encountered (safety measure)
+            if output_format.lower() == "wav" and not _is_valid_wav(audio_bytes):
                 audio_bytes = _wrap_pcm_in_wav(audio_bytes)
                 logger.debug(
                     f"Wrapped LINEAR16 data in WAV container: {len(audio_bytes)} bytes"
@@ -362,8 +375,9 @@ class GoogleTTSProvider:
 
             audio_bytes = response.audio_content
 
-            # AIDEV-NOTE: LINEAR16 returns raw PCM without WAV headers - wrap in WAV container
-            if output_format.lower() == "wav":
+            # AIDEV-NOTE: Cloud TTS LINEAR16 should include WAV headers per docs, but
+            # check and wrap as fallback if raw PCM is encountered (safety measure)
+            if output_format.lower() == "wav" and not _is_valid_wav(audio_bytes):
                 audio_bytes = _wrap_pcm_in_wav(audio_bytes)
                 logger.debug(
                     f"Wrapped LINEAR16 data in WAV container: {len(audio_bytes)} bytes"
