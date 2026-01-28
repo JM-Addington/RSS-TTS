@@ -184,7 +184,7 @@ class OpenAIMultivoiceIntegrationTest(TestCase):
 
     def test_full_multivoice_pipeline_with_stitching(self):
         """Test complete multivoice pipeline including audio stitching."""
-        from pydub import AudioSegment
+        from pydub import AudioSegment  # type: ignore[import-untyped]
 
         from text_to_audio.services.content_analysis import ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
@@ -367,7 +367,7 @@ class GoogleMultivoiceIntegrationTest(TestCase):
 
     def test_full_multivoice_pipeline_with_google(self):
         """Test complete multivoice pipeline with Google TTS including stitching."""
-        from pydub import AudioSegment
+        from pydub import AudioSegment  # type: ignore[import-untyped]
 
         from text_to_audio.services.content_analysis import ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
@@ -448,7 +448,7 @@ class LongerTextMultivoiceTest(TestCase):
     @unittest.skipIf(SKIP_OPENAI, "OpenAI API key not configured")
     def test_sherlock_holmes_full_dialogue_openai(self):
         """Test multivoice with full Sherlock Holmes dialogue (OpenAI)."""
-        from pydub import AudioSegment
+        from pydub import AudioSegment  # type: ignore[import-untyped]
 
         from text_to_audio.services.content_analysis import ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
@@ -520,7 +520,7 @@ class LongerTextMultivoiceTest(TestCase):
     @unittest.skipIf(SKIP_GOOGLE, "Google/Gemini API key not configured")
     def test_pride_and_prejudice_dialogue_google(self):
         """Test multivoice with Pride and Prejudice dialogue (Google)."""
-        from pydub import AudioSegment
+        from pydub import AudioSegment  # type: ignore[import-untyped]
 
         from text_to_audio.services.content_analysis import ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
@@ -603,7 +603,7 @@ class CrossProviderComparisonTest(TestCase):
 
     def test_same_text_different_providers(self):
         """Test same text processed by both OpenAI and Google TTS."""
-        from pydub import AudioSegment
+        from pydub import AudioSegment  # type: ignore[import-untyped]
 
         from text_to_audio.services.content_analysis import ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
