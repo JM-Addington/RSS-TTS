@@ -198,7 +198,11 @@ class GeminiTTSProvider:
             )
 
             # Validate response structure before accessing
-            if not response.candidates or not response.candidates[0].content.parts:
+            if (
+                not response.candidates
+                or not response.candidates[0].content
+                or not response.candidates[0].content.parts
+            ):
                 raise ValueError("Gemini API returned no audio data in response")
 
             # Extract audio data from response
@@ -287,7 +291,11 @@ class GeminiTTSProvider:
             )
 
             # Validate response structure before accessing
-            if not response.candidates or not response.candidates[0].content.parts:
+            if (
+                not response.candidates
+                or not response.candidates[0].content
+                or not response.candidates[0].content.parts
+            ):
                 raise ValueError("Gemini API returned no audio data in response")
 
             # Extract audio data from response
