@@ -838,10 +838,19 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
 class RegenerateArticleView(LoginRequiredMixin, View):
     """View for regenerating an article's audio file."""
 
+    def _is_ajax_request(self, request):
+        """Check if request is an AJAX request."""
+        # Check X-Requested-With header (jQuery style) or Accept header
+        return (
+            request.headers.get("X-Requested-With") == "XMLHttpRequest"
+            or "application/json" in request.headers.get("Accept", "")
+        )
+
     def post(self, request, article_id):
         """Handle POST requests to regenerate an article.
 
         Creates a new article based on the existing one and queues it for processing.
+        Supports both traditional form submissions (redirects) and AJAX requests (JSON).
         """
         # Get the original article
         original_article = get_object_or_404(
@@ -875,6 +884,23 @@ class RegenerateArticleView(LoginRequiredMixin, View):
         # Get the feed ID
         # Using getattr to work around mypy limitations with Django models
         feed_id = getattr(original_article.feed, "pk", None)
+
+        # AIDEV-NOTE: AJAX requests return JSON with new article info for UI update
+        if self._is_ajax_request(request):
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": "Article queued for regeneration",
+                    "old_article_id": original_article.pk,
+                    "new_article": {
+                        "id": new_article.pk,
+                        "title": new_article.title,
+                        "status": new_article.status,
+                        "audio_uuid": str(new_article.audio_uuid),
+                    },
+                }
+            )
+
         if feed_id is not None:
             return redirect("feed-articles", feed_id=feed_id)
         else:

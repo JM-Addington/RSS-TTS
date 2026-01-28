@@ -101,6 +101,73 @@ class RegenerateArticleViewTest(TestCase):
         # Make sure no new article was created
         self.assertEqual(Article.objects.filter(feed=other_feed).count(), 1)
 
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_regenerate_article_ajax_returns_json(self, mock_process_article):
+        """Test regenerating via AJAX returns JSON response instead of redirect."""
+        # Configure mock to return a task with an ID
+        mock_task = mock.MagicMock()
+        mock_task.id = "mock-task-id-ajax-regenerate"
+        mock_process_article.return_value = mock_task
+
+        # Get the initial article count
+        initial_count = Article.objects.count()
+
+        # Make the AJAX post request to regenerate
+        response = self.client.post(
+            reverse("article-regenerate", kwargs={"article_id": self.article.pk}),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+
+        # Check that we got a JSON response instead of a redirect
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/json", response["Content-Type"])
+
+        # Parse the JSON response
+        import json
+
+        data = json.loads(response.content)
+
+        # Check the response structure
+        self.assertTrue(data["success"])
+        self.assertEqual(data["message"], "Article queued for regeneration")
+        self.assertEqual(data["old_article_id"], self.article.pk)
+
+        # Check new article info in response
+        self.assertIn("new_article", data)
+        new_article_data = data["new_article"]
+        self.assertIn("id", new_article_data)
+        self.assertIn("title", new_article_data)
+        self.assertIn("status", new_article_data)
+        self.assertIn("audio_uuid", new_article_data)
+
+        # Check that a new article was created
+        self.assertEqual(Article.objects.count(), initial_count + 1)
+
+        # Get the new article and verify properties
+        new_article = Article.objects.get(pk=new_article_data["id"])
+        self.assertEqual(new_article.title, self.article.title)
+        self.assertEqual(new_article.status, Article.PROCESSING)
+        self.assertEqual(new_article_data["title"], self.article.title)
+        self.assertEqual(new_article_data["status"], Article.PROCESSING)
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_regenerate_article_accept_header_json(self, mock_process_article):
+        """Test that Accept: application/json header triggers JSON response."""
+        mock_task = mock.MagicMock()
+        mock_task.id = "mock-task-id-accept-header"
+        mock_process_article.return_value = mock_task
+
+        # Make request with only Accept header (no X-Requested-With)
+        response = self.client.post(
+            reverse("article-regenerate", kwargs={"article_id": self.article.pk}),
+            HTTP_ACCEPT="application/json",
+        )
+
+        # Should return JSON
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/json", response["Content-Type"])
+
 
 class ArticleDeleteViewTests(TestCase):
     """Tests for the ArticleDeleteView."""
