@@ -15,10 +15,50 @@ Different from GoogleTTSProvider which uses Cloud TTS API:
 """
 
 import base64
+import io
 import logging
+import wave
 from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _wrap_pcm_in_wav(
+    pcm_data: bytes, sample_rate: int = 24000, channels: int = 1, sample_width: int = 2
+) -> bytes:
+    """Wrap raw PCM data in a WAV container with proper RIFF header.
+
+    Args:
+        pcm_data: Raw PCM audio bytes (LINEAR16 format)
+        sample_rate: Sample rate in Hz (Gemini TTS uses 24000 Hz)
+        channels: Number of audio channels (1 for mono)
+        sample_width: Bytes per sample (2 for 16-bit audio)
+
+    Returns:
+        WAV file bytes with proper RIFF header
+    """
+    wav_buffer = io.BytesIO()
+
+    with wave.open(wav_buffer, "wb") as wav_file:
+        wav_file.setnchannels(channels)
+        wav_file.setsampwidth(sample_width)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm_data)
+
+    return wav_buffer.getvalue()
+
+
+def _is_valid_wav(data: bytes) -> bool:
+    """Check if data has a valid WAV/RIFF header.
+
+    Args:
+        data: Audio bytes to check
+
+    Returns:
+        True if data starts with RIFF header
+    """
+    return len(data) >= 4 and data[:4] == b"RIFF"
+
 
 # Available Gemini TTS models
 GEMINI_TTS_MODELS = {
@@ -214,6 +254,14 @@ class GeminiTTSProvider:
             else:
                 audio_bytes = audio_data
 
+            # AIDEV-NOTE: Gemini API may return raw PCM without WAV headers
+            # Validate and wrap in WAV container if needed for ffmpeg/pydub compatibility
+            if output_format.lower() == "wav" and not _is_valid_wav(audio_bytes):
+                logger.debug(
+                    "Gemini returned raw audio without RIFF header, wrapping in WAV container"
+                )
+                audio_bytes = _wrap_pcm_in_wav(audio_bytes)
+
             logger.info(f"Gemini TTS synthesis successful: {len(audio_bytes)} bytes")
             return audio_bytes
 
@@ -305,6 +353,13 @@ class GeminiTTSProvider:
                 audio_bytes = base64.b64decode(audio_data)
             else:
                 audio_bytes = audio_data
+
+            # AIDEV-NOTE: Gemini API may return raw PCM without WAV headers
+            if output_format.lower() == "wav" and not _is_valid_wav(audio_bytes):
+                logger.debug(
+                    "Gemini multi-speaker returned raw audio, wrapping in WAV container"
+                )
+                audio_bytes = _wrap_pcm_in_wav(audio_bytes)
 
             logger.info(
                 f"Gemini TTS multi-speaker synthesis successful: {len(audio_bytes)} bytes"

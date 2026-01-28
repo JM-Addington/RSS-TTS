@@ -24,18 +24,22 @@ class GoogleTTSProviderTest(TestCase):
 
     def _create_provider_with_mocks(self):
         """Helper to create a GoogleTTSProvider with mocked dependencies."""
-        with patch("appconfig.utils.get_google_tts_api_key") as mock_api_key, patch(
-            "appconfig.utils.get_google_tts_credentials"
-        ) as mock_creds:
+        with (
+            patch("appconfig.utils.get_google_tts_api_key") as mock_api_key,
+            patch("appconfig.utils.get_google_tts_credentials") as mock_creds,
+        ):
             mock_api_key.return_value = "test-api-key"
             mock_creds.return_value = None
 
             # Mock the Google Cloud client
-            with patch(
-                "google.api_core.client_options.ClientOptions"
-            ) as mock_client_opts, patch(
-                "google.cloud.texttospeech_v1.TextToSpeechClient"
-            ) as mock_tts_client:
+            with (
+                patch(
+                    "google.api_core.client_options.ClientOptions"
+                ) as mock_client_opts,
+                patch(
+                    "google.cloud.texttospeech_v1.TextToSpeechClient"
+                ) as mock_tts_client,
+            ):
                 mock_client_opts.return_value = MagicMock()
                 mock_client = MagicMock()
                 mock_tts_client.return_value = mock_client
@@ -49,9 +53,10 @@ class GoogleTTSProviderTest(TestCase):
 
     def test_init_raises_without_credentials(self):
         """Test GoogleTTSProvider raises ValueError if credentials not configured."""
-        with patch("appconfig.utils.get_google_tts_api_key") as mock_api_key, patch(
-            "appconfig.utils.get_google_tts_credentials"
-        ) as mock_creds:
+        with (
+            patch("appconfig.utils.get_google_tts_api_key") as mock_api_key,
+            patch("appconfig.utils.get_google_tts_credentials") as mock_creds,
+        ):
             mock_api_key.return_value = None
             mock_creds.return_value = None
 
@@ -64,13 +69,14 @@ class GoogleTTSProviderTest(TestCase):
 
     def test_init_with_dict_credentials(self):
         """Test GoogleTTSProvider initializes with dict credentials."""
-        with patch("appconfig.utils.get_google_tts_api_key") as mock_api_key, patch(
-            "appconfig.utils.get_google_tts_credentials"
-        ) as mock_creds, patch(
-            "google.oauth2.service_account.Credentials.from_service_account_info"
-        ) as mock_from_sa, patch(
-            "google.cloud.texttospeech_v1.TextToSpeechClient"
-        ) as mock_tts_client:
+        with (
+            patch("appconfig.utils.get_google_tts_api_key") as mock_api_key,
+            patch("appconfig.utils.get_google_tts_credentials") as mock_creds,
+            patch(
+                "google.oauth2.service_account.Credentials.from_service_account_info"
+            ) as mock_from_sa,
+            patch("google.cloud.texttospeech_v1.TextToSpeechClient") as mock_tts_client,
+        ):
             mock_api_key.return_value = None  # No API key
             mock_creds.return_value = self.mock_credentials  # Service account creds
 
@@ -96,13 +102,14 @@ class GoogleTTSProviderTest(TestCase):
         """Test GoogleTTSProvider parses string credentials."""
         credentials_json = json.dumps(self.mock_credentials)
 
-        with patch("appconfig.utils.get_google_tts_api_key") as mock_api_key, patch(
-            "appconfig.utils.get_google_tts_credentials"
-        ) as mock_creds, patch(
-            "google.oauth2.service_account.Credentials.from_service_account_info"
-        ) as mock_from_sa, patch(
-            "google.cloud.texttospeech_v1.TextToSpeechClient"
-        ) as mock_tts_client:
+        with (
+            patch("appconfig.utils.get_google_tts_api_key") as mock_api_key,
+            patch("appconfig.utils.get_google_tts_credentials") as mock_creds,
+            patch(
+                "google.oauth2.service_account.Credentials.from_service_account_info"
+            ) as mock_from_sa,
+            patch("google.cloud.texttospeech_v1.TextToSpeechClient") as mock_tts_client,
+        ):
             mock_api_key.return_value = None
             mock_creds.return_value = credentials_json
 
@@ -123,9 +130,10 @@ class GoogleTTSProviderTest(TestCase):
 
     def test_init_raises_on_invalid_json(self):
         """Test GoogleTTSProvider raises ValueError on invalid JSON credentials."""
-        with patch("appconfig.utils.get_google_tts_api_key") as mock_api_key, patch(
-            "appconfig.utils.get_google_tts_credentials"
-        ) as mock_creds:
+        with (
+            patch("appconfig.utils.get_google_tts_api_key") as mock_api_key,
+            patch("appconfig.utils.get_google_tts_credentials") as mock_creds,
+        ):
             mock_api_key.return_value = None
             mock_creds.return_value = "invalid json {{"
 
@@ -255,11 +263,12 @@ class GoogleTTSProviderTest(TestCase):
         self.assertEqual(encoding, texttospeech_v1.AudioEncoding.LINEAR16)
 
     def test_synthesize_speech_success(self):
-        """Test successful speech synthesis."""
+        """Test successful speech synthesis with WAV wrapping."""
         provider, mock_client = self._create_provider_with_mocks()
 
+        # Create fake PCM data (LINEAR16 returns raw PCM without headers)
         mock_response = MagicMock()
-        mock_response.audio_content = b"synthesized_audio_data"
+        mock_response.audio_content = b"\x00\x00" * 100  # Simulated raw PCM
         mock_client.synthesize_speech.return_value = mock_response
 
         # Synthesize speech (use Neural2 voice for simpler test)
@@ -270,11 +279,30 @@ class GoogleTTSProviderTest(TestCase):
             output_format="wav",
         )
 
-        # Verify result
-        self.assertEqual(audio_bytes, b"synthesized_audio_data")
+        # Verify result has WAV header (RIFF) since we wrap LINEAR16 in WAV container
+        self.assertTrue(audio_bytes.startswith(b"RIFF"))
 
         # Verify API was called
         mock_client.synthesize_speech.assert_called_once()
+
+    def test_synthesize_speech_mp3_no_wrap(self):
+        """Test MP3 output is not wrapped in WAV container."""
+        provider, mock_client = self._create_provider_with_mocks()
+
+        # MP3 data with typical header
+        mp3_data = b"\xff\xfb\x90\x00" + b"\x00" * 100
+        mock_response = MagicMock()
+        mock_response.audio_content = mp3_data
+        mock_client.synthesize_speech.return_value = mock_response
+
+        audio_bytes = provider.synthesize_speech(
+            text="Hello world",
+            voice_name="en-US-Neural2-A",
+            output_format="mp3",
+        )
+
+        # Verify MP3 data is returned as-is (not wrapped)
+        self.assertEqual(audio_bytes, mp3_data)
 
     def test_synthesize_speech_with_speed(self):
         """Test speech synthesis includes speaking rate for non-gemini voices."""
@@ -308,3 +336,51 @@ class GoogleTTSProviderTest(TestCase):
             provider.synthesize_speech(text="Test", voice_name="en-US-Neural2-A")
 
         self.assertIn("Google TTS synthesis failed", str(cm.exception))
+
+
+class WrapPcmInWavTest(TestCase):
+    """Test the _wrap_pcm_in_wav helper function."""
+
+    def test_wrap_pcm_creates_valid_wav(self):
+        """Test that _wrap_pcm_in_wav creates valid WAV with RIFF header."""
+        from text_to_audio.services.google_tts_provider import _wrap_pcm_in_wav
+
+        # Create some fake PCM data (16-bit samples)
+        pcm_data = b"\x00\x01\x02\x03" * 100
+
+        wav_bytes = _wrap_pcm_in_wav(pcm_data)
+
+        # Verify RIFF header
+        self.assertTrue(wav_bytes.startswith(b"RIFF"))
+        # Verify WAVE format marker at byte 8
+        self.assertEqual(wav_bytes[8:12], b"WAVE")
+
+    def test_wrap_pcm_with_custom_sample_rate(self):
+        """Test WAV wrapping with custom sample rate."""
+        from text_to_audio.services.google_tts_provider import _wrap_pcm_in_wav
+        import wave
+        import io
+
+        pcm_data = b"\x00\x00" * 48000  # 1 second at 48kHz
+
+        wav_bytes = _wrap_pcm_in_wav(pcm_data, sample_rate=48000)
+
+        # Parse the WAV to verify sample rate
+        with wave.open(io.BytesIO(wav_bytes), "rb") as wav_file:
+            self.assertEqual(wav_file.getframerate(), 48000)
+
+    def test_wrap_pcm_default_sample_rate(self):
+        """Test WAV wrapping uses 24000 Hz sample rate by default (Google TTS)."""
+        from text_to_audio.services.google_tts_provider import _wrap_pcm_in_wav
+        import wave
+        import io
+
+        pcm_data = b"\x00\x00" * 24000  # 1 second at 24kHz
+
+        wav_bytes = _wrap_pcm_in_wav(pcm_data)
+
+        # Parse the WAV to verify default sample rate
+        with wave.open(io.BytesIO(wav_bytes), "rb") as wav_file:
+            self.assertEqual(wav_file.getframerate(), 24000)
+            self.assertEqual(wav_file.getnchannels(), 1)  # Mono
+            self.assertEqual(wav_file.getsampwidth(), 2)  # 16-bit
