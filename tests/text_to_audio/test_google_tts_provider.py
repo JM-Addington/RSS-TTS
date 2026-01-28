@@ -408,7 +408,7 @@ class WrapPcmInWavTest(TestCase):
 class IsValidWavTest(TestCase):
     """Test the is_valid_wav helper function."""
 
-    def testis_valid_wav_returns_true_for_wav(self):
+    def test_is_valid_wav_returns_true_for_wav(self):
         """Test is_valid_wav returns True for valid WAV data."""
         from text_to_audio.audio_utils import is_valid_wav
 
