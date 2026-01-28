@@ -18,7 +18,10 @@ import base64
 import logging
 from typing import Dict, Optional
 
+from text_to_audio.audio_utils import is_valid_wav, wrap_pcm_in_wav
+
 logger = logging.getLogger(__name__)
+
 
 # Available Gemini TTS models
 GEMINI_TTS_MODELS = {
@@ -214,6 +217,14 @@ class GeminiTTSProvider:
             else:
                 audio_bytes = audio_data
 
+            # AIDEV-NOTE: Gemini API may return raw PCM without WAV headers
+            # Validate and wrap in WAV container if needed for ffmpeg/pydub compatibility
+            if output_format.lower() == "wav" and not is_valid_wav(audio_bytes):
+                logger.debug(
+                    "Gemini returned raw audio without RIFF header, wrapping in WAV container"
+                )
+                audio_bytes = wrap_pcm_in_wav(audio_bytes)
+
             logger.info(f"Gemini TTS synthesis successful: {len(audio_bytes)} bytes")
             return audio_bytes
 
@@ -305,6 +316,13 @@ class GeminiTTSProvider:
                 audio_bytes = base64.b64decode(audio_data)
             else:
                 audio_bytes = audio_data
+
+            # AIDEV-NOTE: Gemini API may return raw PCM without WAV headers
+            if output_format.lower() == "wav" and not is_valid_wav(audio_bytes):
+                logger.debug(
+                    "Gemini multi-speaker returned raw audio, wrapping in WAV container"
+                )
+                audio_bytes = wrap_pcm_in_wav(audio_bytes)
 
             logger.info(
                 f"Gemini TTS multi-speaker synthesis successful: {len(audio_bytes)} bytes"

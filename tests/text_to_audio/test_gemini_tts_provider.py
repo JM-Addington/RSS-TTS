@@ -20,8 +20,12 @@ class GeminiTTSProviderTest(TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.mock_api_key = "test-gemini-api-key"
-        self.sample_audio = b"fake_audio_data_bytes"
+        # Use audio with RIFF header so it won't be wrapped
+        self.sample_audio = b"RIFF\x00\x00\x00\x00WAVEfmt fake_audio_data"
         self.sample_audio_base64 = base64.b64encode(self.sample_audio).decode()
+        # Raw PCM without RIFF header (will be wrapped)
+        self.sample_pcm_audio = b"\x00\x00\x01\x00\x02\x00" * 100
+        self.sample_pcm_base64 = base64.b64encode(self.sample_pcm_audio).decode()
 
         # Create mock genai module
         self.mock_genai = MagicMock()
@@ -440,3 +444,72 @@ class GeminiTTSProviderTest(TestCase):
         # Skip this test since we can't easily patch the internal import
         # The key functionality is tested by the integration tests
         pass
+
+    # --- WAV Wrapping Tests ---
+
+    def test_synthesize_speech_wraps_raw_pcm_in_wav(self):
+        """Test that raw PCM audio (without RIFF header) is wrapped in WAV container."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        # Return raw PCM without RIFF header
+        mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_pcm_base64
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+
+            audio_bytes = provider.synthesize_speech(
+                text="Hello world", voice_name="Kore", output_format="wav"
+            )
+
+            # Verify the audio now has a RIFF header
+            self.assertTrue(audio_bytes.startswith(b"RIFF"))
+            self.assertEqual(audio_bytes[8:12], b"WAVE")
+
+    def test_synthesize_speech_does_not_rewrap_valid_wav(self):
+        """Test that audio with existing RIFF header is not re-wrapped."""
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_google.genai = mock_genai
+
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_response = MagicMock()
+        mock_response.candidates = [MagicMock()]
+        mock_response.candidates[0].content.parts = [MagicMock()]
+        # Return audio with RIFF header
+        mock_response.candidates[0].content.parts[
+            0
+        ].inline_data.data = self.sample_audio_base64
+        mock_client.models.generate_content.return_value = mock_response
+
+        with patch.dict(
+            sys.modules, {"google": mock_google, "google.genai": mock_genai}
+        ):
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+
+            provider = GeminiTTSProvider(api_key="test-key")
+
+            audio_bytes = provider.synthesize_speech(
+                text="Hello world", voice_name="Kore", output_format="wav"
+            )
+
+            # Verify the audio is returned as-is (not wrapped again)
+            self.assertEqual(audio_bytes, self.sample_audio)
+
+

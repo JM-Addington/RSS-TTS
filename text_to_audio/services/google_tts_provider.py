@@ -15,7 +15,10 @@ language instructions.
 import logging
 from typing import Dict, Optional
 
+from text_to_audio.audio_utils import is_valid_wav, wrap_pcm_in_wav
+
 logger = logging.getLogger(__name__)
+
 
 # AIDEV-NOTE: Gemini TTS models - use these for prompt/styling support
 GEMINI_TTS_MODELS = {
@@ -231,6 +234,15 @@ class GoogleTTSProvider:
             )
 
             audio_bytes = response.audio_content
+
+            # AIDEV-NOTE: Cloud TTS LINEAR16 should include WAV headers per docs, but
+            # check and wrap as fallback if raw PCM is encountered (safety measure)
+            if output_format.lower() == "wav" and not is_valid_wav(audio_bytes):
+                audio_bytes = wrap_pcm_in_wav(audio_bytes)
+                logger.debug(
+                    f"Wrapped LINEAR16 data in WAV container: {len(audio_bytes)} bytes"
+                )
+
             logger.info(f"Google TTS synthesis successful: {len(audio_bytes)} bytes")
             return audio_bytes
 
@@ -320,6 +332,15 @@ class GoogleTTSProvider:
             )
 
             audio_bytes = response.audio_content
+
+            # AIDEV-NOTE: Cloud TTS LINEAR16 should include WAV headers per docs, but
+            # check and wrap as fallback if raw PCM is encountered (safety measure)
+            if output_format.lower() == "wav" and not is_valid_wav(audio_bytes):
+                audio_bytes = wrap_pcm_in_wav(audio_bytes)
+                logger.debug(
+                    f"Wrapped LINEAR16 data in WAV container: {len(audio_bytes)} bytes"
+                )
+
             logger.info(
                 f"Google TTS multi-speaker synthesis successful: {len(audio_bytes)} bytes"
             )
