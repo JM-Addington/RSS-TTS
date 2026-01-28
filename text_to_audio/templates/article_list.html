@@ -130,7 +130,7 @@ tr.now-playing {
         <div class="table-responsive">
             <table class="table table-striped">
                 <thead>
-                    <tr id="article-row-{{ article.id }}">
+                    <tr>
                         <th>Title</th>
                         <th>Source</th>
                         <th>Voice</th>
@@ -496,16 +496,6 @@ function handlePlayButtonClick(event) {
     if (playerContainer) {
         playerContainer.style.display = 'block'; // Show the player container
     }
-
-    // Add error handling for playback with standardized approach
-    const playPromise = audioPlayer.play();
-    if (playPromise !== undefined) {
-        playPromise.catch(error => {
-            console.error('Audio playback failed:', error);
-            alert('Failed to play audio. The file may be missing or corrupted.');
-            resetPlaybackUI();
-        });
-    }
 }
 
 // Function to attach event listeners to play buttons
@@ -539,6 +529,7 @@ async function handleRegenerateClick(event) {
     try {
         const response = await fetch(regenerateUrl, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'X-CSRFToken': csrfToken,
                 'X-Requested-With': 'XMLHttpRequest',
@@ -551,6 +542,10 @@ async function handleRegenerateClick(event) {
         }
 
         const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.message || 'Regeneration failed');
+        }
 
         if (data.success) {
             // Update the row to show processing state

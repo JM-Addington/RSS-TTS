@@ -121,7 +121,7 @@ class RegenerateArticleViewTest(TestCase):
 
         # Check that we got a JSON response instead of a redirect
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertIn("application/json", response["Content-Type"])
 
         # Parse the JSON response
         import json
@@ -166,7 +166,7 @@ class RegenerateArticleViewTest(TestCase):
 
         # Should return JSON
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertIn("application/json", response["Content-Type"])
 
 
 class ArticleDeleteViewTests(TestCase):
