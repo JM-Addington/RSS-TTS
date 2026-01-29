@@ -724,19 +724,31 @@ def process_article(self, article_id: int) -> str:
                 chunk_tone_service = ChunkToneService()
 
                 # Determine fallback voice for ChunkToneService
-                # Use the same logic as single-voice fallback
-                from appconfig.utils import get_openai_tts_voice
+                # AIDEV-NOTE: Use provider-aware voice selection to avoid voice/provider mismatch
+                from appconfig.utils import (
+                    get_default_tts_provider,
+                    get_default_voice_for_provider,
+                )
+
+                # Determine effective TTS provider for this article
+                effective_provider = (
+                    article.tts_provider
+                    or article.feed.tts_provider
+                    or get_default_tts_provider()
+                )
 
                 if article.voice_parameters:
                     fallback_voice = (
                         article.voice
                         or article.voice_parameters.get("voice_id")
                         or article.voice_id
-                        or get_openai_tts_voice()
+                        or get_default_voice_for_provider(effective_provider)
                     )
                 else:
                     fallback_voice = (
-                        article.voice or article.voice_id or get_openai_tts_voice()
+                        article.voice
+                        or article.voice_id
+                        or get_default_voice_for_provider(effective_provider)
                     )
 
                 # Prepare text for chunking (title removed to prevent duplication)
@@ -1251,7 +1263,18 @@ def process_article(self, article_id: int) -> str:
 
             # Use enhanced voice parameters if available (from auto-voice)
             voice_prompt = None
-            from appconfig.utils import get_openai_tts_voice
+            # AIDEV-NOTE: Use provider-aware voice selection to avoid voice/provider mismatch
+            from appconfig.utils import (
+                get_default_tts_provider,
+                get_default_voice_for_provider,
+            )
+
+            # Determine effective TTS provider for this article
+            effective_provider = (
+                article.tts_provider
+                or article.feed.tts_provider
+                or get_default_tts_provider()
+            )
 
             # AIDEV-NOTE: Voice preset prompt extraction - keep in sync with voice_preset_test view
             # Check for voice preset prompt first (highest priority when preset is used)
@@ -1268,7 +1291,7 @@ def process_article(self, article_id: int) -> str:
                     article.voice
                     or article.voice_parameters.get("voice_id")
                     or article.voice_id
-                    or get_openai_tts_voice()
+                    or get_default_voice_for_provider(effective_provider)
                 )
                 fallback_speed = (
                     article.voice_parameters.get("speed") or article.speed or 1.0
@@ -1282,7 +1305,9 @@ def process_article(self, article_id: int) -> str:
             else:
                 # Check voice field first, then voice_id, then default
                 fallback_voice = (
-                    article.voice or article.voice_id or get_openai_tts_voice()
+                    article.voice
+                    or article.voice_id
+                    or get_default_voice_for_provider(effective_provider)
                 )
                 fallback_speed = article.speed or 1.0
 
@@ -1323,7 +1348,7 @@ def process_article(self, article_id: int) -> str:
                 # Log fallback TTS API call details
                 logger.info(
                     f"Fallback TTS API Call - Article {article_id}, chunk {i}: "
-                    f"model={tts_args['model']}, voice={fallback_voice}, "
+                    f"provider={effective_provider}, voice={fallback_voice}, "
                     f"speed={fallback_speed}, text_length={len(chunk)} chars"
                     + (f", instructions='{voice_prompt}'" if voice_prompt else "")
                 )
@@ -1333,10 +1358,8 @@ def process_article(self, article_id: int) -> str:
                     # AIDEV-NOTE: TTS provider abstraction - supports OpenAI and Google
                     from .services.tts_service import TTSService
 
-                    # Initialize TTS service with article's provider
-                    tts_service = TTSService(
-                        provider=article.tts_provider or article.feed.tts_provider
-                    )
+                    # Initialize TTS service with effective provider (already determined above)
+                    tts_service = TTSService(provider=effective_provider)
 
                     # Generate speech using provider-agnostic interface
                     audio_bytes = tts_service.generate_speech(
