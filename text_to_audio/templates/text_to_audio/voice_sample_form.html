@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container mt-4">
     <h1>Generate Sample for {{ preset.name }}</h1>
-    <form id="sampleForm" method="post">
+    <form id="sampleForm" method="post" autocomplete="off" data-form-type="other">
         {% csrf_token %}
         <div class="mb-3">
             <label for="{{ form.text.id_for_label }}" class="form-label">{{ form.text.label }}</label>

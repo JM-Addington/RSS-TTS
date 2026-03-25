@@ -8,7 +8,7 @@
 <div class="container mt-4">
     <h1>{% if is_create %}Create Voice Preset{% else %}Edit Voice Preset{% endif %}</h1>
 
-    <form method="post" class="mt-4">
+    <form method="post" class="mt-4" autocomplete="off" data-form-type="other">
         {% csrf_token %}
 
         {% if form.non_field_errors %}
