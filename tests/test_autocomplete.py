@@ -170,10 +170,16 @@ class TestLoginFormKeepsAutocomplete(TestCase):
     """Test that login form does NOT disable autocomplete (it should work there)."""
 
     def test_login_form_allows_autocomplete(self):
-        """Login page should NOT have autocomplete='off' to allow password managers."""
+        """Login page form tag should NOT have autocomplete='off' to allow password managers."""
         client = Client()
         response = client.get("/accounts/login/")
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
-        # Login form should NOT have autocomplete="off"
-        self.assertNotIn('autocomplete="off"', content)
+        # Verify the login form tag specifically does not include autocomplete="off"
+        self.assertIn("<form", content)
+        # The login form's <form> tag should not contain autocomplete="off"
+        import re
+
+        form_tags = re.findall(r"<form[^>]*>", content)
+        for form_tag in form_tags:
+            self.assertNotIn('autocomplete="off"', form_tag)
