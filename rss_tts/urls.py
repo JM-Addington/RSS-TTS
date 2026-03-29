@@ -7,6 +7,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from text_to_audio.permissions import IsStaffOrDebug
 from text_to_audio.api_views import (FeedArticleSubmitView,
                                      VoicePresetDetailView,
                                      VoicePresetListView)
@@ -33,8 +34,8 @@ urlpatterns = [
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("accounts/signup/", SignUpView.as_view(), name="signup"),
     path("accounts/", include("accounts.urls")),
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
+    path("api/schema/", SpectacularAPIView.as_view(permission_classes=[IsStaffOrDebug]), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsStaffOrDebug]), name="docs"),
     path("articles/", ArticleListView.as_view(), name="article-list"),
     path("articles/submit/", ArticleCreateView.as_view(), name="article-submit"),
     path(
