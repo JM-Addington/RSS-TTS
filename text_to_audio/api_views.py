@@ -16,7 +16,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Article, Feed, UserVoicePreset
+from .models import VOICE_CHOICES, Article, Feed, UserVoicePreset
 from .tasks import process_article
 from .validators import validate_url_not_ssrf
 
@@ -60,6 +60,18 @@ class ArticleSubmissionSerializer(serializers.Serializer):
         max_value=4.0,
         help_text="Speed multiplier for TTS conversion (0.25 to 4.0, default 1.0).",
     )
+
+    # AIDEV-NOTE: voice_id validated against VOICE_CHOICES for consistency with form/model (#198)
+    def validate_voice_id(self, value):
+        """Validate voice_id against known VOICE_CHOICES."""
+        if not value:  # allow blank/empty (field is optional)
+            return value
+        valid_ids = {choice[0] for choice in VOICE_CHOICES}
+        if value not in valid_ids:
+            raise serializers.ValidationError(
+                f"Invalid voice_id '{value}'. Use a valid voice ID from the available voices list."
+            )
+        return value
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate that either source_url or text_content is provided."""

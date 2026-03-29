@@ -346,6 +346,84 @@ class FeedArticleSubmitAPITests(TestCase):
         response_text = json.dumps(response.json())
         self.assertIn("private", response_text.lower())
 
+    def test_submit_with_invalid_voice_id_rejected(self):
+        """Test that an invalid voice_id is rejected. Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "not-a-real-voice",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response_text = json.dumps(response.json())
+        self.assertIn("voice_id", response_text)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_with_valid_openai_voice_id(self, mock_process):
+        """Test that a valid OpenAI voice_id is accepted. Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "nova",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_with_valid_google_voice_id(self, mock_process):
+        """Test that a valid Google Chirp3 HD voice_id is accepted. Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "en-US-Chirp3-HD-Achernar",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_with_valid_gemini_voice_id(self, mock_process):
+        """Test that a valid Gemini TTS voice_id is accepted. Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "Zephyr",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_with_empty_voice_id_allowed(self, mock_process):
+        """Test that empty voice_id is accepted (field is optional). Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_without_voice_id_allowed(self, mock_process):
+        """Test that omitting voice_id is accepted (field is optional). Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
     def test_error_response_format_consistent(self):
         """Test that error responses use consistent format. Closes #195."""
         payload = {"title": "Test Article"}
