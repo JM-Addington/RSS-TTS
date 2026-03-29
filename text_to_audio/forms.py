@@ -7,7 +7,8 @@ RSS-TTS system.
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import Article, Feed, FollowedFeed, UserVoicePreset, UserVoiceProfile
+from .models import (Article, Feed, FollowedFeed, UserVoicePreset,
+                     UserVoiceProfile)
 from .services.voice_configuration import VoiceConfigurationService
 
 

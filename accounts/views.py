@@ -311,7 +311,10 @@ def migrate_env_to_config(request):
             "default_tts_provider": ("DEFAULT_TTS_PROVIDER", "openai"),
             "google_tts_api_key": ("GOOGLE_TTS_API_KEY", None),
             "google_tts_credentials_json": ("GOOGLE_TTS_CREDENTIALS_JSON", None),
-            "google_tts_default_voice_type": ("GOOGLE_TTS_DEFAULT_VOICE_TYPE", "gemini"),
+            "google_tts_default_voice_type": (
+                "GOOGLE_TTS_DEFAULT_VOICE_TYPE",
+                "gemini",
+            ),
             "podcast_image_url": ("PODCAST_IMAGE_URL", None),
             "site_url": ("SITE_URL", "http://localhost:8000"),
             "rss_external_hostname": ("RSS_EXTERNAL_HOSTNAME", None),

@@ -3,21 +3,76 @@
 import hashlib
 import uuid
 
-
 # AIDEV-NOTE: Word lists for generating readable email addresses
 # These are common, simple words that are easy to read and type
 ADJECTIVES = [
-    "happy", "bright", "swift", "calm", "bold", "wise", "kind", "grand",
-    "clever", "gentle", "proud", "brave", "fair", "noble", "pure", "keen",
-    "merry", "lively", "eager", "quick", "warm", "cool", "fresh", "crisp",
-    "silver", "golden", "crystal", "amber", "ruby", "jade", "pearl", "azure"
+    "happy",
+    "bright",
+    "swift",
+    "calm",
+    "bold",
+    "wise",
+    "kind",
+    "grand",
+    "clever",
+    "gentle",
+    "proud",
+    "brave",
+    "fair",
+    "noble",
+    "pure",
+    "keen",
+    "merry",
+    "lively",
+    "eager",
+    "quick",
+    "warm",
+    "cool",
+    "fresh",
+    "crisp",
+    "silver",
+    "golden",
+    "crystal",
+    "amber",
+    "ruby",
+    "jade",
+    "pearl",
+    "azure",
 ]
 
 NOUNS = [
-    "river", "mountain", "forest", "ocean", "meadow", "valley", "canyon", "peak",
-    "lake", "stream", "island", "harbor", "bridge", "tower", "castle", "garden",
-    "cloud", "moon", "star", "sun", "comet", "aurora", "thunder", "breeze",
-    "fox", "bear", "eagle", "deer", "wolf", "hawk", "raven", "owl"
+    "river",
+    "mountain",
+    "forest",
+    "ocean",
+    "meadow",
+    "valley",
+    "canyon",
+    "peak",
+    "lake",
+    "stream",
+    "island",
+    "harbor",
+    "bridge",
+    "tower",
+    "castle",
+    "garden",
+    "cloud",
+    "moon",
+    "star",
+    "sun",
+    "comet",
+    "aurora",
+    "thunder",
+    "breeze",
+    "fox",
+    "bear",
+    "eagle",
+    "deer",
+    "wolf",
+    "hawk",
+    "raven",
+    "owl",
 ]
 
 
@@ -46,9 +101,11 @@ def generate_feed_email_address(feed_token: uuid.UUID, domain: str) -> str:
 
     # Use different parts of the hash for different selections
     # This ensures we get different values for adjective, noun, and number
-    adjective_index = int.from_bytes(hash_digest[0:4], byteorder='big') % len(ADJECTIVES)
-    noun_index = int.from_bytes(hash_digest[4:8], byteorder='big') % len(NOUNS)
-    number = int.from_bytes(hash_digest[8:10], byteorder='big') % 100  # 0-99
+    adjective_index = int.from_bytes(hash_digest[0:4], byteorder="big") % len(
+        ADJECTIVES
+    )
+    noun_index = int.from_bytes(hash_digest[4:8], byteorder="big") % len(NOUNS)
+    number = int.from_bytes(hash_digest[8:10], byteorder="big") % 100  # 0-99
 
     adjective = ADJECTIVES[adjective_index]
     noun = NOUNS[noun_index]

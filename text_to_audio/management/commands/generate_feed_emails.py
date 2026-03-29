@@ -53,9 +53,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Found {total_feeds} feeds without email addresses")
 
         if dry_run:
-            self.stdout.write(
-                self.style.WARNING("DRY RUN - No changes will be made")
-            )
+            self.stdout.write(self.style.WARNING("DRY RUN - No changes will be made"))
 
         # Check if SITE_URL is configured (needed for routes)
         site_url = getattr(settings, "SITE_URL", None)

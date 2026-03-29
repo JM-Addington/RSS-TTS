@@ -16,16 +16,13 @@ from typing import Optional
 
 import openai
 
-from appconfig.utils import (
-    get_default_tts_provider,
-    get_google_tts_voice_type,
-    get_openai_api_key,
-    get_openai_tts_model,
-)
+from appconfig.utils import (get_default_tts_provider,
+                             get_google_tts_voice_type, get_openai_api_key,
+                             get_openai_tts_model)
+from text_to_audio.utils import sanitize_text_for_tts
 
 from .gemini_tts_provider import GeminiTTSProvider
 from .google_tts_provider import GoogleTTSProvider
-from text_to_audio.utils import sanitize_text_for_tts
 
 logger = logging.getLogger(__name__)
 
