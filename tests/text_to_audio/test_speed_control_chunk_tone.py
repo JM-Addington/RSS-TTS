@@ -47,8 +47,24 @@ class SpeedControlChunkToneTests(TestCase):
         self.user = User.objects.create_user(username="testuser", password="password")
         self.feed = Feed.objects.create(user=self.user, name="Test Feed")
 
+        # AIDEV-NOTE: TTSService uses its own openai import; share the tasks mock with it
+        import text_to_audio.services.tts_service as tts_mod
+        import text_to_audio.tasks as tasks_mod
+
+        self._tts_openai_patcher = patch.object(tts_mod, "openai", tasks_mod.openai)
+        self._tts_openai_patcher.start()
+
+        # AIDEV-NOTE: GlobalConfig DB values override @override_settings for appconfig.
+        # Patch get_enable_chunk_tone_llm to ensure ChunkTone path is enabled.
+        self._chunk_tone_patcher = patch(
+            "appconfig.utils.get_enable_chunk_tone_llm", return_value=True
+        )
+        self._chunk_tone_patcher.start()
+
     def tearDown(self):
         """Clean up test data and environment after each test."""
+        self._chunk_tone_patcher.stop()
+        self._tts_openai_patcher.stop()
         if TEST_MEDIA_ROOT.exists():
             shutil.rmtree(TEST_MEDIA_ROOT)
 
@@ -82,11 +98,9 @@ class SpeedControlChunkToneTests(TestCase):
         mock_chunk_tone_service = MockChunkToneService.return_value
 
         # Create mock chunk payload with 2 chunks for each article
-        from text_to_audio.schemas.chunk_tone import (
-            ChunkData,
-            ChunkTonePayload,
-            TTSVoice,
-        )
+        from text_to_audio.schemas.chunk_tone import (ChunkData,
+                                                      ChunkTonePayload,
+                                                      TTSVoice)
 
         mock_payload_125 = ChunkTonePayload(
             chunks=[
@@ -189,12 +203,14 @@ class SpeedControlChunkToneTests(TestCase):
             self.assertTrue(len(call_kwargs["instructions"]) > 0)
 
         # Last 2 calls should be for article_100 (speed 1.0)
+        # TTSService omits speed from API args when it equals 1.0
         for i in range(2, 4):
             call_kwargs = tts_calls[i][1]
+            actual_speed = call_kwargs.get("speed", 1.0)
             self.assertEqual(
-                call_kwargs["speed"],
+                actual_speed,
                 1.0,
-                f"Call {i+1} should have speed 1.0, got {call_kwargs['speed']}",
+                f"Call {i+1} should have speed 1.0, got {actual_speed}",
             )
             # Verify instructions parameter is passed
             self.assertIn("instructions", call_kwargs)
@@ -224,11 +240,9 @@ class SpeedControlChunkToneTests(TestCase):
         # Mock ChunkToneService
         mock_chunk_tone_service = MockChunkToneService.return_value
 
-        from text_to_audio.schemas.chunk_tone import (
-            ChunkData,
-            ChunkTonePayload,
-            TTSVoice,
-        )
+        from text_to_audio.schemas.chunk_tone import (ChunkData,
+                                                      ChunkTonePayload,
+                                                      TTSVoice)
 
         mock_payload = ChunkTonePayload(
             chunks=[
@@ -324,11 +338,9 @@ class SpeedControlChunkToneTests(TestCase):
         # Mock ChunkToneService
         mock_chunk_tone_service = MockChunkToneService.return_value
 
-        from text_to_audio.schemas.chunk_tone import (
-            ChunkData,
-            ChunkTonePayload,
-            TTSVoice,
-        )
+        from text_to_audio.schemas.chunk_tone import (ChunkData,
+                                                      ChunkTonePayload,
+                                                      TTSVoice)
 
         mock_payload = ChunkTonePayload(
             chunks=[
@@ -388,13 +400,15 @@ class SpeedControlChunkToneTests(TestCase):
         self.assertEqual(mock_speech_create.call_count, 2)
 
         # Verify both calls used default speed 1.0
+        # TTSService omits speed from API args when it equals 1.0
         tts_calls = mock_speech_create.call_args_list
         for i, call in enumerate(tts_calls):
             call_kwargs = call[1]
+            actual_speed = call_kwargs.get("speed", 1.0)
             self.assertEqual(
-                call_kwargs["speed"],
+                actual_speed,
                 1.0,
-                f"Call {i+1} should use default speed 1.0, got {call_kwargs['speed']}",
+                f"Call {i+1} should use default speed 1.0, got {actual_speed}",
             )
             # Verify instructions parameter is passed
             self.assertIn("instructions", call_kwargs)

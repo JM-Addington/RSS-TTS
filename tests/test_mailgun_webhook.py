@@ -18,6 +18,7 @@ from text_to_audio.tasks import process_incoming_email
 User = get_user_model()
 
 
+@override_settings(MAILGUN_API_KEY=None, MAILGUN_DOMAIN=None)
 class MailgunWebhookTestCase(TestCase):
     """Tests for the Mailgun incoming webhook endpoint."""
 

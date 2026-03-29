@@ -3,11 +3,9 @@
 import unittest
 import uuid
 
-from text_to_audio.mailgun_utils import (
-    generate_feed_email_address,
-    parse_feed_email_recipient,
-    validate_mailgun_domain,
-)
+from text_to_audio.mailgun_utils import (generate_feed_email_address,
+                                         parse_feed_email_recipient,
+                                         validate_mailgun_domain)
 
 
 class TestGenerateFeedEmailAddress(unittest.TestCase):

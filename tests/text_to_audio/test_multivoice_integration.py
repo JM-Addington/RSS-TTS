@@ -18,9 +18,14 @@ from pathlib import Path
 from django.test import TestCase
 from pydub import AudioSegment  # type: ignore[import-untyped]
 
-# Skip all tests if no API keys configured
-SKIP_OPENAI = not os.getenv("OPENAI_API_KEY")
-SKIP_GOOGLE = not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_TTS_API_KEY"))
+# Skip all tests if no real API keys configured (placeholder keys start with "your-")
+_openai_key = os.getenv("OPENAI_API_KEY", "")
+SKIP_OPENAI = not _openai_key or _openai_key.startswith("your-")
+_gemini_key = os.getenv("GEMINI_API_KEY", "")
+_google_key = os.getenv("GOOGLE_TTS_API_KEY", "")
+SKIP_GOOGLE = (not _gemini_key or _gemini_key.startswith("your-")) and (
+    not _google_key or _google_key.startswith("your-")
+)
 
 # Project Gutenberg excerpt - Sherlock Holmes dialogue (public domain)
 SHERLOCK_HOLMES_TEXT = """
@@ -104,7 +109,8 @@ class OpenAIMultivoiceIntegrationTest(TestCase):
 
     def test_content_analysis_identifies_voices(self):
         """Test that ContentAnalysisService identifies distinct voices."""
-        from text_to_audio.services.content_analysis import ContentAnalysisService
+        from text_to_audio.services.content_analysis import \
+            ContentAnalysisService
 
         service = ContentAnalysisService()
 
@@ -144,7 +150,8 @@ class OpenAIMultivoiceIntegrationTest(TestCase):
 
     def test_multivoice_tts_generation(self):
         """Test generating audio for multivoice segments with OpenAI."""
-        from text_to_audio.services.content_analysis import ContentAnalysisService
+        from text_to_audio.services.content_analysis import \
+            ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
 
         # First, analyze content
@@ -186,7 +193,8 @@ class OpenAIMultivoiceIntegrationTest(TestCase):
     def test_full_multivoice_pipeline_with_stitching(self):
         """Test complete multivoice pipeline including audio stitching."""
 
-        from text_to_audio.services.content_analysis import ContentAnalysisService
+        from text_to_audio.services.content_analysis import \
+            ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
 
         # Analyze content
@@ -257,7 +265,8 @@ class GoogleMultivoiceIntegrationTest(TestCase):
 
     def test_content_analysis_for_google_voices(self):
         """Test that ContentAnalysisService selects Google/Gemini voices."""
-        from text_to_audio.services.content_analysis import ContentAnalysisService
+        from text_to_audio.services.content_analysis import \
+            ContentAnalysisService
 
         service = ContentAnalysisService()
 
@@ -325,7 +334,8 @@ class GoogleMultivoiceIntegrationTest(TestCase):
 
     def test_multivoice_tts_with_gemini_prompts(self):
         """Test generating audio with Gemini TTS using prompt styling."""
-        from text_to_audio.services.content_analysis import ContentAnalysisService
+        from text_to_audio.services.content_analysis import \
+            ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
 
         # Analyze content
@@ -368,7 +378,8 @@ class GoogleMultivoiceIntegrationTest(TestCase):
     def test_full_multivoice_pipeline_with_google(self):
         """Test complete multivoice pipeline with Google TTS including stitching."""
 
-        from text_to_audio.services.content_analysis import ContentAnalysisService
+        from text_to_audio.services.content_analysis import \
+            ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
 
         # Analyze content
@@ -448,7 +459,8 @@ class LongerTextMultivoiceTest(TestCase):
     def test_sherlock_holmes_full_dialogue_openai(self):
         """Test multivoice with full Sherlock Holmes dialogue (OpenAI)."""
 
-        from text_to_audio.services.content_analysis import ContentAnalysisService
+        from text_to_audio.services.content_analysis import \
+            ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
 
         # Analyze the longer text
@@ -519,7 +531,8 @@ class LongerTextMultivoiceTest(TestCase):
     def test_pride_and_prejudice_dialogue_google(self):
         """Test multivoice with Pride and Prejudice dialogue (Google)."""
 
-        from text_to_audio.services.content_analysis import ContentAnalysisService
+        from text_to_audio.services.content_analysis import \
+            ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
 
         # Analyze
@@ -601,7 +614,8 @@ class CrossProviderComparisonTest(TestCase):
     def test_same_text_different_providers(self):
         """Test same text processed by both OpenAI and Google TTS."""
 
-        from text_to_audio.services.content_analysis import ContentAnalysisService
+        from text_to_audio.services.content_analysis import \
+            ContentAnalysisService
         from text_to_audio.services.tts_service import TTSService
 
         results = {}

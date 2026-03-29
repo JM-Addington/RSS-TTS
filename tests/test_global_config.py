@@ -1,23 +1,15 @@
 from django.test import TestCase, override_settings
 
 from appconfig.models import GlobalConfig
-from appconfig.utils import (
-    get_default_tts_provider,
-    get_enable_chunk_tone_llm,
-    get_firecrawl_api_key,
-    get_global_config,
-    get_max_analysis_words,
-    get_openai_analysis_model,
-    get_openai_api_key,
-    get_openai_classification_model,
-    get_openai_title_model,
-    get_openai_tts_model,
-    get_openai_tts_voice,
-    get_podcast_image_url,
-    get_site_url,
-    get_use_firecrawl_by_default,
-    get_use_gpt_for_url_extraction,
-)
+from appconfig.utils import (get_default_tts_provider,
+                             get_enable_chunk_tone_llm, get_firecrawl_api_key,
+                             get_global_config, get_max_analysis_words,
+                             get_openai_analysis_model, get_openai_api_key,
+                             get_openai_classification_model,
+                             get_openai_title_model, get_openai_tts_model,
+                             get_openai_tts_voice, get_podcast_image_url,
+                             get_site_url, get_use_firecrawl_by_default,
+                             get_use_gpt_for_url_extraction)
 
 
 class GlobalConfigTests(TestCase):
@@ -103,7 +95,10 @@ class GlobalConfigTests(TestCase):
         self.assertEqual(get_max_analysis_words(), 6000)
 
     @override_settings(
-        OPENAI_API_KEY=None, FIRECRAWL_API_KEY=None, PODCAST_IMAGE_URL=None
+        OPENAI_API_KEY=None,
+        FIRECRAWL_API_KEY=None,
+        PODCAST_IMAGE_URL=None,
+        SITE_URL="http://localhost:8000",
     )
     def test_default_values_with_no_config(self):
         """Test that defaults are used when no config exists and no settings."""

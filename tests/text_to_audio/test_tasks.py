@@ -12,9 +12,9 @@ import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
-from django.conf import (
-    settings as django_settings,  # Use a different alias to avoid conflict with fixture
-)
+from django.conf import \
+    settings as \
+    django_settings  # Use a different alias to avoid conflict with fixture
 from django.contrib.auth import get_user_model
 
 # Configure Django settings before importing models and tasks
@@ -56,7 +56,8 @@ from openai import APIError as OpenAIAPIError
 from pydub import AudioSegment  # type: ignore[import-untyped]
 
 from text_to_audio.models import Article, Feed
-from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
+from text_to_audio.tasks import (_clamp_tts_speed, _legacy_chunk_text,
+                                 process_article)
 
 User = get_user_model()
 TEST_MEDIA_ROOT = Path(__file__).parent / "test_media_tasks_global"
@@ -214,7 +215,11 @@ class ChunkTextTests(TestCase):
                 self.assertGreaterEqual(total_chunk_chars, len(text) * 0.9)
 
 
-@override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT, OPENAI_API_KEY="test_api_key")
+@override_settings(
+    MEDIA_ROOT=TEST_MEDIA_ROOT,
+    OPENAI_API_KEY="test_api_key",
+    ENABLE_CHUNK_TONE_LLM=False,
+)
 @patch("text_to_audio.tasks.openai.OpenAI")
 class ProcessArticleTests(TestCase):
     @staticmethod
@@ -282,8 +287,24 @@ class ProcessArticleTests(TestCase):
         self.mock_task_instance.retry = MagicMock(
             side_effect=Exception("Celery general retry called")
         )
+        # AIDEV-NOTE: TTSService uses its own openai import; share the tasks mock with it
+        import text_to_audio.services.tts_service as tts_mod
+        import text_to_audio.tasks as tasks_mod
+
+        self._tts_openai_patcher = patch.object(tts_mod, "openai", tasks_mod.openai)
+        self._tts_openai_patcher.start()
+
+        # AIDEV-NOTE: GlobalConfig DB values override @override_settings for appconfig
+        # functions. Patch get_enable_chunk_tone_llm directly to ensure ENABLE_CHUNK_TONE_LLM
+        # class-level setting (False) takes effect for legacy path tests.
+        self._chunk_tone_patcher = patch(
+            "appconfig.utils.get_enable_chunk_tone_llm", return_value=False
+        )
+        self._chunk_tone_patcher.start()
 
     def tearDown(self):
+        self._chunk_tone_patcher.stop()
+        self._tts_openai_patcher.stop()
         if TEST_MEDIA_ROOT.exists():
             try:
                 shutil.rmtree(TEST_MEDIA_ROOT)
@@ -333,7 +354,8 @@ class ProcessArticleTests(TestCase):
         # Legacy fallback path with no voice parameters should not include instructions
         self.assertNotIn("instructions", call_args)
         self.assertEqual(call_args["voice"], "alloy")
-        self.assertEqual(call_args["speed"], 1.0)
+        # TTSService omits speed from API call when it equals 1.0 (the default)
+        self.assertNotIn("speed", call_args)
 
     @patch("text_to_audio.tasks.ContentAnalysisService")
     @patch("text_to_audio.tasks.AudioSegment.from_file")
@@ -497,40 +519,21 @@ class ProcessArticleTests(TestCase):
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
     @patch("text_to_audio.tasks._save_openai_usage_stats")
-    def test_process_article_token_extraction_from_headers(
+    def test_process_article_token_extraction_uses_char_count(
         self, mock_save_stats, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
     ):
+        """Token count for TTS is now based on text character length (not API response)."""
         self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
         mock_openai_instance = MockOpenAIClient.return_value
         mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(spec=["headers", "iter_bytes"])
-        mock_tts_response.headers = {"x-openai-tokens-used": "150"}
-        type(mock_tts_response).usage = PropertyMock(side_effect=AttributeError)
-        # TTS service now uses iter_bytes() instead of stream_to_file()
+        mock_tts_response = MagicMock()
         mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
         mock_speech_create.return_value = mock_tts_response
         process_article(self.article.id)
         mock_save_stats.assert_called_once()
-        self.assertEqual(mock_save_stats.call_args[1]["tokens_used"], 150)
-
-    @patch("text_to_audio.tasks.AudioSegment.from_file")
-    @patch("text_to_audio.tasks.AudioSegment.empty")
-    @patch("text_to_audio.tasks._save_openai_usage_stats")
-    def test_process_article_token_extraction_fallback(
-        self, mock_save_stats, mock_audio_empty, mock_audio_from_file, MockOpenAIClient
-    ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
-        mock_openai_instance = MockOpenAIClient.return_value
-        mock_speech_create = mock_openai_instance.audio.speech.create
-        mock_tts_response = MagicMock(spec=["headers", "iter_bytes"])
-        mock_tts_response.headers = {"some-other-header": "some-value"}
-        type(mock_tts_response).usage = PropertyMock(side_effect=AttributeError)
-        # TTS service now uses iter_bytes() instead of stream_to_file()
-        mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
-        mock_speech_create.return_value = mock_tts_response
-        process_article(self.article.id)
-        mock_save_stats.assert_called_once()
-        self.assertEqual(mock_save_stats.call_args[1]["tokens_used"], 0)
+        # TTSService returns bytes; tasks.py uses len(chunk) as tokens_used
+        expected_tokens = len(self.article.text_content)
+        self.assertEqual(mock_save_stats.call_args[1]["tokens_used"], expected_tokens)
 
     def test_process_article_openai_api_error_with_retry(self, MockOpenAIClient):
         mock_openai_instance = MockOpenAIClient.return_value
@@ -938,9 +941,10 @@ class ProcessArticleTests(TestCase):
             process_article(self.article.id)
         self.article.refresh_from_db()
         self.assertEqual(self.article.summary, expected_summary)
-        MockCAS.return_value.analyze_content.assert_called_once_with(
-            long_text, title=self.article.title
-        )
+        MockCAS.return_value.analyze_content.assert_called_once()
+        call_args = MockCAS.return_value.analyze_content.call_args
+        self.assertEqual(call_args[0][0], long_text)
+        self.assertEqual(call_args[1]["title"], self.article.title)
 
     @patch("text_to_audio.tasks.VoiceConfigurationService")
     @patch("text_to_audio.services.voice_parameter_generation.ContentAnalysisService")
@@ -1042,7 +1046,7 @@ class ProcessArticleTests(TestCase):
         mock_analysis_instance = MockCAS.return_value
         expected_first_summary = "Summary for chunk in Test Article (Part 1)"
 
-        def analysis_side_effect(text, title=None):
+        def analysis_side_effect(text, title=None, **kwargs):
             if "Part 1" in title:
                 return {
                     "summary": expected_first_summary,
@@ -1149,9 +1153,10 @@ class ProcessArticleTests(TestCase):
             Article.COMPLETED,
             "Article status was not set to COMPLETED.",
         )
-        mock_cas_instance.analyze_content.assert_called_once_with(
-            self.article.text_content, title=self.article.title
-        )
+        mock_cas_instance.analyze_content.assert_called_once()
+        call_args = mock_cas_instance.analyze_content.call_args
+        self.assertEqual(call_args[0][0], self.article.text_content)
+        self.assertEqual(call_args[1]["title"], self.article.title)
 
         # Check multi_voice_data content
         self.assertIsNotNone(self.article.multi_voice_data)
@@ -1185,51 +1190,60 @@ class ProcessArticleTests(TestCase):
                 mock_speech_create.return_value = mock_tts_response
                 with patch("text_to_audio.tasks._save_openai_usage_stats"):
                     process_article(self.article.id)
-                self.assertEqual(
-                    mock_speech_create.call_args[1]["speed"], expected_speed
-                )
+                call_kwargs = mock_speech_create.call_args[1]
+                # TTSService omits speed from API args when it equals 1.0
+                actual_speed = call_kwargs.get("speed", 1.0)
+                self.assertEqual(actual_speed, expected_speed)
                 MockOpenAIClient.reset_mock()
 
+    @patch("appconfig.utils.get_enable_chunk_tone_llm", return_value=True)
     @patch("text_to_audio.tasks.ChunkToneService")
     @patch("text_to_audio.tasks.AudioSegment.from_file")
     @patch("text_to_audio.tasks.AudioSegment.empty")
-    @override_settings(ENABLE_CHUNK_TONE_LLM=True)
     def test_process_article_speed_clamping_chunk_tone(
         self,
         mock_audio_empty,
         mock_audio_from_file,
         MockChunkToneService,
+        _mock_chunk_tone_enabled,
         MockOpenAIClient,
     ):
-        self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
-        from text_to_audio.schemas.chunk_tone import (
-            ChunkData,
-            ChunkTonePayload,
-            TTSVoice,
-        )
+        # Stop the setUp patcher that forces chunk_tone off for this test
+        self._chunk_tone_patcher.stop()
+        try:
+            self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
+            from text_to_audio.schemas.chunk_tone import (ChunkData,
+                                                          ChunkTonePayload,
+                                                          TTSVoice)
 
-        test_cases = [(0.2, 0.25), (2.5, 2.5), (4.5, 4.0)]
-        for input_speed, expected_speed in test_cases:
-            with self.subTest(input_speed=input_speed, expected_speed=expected_speed):
-                self.article.speed = input_speed
-            self.article.save()
-            mock_chunk_tone_instance = MockChunkToneService.return_value
-            mock_chunk_tone_instance.get_payload.return_value = ChunkTonePayload(
-                chunks=[
-                    ChunkData(text="Test chunk text", voice=TTSVoice(voice="alloy"))
-                ]
-            )
-            mock_openai_instance = MockOpenAIClient.return_value
-            mock_speech_create = mock_openai_instance.audio.speech.create
-            mock_tts_response = MagicMock()
-            # TTS service now uses iter_bytes() instead of stream_to_file()
-            mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
-            mock_speech_create.return_value = mock_tts_response
-            with patch("text_to_audio.tasks._save_openai_usage_stats"):
-                process_article(self.article.id)
-            self.assertEqual(mock_speech_create.call_args[1]["speed"], expected_speed)
-            MockOpenAIClient.reset_mock()
-            MockChunkToneService.reset_mock()
+            test_cases = [(0.2, 0.25), (2.5, 2.5), (4.5, 4.0)]
+            for input_speed, expected_speed in test_cases:
+                with self.subTest(
+                    input_speed=input_speed, expected_speed=expected_speed
+                ):
+                    self.article.speed = input_speed
+                self.article.save()
+                mock_chunk_tone_instance = MockChunkToneService.return_value
+                mock_chunk_tone_instance.get_payload.return_value = ChunkTonePayload(
+                    chunks=[
+                        ChunkData(text="Test chunk text", voice=TTSVoice(voice="alloy"))
+                    ]
+                )
+                mock_openai_instance = MockOpenAIClient.return_value
+                mock_speech_create = mock_openai_instance.audio.speech.create
+                mock_tts_response = MagicMock()
+                mock_tts_response.iter_bytes.return_value = [b"dummy audio data"]
+                mock_speech_create.return_value = mock_tts_response
+                with patch("text_to_audio.tasks._save_openai_usage_stats"):
+                    process_article(self.article.id)
+                self.assertEqual(
+                    mock_speech_create.call_args[1]["speed"], expected_speed
+                )
+                MockOpenAIClient.reset_mock()
+                MockChunkToneService.reset_mock()
+        finally:
+            # Restart the patcher for tearDown
+            self._chunk_tone_patcher.start()
 
 
 class SpeedClampingUnitTests(TestCase):

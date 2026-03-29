@@ -13,21 +13,28 @@ import unittest
 from django.test import TestCase
 
 
+def _is_placeholder_key(key):
+    """Check if an API key is a placeholder (not real)."""
+    return not key or key.startswith("your-")
+
+
 def skip_if_no_gemini_key():
     """Skip test if Gemini API key is not configured."""
-    return not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_TTS_API_KEY"))
+    return _is_placeholder_key(os.getenv("GEMINI_API_KEY", "")) and _is_placeholder_key(
+        os.getenv("GOOGLE_TTS_API_KEY", "")
+    )
 
 
 def skip_if_no_google_credentials():
     """Skip test if Google Cloud TTS credentials are not configured."""
-    return not (
-        os.getenv("GOOGLE_TTS_API_KEY") or os.getenv("GOOGLE_TTS_CREDENTIALS_JSON")
-    )
+    return _is_placeholder_key(
+        os.getenv("GOOGLE_TTS_API_KEY", "")
+    ) and _is_placeholder_key(os.getenv("GOOGLE_TTS_CREDENTIALS_JSON", ""))
 
 
 def skip_if_no_openai_key():
     """Skip test if OpenAI API key is not configured."""
-    return not os.getenv("OPENAI_API_KEY")
+    return _is_placeholder_key(os.getenv("OPENAI_API_KEY", ""))
 
 
 @unittest.skipIf(skip_if_no_gemini_key(), "Gemini API key not configured")
@@ -38,7 +45,8 @@ class GeminiTTSIntegrationTest(TestCase):
     def setUpClass(cls):
         """Set up test fixtures."""
         super().setUpClass()
-        from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
+        from text_to_audio.services.gemini_tts_provider import \
+            GeminiTTSProvider
 
         cls.provider = GeminiTTSProvider()
 
@@ -119,7 +127,8 @@ class GoogleCloudTTSIntegrationTest(TestCase):
     def setUpClass(cls):
         """Set up test fixtures."""
         super().setUpClass()
-        from text_to_audio.services.google_tts_provider import GoogleTTSProvider
+        from text_to_audio.services.google_tts_provider import \
+            GoogleTTSProvider
 
         cls.provider = GoogleTTSProvider()
 
