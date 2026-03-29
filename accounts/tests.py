@@ -201,6 +201,52 @@ class UserManagementViewTests(TestCase):
         self.super_admin.refresh_from_db()
         self.assertTrue(self.super_admin.is_super_admin)
 
+    def test_delete_super_admin_user_post_returns_forbidden(self):
+        """POST to delete a super_admin user should return HTTP 403."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.post(
+            reverse("user-delete", args=[self.super_admin.id])
+        )
+        self.assertEqual(response.status_code, 403)
+
+        # Super admin should still exist
+        self.super_admin.refresh_from_db()
+        self.assertTrue(self.super_admin.is_super_admin)
+
+    def test_delete_super_admin_user_get_returns_forbidden(self):
+        """GET the delete confirmation page for a super_admin should return HTTP 403."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.get(
+            reverse("user-delete", args=[self.super_admin.id])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_delete_regular_user_succeeds(self):
+        """POST to delete a non-super-admin approved user should succeed."""
+        self.client.login(username="admin", password="testpass123")
+
+        # Approve regular user first
+        self.regular_user.profile.is_approved = True
+        self.regular_user.profile.save()
+
+        regular_user_id = self.regular_user.id
+        response = self.client.post(
+            reverse("user-delete", args=[regular_user_id])
+        )
+        self.assertEqual(response.status_code, 302)  # Redirect to success_url
+
+        # User should be deleted
+        self.assertFalse(User.objects.filter(id=regular_user_id).exists())
+
+    def test_delete_user_requires_login(self):
+        """Unauthenticated user should get 403 from SuperAdminRequiredMixin."""
+        response = self.client.post(
+            reverse("user-delete", args=[self.regular_user.id])
+        )
+        self.assertEqual(response.status_code, 403)
+
 
 @override_settings(
     MIDDLEWARE=[
