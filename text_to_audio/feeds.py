@@ -13,11 +13,8 @@ from django.http import Http404
 from django.urls import reverse
 from django.utils.feedgenerator import Rss201rev2Feed
 
-from appconfig.utils import (
-    get_podcast_image_url,
-    get_rss_external_hostname,
-    get_site_url,
-)
+from appconfig.utils import (get_podcast_image_url, get_rss_external_hostname,
+                             get_site_url)
 
 from .models import Article
 from .models import Feed as FeedModel

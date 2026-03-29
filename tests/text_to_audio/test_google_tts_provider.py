@@ -44,9 +44,8 @@ class GoogleTTSProviderTest(TestCase):
                 mock_client = MagicMock()
                 mock_tts_client.return_value = mock_client
 
-                from text_to_audio.services.google_tts_provider import (
-                    GoogleTTSProvider,
-                )
+                from text_to_audio.services.google_tts_provider import \
+                    GoogleTTSProvider
 
                 provider = GoogleTTSProvider()
                 return provider, mock_client
@@ -60,7 +59,8 @@ class GoogleTTSProviderTest(TestCase):
             mock_api_key.return_value = None
             mock_creds.return_value = None
 
-            from text_to_audio.services.google_tts_provider import GoogleTTSProvider
+            from text_to_audio.services.google_tts_provider import \
+                GoogleTTSProvider
 
             with self.assertRaises(ValueError) as cm:
                 GoogleTTSProvider()
@@ -86,7 +86,8 @@ class GoogleTTSProviderTest(TestCase):
             mock_client = MagicMock()
             mock_tts_client.return_value = mock_client
 
-            from text_to_audio.services.google_tts_provider import GoogleTTSProvider
+            from text_to_audio.services.google_tts_provider import \
+                GoogleTTSProvider
 
             provider = GoogleTTSProvider()
 
@@ -119,7 +120,8 @@ class GoogleTTSProviderTest(TestCase):
             mock_client = MagicMock()
             mock_tts_client.return_value = mock_client
 
-            from text_to_audio.services.google_tts_provider import GoogleTTSProvider
+            from text_to_audio.services.google_tts_provider import \
+                GoogleTTSProvider
 
             provider = GoogleTTSProvider()
 
@@ -137,7 +139,8 @@ class GoogleTTSProviderTest(TestCase):
             mock_api_key.return_value = None
             mock_creds.return_value = "invalid json {{"
 
-            from text_to_audio.services.google_tts_provider import GoogleTTSProvider
+            from text_to_audio.services.google_tts_provider import \
+                GoogleTTSProvider
 
             with self.assertRaises(ValueError) as cm:
                 GoogleTTSProvider()
@@ -355,5 +358,3 @@ class GoogleTTSProviderTest(TestCase):
             provider.synthesize_speech(text="Test", voice_name="en-US-Neural2-A")
 
         self.assertIn("Google TTS synthesis failed", str(cm.exception))
-
-

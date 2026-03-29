@@ -12,56 +12,30 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import (
-    FileResponse,
-    HttpResponseBadRequest,
-    HttpResponseNotFound,
-    JsonResponse,
-)
+from django.http import (FileResponse, HttpResponseBadRequest,
+                         HttpResponseNotFound, JsonResponse)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import (
-    CreateView,
-    DeleteView,
-    ListView,
-    TemplateView,
-    UpdateView,
-)
+from django.views.generic import (CreateView, DeleteView, ListView,
+                                  TemplateView, UpdateView)
 
 from accounts.forms import CustomUserCreationForm
 from appconfig.utils import get_site_url
 
-from .forms import (
-    ArticleDetailForm,
-    ArticleSubmissionForm,
-    ArticleVoiceForm,
-    FeedForm,
-    FollowedFeedForm,
-    UserVoicePreferenceForm,
-    VoicePresetForm,
-    VoiceSampleForm,
-)
-from .models import (
-    Article,
-    Feed,
-    FollowedFeed,
-    OpenAIUsageStats,
-    UserVoicePreset,
-    UserVoiceProfile,
-)
+from .forms import (ArticleDetailForm, ArticleSubmissionForm, ArticleVoiceForm,
+                    FeedForm, FollowedFeedForm, UserVoicePreferenceForm,
+                    VoicePresetForm, VoiceSampleForm)
+from .models import (Article, Feed, FollowedFeed, OpenAIUsageStats,
+                     UserVoicePreset, UserVoiceProfile)
 from .services.user_preferences import UserPreferencesService
-from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
+from .services.voice_configuration import \
+    VoiceConfigurationService  # noqa: F401
 from .tasks import process_article
-from .utils import (
-    extract_article_text,
-    extract_text_from_pdf,
-    extract_title_from_html,
-    fetch_html_with_firecrawl,
-    fetch_url_content,
-    process_url_to_text,
-    safe_delete_audio_file,
-)
+from .utils import (extract_article_text, extract_text_from_pdf,
+                    extract_title_from_html, fetch_html_with_firecrawl,
+                    fetch_url_content, process_url_to_text,
+                    safe_delete_audio_file)
 
 logger = logging.getLogger(__name__)
 
@@ -841,10 +815,9 @@ class RegenerateArticleView(LoginRequiredMixin, View):
     def _is_ajax_request(self, request):
         """Check if request is an AJAX request."""
         # Check X-Requested-With header (jQuery style) or Accept header
-        return (
-            request.headers.get("X-Requested-With") == "XMLHttpRequest"
-            or "application/json" in request.headers.get("Accept", "")
-        )
+        return request.headers.get(
+            "X-Requested-With"
+        ) == "XMLHttpRequest" or "application/json" in request.headers.get("Accept", "")
 
     def post(self, request, article_id):
         """Handle POST requests to regenerate an article.

@@ -269,6 +269,7 @@ class TestFeedArticleAutoUpdate(TestCase):
         self.assertContains(response, "status-badge")
         self.assertContains(response, "action-cell")
 
+
 class TestPlayButtonToggle(TestCase):
     """Tests for play button pause functionality."""
 

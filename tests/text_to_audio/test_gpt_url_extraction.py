@@ -4,11 +4,9 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
 
-from text_to_audio.utils import (
-    clean_html_minimal,
-    extract_article_text_with_gpt,
-    process_url_to_text,
-)
+from text_to_audio.utils import (clean_html_minimal,
+                                 extract_article_text_with_gpt,
+                                 process_url_to_text)
 
 
 class GptUrlExtractionTests(TestCase):
@@ -101,9 +99,7 @@ class GptUrlExtractionTests(TestCase):
 
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
-        mock_response.choices[
-            0
-        ].message.content = """
+        mock_response.choices[0].message.content = """
         Test Article Title
 
         This is the main article content that was extracted by GPT-4.1.

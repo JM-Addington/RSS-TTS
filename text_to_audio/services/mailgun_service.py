@@ -162,7 +162,9 @@ class MailgunService:
             ... )
         """
         if not self.webhook_signing_key:
-            logger.warning("Webhook signing key not configured, cannot verify signature")
+            logger.warning(
+                "Webhook signing key not configured, cannot verify signature"
+            )
             return False
 
         # AIDEV-NOTE: Mailgun webhook signature verification

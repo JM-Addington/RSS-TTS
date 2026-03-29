@@ -3,7 +3,8 @@
 import base64
 import logging
 
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import (HttpResponse, HttpResponseBadRequest,
+                         HttpResponseForbidden)
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 

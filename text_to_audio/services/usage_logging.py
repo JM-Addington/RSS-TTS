@@ -42,11 +42,8 @@ def log_openai_usage(
         from django.db import transaction
 
         from ..models import OpenAIUsageStats
-        from .cost_calculator import (
-            calculate_llm_cost,
-            calculate_tts_cost,
-            estimate_cost_from_total_tokens,
-        )
+        from .cost_calculator import (calculate_llm_cost, calculate_tts_cost,
+                                      estimate_cost_from_total_tokens)
 
         # Calculate cost
         estimated_cost = None

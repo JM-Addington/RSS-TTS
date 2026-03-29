@@ -25,9 +25,11 @@ from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
 from .services.chunk_tone_service import ChunkToneService
-from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
+from .services.content_analysis import (MAX_ANALYSIS_WORDS,
+                                        ContentAnalysisService)
 from .services.voice_configuration import VoiceConfigurationService
-from .services.voice_parameter_generation import VoiceParameterGenerationService
+from .services.voice_parameter_generation import \
+    VoiceParameterGenerationService
 from .utils import process_url_to_text
 
 # Configure logging
@@ -725,10 +727,8 @@ def process_article(self, article_id: int) -> str:
 
                 # Determine fallback voice for ChunkToneService
                 # AIDEV-NOTE: Use provider-aware voice selection to avoid voice/provider mismatch
-                from appconfig.utils import (
-                    get_default_tts_provider,
-                    get_default_voice_for_provider,
-                )
+                from appconfig.utils import (get_default_tts_provider,
+                                             get_default_voice_for_provider)
 
                 # Determine effective TTS provider for this article
                 effective_provider = (
@@ -1264,10 +1264,8 @@ def process_article(self, article_id: int) -> str:
             # Use enhanced voice parameters if available (from auto-voice)
             voice_prompt = None
             # AIDEV-NOTE: Use provider-aware voice selection to avoid voice/provider mismatch
-            from appconfig.utils import (
-                get_default_tts_provider,
-                get_default_voice_for_provider,
-            )
+            from appconfig.utils import (get_default_tts_provider,
+                                         get_default_voice_for_provider)
 
             # Determine effective TTS provider for this article
             effective_provider = (
@@ -1836,12 +1834,8 @@ def process_incoming_email(self, email_payload: dict) -> str:
 
     from .models import Article, Feed
     from .services.email_cleaning_service import EmailCleaningService
-    from .utils import (
-        clean_html_minimal,
-        extract_article_text,
-        extract_text_from_pdf,
-        extract_title_from_html,
-    )
+    from .utils import (clean_html_minimal, extract_article_text,
+                        extract_text_from_pdf, extract_title_from_html)
 
     feed_id = email_payload.get("feed_id")
     subject = email_payload.get("subject", "Email Article")

@@ -10,11 +10,15 @@ from text_to_audio.utils import process_url_to_text
 class FirecrawlTests(TestCase):
     """Firecrawl integration tests for URL processing."""
 
-    @override_settings(FIRECRAWL_API_KEY="key", USE_FIRECRAWL_BY_DEFAULT=True)
+    @override_settings(USE_GPT_FOR_URL_EXTRACTION=False)
+    @patch("appconfig.utils.get_use_firecrawl_by_default", return_value=True)
+    @patch("appconfig.utils.get_firecrawl_api_key", return_value="key")
     @patch("text_to_audio.utils.fetch_url_content")
     @patch("text_to_audio.utils.fetch_html_with_firecrawl")
     @patch("text_to_audio.utils.extract_article_text")
-    def test_use_firecrawl_by_default(self, mock_extract, mock_firecrawl, mock_fetch):
+    def test_use_firecrawl_by_default(
+        self, mock_extract, mock_firecrawl, mock_fetch, _mock_key, _mock_default
+    ):
         """Firecrawl should be used when enabled by default."""
         mock_firecrawl.return_value = (True, "<html></html>", None)
         mock_extract.return_value = (True, "txt", None)
@@ -27,11 +31,15 @@ class FirecrawlTests(TestCase):
         mock_firecrawl.assert_called_once_with("https://example.com")
         mock_fetch.assert_not_called()
 
-    @override_settings(FIRECRAWL_API_KEY="key", USE_FIRECRAWL_BY_DEFAULT=False)
+    @override_settings(USE_GPT_FOR_URL_EXTRACTION=False)
+    @patch("appconfig.utils.get_use_firecrawl_by_default", return_value=False)
+    @patch("appconfig.utils.get_firecrawl_api_key", return_value="key")
     @patch("text_to_audio.utils.fetch_url_content")
     @patch("text_to_audio.utils.fetch_html_with_firecrawl")
     @patch("text_to_audio.utils.extract_article_text")
-    def test_firecrawl_fallback_on_4xx(self, mock_extract, mock_firecrawl, mock_fetch):
+    def test_firecrawl_fallback_on_4xx(
+        self, mock_extract, mock_firecrawl, mock_fetch, _mock_key, _mock_default
+    ):
         """Firecrawl should be used when direct fetch returns 4xx."""
         mock_fetch.return_value = (
             False,

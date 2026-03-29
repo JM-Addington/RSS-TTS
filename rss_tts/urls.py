@@ -7,44 +7,25 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from text_to_audio.api_views import (
-    FeedArticleSubmitView,
-    VoicePresetDetailView,
-    VoicePresetListView,
-)
+from text_to_audio.api_views import (FeedArticleSubmitView,
+                                     VoicePresetDetailView,
+                                     VoicePresetListView)
 from text_to_audio.feeds import UserFeed
 from text_to_audio.mailgun_views import mailgun_incoming_webhook
-from text_to_audio.views import (
-    ArticleCreateView,
-    ArticleDeleteView,
-    ArticleDetailView,
-    ArticleListView,
-    ArticleMediaView,
-    CostAnalyticsView,
-    FeedArticleCreateView,
-    FeedArticleListView,
-    FeedArticleStatusView,
-    FeedCreateView,
-    FeedDeleteView,
-    FeedListView,
-    FeedUpdateView,
-    FollowedFeedCreateView,
-    FollowedFeedDeleteView,
-    FollowedFeedListView,
-    FollowedFeedUpdateView,
-    GenerateFeedEmailView,
-    HomeView,
-    RegenerateArticleView,
-    SignUpView,
-    article_voice_settings,
-    voice_preferences,
-    voice_preset_create,
-    voice_preset_delete,
-    voice_preset_edit,
-    voice_preset_list,
-    voice_preset_sample,
-    voice_preset_test,
-)
+from text_to_audio.views import (ArticleCreateView, ArticleDeleteView,
+                                 ArticleDetailView, ArticleListView,
+                                 ArticleMediaView, CostAnalyticsView,
+                                 FeedArticleCreateView, FeedArticleListView,
+                                 FeedArticleStatusView, FeedCreateView,
+                                 FeedDeleteView, FeedListView, FeedUpdateView,
+                                 FollowedFeedCreateView,
+                                 FollowedFeedDeleteView, FollowedFeedListView,
+                                 FollowedFeedUpdateView, GenerateFeedEmailView,
+                                 HomeView, RegenerateArticleView, SignUpView,
+                                 article_voice_settings, voice_preferences,
+                                 voice_preset_create, voice_preset_delete,
+                                 voice_preset_edit, voice_preset_list,
+                                 voice_preset_sample, voice_preset_test)
 
 urlpatterns = [
     path("admin/", admin.site.urls),

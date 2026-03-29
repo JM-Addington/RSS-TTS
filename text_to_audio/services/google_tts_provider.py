@@ -100,7 +100,8 @@ class GoogleTTSProvider:
             ValueError: If Google TTS credentials are not configured
             ImportError: If Google Cloud TTS library is not installed
         """
-        from appconfig.utils import get_google_tts_api_key, get_google_tts_credentials
+        from appconfig.utils import (get_google_tts_api_key,
+                                     get_google_tts_credentials)
 
         # Try API key first (simpler authentication)
         api_key = get_google_tts_api_key()
