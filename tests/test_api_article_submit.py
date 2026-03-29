@@ -164,7 +164,7 @@ class FeedArticleSubmitAPITests(TestCase):
         self.assertIn("must provide either", str(response.json()))
 
     def test_submit_to_nonexistent_feed(self):
-        """Test submitting to a feed that doesn't exist."""
+        """Test submitting to a feed that doesn't exist returns JSON error."""
         # Generate a random UUID that doesn't match any feed
         random_uuid = uuid.uuid4()
         url = reverse("api-feed-article-submit", kwargs={"token": random_uuid})
@@ -180,9 +180,12 @@ class FeedArticleSubmitAPITests(TestCase):
             url, data=json.dumps(payload), content_type="application/json"
         )
 
-        # Check response
+        # Check response — must be JSON with "error" key, not Django HTML 404
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(Article.objects.count(), 0)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("Feed not found", data["error"])
 
     @patch("text_to_audio.api_views.process_article")
     def test_submit_with_voice_parameters(self, mock_process):
@@ -404,6 +407,9 @@ class FeedArticleSubmitAPITests(TestCase):
                     content_type="application/json",
                 )
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("throttled", data["error"].lower())
 
     def test_ssrf_url_rejected(self):
         """Test that SSRF URLs are rejected at the API layer. Closes #190."""
@@ -414,7 +420,10 @@ class FeedArticleSubmitAPITests(TestCase):
             self.url, data=json.dumps(payload), content_type="application/json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        response_text = json.dumps(response.json())
+        data = response.json()
+        # Field errors are now nested under "fields"
+        self.assertIn("error", data)
+        response_text = json.dumps(data)
         self.assertIn("private", response_text.lower())
 
     def test_submit_with_invalid_voice_id_rejected(self):
@@ -428,7 +437,10 @@ class FeedArticleSubmitAPITests(TestCase):
             self.url, data=json.dumps(payload), content_type="application/json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        response_text = json.dumps(response.json())
+        data = response.json()
+        self.assertIn("error", data)
+        # Field-level error: voice_id should be in "fields"
+        response_text = json.dumps(data)
         self.assertIn("voice_id", response_text)
 
     @patch("text_to_audio.api_views.process_article")
@@ -529,6 +541,25 @@ class FeedArticleSubmitAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         data = response.json()
         self.assertIn("error", data)
+        # Non-field validation error should be a string, not a dict
+        self.assertIsInstance(data["error"], str)
+
+    def test_field_error_includes_fields_key(self):
+        """Test that field-level errors include both 'error' and 'fields' keys. Closes #195."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content.",
+            "speed": 999.0,  # exceeds max
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertEqual(data["error"], "Validation failed.")
+        self.assertIn("fields", data)
+        self.assertIn("speed", data["fields"])
 
     @patch("text_to_audio.api_views.process_article")
     def test_text_content_word_limit_at_boundary(self, mock_process):
@@ -553,8 +584,9 @@ class FeedArticleSubmitAPITests(TestCase):
             self.url, data=json.dumps(payload), content_type="application/json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        response_text = json.dumps(response.json())
-        self.assertIn("40,000", response_text)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("40,000", data["error"])
 
     @patch("text_to_audio.api_views.process_article")
     def test_title_at_max_length(self, mock_process):

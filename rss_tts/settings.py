@@ -223,6 +223,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # AIDEV-NOTE: Rate limits: 30/min anon, 60/min auth — tune if bulk submission needed (#189)
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "text_to_audio.exception_handler.api_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",

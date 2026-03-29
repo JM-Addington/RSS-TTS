@@ -857,7 +857,9 @@ class VoicePresetAPITests(TestCase):
         response = self.client.post(url, payload, format="json")
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("name", response.json())
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("name", data.get("fields", {}))
 
     def test_create_preset_same_name_different_user(self):
         """Test that different users can have presets with the same name."""
@@ -909,7 +911,9 @@ class VoicePresetAPITests(TestCase):
         response = self.client.post(url, payload, format="json")
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("voice_id", response.json())
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("voice_id", data.get("fields", {}))
 
     def test_create_preset_invalid_speed_negative(self):
         """Test that creating a preset with negative speed fails. Closes #196."""

@@ -9,9 +9,9 @@ import uuid
 from typing import Any, Dict
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import serializers, status
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -91,13 +91,13 @@ class ArticleSubmissionSerializer(serializers.Serializer):
         # Check that at least one of source_url or text_content is provided
         if not source_url and not text_content:
             raise serializers.ValidationError(
-                {"error": "You must provide either text_content or source_url."}
+                "You must provide either text_content or source_url."
             )
 
         # Check if both are provided - which is not allowed
         if source_url and text_content:
             raise serializers.ValidationError(
-                {"error": "You cannot provide both text_content and source_url."}
+                "You cannot provide both text_content and source_url."
             )
 
         # Check text content length - max 40,000 words
@@ -105,12 +105,8 @@ class ArticleSubmissionSerializer(serializers.Serializer):
             word_count = len(text_content.split())
             if word_count > 40000:
                 raise serializers.ValidationError(
-                    {
-                        "error": (
-                            f"Text content is too long ({word_count:,} words). "
-                            f"Please limit to 40,000 words or less."
-                        )
-                    }
+                    f"Text content is too long ({word_count:,} words). "
+                    f"Please limit to 40,000 words or less."
                 )
 
         return data
@@ -141,13 +137,15 @@ class FeedArticleSubmitView(APIView):
         Returns:
             An HTTP response with the submission result.
         """
-        # Get the feed by token
-        feed = get_object_or_404(Feed, token=token)
+        # AIDEV-NOTE: Explicit lookup raises DRF NotFound for JSON 404 instead of Django HTML 404 (#195)
+        try:
+            feed = Feed.objects.get(token=token)
+        except Feed.DoesNotExist:
+            raise NotFound("Feed not found.")
 
-        # Validate request data
+        # Validate request data — raise_exception lets DRF route errors through exception handler
         serializer = ArticleSubmissionSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
         # Create new article
         article = Article(
@@ -286,15 +284,13 @@ class VoicePresetListView(APIView):
             The created voice preset.
         """
         serializer = VoicePresetSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
-        # Check for duplicate name
+        # Check for duplicate name — raise as field-level ValidationError for consistent format
         name = serializer.validated_data.get("name")
         if UserVoicePreset.objects.filter(user=request.user, name=name).exists():
-            return Response(
-                {"name": ["A preset with this name already exists."]},
-                status=status.HTTP_400_BAD_REQUEST,
+            raise serializers.ValidationError(
+                {"name": ["A preset with this name already exists."]}
             )
 
         # Save with the authenticated user
@@ -331,6 +327,9 @@ class VoicePresetDetailView(APIView):
             The voice preset details.
         """
         # Only return presets belonging to the authenticated user
-        preset = get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
+        try:
+            preset = UserVoicePreset.objects.get(id=preset_id, user=request.user)
+        except UserVoicePreset.DoesNotExist:
+            raise NotFound("Voice preset not found.")
         serializer = VoicePresetSerializer(preset)
         return Response(serializer.data)
