@@ -442,6 +442,31 @@ class FeedArticleSubmitAPITests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+    @patch("text_to_audio.api_views.process_article")
+    def test_unexpected_exception_leakage_prevented(self, mock_process):
+        """Test that unexpected exceptions don't leak details to client. Closes #193."""
+        with patch.object(
+            Article,
+            "clean",
+            side_effect=RuntimeError("secret DB info: pg_constraint_abc123"),
+        ):
+            payload = {
+                "title": "Test Article",
+                "text_content": "Some content here.",
+            }
+            response = self.client.post(
+                self.url, data=json.dumps(payload), content_type="application/json"
+            )
+            self.assertEqual(
+                response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            response_text = json.dumps(response.json())
+            # Should NOT contain internal exception details
+            self.assertNotIn("secret DB info", response_text)
+            self.assertNotIn("pg_constraint_abc123", response_text)
+            # Should contain a generic error message
+            self.assertIn("error", response.json())
+
     def test_error_response_format_consistent(self):
         """Test that error responses use consistent format. Closes #195."""
         payload = {"title": "Test Article"}
