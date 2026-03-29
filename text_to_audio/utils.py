@@ -186,6 +186,15 @@ def fetch_url_content(
         Tuple of (success, content, error_message).
         If successful, error_message will be None.
     """
+    # AIDEV-NOTE: Defense-in-depth SSRF check — re-validates before fetch (#190)
+    try:
+        from text_to_audio.validators import validate_url_not_ssrf
+
+        validate_url_not_ssrf(url)
+    except Exception as ssrf_exc:
+        logger.warning("SSRF check blocked URL in fetch_url_content: %s — %s", url, ssrf_exc)
+        return False, "", f"URL blocked by security policy: {ssrf_exc}"
+
     retry_count = 0
     last_error = None
 

@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 
 from .models import Article, Feed, UserVoicePreset
 from .tasks import process_article
+from .validators import validate_url_not_ssrf
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +38,12 @@ class ArticleSubmissionSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Text content of the article. Either text_content or source_url must be provided.",
     )
+    # AIDEV-NOTE: SSRF validator blocks private IPs, cloud metadata, non-HTTP schemes (#190)
     source_url = serializers.URLField(
         max_length=2000,
         required=False,
         allow_blank=True,
+        validators=[validate_url_not_ssrf],
         help_text="URL of the article to process. Either text_content or source_url must be provided.",
     )
     voice_id = serializers.CharField(

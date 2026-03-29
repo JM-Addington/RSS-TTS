@@ -334,6 +334,18 @@ class FeedArticleSubmitAPITests(TestCase):
                 )
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
+    def test_ssrf_url_rejected(self):
+        """Test that SSRF URLs are rejected at the API layer. Closes #190."""
+        payload = {
+            "source_url": "http://169.254.169.254/latest/meta-data/",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response_text = json.dumps(response.json())
+        self.assertIn("private", response_text.lower())
+
     def test_error_response_format_consistent(self):
         """Test that error responses use consistent format. Closes #195."""
         payload = {"title": "Test Article"}
