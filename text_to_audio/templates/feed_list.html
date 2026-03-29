@@ -30,7 +30,7 @@
                                     <div class="mb-3">
                                         <label class="form-label small text-muted">RSS Feed URL:</label>
                                         <div class="input-group input-group-sm">
-                                            <input type="text" class="form-control" value="{{ feed.rss_url }}" readonly id="rss-url-{{ feed.id }}">
+                                            <input type="text" class="form-control" value="{{ feed.rss_url }}" readonly id="rss-url-{{ feed.id }}" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
                                             <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('rss-url-{{ feed.id }}')">
                                                 <i class="bi bi-clipboard"></i> Copy
                                             </button>

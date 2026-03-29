@@ -12,7 +12,7 @@
                     <h2 class="mb-0">{% if is_create %}Add New{% else %}Edit{% endif %} Followed Feed</h2>
                 </div>
                 <div class="card-body">
-                    <form method="post" novalidate>
+                    <form method="post" novalidate autocomplete="off" data-form-type="other">
                         {% csrf_token %}
 
                         {% if form.non_field_errors %}

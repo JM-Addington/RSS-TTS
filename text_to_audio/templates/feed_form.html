@@ -11,7 +11,7 @@
                 <div class="card-body">
                     <h2 class="card-title">{% if form.instance.pk %}Edit Feed{% else %}Create New Feed{% endif %}</h2>
 
-                    <form method="post">
+                    <form method="post" autocomplete="off" data-form-type="other">
                         {% csrf_token %}
 
                         {% if form.non_field_errors %}

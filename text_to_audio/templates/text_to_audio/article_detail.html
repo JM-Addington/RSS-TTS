@@ -12,11 +12,11 @@
                     <h2 class="mb-0">Article Details</h2>
                 </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" autocomplete="off" data-form-type="other">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label class="form-label">Source URL</label>
-                            <input type="text" class="form-control" value="{{ article.source_url }}" readonly>
+                            <input type="text" class="form-control" value="{{ article.source_url }}" readonly autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
                         </div>
                         <div class="mb-3">
                             <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
