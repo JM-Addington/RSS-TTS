@@ -58,3 +58,23 @@ class ArticleStatusAPITests(TestCase):
             reverse("feed-article-status", kwargs={"feed_id": other_feed.pk})
         )
         self.assertEqual(response.status_code, 404)
+
+    def test_empty_feed_returns_empty_articles(self):
+        """Test that a feed with no articles returns an empty list. Closes #196."""
+        empty_feed = Feed.objects.create(user=self.user, name="Empty Feed")
+        response = self.client.get(
+            reverse("feed-article-status", kwargs={"feed_id": empty_feed.pk})
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIn("articles", data)
+        self.assertEqual(data["articles"], [])
+
+    def test_unauthenticated_access_redirects(self):
+        """Test that unauthenticated access redirects to login. Closes #196."""
+        # AIDEV-NOTE: LoginRequiredMixin returns 302, not 401/403
+        unauth_client = Client()
+        response = unauth_client.get(
+            reverse("feed-article-status", kwargs={"feed_id": self.feed.pk})
+        )
+        self.assertEqual(response.status_code, 302)

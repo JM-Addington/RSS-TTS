@@ -21,6 +21,10 @@ class FeedArticleSubmitAPITests(TestCase):
 
     def setUp(self):
         """Set up test data."""
+        # AIDEV-NOTE: Clear throttle cache so 30+ tests don't hit 30/min anon rate limit
+        from django.core.cache import cache
+
+        cache.clear()
         self.client = APIClient()
         self.user = User.objects.create_user(
             username="testuser", email="test@example.com", password="testpass123"
@@ -525,3 +529,61 @@ class FeedArticleSubmitAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         data = response.json()
         self.assertIn("error", data)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_text_content_word_limit_at_boundary(self, mock_process):
+        """Test that text_content with exactly 40,000 words is accepted. Closes #196."""
+        payload = {
+            "title": "Test Article",
+            "text_content": " ".join(["word"] * 40_000),
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        mock_process.delay.assert_called_once()
+
+    def test_text_content_word_limit_exceeded(self):
+        """Test that text_content with 40,001 words is rejected. Closes #196."""
+        payload = {
+            "title": "Test Article",
+            "text_content": " ".join(["word"] * 40_001),
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response_text = json.dumps(response.json())
+        self.assertIn("40,000", response_text)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_title_at_max_length(self, mock_process):
+        """Test that a title with exactly 1024 chars is accepted. Closes #196."""
+        payload = {
+            "title": "A" * 1024,
+            "text_content": "Some content here.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        article = Article.objects.first()
+        self.assertEqual(len(article.title), 1024)
+
+    def test_title_exceeds_max_length(self):
+        """Test that a title with 1025 chars is rejected. Closes #196."""
+        payload = {
+            "title": "A" * 1025,
+            "text_content": "Some content here.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_malformed_json_body(self):
+        """Test that a malformed JSON body returns 400. Closes #196."""
+        response = self.client.post(
+            self.url, data="{invalid json", content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
