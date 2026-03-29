@@ -1091,6 +1091,8 @@ def voice_preset_create(request):
                 voice_id=form.cleaned_data["voice_id"],
                 speed=form.cleaned_data["speed"],
                 description=form.cleaned_data["description"],
+                prompt=form.cleaned_data["prompt"],
+                sample_input=form.cleaned_data["sample_input"],
             )
 
             messages.success(
