@@ -266,6 +266,55 @@ class FeedArticleSubmitAPITests(TestCase):
                 f"Speed {speed_val} should be accepted but got {response.status_code}",
             )
 
+    def test_speed_validation_rejects_nan_string(self):
+        """Test that string 'NaN' speed value is rejected. Closes #194."""
+        # Send raw JSON string since json.dumps can't produce NaN literal
+        raw_payload = '{"title": "Test", "text_content": "Content", "speed": "NaN"}'
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_speed_validation_rejects_infinity_string(self):
+        """Test that string 'Infinity' speed value is rejected. Closes #194."""
+        raw_payload = '{"title": "Test", "text_content": "Content", "speed": "Infinity"}'
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_speed_validation_rejects_negative_infinity_string(self):
+        """Test that string '-Infinity' speed value is rejected. Closes #194."""
+        raw_payload = '{"title": "Test", "text_content": "Content", "speed": "-Infinity"}'
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_speed_validation_rejects_json_nan_literal(self):
+        """Test that JSON NaN literal speed value is rejected. Closes #194."""
+        # NaN is not valid JSON but Python's json module may parse it
+        raw_payload = '{"title": "Test", "text_content": "Content", "speed": NaN}'
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        # Should get 400 - either JSON parse error or validation error
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_400_BAD_REQUEST, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE],
+        )
+
+    def test_speed_validation_rejects_json_infinity_literal(self):
+        """Test that JSON Infinity literal speed value is rejected. Closes #194."""
+        raw_payload = '{"title": "Test", "text_content": "Content", "speed": Infinity}'
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_400_BAD_REQUEST, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE],
+        )
+
     @patch("text_to_audio.api_views.process_article")
     def test_exception_leakage_prevented(self, mock_process):
         """Test that internal exception details are not leaked to client. Closes #193."""

@@ -4,6 +4,7 @@ This module defines REST API endpoints for the RSS-TTS system.
 """
 
 import logging
+import math
 import uuid
 from typing import Any, Dict
 
@@ -60,6 +61,15 @@ class ArticleSubmissionSerializer(serializers.Serializer):
         max_value=4.0,
         help_text="Speed multiplier for TTS conversion (0.25 to 4.0, default 1.0).",
     )
+
+    # AIDEV-NOTE: NaN bypasses DRF min/max validators since NaN comparisons are always False
+    def validate_speed(self, value):
+        """Reject NaN and Infinity speed values."""
+        if value is not None and not math.isfinite(value):
+            raise serializers.ValidationError(
+                "Speed must be a finite number between 0.25 and 4.0."
+            )
+        return value
 
     # AIDEV-NOTE: voice_id validated against VOICE_CHOICES for consistency with form/model (#198)
     def validate_voice_id(self, value):
