@@ -683,10 +683,11 @@ class VoicePresetAPITests(TestCase):
         data = response.json()
 
         # Should only return 2 presets (not the other user's preset)
-        self.assertEqual(len(data), 2)
+        self.assertEqual(data["count"], 2)
+        self.assertEqual(len(data["results"]), 2)
 
         # Check preset names
-        preset_names = [p["name"] for p in data]
+        preset_names = [p["name"] for p in data["results"]]
         self.assertIn("News Reader", preset_names)
         self.assertIn("Storyteller", preset_names)
         self.assertNotIn("Other Voice", preset_names)
@@ -701,7 +702,7 @@ class VoicePresetAPITests(TestCase):
         data = response.json()
 
         # Find the News Reader preset
-        news_reader = next(p for p in data if p["name"] == "News Reader")
+        news_reader = next(p for p in data["results"] if p["name"] == "News Reader")
         self.assertEqual(news_reader["description"], "A clear news reading voice")
 
     def test_list_presets_includes_all_fields(self):
@@ -714,7 +715,7 @@ class VoicePresetAPITests(TestCase):
         data = response.json()
 
         # Find the Storyteller preset
-        storyteller = next(p for p in data if p["name"] == "Storyteller")
+        storyteller = next(p for p in data["results"] if p["name"] == "Storyteller")
 
         # Check all expected fields are present
         expected_fields = [
@@ -786,7 +787,128 @@ class VoicePresetAPITests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data, [])
+        self.assertEqual(data["results"], [])
+        self.assertEqual(data["count"], 0)
+
+    def test_list_presets_paginated_response_format(self):
+        """Test that list response contains standard DRF pagination envelope."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("count", data)
+        self.assertIn("next", data)
+        self.assertIn("previous", data)
+        self.assertIn("results", data)
+
+    def test_list_presets_default_page_size(self):
+        """Test that default page size is 20."""
+        self.client.force_authenticate(user=self.user)
+        # Remove setUp presets and create 25 fresh ones
+        UserVoicePreset.objects.filter(user=self.user).delete()
+        UserVoicePreset.objects.bulk_create(
+            [
+                UserVoicePreset(
+                    user=self.user,
+                    name=f"Preset {i:03d}",
+                    voice_id="nova",
+                    speed=1.0,
+                )
+                for i in range(25)
+            ]
+        )
+
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["count"], 25)
+        self.assertEqual(len(data["results"]), 20)
+        self.assertIsNotNone(data["next"])
+
+    def test_list_presets_page_parameter(self):
+        """Test requesting page 2 returns correct subset."""
+        self.client.force_authenticate(user=self.user)
+        UserVoicePreset.objects.filter(user=self.user).delete()
+        UserVoicePreset.objects.bulk_create(
+            [
+                UserVoicePreset(
+                    user=self.user,
+                    name=f"Preset {i:03d}",
+                    voice_id="nova",
+                    speed=1.0,
+                )
+                for i in range(25)
+            ]
+        )
+
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url, {"page": 2})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 5)
+
+    def test_list_presets_last_page_partial(self):
+        """Test that last page has correct count and next is null."""
+        self.client.force_authenticate(user=self.user)
+        UserVoicePreset.objects.filter(user=self.user).delete()
+        UserVoicePreset.objects.bulk_create(
+            [
+                UserVoicePreset(
+                    user=self.user,
+                    name=f"Preset {i:03d}",
+                    voice_id="nova",
+                    speed=1.0,
+                )
+                for i in range(25)
+            ]
+        )
+
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url, {"page": 2})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 5)
+        self.assertIsNone(data["next"])
+        self.assertIsNotNone(data["previous"])
+
+    def test_list_presets_invalid_page(self):
+        """Test that requesting an invalid page returns 404."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        response = self.client.get(url, {"page": 999})
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_list_presets_maintains_ordering(self):
+        """Test that presets are ordered by name across pages."""
+        self.client.force_authenticate(user=self.user)
+        UserVoicePreset.objects.filter(user=self.user).delete()
+        UserVoicePreset.objects.bulk_create(
+            [
+                UserVoicePreset(
+                    user=self.user,
+                    name=f"Preset {i:03d}",
+                    voice_id="nova",
+                    speed=1.0,
+                )
+                for i in range(25)
+            ]
+        )
+
+        url = reverse("api-voice-preset-list")
+        page1 = self.client.get(url).json()
+        page2 = self.client.get(url, {"page": 2}).json()
+
+        all_names = [p["name"] for p in page1["results"]] + [
+            p["name"] for p in page2["results"]
+        ]
+        self.assertEqual(all_names, sorted(all_names))
 
     def test_create_preset_requires_auth(self):
         """Test that creating a preset requires authentication."""

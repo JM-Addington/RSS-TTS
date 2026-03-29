@@ -10,7 +10,7 @@ from typing import Any, Dict
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import serializers, status
+from rest_framework import generics, serializers, status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -239,7 +239,7 @@ class VoicePresetSerializer(serializers.ModelSerializer):
 @extend_schema_view(
     get=extend_schema(
         summary="List voice presets",
-        description="Returns all voice presets for the authenticated user.",
+        description="Returns all voice presets for the authenticated user, paginated.",
         responses={
             200: VoicePresetSerializer(many=True),
             401: {"description": "Authentication required"},
@@ -256,48 +256,24 @@ class VoicePresetSerializer(serializers.ModelSerializer):
         },
     ),
 )
-class VoicePresetListView(APIView):
+# AIDEV-NOTE: ListCreateAPIView provides automatic pagination via global PAGE_SIZE=20 (#191)
+class VoicePresetListView(generics.ListCreateAPIView):
     """API endpoint for listing and creating voice presets."""
 
+    serializer_class = VoicePresetSerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request: Request) -> Response:
-        """Return all voice presets for the authenticated user.
+    def get_queryset(self):
+        return UserVoicePreset.objects.filter(user=self.request.user).order_by("name")
 
-        Args:
-            request: The HTTP request object.
-
-        Returns:
-            A list of voice presets with their descriptions.
-        """
-        presets = UserVoicePreset.objects.filter(user=request.user).order_by("name")
-        serializer = VoicePresetSerializer(presets, many=True)
-        return Response(serializer.data)
-
-    def post(self, request: Request) -> Response:
-        """Create a new voice preset for the authenticated user.
-
-        Args:
-            request: The HTTP request object.
-
-        Returns:
-            The created voice preset.
-        """
-        serializer = VoicePresetSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
+    def perform_create(self, serializer):
         # Check for duplicate name — raise as field-level ValidationError for consistent format
         name = serializer.validated_data.get("name")
-        if UserVoicePreset.objects.filter(user=request.user, name=name).exists():
+        if UserVoicePreset.objects.filter(user=self.request.user, name=name).exists():
             raise serializers.ValidationError(
                 {"name": ["A preset with this name already exists."]}
             )
-
-        # Save with the authenticated user
-        preset = serializer.save(user=request.user)
-        return Response(
-            VoicePresetSerializer(preset).data, status=status.HTTP_201_CREATED
-        )
+        serializer.save(user=self.request.user)
 
 
 @extend_schema_view(
