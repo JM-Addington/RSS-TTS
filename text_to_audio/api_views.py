@@ -7,6 +7,7 @@ import logging
 import uuid
 from typing import Any, Dict
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import serializers, status
@@ -31,6 +32,7 @@ class ArticleSubmissionSerializer(serializers.Serializer):
         help_text="Optional title for the article. If not provided, title will be extracted from content or generated.",
     )
     text_content = serializers.CharField(
+        max_length=500000,
         required=False,
         allow_blank=True,
         help_text="Text content of the article. Either text_content or source_url must be provided.",
@@ -47,10 +49,13 @@ class ArticleSubmissionSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Voice ID to use for TTS conversion. Leave blank to auto-detect from content.",
     )
+    # AIDEV-NOTE: Speed bounds 0.25-4.0 match OpenAI TTS API limits
     speed = serializers.FloatField(
         required=False,
         allow_null=True,
-        help_text="Speed multiplier for TTS conversion (e.g., 1.0 for normal speed).",
+        min_value=0.25,
+        max_value=4.0,
+        help_text="Speed multiplier for TTS conversion (0.25 to 4.0, default 1.0).",
     )
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -61,13 +66,13 @@ class ArticleSubmissionSerializer(serializers.Serializer):
         # Check that at least one of source_url or text_content is provided
         if not source_url and not text_content:
             raise serializers.ValidationError(
-                "You must provide either text_content or source_url."
+                {"error": "You must provide either text_content or source_url."}
             )
 
         # Check if both are provided - which is not allowed
         if source_url and text_content:
             raise serializers.ValidationError(
-                "You cannot provide both text_content and source_url."
+                {"error": "You cannot provide both text_content and source_url."}
             )
 
         # Check text content length - max 40,000 words
@@ -75,8 +80,12 @@ class ArticleSubmissionSerializer(serializers.Serializer):
             word_count = len(text_content.split())
             if word_count > 40000:
                 raise serializers.ValidationError(
-                    f"Text content is too long ({word_count:,} words). "
-                    f"Please limit to 40,000 words or less."
+                    {
+                        "error": (
+                            f"Text content is too long ({word_count:,} words). "
+                            f"Please limit to 40,000 words or less."
+                        )
+                    }
                 )
 
         return data
@@ -141,13 +150,19 @@ class FeedArticleSubmitView(APIView):
         if article.source_url and not article.title:
             article.title = "Processing..."  # Placeholder, will be updated by task
 
-        # Run custom validation
+        # AIDEV-NOTE: Catch only DjangoValidationError; log others; never leak internals (#193)
         try:
             article.clean()
-        except Exception as e:
+        except DjangoValidationError:
             return Response(
-                {"error": f"Validation error: {str(e)}"},
+                {"error": "Article validation failed"},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception("Unexpected error during article validation")
+            return Response(
+                {"error": "An internal error occurred"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         # Save article to database
@@ -156,12 +171,25 @@ class FeedArticleSubmitView(APIView):
         # Start processing the article
         process_article.delay(article.id)
 
-        # Return success response without article details
-        return Response({"success": True}, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                "success": True,
+                "audio_uuid": str(article.audio_uuid),
+                "status": article.status,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class VoicePresetSerializer(serializers.ModelSerializer):
     """Serializer for UserVoicePreset model."""
+
+    # AIDEV-NOTE: Override model field to add speed bounds validation (#196)
+    speed = serializers.FloatField(
+        default=1.0,
+        min_value=0.25,
+        max_value=4.0,
+    )
 
     class Meta:
         model = UserVoicePreset

@@ -220,8 +220,17 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Django REST Framework settings
+# AIDEV-NOTE: Rate limits: 30/min anon, 60/min auth — tune if bulk submission needed (#189)
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "30/minute",
+        "user": "60/minute",
+    },
 }
 
 # drf-spectacular configuration

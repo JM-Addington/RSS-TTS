@@ -910,3 +910,39 @@ class VoicePresetAPITests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("voice_id", response.json())
+
+    def test_create_preset_invalid_speed_negative(self):
+        """Test that creating a preset with negative speed fails. Closes #196."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        payload = {
+            "name": "Bad Speed Preset",
+            "voice_id": "nova",
+            "speed": -1.0,
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_create_preset_invalid_speed_too_high(self):
+        """Test that creating a preset with speed > 4.0 fails. Closes #196."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        payload = {
+            "name": "Fast Preset",
+            "voice_id": "nova",
+            "speed": 10.0,
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_create_preset_invalid_speed_zero(self):
+        """Test that creating a preset with speed = 0 fails. Closes #196."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("api-voice-preset-list")
+        payload = {
+            "name": "Zero Speed Preset",
+            "voice_id": "nova",
+            "speed": 0.0,
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
