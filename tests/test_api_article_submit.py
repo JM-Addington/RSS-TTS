@@ -47,11 +47,13 @@ class FeedArticleSubmitAPITests(TestCase):
         data = response.json()
         self.assertTrue(data["success"])
         self.assertIn("audio_uuid", data)
+        self.assertIn("id", data)
         self.assertEqual(Article.objects.count(), 1)
 
         # Verify article data
         article = Article.objects.first()
         self.assertEqual(data["audio_uuid"], str(article.audio_uuid))
+        self.assertEqual(data["id"], article.id)
         self.assertEqual(article.title, "Test Article")
         self.assertEqual(
             article.text_content, "This is test content for the article submission API."
@@ -304,6 +306,22 @@ class FeedArticleSubmitAPITests(TestCase):
         self.assertIn("audio_uuid", data)
         article = Article.objects.first()
         self.assertEqual(data["audio_uuid"], str(article.audio_uuid))
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_response_includes_article_id(self, mock_process):
+        """Test that successful submission returns the article id."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertIn("id", data)
+        article = Article.objects.first()
+        self.assertEqual(data["id"], article.id)
 
     def test_text_content_max_length_rejected(self):
         """Test that extremely long text_content is rejected."""

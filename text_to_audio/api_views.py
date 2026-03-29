@@ -189,6 +189,7 @@ class FeedArticleSubmitView(APIView):
         return Response(
             {
                 "success": True,
+                "id": article.id,
                 "audio_uuid": str(article.audio_uuid),
                 "status": article.status,
             },
