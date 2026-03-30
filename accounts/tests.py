@@ -247,6 +247,25 @@ class UserManagementViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_login_form_has_autocomplete_attribute(self):
+        """Test that login form password input has autocomplete='current-password'."""
+        response = self.client.get(reverse("login"))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode()
+        self.assertIn('autocomplete="current-password"', content)
+
+    def test_user_create_form_has_autocomplete_attributes(self):
+        """Test that user create form password inputs have autocomplete='new-password'."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.get(reverse("user-create"))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode()
+        self.assertIn('autocomplete="new-password"', content)
+        self.assertEqual(content.count('autocomplete="new-password"'), 2)
+
     def test_reset_password_form_has_autocomplete_attributes(self):
         """Test that password reset form inputs have autocomplete='new-password'."""
         self.client.login(username="admin", password="testpass123")
@@ -275,6 +294,30 @@ class UserManagementViewTests(TestCase):
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
     ]
 )
+@override_settings(
+    MIDDLEWARE=[
+        "django.middleware.security.SecurityMiddleware",
+        "django.contrib.sessions.middleware.SessionMiddleware",
+        "django.middleware.common.CommonMiddleware",
+        "django.middleware.csrf.CsrfViewMiddleware",
+        "django.contrib.auth.middleware.AuthenticationMiddleware",
+        "django.contrib.messages.middleware.MessageMiddleware",
+        "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    ]
+)
+class SignupFormAutocompleteTests(TestCase):
+    """Test that the signup form has proper autocomplete attributes."""
+
+    def test_signup_form_has_autocomplete_attributes(self):
+        """Test that signup form password inputs have autocomplete='new-password'."""
+        response = self.client.get(reverse("signup"))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode()
+        self.assertIn('autocomplete="new-password"', content)
+        self.assertEqual(content.count('autocomplete="new-password"'), 2)
+
+
 class AdminApprovalMiddlewareTests(TestCase):
     """Test cases for the admin approval middleware."""
 
