@@ -107,6 +107,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "accounts.middleware.AdminApprovalRequiredMiddleware",
+    "text_to_audio.middleware.RateLimitMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -175,6 +176,18 @@ else:
 
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_TASK_ALWAYS_EAGER = False
+
+# Cache configuration (used by django-ratelimit for rate limiting)
+# AIDEV-NOTE: Uses same Redis instance as Celery broker; db 1 to avoid key collisions
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ.get("REDIS_CACHE_URL", "redis://localhost:6379/1"),
+    }
+}
+
+# django-ratelimit settings
+RATELIMIT_USE_CACHE = "default"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

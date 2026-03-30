@@ -11,6 +11,7 @@ import uuid
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django_ratelimit.decorators import ratelimit
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import (
     FileResponse,
@@ -1110,6 +1111,7 @@ def voice_preset_delete(request, preset_id):
 
 
 @login_required
+@ratelimit(key="user", rate="10/m", method="POST", block=True)
 def voice_preset_test(request, preset_id=None):
     """Generate a real-time voice sample with current form values."""
     if (
@@ -1181,6 +1183,7 @@ def voice_preset_test(request, preset_id=None):
 
 
 @login_required
+@ratelimit(key="user", rate="10/m", method="POST", block=True)
 def voice_preset_sample(request, preset_id):
     """Generate an audio sample for a voice preset."""
     preset = get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
