@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
@@ -204,6 +204,7 @@ class UserDeleteView(SuperAdminRequiredMixin, LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("user-management")
     pk_url_kwarg = "user_id"
 
+    # AIDEV-NOTE: get_object() raises PermissionDenied for super admins instead of redirecting (issue #199)
     def get_object(self, queryset=None):
         """Prevent deletion of super admin users."""
         user = super().get_object(queryset)
@@ -211,13 +212,17 @@ class UserDeleteView(SuperAdminRequiredMixin, LoginRequiredMixin, DeleteView):
             raise PermissionDenied("Cannot delete super admin users.")
         return user
 
-    def delete(self, request, *args, **kwargs):
-        """Delete user with success message."""
-        self.object = self.get_object()
+    def form_valid(self, form):
+        """Delete user with success message.
+
+        Overrides DeleteView.form_valid() to add a success message.
+        Django 5+ uses form_valid() for deletion, not delete().
+        """
         username = self.object.username
-        response = super().delete(request, *args, **kwargs)
-        messages.success(request, f'User "{username}" deleted successfully.')
-        return response
+        success_url = self.get_success_url()
+        self.object.delete()
+        messages.success(self.request, f'User "{username}" deleted successfully.')
+        return HttpResponseRedirect(success_url)
 
 
 class GlobalConfigView(SuperAdminRequiredMixin, LoginRequiredMixin, UpdateView):

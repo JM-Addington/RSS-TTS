@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.contrib.messages import get_messages
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -233,6 +234,23 @@ class UserManagementViewTests(TestCase):
 
         # User should be deleted
         self.assertFalse(User.objects.filter(id=regular_user_id).exists())
+
+    def test_delete_regular_user_shows_success_message(self):
+        """Deleting a user should set a success message containing the username."""
+        self.client.login(username="admin", password="testpass123")
+
+        regular_user_id = self.regular_user.id
+        username = self.regular_user.username
+        response = self.client.post(
+            reverse("user-delete", args=[regular_user_id]), follow=True
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # Check the success message is displayed after redirect
+        messages_list = list(get_messages(response.wsgi_request))
+        self.assertEqual(len(messages_list), 1)
+        self.assertIn(username, str(messages_list[0]))
+        self.assertIn("deleted successfully", str(messages_list[0]))
 
     def test_delete_user_requires_login(self):
         """Unauthenticated user should get 403 from SuperAdminRequiredMixin."""
