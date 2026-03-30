@@ -18,6 +18,15 @@ logger = logging.getLogger(__name__)
 # to limit memory use (base64 adds ~33% overhead) and match forms.py MAX_UPLOAD_SIZE.
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10MB
 
+# AIDEV-NOTE: must stay in sync with content-type handling in tasks.py process_incoming_email
+ALLOWED_ATTACHMENT_CONTENT_TYPES = {
+    "application/pdf",
+    "text/html",
+    "text/plain",
+    "text/markdown",
+    "text/x-markdown",
+}
+
 
 @csrf_exempt
 @require_POST
@@ -82,6 +91,13 @@ def mailgun_incoming_webhook(request):
                         file_obj.name,
                         file_obj.size,
                         MAX_ATTACHMENT_SIZE,
+                    )
+                    continue
+                if file_obj.content_type.lower() not in ALLOWED_ATTACHMENT_CONTENT_TYPES:
+                    logger.warning(
+                        "Skipping attachment '%s' with disallowed content-type '%s'",
+                        file_obj.name,
+                        file_obj.content_type,
                     )
                     continue
                 file_obj.seek(0)

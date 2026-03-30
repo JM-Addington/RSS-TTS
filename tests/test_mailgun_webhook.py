@@ -338,6 +338,175 @@ class MailgunWebhookTestCase(TestCase):
         self.assertIn("huge.pdf", log_output)
         self.assertIn("oversized", log_output.lower())
 
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_webhook_rejects_invalid_content_type_attachment(
+        self, mock_delay, mock_mailgun_service
+    ):
+        """Test that webhook skips attachments with disallowed content types."""
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        binary_file = SimpleUploadedFile(
+            "data.bin",
+            b"binary content",
+            content_type="application/octet-stream",
+        )
+
+        response = self.client.post(
+            reverse("mailgun-incoming-webhook"),
+            {
+                "timestamp": "12345",
+                "token": "token",
+                "signature": "sig",
+                "recipient": "test-feed@mg.example.com",
+                "sender": "sender@example.com",
+                "subject": "Bad attachment type",
+                "body-plain": "See attached.",
+                "attachment-count": "1",
+                "attachment-1": binary_file,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        # Verify the invalid attachment was NOT included in the task payload
+        call_args = mock_delay.call_args[0][0]
+        self.assertEqual(len(call_args["attachments"]), 0)
+
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_webhook_accepts_valid_content_types(
+        self, mock_delay, mock_mailgun_service
+    ):
+        """Test that webhook accepts all allowed content types."""
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        valid_types = [
+            ("test.pdf", "application/pdf"),
+            ("test.html", "text/html"),
+            ("test.txt", "text/plain"),
+            ("test.md", "text/markdown"),
+            ("test2.md", "text/x-markdown"),
+        ]
+
+        for filename, content_type in valid_types:
+            with self.subTest(content_type=content_type):
+                test_file = SimpleUploadedFile(
+                    filename,
+                    b"test content",
+                    content_type=content_type,
+                )
+
+                response = self.client.post(
+                    reverse("mailgun-incoming-webhook"),
+                    {
+                        "timestamp": "12345",
+                        "token": "token",
+                        "signature": "sig",
+                        "recipient": "test-feed@mg.example.com",
+                        "sender": "sender@example.com",
+                        "subject": "Valid attachment",
+                        "body-plain": "See attached.",
+                        "attachment-count": "1",
+                        "attachment-1": test_file,
+                    },
+                )
+
+                self.assertEqual(response.status_code, 200)
+                call_args = mock_delay.call_args[0][0]
+                self.assertEqual(
+                    len(call_args["attachments"]),
+                    1,
+                    f"Expected attachment with content_type={content_type} to be accepted",
+                )
+                self.assertEqual(
+                    call_args["attachments"][0]["content_type"], content_type
+                )
+
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_webhook_skips_invalid_but_keeps_valid_attachments(
+        self, mock_delay, mock_mailgun_service
+    ):
+        """Test that only invalid content-type attachments are skipped; valid ones kept."""
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        valid_file = SimpleUploadedFile(
+            "doc.pdf",
+            b"pdf content",
+            content_type="application/pdf",
+        )
+        invalid_file = SimpleUploadedFile(
+            "image.png",
+            b"png content",
+            content_type="image/png",
+        )
+
+        response = self.client.post(
+            reverse("mailgun-incoming-webhook"),
+            {
+                "timestamp": "12345",
+                "token": "token",
+                "signature": "sig",
+                "recipient": "test-feed@mg.example.com",
+                "sender": "sender@example.com",
+                "subject": "Mixed content types",
+                "body-plain": "See attached.",
+                "attachment-count": "2",
+                "attachment-1": valid_file,
+                "attachment-2": invalid_file,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        # Only the valid attachment should be included
+        call_args = mock_delay.call_args[0][0]
+        self.assertEqual(len(call_args["attachments"]), 1)
+        self.assertEqual(call_args["attachments"][0]["filename"], "doc.pdf")
+
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_webhook_logs_invalid_content_type(
+        self, mock_delay, mock_mailgun_service
+    ):
+        """Test that skipping an invalid content-type attachment logs a warning."""
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        invalid_file = SimpleUploadedFile(
+            "image.jpg",
+            b"jpeg content",
+            content_type="image/jpeg",
+        )
+
+        with self.assertLogs("text_to_audio.mailgun_views", level="WARNING") as cm:
+            self.client.post(
+                reverse("mailgun-incoming-webhook"),
+                {
+                    "timestamp": "12345",
+                    "token": "token",
+                    "signature": "sig",
+                    "recipient": "test-feed@mg.example.com",
+                    "sender": "sender@example.com",
+                    "subject": "Bad type",
+                    "body-plain": "Content.",
+                    "attachment-count": "1",
+                    "attachment-1": invalid_file,
+                },
+            )
+
+        log_output = "\n".join(cm.output)
+        self.assertIn("image.jpg", log_output)
+        self.assertIn("image/jpeg", log_output)
+
 
 class ProcessIncomingEmailTaskTestCase(TestCase):
     """Tests for the process_incoming_email Celery task."""
