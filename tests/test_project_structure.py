@@ -1,5 +1,6 @@
 """Tests that verify the project structure and required files exist."""
 
+import glob
 import os
 import unittest
 
@@ -58,6 +59,38 @@ class TestProjectStructure(unittest.TestCase):
 
         compose_data = yaml.safe_load(compose_content)
         self.assertIn("redis", compose_data.get("services", {}))
+
+
+    def test_dead_template_feed_form_improved_removed(self):
+        """Verify that the dead template feed_form_improved.html does not exist."""
+        self.assertFalse(
+            os.path.isfile(
+                os.path.join("text_to_audio", "templates", "feed_form_improved.html")
+            ),
+            "feed_form_improved.html should be removed — it is dead code",
+        )
+
+    def test_no_references_to_feed_form_improved(self):
+        """Verify no .py or .html files reference feed_form_improved."""
+        # AIDEV-NOTE: excludes tests/ and .ralph/ to avoid false positives
+        search_patterns = ["**/*.py", "**/*.html"]
+        exclude_dirs = {"tests", ".ralph", "__pycache__"}
+        for pattern in search_patterns:
+            for filepath in glob.glob(pattern, recursive=True):
+                # Skip files in excluded directories
+                parts = filepath.split(os.sep)
+                if any(part in exclude_dirs for part in parts):
+                    continue
+                # Skip the dead template itself (may still exist during red phase)
+                if filepath.endswith("feed_form_improved.html"):
+                    continue
+                with open(filepath, encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+                self.assertNotIn(
+                    "feed_form_improved",
+                    content,
+                    f"Found reference to feed_form_improved in {filepath}",
+                )
 
 
 if __name__ == "__main__":
