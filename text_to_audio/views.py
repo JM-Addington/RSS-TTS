@@ -227,26 +227,40 @@ class FeedListView(LoginRequiredMixin, ListView):
     context_object_name = "feeds"
 
     def get_queryset(self):
-        """Return only the user's feeds."""
-        return Feed.objects.filter(user=self.request.user).order_by("-created_at")
+        """Return the user's feeds with annotated article counts and durations.
+
+        AIDEV-NOTE: annotations eliminate N+1 queries in get_context_data()
+        """
+        from django.db.models import Count, Q, Sum
+        from django.db.models.functions import Coalesce
+
+        return (
+            Feed.objects.filter(user=self.request.user)
+            .annotate(
+                article_count=Count("articles"),
+                total_audio_duration=Coalesce(
+                    Sum(
+                        "articles__audio_duration",
+                        filter=Q(
+                            articles__status="COMPLETED",
+                            articles__audio_duration__isnull=False,
+                        ),
+                    ),
+                    0,
+                ),
+            )
+            .order_by("-created_at")
+        )
 
     def get_context_data(self, **kwargs):
-        """Add feed URLs, article counts, and total audio duration to context."""
-        from django.db.models import Sum
+        """Add feed RSS URLs to context.
 
+        article_count and total_audio_duration are already annotated on the
+        queryset by get_queryset(), so no per-feed queries are needed here.
+        """
         context = super().get_context_data(**kwargs)
 
-        # Add article count, total audio duration, and RSS URL for each feed
         for feed in context["feeds"]:
-            feed.article_count = feed.articles.count()
-
-            # Calculate total audio duration for completed articles (in seconds)
-            total_duration = feed.articles.filter(
-                status="COMPLETED", audio_duration__isnull=False
-            ).aggregate(total=Sum("audio_duration"))["total"]
-            feed.total_audio_duration = total_duration or 0
-
-            # Generate RSS URL
             feed_path = reverse("feed", kwargs={"token": feed.token})
             if get_site_url():
                 feed.rss_url = f"{get_site_url().rstrip('/')}{feed_path}"
