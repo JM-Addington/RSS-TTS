@@ -188,6 +188,9 @@ CACHES = {
 
 # django-ratelimit settings
 RATELIMIT_USE_CACHE = "default"
+# AIDEV-NOTE: RATELIMIT_EXCEPTION must be True so @ratelimit(block=True) raises
+# Ratelimited instead of returning 403, letting RateLimitMiddleware return 429.
+RATELIMIT_EXCEPTION = True
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

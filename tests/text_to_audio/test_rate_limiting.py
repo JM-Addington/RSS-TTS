@@ -25,6 +25,24 @@ TEST_CACHES = {
 }
 
 
+class RateLimitSettingsTest(TestCase):
+    """Verify django-ratelimit settings are correctly configured."""
+
+    def test_ratelimit_exception_setting_is_true(self):
+        """RATELIMIT_EXCEPTION must be True so the middleware can convert 403->429.
+
+        AIDEV-NOTE: Without this setting, @ratelimit(block=True) returns 403 directly
+        instead of raising Ratelimited, bypassing our RateLimitMiddleware entirely.
+        """
+        from django.conf import settings
+
+        self.assertTrue(
+            getattr(settings, "RATELIMIT_EXCEPTION", False),
+            "RATELIMIT_EXCEPTION must be True in settings for RateLimitMiddleware "
+            "to convert rate-limited responses from 403 to 429",
+        )
+
+
 @override_settings(CACHES=TEST_CACHES, RATELIMIT_USE_CACHE="default")
 class RateLimitMiddlewareUnitTest(TestCase):
     """Unit tests for the RateLimitMiddleware."""
@@ -75,7 +93,9 @@ class RateLimitMiddlewareUnitTest(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-@override_settings(CACHES=TEST_CACHES, RATELIMIT_USE_CACHE="default")
+@override_settings(
+    CACHES=TEST_CACHES, RATELIMIT_USE_CACHE="default", RATELIMIT_EXCEPTION=True
+)
 class VoicePresetTestRateLimitTest(TestCase):
     """Tests for rate limiting on the voice_preset_test endpoint."""
 
@@ -145,7 +165,9 @@ class VoicePresetTestRateLimitTest(TestCase):
         self.assertEqual(response.status_code, 302)
 
 
-@override_settings(CACHES=TEST_CACHES, RATELIMIT_USE_CACHE="default")
+@override_settings(
+    CACHES=TEST_CACHES, RATELIMIT_USE_CACHE="default", RATELIMIT_EXCEPTION=True
+)
 class VoicePresetSampleRateLimitTest(TestCase):
     """Tests for rate limiting on the voice_preset_sample endpoint."""
 
