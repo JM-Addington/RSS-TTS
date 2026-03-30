@@ -17,6 +17,9 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from kombu.exceptions import OperationalError as KombuOperationalError
+from redis.exceptions import ConnectionError as RedisConnectionError
+
 from .models import VOICE_CHOICES, Article, Feed, UserVoicePreset
 from .tasks import process_article
 from .validators import validate_url_not_ssrf
@@ -191,8 +194,18 @@ class FeedArticleSubmitView(APIView):
         # Save article to database
         article.save()
 
-        # Start processing the article
-        process_article.delay(article.id)
+        # AIDEV-NOTE: Catch broker/redis errors — article saved, return 503 if queuing fails
+        try:
+            process_article.delay(article.id)
+        except (KombuOperationalError, RedisConnectionError) as exc:
+            logger.error("Failed to queue article processing: %s", exc)
+            return Response(
+                {
+                    "success": False,
+                    "error": "Task queue unavailable. Article saved but processing could not be started.",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response(
             {

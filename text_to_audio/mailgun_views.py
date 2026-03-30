@@ -7,6 +7,9 @@ from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbid
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from kombu.exceptions import OperationalError as KombuOperationalError
+from redis.exceptions import ConnectionError as RedisConnectionError
+
 from .models import Feed
 from .services.email_parser import EmailParser
 from .services.mailgun_service import MailgunService
@@ -132,6 +135,13 @@ def mailgun_incoming_webhook(request):
         )
 
         return HttpResponse("Email accepted for processing", status=200)
+
+    # AIDEV-NOTE: Catch broker/redis errors separately — return 503 so Mailgun retries
+    except (KombuOperationalError, RedisConnectionError) as exc:
+        logger.error("Failed to queue email processing: %s", exc)
+        return HttpResponse(
+            "Email accepted but processing queue unavailable", status=503
+        )
 
     except Exception as e:
         logger.error(f"Error accepting Mailgun webhook: {e}", exc_info=True)

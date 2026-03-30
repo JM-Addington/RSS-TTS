@@ -568,3 +568,146 @@ class TestFollowedFeedCreateViewMessages(TestCase):
         messages_list = list(get_messages(response.wsgi_request))
         self.assertEqual(len(messages_list), 1)
         self.assertIn("created successfully", str(messages_list[0]))
+
+
+class CeleryBrokerFailureViewTests(TestCase):
+    """Tests for graceful handling when Celery broker is unavailable.
+
+    AIDEV-NOTE: Tests that .delay() OperationalError is caught, not raised as 500.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="brokeruser", password="testpassword", email="broker@example.com"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Broker Test Feed")
+        self.article = Article.objects.create(
+            feed=self.feed,
+            title="Existing Article",
+            text_content="Some content for regeneration.",
+            status=Article.COMPLETED,
+            audio_uuid=uuid.uuid4(),
+            voice="alloy",
+            speed=1.0,
+        )
+        self.client.login(username="brokeruser", password="testpassword")
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_regenerate_broker_down_redirects_with_error_message(
+        self, mock_delay
+    ):
+        """RegenerateArticleView redirects with error message when broker is down."""
+        from kombu.exceptions import OperationalError
+
+        mock_delay.side_effect = OperationalError("Connection refused")
+
+        response = self.client.post(
+            reverse("article-regenerate", kwargs={"article_id": self.article.pk}),
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any("could not be started" in str(m) for m in messages_list)
+        )
+        # Article should still be created
+        new_article = Article.objects.exclude(pk=self.article.pk).first()
+        self.assertIsNotNone(new_article)
+        self.assertFalse(new_article.celery_task_id)
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_regenerate_broker_down_ajax_returns_json_error(self, mock_delay):
+        """RegenerateArticleView returns JSON error for AJAX when broker is down."""
+        from kombu.exceptions import OperationalError
+
+        mock_delay.side_effect = OperationalError("Connection refused")
+
+        response = self.client.post(
+            reverse("article-regenerate", kwargs={"article_id": self.article.pk}),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        import json
+
+        data = json.loads(response.content)
+        self.assertFalse(data["success"])
+        self.assertIn("could not be started", data["error"])
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_regenerate_redis_down_redirects_with_error_message(self, mock_delay):
+        """RegenerateArticleView handles redis.exceptions.ConnectionError too."""
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        mock_delay.side_effect = RedisConnectionError("Connection refused")
+
+        response = self.client.post(
+            reverse("article-regenerate", kwargs={"article_id": self.article.pk}),
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any("could not be started" in str(m) for m in messages_list)
+        )
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_article_detail_post_broker_down_redirects_with_error(self, mock_delay):
+        """ArticleDetailView POST redirects with error when broker is down."""
+        from kombu.exceptions import OperationalError
+
+        mock_delay.side_effect = OperationalError("Connection refused")
+
+        data = {
+            "title": "New Title",
+            "text_content": "new text content",
+            "summary": "new sum",
+            "voice_id": "echo",
+            "speed": "1.0",
+        }
+        response = self.client.post(
+            reverse("article-detail", kwargs={"article_id": self.article.pk}),
+            data,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any("could not be started" in str(m) for m in messages_list)
+        )
+        # Article should still be created
+        new_article = Article.objects.exclude(pk=self.article.pk).first()
+        self.assertIsNotNone(new_article)
+        self.assertEqual(new_article.title, "New Title")
+        self.assertFalse(new_article.celery_task_id)
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_feed_article_create_broker_down_redirects_with_error(self, mock_delay):
+        """FeedArticleCreateView redirects with error when broker is down."""
+        from kombu.exceptions import OperationalError
+
+        mock_delay.side_effect = OperationalError("Connection refused")
+
+        data = {
+            "text_content": "Some article text for testing broker failure.",
+        }
+        response = self.client.post(
+            reverse("feed-article-create", kwargs={"feed_id": self.feed.pk}),
+            data,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any("could not be started" in str(m) for m in messages_list)
+        )
+        # Article should still be saved
+        new_article = Article.objects.first()
+        self.assertIsNotNone(new_article)
+        self.assertFalse(new_article.celery_task_id)

@@ -667,6 +667,80 @@ class ProcessIncomingEmailTaskTestCase(TestCase):
         self.assertEqual(Article.objects.count(), 0)
 
 
+@override_settings(MAILGUN_API_KEY=None, MAILGUN_DOMAIN=None)
+class MailgunWebhookBrokerFailureTests(TestCase):
+    """Tests for graceful handling when Celery broker is unavailable during webhook processing.
+
+    AIDEV-NOTE: Returns 503 so Mailgun retries when broker comes back online.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="webhookbrokeruser",
+            email="webhookbroker@example.com",
+            password="testpass123",
+        )
+        self.feed = Feed.objects.create(
+            user=self.user,
+            name="Webhook Broker Feed",
+            inbound_email="broker-test@mg.example.com",
+        )
+        self.webhook_key = "test-webhook-key"
+
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_broker_down_returns_503(self, mock_delay, mock_mailgun_service):
+        """Webhook returns 503 when Celery broker is unavailable."""
+        from kombu.exceptions import OperationalError
+
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+        mock_delay.side_effect = OperationalError("Connection refused")
+
+        response = self.client.post(
+            reverse("mailgun-incoming-webhook"),
+            {
+                "timestamp": str(int(time.time())),
+                "token": "test-token",
+                "signature": "test-sig",
+                "recipient": "broker-test@mg.example.com",
+                "sender": "sender@example.com",
+                "subject": "Test Email",
+                "body-plain": "Email content.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 503)
+
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_redis_down_returns_503(self, mock_delay, mock_mailgun_service):
+        """Webhook returns 503 when Redis is unavailable."""
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+        mock_delay.side_effect = RedisConnectionError("Connection refused")
+
+        response = self.client.post(
+            reverse("mailgun-incoming-webhook"),
+            {
+                "timestamp": str(int(time.time())),
+                "token": "test-token",
+                "signature": "test-sig",
+                "recipient": "broker-test@mg.example.com",
+                "sender": "sender@example.com",
+                "subject": "Test Email",
+                "body-plain": "Email content.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 503)
+
+
 # For pytest compatibility
 if __name__ == "__main__":
     pytest.main([__file__])

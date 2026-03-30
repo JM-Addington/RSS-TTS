@@ -54,6 +54,9 @@ from .models import (
 )
 from .services.user_preferences import UserPreferencesService
 from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
+from kombu.exceptions import OperationalError as KombuOperationalError
+from redis.exceptions import ConnectionError as RedisConnectionError
+
 from .tasks import process_article
 from .utils import (
     extract_article_text,
@@ -733,9 +736,17 @@ class FeedArticleCreateView(LoginRequiredMixin, CreateView):
                 article.text_content = url_text
 
         article.save()
-        task = process_article.delay(article.pk)
-        article.celery_task_id = task.id
-        article.save(update_fields=["celery_task_id", "updated_at"])
+        # AIDEV-NOTE: Catch broker/redis errors so article is saved even if queuing fails
+        try:
+            task = process_article.delay(article.pk)
+            article.celery_task_id = task.id
+            article.save(update_fields=["celery_task_id", "updated_at"])
+        except (KombuOperationalError, RedisConnectionError) as exc:
+            logger.error("Failed to queue article processing: %s", exc)
+            messages.error(
+                self.request,
+                "Article saved but processing could not be started. Please try again later.",
+            )
         return super().form_valid(form)
 
     def get_success_url(self):
@@ -789,10 +800,16 @@ class RegenerateArticleView(LoginRequiredMixin, View):
         new_article.save()
 
         # Queue the new article for processing
-        task = process_article.delay(new_article.pk)
-        new_article.celery_task_id = task.id
-        # Restrict fields on save
-        new_article.save(update_fields=["celery_task_id", "updated_at"])
+        # AIDEV-NOTE: Catch broker/redis errors so article is saved even if queuing fails
+        queue_failed = False
+        try:
+            task = process_article.delay(new_article.pk)
+            new_article.celery_task_id = task.id
+            # Restrict fields on save
+            new_article.save(update_fields=["celery_task_id", "updated_at"])
+        except (KombuOperationalError, RedisConnectionError) as exc:
+            logger.error("Failed to queue article processing: %s", exc)
+            queue_failed = True
 
         # Get the feed ID
         # Using getattr to work around mypy limitations with Django models
@@ -800,6 +817,14 @@ class RegenerateArticleView(LoginRequiredMixin, View):
 
         # AIDEV-NOTE: AJAX requests return JSON with new article info for UI update
         if self._is_ajax_request(request):
+            if queue_failed:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Article saved but processing could not be started. Please try again later.",
+                    }
+                )
+
             return JsonResponse(
                 {
                     "success": True,
@@ -812,6 +837,12 @@ class RegenerateArticleView(LoginRequiredMixin, View):
                         "audio_uuid": str(new_article.audio_uuid),
                     },
                 }
+            )
+
+        if queue_failed:
+            messages.error(
+                request,
+                "Article saved but processing could not be started. Please try again later.",
             )
 
         if feed_id is not None:
@@ -868,9 +899,17 @@ class ArticleDetailView(LoginRequiredMixin, View):
                         "alloy"  # Reset to default for validation compatibility
                     )
             new_article.save()
-            task = process_article.delay(new_article.pk)
-            new_article.celery_task_id = task.id
-            new_article.save(update_fields=["celery_task_id", "updated_at"])
+            # AIDEV-NOTE: Catch broker/redis errors so article is saved even if queuing fails
+            try:
+                task = process_article.delay(new_article.pk)
+                new_article.celery_task_id = task.id
+                new_article.save(update_fields=["celery_task_id", "updated_at"])
+            except (KombuOperationalError, RedisConnectionError) as exc:
+                logger.error("Failed to queue article processing: %s", exc)
+                messages.error(
+                    request,
+                    "Article saved but processing could not be started. Please try again later.",
+                )
             return redirect("feed-articles", feed_id=original.feed.pk)
 
         return render(request, self.template_name, {"form": form, "article": original})

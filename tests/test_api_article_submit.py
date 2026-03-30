@@ -623,3 +623,45 @@ class FeedArticleSubmitAPITests(TestCase):
             self.url, data="{invalid json", content_type="application/json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_broker_down_returns_503(self, mock_process):
+        """Test that Celery broker failure returns 503, not 500."""
+        from kombu.exceptions import OperationalError
+
+        mock_process.delay.side_effect = OperationalError("Connection refused")
+
+        payload = {
+            "title": "Test Article",
+            "text_content": "Content for broker failure test.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        data = response.json()
+        self.assertFalse(data["success"])
+        self.assertIn("processing could not be started", data["error"])
+        # Article should still be saved
+        self.assertEqual(Article.objects.count(), 1)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_redis_down_returns_503(self, mock_process):
+        """Test that Redis connection failure returns 503, not 500."""
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        mock_process.delay.side_effect = RedisConnectionError("Connection refused")
+
+        payload = {
+            "title": "Test Article",
+            "text_content": "Content for redis failure test.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        data = response.json()
+        self.assertFalse(data["success"])
+        self.assertEqual(Article.objects.count(), 1)
