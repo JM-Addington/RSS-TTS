@@ -247,6 +247,21 @@ class UserManagementViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_reset_password_form_has_autocomplete_attributes(self):
+        """Test that password reset form inputs have autocomplete='new-password'."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.get(
+            reverse("user-reset-password", args=[self.regular_user.id])
+        )
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode()
+        # Both password fields should have autocomplete="new-password"
+        self.assertIn('autocomplete="new-password"', content)
+        # There should be exactly 2 occurrences (new_password and confirm_password)
+        self.assertEqual(content.count('autocomplete="new-password"'), 2)
+
 
 @override_settings(
     MIDDLEWARE=[
