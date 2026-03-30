@@ -1,0 +1,4 @@
+/* AIDEV-NOTE: Extracted from inline <style> in article_list.html (issue #234) */
+tr.now-playing {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}

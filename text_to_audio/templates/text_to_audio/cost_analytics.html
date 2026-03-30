@@ -4,32 +4,8 @@
 {% block title %}{% trans "Cost Analytics" %} - RSS-TTS{% endblock %}
 
 {% block extra_css %}
-<style>
-  .cost-card {
-    border-left: 4px solid #0d6efd;
-  }
-  .cost-card.total {
-    border-left-color: #198754;
-  }
-  .cost-card.llm {
-    border-left-color: #6f42c1;
-  }
-  .cost-card.tts {
-    border-left-color: #fd7e14;
-  }
-  .chart-container {
-    position: relative;
-    height: 300px;
-    width: 100%;
-  }
-  .table-costs td.cost {
-    font-family: monospace;
-    text-align: right;
-  }
-  .date-filter .btn-check:checked + .btn {
-    font-weight: bold;
-  }
-</style>
+{% load static %}
+<link rel="stylesheet" href="{% static 'text_to_audio/css/cost_analytics.css' %}">
 {% endblock %}
 
 {% block content %}

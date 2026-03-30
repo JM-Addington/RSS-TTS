@@ -1,15 +1,13 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% if feed %}{{ feed.name }} - {% endif %}{% trans "Articles" %} - RSS-TTS{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'text_to_audio/css/article_list.css' %}">
+{% endblock %}
+
 {% block content %}
-{% load static %}
-<style>
-tr.now-playing {
-    background-color: rgba(25, 135, 84, 0.1) !important;
-}
-</style>
 <div class="container">
     {% if messages %}
         {% for message in messages %}
