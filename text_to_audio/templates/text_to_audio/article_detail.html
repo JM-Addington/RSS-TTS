@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% load widget_tweaks %}
+{% load i18n %}
 
-{% block title %}Article Details{% endblock %}
+{% block title %}{% trans "Article Details" %}{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -9,38 +10,38 @@
         <div class="col-md-10">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="mb-0">Article Details</h2>
+                    <h2 class="mb-0">{% trans "Article Details" %}</h2>
                 </div>
                 <div class="card-body">
                     <form method="post">
                         {% csrf_token %}
                         <div class="mb-3">
-                            <label class="form-label">Source URL</label>
+                            <label class="form-label">{% trans "Source URL" %}</label>
                             <input type="text" class="form-control" value="{{ article.source_url }}" readonly>
                         </div>
                         <div class="mb-3">
-                            <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+                            <label for="{{ form.title.id_for_label }}" class="form-label">{% trans "Title" %}</label>
                             {{ form.title|add_class:"form-control" }}
                         </div>
                         <div class="mb-3">
-                            <label for="{{ form.text_content.id_for_label }}" class="form-label">Text Content</label>
+                            <label for="{{ form.text_content.id_for_label }}" class="form-label">{% trans "Text Content" %}</label>
                             {{ form.text_content|add_class:"form-control" }}
                         </div>
                         <div class="mb-3">
-                            <label for="{{ form.summary.id_for_label }}" class="form-label">Summary</label>
+                            <label for="{{ form.summary.id_for_label }}" class="form-label">{% trans "Summary" %}</label>
                             {{ form.summary|add_class:"form-control" }}
                         </div>
                         <div class="mb-3">
-                            <label for="{{ form.voice_id.id_for_label }}" class="form-label">Voice</label>
+                            <label for="{{ form.voice_id.id_for_label }}" class="form-label">{% trans "Voice" %}</label>
                             {{ form.voice_id|add_class:"form-select" }}
                         </div>
                         <div class="mb-3">
-                            <label for="{{ form.speed.id_for_label }}" class="form-label">Speed</label>
+                            <label for="{{ form.speed.id_for_label }}" class="form-label">{% trans "Speed" %}</label>
                             {{ form.speed|add_class:"form-select" }}
                         </div>
                         <div class="d-flex justify-content-between">
-                            <button type="submit" class="btn btn-primary">Regenerate Audio</button>
-                            <a href="{% url 'feed-articles' feed_id=article.feed.id %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">{% trans "Regenerate Audio" %}</button>
+                            <a href="{% url 'feed-articles' feed_id=article.feed.id %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
                         </div>
                     </form>
                 </div>

@@ -1,7 +1,8 @@
 {% extends 'base.html' %}
-{% block title %}Logged Out - RSS-TTS{% endblock %}
-{% block header_title %}Logged Out{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "Logged Out" %} - RSS-TTS{% endblock %}
+{% block header_title %}{% trans "Logged Out" %}{% endblock %}
 {% block content %}
-<p>You have been logged out.</p>
-<a href="{% url 'login' %}" class="btn btn-primary">Login again</a>
+<p>{% trans "You have been logged out." %}</p>
+<a href="{% url 'login' %}" class="btn btn-primary">{% trans "Login again" %}</a>
 {% endblock %}

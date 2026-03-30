@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% load widget_tweaks %}
+{% load i18n %}
 
-{% block title %}{% if is_create %}Add New{% else %}Edit{% endif %} Followed Feed{% endblock %}
+{% block title %}{% if is_create %}{% trans "Add New Followed Feed" %}{% else %}{% trans "Edit Followed Feed" %}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -9,7 +10,7 @@
         <div class="col-md-8">
             <div class="card shadow-sm">
                 <div class="card-header">
-                    <h2 class="mb-0">{% if is_create %}Add New{% else %}Edit{% endif %} Followed Feed</h2>
+                    <h2 class="mb-0">{% if is_create %}{% trans "Add New Followed Feed" %}{% else %}{% trans "Edit Followed Feed" %}{% endif %}</h2>
                 </div>
                 <div class="card-body">
                     <form method="post" novalidate>
@@ -72,9 +73,9 @@
 
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary">
-                                {% if is_create %}Add Followed Feed{% else %}Save Changes{% endif %}
+                                {% if is_create %}{% trans "Add Followed Feed" %}{% else %}{% trans "Save Changes" %}{% endif %}
                             </button>
-                            <a href="{% url 'followedfeed-list' %}" class="btn btn-outline-secondary">Cancel</a>
+                            <a href="{% url 'followedfeed-list' %}" class="btn btn-outline-secondary">{% trans "Cancel" %}</a>
                         </div>
                     </form>
                 </div>

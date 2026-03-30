@@ -201,6 +201,102 @@ class UserManagementViewTests(TestCase):
         self.super_admin.refresh_from_db()
         self.assertTrue(self.super_admin.is_super_admin)
 
+    def test_delete_super_admin_user_post_returns_forbidden(self):
+        """POST to delete a super_admin user should return HTTP 403."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.post(reverse("user-delete", args=[self.super_admin.id]))
+        self.assertEqual(response.status_code, 403)
+
+        # Super admin should still exist
+        self.super_admin.refresh_from_db()
+        self.assertTrue(self.super_admin.is_super_admin)
+
+    def test_delete_super_admin_user_get_returns_forbidden(self):
+        """GET the delete confirmation page for a super_admin should return HTTP 403."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.get(reverse("user-delete", args=[self.super_admin.id]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_delete_regular_user_succeeds(self):
+        """POST to delete a non-super-admin approved user should succeed."""
+        self.client.login(username="admin", password="testpass123")
+
+        # Approve regular user first
+        self.regular_user.profile.is_approved = True
+        self.regular_user.profile.save()
+
+        regular_user_id = self.regular_user.id
+        response = self.client.post(reverse("user-delete", args=[regular_user_id]))
+        self.assertEqual(response.status_code, 302)  # Redirect to success_url
+
+        # User should be deleted
+        self.assertFalse(User.objects.filter(id=regular_user_id).exists())
+
+    def test_delete_user_requires_login(self):
+        """Unauthenticated user should get 403 from SuperAdminRequiredMixin."""
+        response = self.client.post(reverse("user-delete", args=[self.regular_user.id]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_login_form_has_autocomplete_attribute(self):
+        """Test that login form password input has autocomplete='current-password'."""
+        response = self.client.get(reverse("login"))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode()
+        self.assertIn('autocomplete="current-password"', content)
+
+    def test_user_create_form_has_autocomplete_attributes(self):
+        """Test that user create form password inputs have autocomplete='new-password'."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.get(reverse("user-create"))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode()
+        self.assertIn('autocomplete="new-password"', content)
+        self.assertEqual(content.count('autocomplete="new-password"'), 2)
+
+    def test_reset_password_form_has_autocomplete_attributes(self):
+        """Test that password reset form inputs have autocomplete='new-password'."""
+        self.client.login(username="admin", password="testpass123")
+
+        response = self.client.get(
+            reverse("user-reset-password", args=[self.regular_user.id])
+        )
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode()
+        # Both password fields should have autocomplete="new-password"
+        self.assertIn('autocomplete="new-password"', content)
+        # There should be exactly 2 occurrences (new_password and confirm_password)
+        self.assertEqual(content.count('autocomplete="new-password"'), 2)
+
+
+@override_settings(
+    MIDDLEWARE=[
+        "django.middleware.security.SecurityMiddleware",
+        "django.contrib.sessions.middleware.SessionMiddleware",
+        "django.middleware.common.CommonMiddleware",
+        "django.middleware.csrf.CsrfViewMiddleware",
+        "django.contrib.auth.middleware.AuthenticationMiddleware",
+        "django.contrib.messages.middleware.MessageMiddleware",
+        "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    ]
+)
+class SignupFormAutocompleteTests(TestCase):
+    """Test that the signup form has proper autocomplete attributes."""
+
+    def test_signup_form_has_autocomplete_attributes(self):
+        """Test that signup form password inputs have autocomplete='new-password'."""
+        response = self.client.get(reverse("signup"))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode()
+        self.assertIn('autocomplete="new-password"', content)
+        self.assertEqual(content.count('autocomplete="new-password"'), 2)
+
 
 @override_settings(
     MIDDLEWARE=[
@@ -315,3 +411,27 @@ class TestMigrateEnvToConfigForceParam(TestCase):
         self.client.post(self.url, {"force": ""})
         self.config.refresh_from_db()
         self.assertEqual(self.config.openai_tts_voice, "existing_voice")
+
+
+class TestUserConfirmDeleteTemplate(TestCase):
+    """Test that user_confirm_delete.html renders correctly with missing fields."""
+
+    def setUp(self):
+        # First user becomes super admin (can_manage_users() returns True)
+        self.admin = User.objects.create_user(
+            username="admin", email="admin@example.com", password="testpass123"
+        )
+        # User with no email and no name — should show "Not provided" fallback
+        self.target_user = User.objects.create_user(
+            username="emptyuser", email="", password="testpass123"
+        )
+        self.client.login(username="admin", password="testpass123")
+
+    def test_delete_page_shows_not_provided_for_blank_fields(self):
+        """Template must render 'Not provided' when email/name are blank."""
+        url = reverse("user-delete", kwargs={"user_id": self.target_user.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # AIDEV-NOTE: verifies fix for _() Python syntax used in Django template (commit 132a078)
+        self.assertIn("Not provided", content)

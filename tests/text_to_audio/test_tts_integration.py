@@ -45,8 +45,7 @@ class GeminiTTSIntegrationTest(TestCase):
     def setUpClass(cls):
         """Set up test fixtures."""
         super().setUpClass()
-        from text_to_audio.services.gemini_tts_provider import \
-            GeminiTTSProvider
+        from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
         cls.provider = GeminiTTSProvider()
 
@@ -127,8 +126,7 @@ class GoogleCloudTTSIntegrationTest(TestCase):
     def setUpClass(cls):
         """Set up test fixtures."""
         super().setUpClass()
-        from text_to_audio.services.google_tts_provider import \
-            GoogleTTSProvider
+        from text_to_audio.services.google_tts_provider import GoogleTTSProvider
 
         cls.provider = GoogleTTSProvider()
 

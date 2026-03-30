@@ -1,18 +1,19 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Voice Presets{% endblock %}
+{% block title %}{% trans "Voice Presets" %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h1>Your Voice Presets</h1>
-    <p class="lead">Create custom voice presets to quickly apply to your articles.</p>
+    <h1>{% trans "Your Voice Presets" %}</h1>
+    <p class="lead">{% trans "Create custom voice presets to quickly apply to your articles." %}</p>
 
     <div class="mb-4">
         <a href="{% url 'voice_preset_create' %}" class="btn btn-primary">
-            <i class="bi bi-plus-circle"></i> Create New Preset
+            <i class="bi bi-plus-circle"></i> {% trans "Create New Preset" %}
         </a>
         <a href="{% url 'voice_preferences' %}" class="btn btn-outline-secondary">
-            <i class="bi bi-gear"></i> Voice Preferences
+            <i class="bi bi-gear"></i> {% trans "Voice Preferences" %}
         </a>
     </div>
 
@@ -21,11 +22,11 @@
             <table class="table table-striped table-hover">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Voice</th>
-                        <th>Speed</th>
-                        <th>Description</th>
-                        <th>Actions</th>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "Voice" %}</th>
+                        <th>{% trans "Speed" %}</th>
+                        <th>{% trans "Description" %}</th>
+                        <th>{% trans "Actions" %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -37,13 +38,13 @@
                         <td>{{ preset.description|truncatechars:50 }}</td>
                         <td>
                             <a href="{% url 'voice_preset_edit' preset.id %}" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-pencil"></i> Edit
+                                <i class="bi bi-pencil"></i> {% trans "Edit" %}
                             </a>
                             <a href="{% url 'voice_preset_delete' preset.id %}" class="btn btn-sm btn-outline-danger">
-                                <i class="bi bi-trash"></i> Delete
+                                <i class="bi bi-trash"></i> {% trans "Delete" %}
                             </a>
                             <a href="{% url 'voice_preset_sample' preset.id %}" class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-play-circle"></i> Sample
+                                <i class="bi bi-play-circle"></i> {% trans "Sample" %}
                             </a>
                         </td>
                     </tr>
@@ -53,18 +54,18 @@
         </div>
     {% else %}
         <div class="alert alert-info">
-            <p>You don't have any voice presets yet. Create one to get started!</p>
+            <p>{% trans "You don't have any voice presets yet. Create one to get started!" %}</p>
         </div>
     {% endif %}
 
     <div class="mt-4">
-        <h3>Using Voice Presets</h3>
-        <p>Voice presets allow you to save your favorite voice and speed combinations for quick reuse.</p>
-        <p>You can apply a preset when:</p>
+        <h3>{% trans "Using Voice Presets" %}</h3>
+        <p>{% trans "Voice presets allow you to save your favorite voice and speed combinations for quick reuse." %}</p>
+        <p>{% trans "You can apply a preset when:" %}</p>
         <ul>
-            <li>Creating a new article</li>
-            <li>Editing an existing article's voice settings</li>
-            <li>Regenerating an article's audio</li>
+            <li>{% trans "Creating a new article" %}</li>
+            <li>{% trans "Editing an existing article's voice settings" %}</li>
+            <li>{% trans "Regenerating an article's audio" %}</li>
         </ul>
     </div>
 </div>

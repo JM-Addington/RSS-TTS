@@ -1,7 +1,8 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load widget_tweaks %}
 
-{% block title %}{% if form.instance.pk %}Edit Feed{% else %}Create New Feed{% endif %}{% endblock %}
+{% block title %}{% if form.instance.pk %}{% trans "Edit Feed" %}{% else %}{% trans "Create New Feed" %}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -9,7 +10,7 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-body">
-                    <h2 class="card-title">{% if form.instance.pk %}Edit Feed{% else %}Create New Feed{% endif %}</h2>
+                    <h2 class="card-title">{% if form.instance.pk %}{% trans "Edit Feed" %}{% else %}{% trans "Create New Feed" %}{% endif %}</h2>
 
                     <form method="post">
                         {% csrf_token %}
@@ -21,25 +22,25 @@
                         {% endif %}
 
                         <div class="mb-3">
-                            <label for="{{ form.name.id_for_label }}" class="form-label">Feed Name</label>
+                            <label for="{{ form.name.id_for_label }}" class="form-label">{% trans "Feed Name" %}</label>
                             <input type="text"
                                    class="form-control{% if form.name.errors %} is-invalid{% endif %}"
                                    id="{{ form.name.id_for_label }}"
                                    name="{{ form.name.name }}"
                                    value="{{ form.name.value|default_if_none:'' }}"
-                                   placeholder="e.g., Business News, Kids Stories, Tech Articles"
+                                   placeholder="{% trans 'e.g., Business News, Kids Stories, Tech Articles' %}"
                                    required>
                             {% if form.name.errors %}
                                 <div class="invalid-feedback">
                                     {{ form.name.errors }}
                                 </div>
                             {% endif %}
-                            <div class="form-text">Choose a descriptive name to help you organize your feeds.</div>
+                            <div class="form-text">{% trans "Choose a descriptive name to help you organize your feeds." %}</div>
                         </div>
 
                         <!-- TTS Provider Selector -->
                         <div class="mb-3">
-                            <label for="{{ form.tts_provider.id_for_label }}" class="form-label">TTS Provider</label>
+                            <label for="{{ form.tts_provider.id_for_label }}" class="form-label">{% trans "TTS Provider" %}</label>
                             {{ form.tts_provider|add_class:"form-select" }}
                             {% if form.tts_provider.errors %}
                                 <div class="invalid-feedback d-block">
@@ -51,7 +52,7 @@
 
                         <!-- Voice Mode Selector -->
                         <div class="mb-3">
-                            <label for="{{ form.voice_mode.id_for_label }}" class="form-label">Voice Generation Mode</label>
+                            <label for="{{ form.voice_mode.id_for_label }}" class="form-label">{% trans "Voice Generation Mode" %}</label>
                             {{ form.voice_mode|add_class:"form-select" }}
                             {% if form.voice_mode.errors %}
                                 <div class="invalid-feedback d-block">
@@ -62,25 +63,25 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="{{ form.default_voice_preset.id_for_label }}" class="form-label">Default Voice Preset</label>
+                            <label for="{{ form.default_voice_preset.id_for_label }}" class="form-label">{% trans "Default Voice Preset" %}</label>
                             {{ form.default_voice_preset|add_class:"form-select" }}
-                            <div class="form-text">Used when submitting articles without selecting a preset.</div>
+                            <div class="form-text">{% trans "Used when submitting articles without selecting a preset." %}</div>
                         </div>
 
                         <!-- Multi-Voice Feature Info -->
                         <div class="card bg-light mb-4">
                             <div class="card-body">
-                                <h5 class="card-title"><i class="bi bi-people-fill"></i> Multi-Voice Technology</h5>
+                                <h5 class="card-title"><i class="bi bi-people-fill"></i> {% trans "Multi-Voice Technology" %}</h5>
                                 <p class="card-text">
-                                    Our auto-generated voice mode uses AI to analyze your content and create more engaging audio by:
+                                    {% trans "Our auto-generated voice mode uses AI to analyze your content and create more engaging audio by:" %}
                                 </p>
                                 <ul>
-                                    <li>Using different voices for narration vs. quotes</li>
-                                    <li>Distinguishing between different speakers</li>
-                                    <li>Adapting to changes in tone and style</li>
+                                    <li>{% trans "Using different voices for narration vs. quotes" %}</li>
+                                    <li>{% trans "Distinguishing between different speakers" %}</li>
+                                    <li>{% trans "Adapting to changes in tone and style" %}</li>
                                 </ul>
                                 <p class="card-text">
-                                    <small>This creates a more immersive and professional listening experience, similar to radio programs or audiobooks with multiple voice actors.</small>
+                                    <small>{% trans "This creates a more immersive and professional listening experience, similar to radio programs or audiobooks with multiple voice actors." %}</small>
                                 </p>
                             </div>
                         </div>
@@ -88,13 +89,13 @@
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">
                                 {% if form.instance.pk %}
-                                    <i class="bi bi-save"></i> Save Changes
+                                    <i class="bi bi-save"></i> {% trans "Save Changes" %}
                                 {% else %}
-                                    <i class="bi bi-plus-circle"></i> Create Feed
+                                    <i class="bi bi-plus-circle"></i> {% trans "Create Feed" %}
                                 {% endif %}
                             </button>
                             <a href="{% if form.instance.pk %}{% url 'feed-articles' form.instance.pk %}{% else %}{% url 'feed-list' %}{% endif %}" class="btn btn-secondary">
-                                Cancel
+                                {% trans "Cancel" %}
                             </a>
                         </div>
                     </form>

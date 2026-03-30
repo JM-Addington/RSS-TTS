@@ -1,5 +1,14 @@
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
+
+
+class BootstrapAuthenticationForm(AuthenticationForm):
+    """Login form with Bootstrap form-control class on inputs."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-control")
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -8,3 +17,8 @@ class CustomUserCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ("username",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-control")

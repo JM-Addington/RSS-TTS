@@ -509,3 +509,62 @@ class ArticleMediaViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+
+class TestFeedCreateViewMessages(TestCase):
+    """Tests for success messages on FeedCreateView."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="feeduser", password="testpassword", email="feed@example.com"
+        )
+        self.client.login(username="feeduser", password="testpassword")
+
+    def test_feed_create_shows_success_message(self):
+        """POST valid feed data should set a success message."""
+        from django.contrib.messages import get_messages
+
+        response = self.client.post(
+            reverse("feed-create"),
+            data={"name": "My New Feed", "voice_mode": "auto"},
+        )
+        # Should redirect on success
+        self.assertEqual(response.status_code, 302)
+
+        # Check messages on the response before following redirect
+        messages_list = list(get_messages(response.wsgi_request))
+        self.assertEqual(len(messages_list), 1)
+        self.assertIn("created successfully", str(messages_list[0]))
+
+
+class TestFollowedFeedCreateViewMessages(TestCase):
+    """Tests for success messages on FollowedFeedCreateView."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="followuser", password="testpassword", email="follow@example.com"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Destination Feed")
+        self.client.login(username="followuser", password="testpassword")
+
+    def test_followed_feed_create_shows_success_message(self):
+        """POST valid followed feed data should set a success message."""
+        from django.contrib.messages import get_messages
+
+        response = self.client.post(
+            reverse("followedfeed-create"),
+            data={
+                "url": "https://example.com/rss",
+                "destination_feed": self.feed.pk,
+                "is_active": True,
+            },
+        )
+        # Should redirect on success
+        self.assertEqual(response.status_code, 302)
+
+        # Check messages on the response before following redirect
+        messages_list = list(get_messages(response.wsgi_request))
+        self.assertEqual(len(messages_list), 1)
+        self.assertIn("created successfully", str(messages_list[0]))

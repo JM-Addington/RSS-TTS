@@ -12,30 +12,56 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import (FileResponse, HttpResponseBadRequest,
-                         HttpResponseNotFound, JsonResponse)
+from django.http import (
+    FileResponse,
+    HttpResponseBadRequest,
+    HttpResponseNotFound,
+    JsonResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import (CreateView, DeleteView, ListView,
-                                  TemplateView, UpdateView)
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
 from accounts.forms import CustomUserCreationForm
 from appconfig.utils import get_site_url
 
-from .forms import (ArticleDetailForm, ArticleSubmissionForm, ArticleVoiceForm,
-                    FeedForm, FollowedFeedForm, UserVoicePreferenceForm,
-                    VoicePresetForm, VoiceSampleForm)
-from .models import (Article, Feed, FollowedFeed, OpenAIUsageStats,
-                     UserVoicePreset, UserVoiceProfile)
+from .forms import (
+    ArticleDetailForm,
+    ArticleSubmissionForm,
+    ArticleVoiceForm,
+    FeedForm,
+    FollowedFeedForm,
+    UserVoicePreferenceForm,
+    VoicePresetForm,
+    VoiceSampleForm,
+)
+from .models import (
+    Article,
+    Feed,
+    FollowedFeed,
+    OpenAIUsageStats,
+    UserVoicePreset,
+    UserVoiceProfile,
+)
 from .services.user_preferences import UserPreferencesService
-from .services.voice_configuration import \
-    VoiceConfigurationService  # noqa: F401
+from .services.voice_configuration import VoiceConfigurationService  # noqa: F401
 from .tasks import process_article
-from .utils import (extract_article_text, extract_text_from_pdf,
-                    extract_title_from_html, fetch_html_with_firecrawl,
-                    fetch_url_content, process_url_to_text,
-                    safe_delete_audio_file)
+from .utils import (
+    extract_article_text,
+    extract_text_from_pdf,
+    extract_title_from_html,
+    fetch_html_with_firecrawl,
+    fetch_url_content,
+    process_url_to_text,
+    safe_delete_audio_file,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -108,30 +134,16 @@ class ArticleMediaView(View):
 
         file_path = self._find_audio_file(article)
         if not file_path:
-            # Add debug information to help diagnose issues
-            if settings.DEBUG:
-                # Get user_id and feed_id for debugging
-                feed_id = (
-                    str(article.feed.id) if hasattr(article.feed, "id") else "unknown"
-                )
-                user_id = (
-                    str(article.feed.user_id)
-                    if hasattr(article.feed, "user_id")
-                    else "unknown"
-                )
-
-                error_msg = (
-                    f"Audio file not found. Details:\n"
-                    f"- UUID: {article.audio_uuid}\n"
-                    f"- Stored path: {article.audio_file_path}\n"
-                    f"- Feed User ID: {user_id}\n"
-                    f"- Feed ID: {feed_id}\n"
-                    f"- MEDIA_ROOT: {settings.MEDIA_ROOT}\n"
-                    f"- BASE_DIR: {settings.BASE_DIR}"
-                )
-                return HttpResponseNotFound(error_msg)
-            else:
-                return HttpResponseNotFound("Audio file not found")
+            # AIDEV-NOTE: Never leak server paths in response body — log instead (#210)
+            logger.warning(
+                "Audio file not found. Details: UUID=%s, stored_path=%s, feed_user_id=%s, feed_id=%s, MEDIA_ROOT=%s",
+                article.audio_uuid,
+                article.audio_file_path,
+                getattr(article.feed, "user_id", "unknown"),
+                getattr(article.feed, "id", "unknown"),
+                settings.MEDIA_ROOT,
+            )
+            return HttpResponseNotFound("Audio file not found")
 
         # Serve the file
         response = FileResponse(open(file_path, "rb"))
@@ -214,26 +226,40 @@ class FeedListView(LoginRequiredMixin, ListView):
     context_object_name = "feeds"
 
     def get_queryset(self):
-        """Return only the user's feeds."""
-        return Feed.objects.filter(user=self.request.user).order_by("-created_at")
+        """Return the user's feeds with annotated article counts and durations.
+
+        AIDEV-NOTE: annotations eliminate N+1 queries in get_context_data()
+        """
+        from django.db.models import Count, Q, Sum
+        from django.db.models.functions import Coalesce
+
+        return (
+            Feed.objects.filter(user=self.request.user)
+            .annotate(
+                article_count=Count("articles"),
+                total_audio_duration=Coalesce(
+                    Sum(
+                        "articles__audio_duration",
+                        filter=Q(
+                            articles__status="COMPLETED",
+                            articles__audio_duration__isnull=False,
+                        ),
+                    ),
+                    0,
+                ),
+            )
+            .order_by("-created_at")
+        )
 
     def get_context_data(self, **kwargs):
-        """Add feed URLs, article counts, and total audio duration to context."""
-        from django.db.models import Sum
+        """Add feed RSS URLs to context.
 
+        article_count and total_audio_duration are already annotated on the
+        queryset by get_queryset(), so no per-feed queries are needed here.
+        """
         context = super().get_context_data(**kwargs)
 
-        # Add article count, total audio duration, and RSS URL for each feed
         for feed in context["feeds"]:
-            feed.article_count = feed.articles.count()
-
-            # Calculate total audio duration for completed articles (in seconds)
-            total_duration = feed.articles.filter(
-                status="COMPLETED", audio_duration__isnull=False
-            ).aggregate(total=Sum("audio_duration"))["total"]
-            feed.total_audio_duration = total_duration or 0
-
-            # Generate RSS URL
             feed_path = reverse("feed", kwargs={"token": feed.token})
             if get_site_url():
                 feed.rss_url = f"{get_site_url().rstrip('/')}{feed_path}"
@@ -261,7 +287,11 @@ class FeedCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         """Set the user before saving."""
         form.instance.user = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(
+            self.request, f'Feed "{self.object.name}" created successfully.'
+        )
+        return response
 
     def get_success_url(self):
         """Redirect to the new feed's article list."""
@@ -306,122 +336,27 @@ class FeedDeleteView(LoginRequiredMixin, DeleteView):
 
 
 class GenerateFeedEmailView(LoginRequiredMixin, View):
-    """View for generating an email address for a feed."""
+    """View for generating an email address for a feed.
 
+    Delegates business logic to FeedEmailService; handles HTTP concerns only.
+    """
+
+    # AIDEV-NOTE: business logic extracted to FeedEmailService (see services/feed_email_service.py)
     def post(self, request, feed_id):
-        """Handle POST requests to generate an email address for a feed.
-
-        Args:
-            request: The HTTP request object
-            feed_id: The ID of the feed
-
-        Returns:
-            Redirect to the feed list or article list
-        """
-        # Get the feed (must be owned by current user)
+        """Handle POST requests to generate an email address for a feed."""
         feed = get_object_or_404(Feed, pk=feed_id, user=request.user)
 
         logger.info(
             f"User {request.user.username} requested email generation for feed {feed.id} ({feed.name})"
         )
 
-        # Check if feed already has an email
-        if feed.inbound_email:
-            logger.warning(
-                f"Feed {feed.id} ({feed.name}) already has email: {feed.inbound_email}"
-            )
-            messages.info(
-                request,
-                f"Feed '{feed.name}' already has an email address: {feed.inbound_email}",
-            )
-            # Check where the request came from
-            redirect_to = request.POST.get("redirect", "feed-list")
-            if redirect_to == "feed-articles":
-                return redirect("feed-articles", feed_id=feed_id)
-            return redirect("feed-list")
+        from .services.feed_email_service import FeedEmailService
 
-        # Check if Mailgun is configured
-        if not settings.MAILGUN_API_KEY or not settings.MAILGUN_DOMAIN:
-            logger.error(
-                f"Mailgun not configured - cannot generate email for feed {feed.id} ({feed.name})"
-            )
-            messages.error(
-                request,
-                "Mailgun is not configured. Please contact the administrator.",
-            )
-            redirect_to = request.POST.get("redirect", "feed-list")
-            if redirect_to == "feed-articles":
-                return redirect("feed-articles", feed_id=feed_id)
-            return redirect("feed-list")
+        service = FeedEmailService()
+        result = service.generate_email_for_feed(feed)
 
-        # Generate email address
-        email_address = feed.generate_inbound_email()
-        if not email_address:
-            logger.error(
-                f"Failed to generate email address for feed {feed.id} ({feed.name})"
-            )
-            messages.error(
-                request,
-                f"Failed to generate email address for feed '{feed.name}'.",
-            )
-            redirect_to = request.POST.get("redirect", "feed-list")
-            if redirect_to == "feed-articles":
-                return redirect("feed-articles", feed_id=feed_id)
-            return redirect("feed-list")
-
-        # Try to create Mailgun route
-        site_url = getattr(settings, "SITE_URL", None)
-        if site_url:
-            webhook_url = f"{site_url.rstrip('/')}/api/v1/mailgun/incoming/"
-
-            from .services.mailgun_service import MailgunService
-
-            mailgun_service = MailgunService()
-            success, route_id, error = mailgun_service.create_route(
-                feed_email=email_address,
-                webhook_url=webhook_url,
-                description=f"Route for feed: {feed.name} (ID: {feed.id})",
-            )
-
-            if success and route_id:
-                # Save email and route ID
-                feed.inbound_email = email_address
-                feed.mailgun_route_id = route_id
-                feed.save(update_fields=["inbound_email", "mailgun_route_id"])
-                logger.info(
-                    f"Successfully created email {email_address} and route {route_id} "
-                    f"for feed {feed.id} ({feed.name}) by user {request.user.username}"
-                )
-                messages.success(
-                    request,
-                    f"Successfully created email address: {email_address}",
-                )
-            else:
-                # Save just the email address
-                feed.inbound_email = email_address
-                feed.save(update_fields=["inbound_email"])
-                logger.warning(
-                    f"Created email {email_address} for feed {feed.id} ({feed.name}) "
-                    f"but failed to create Mailgun route: {error}"
-                )
-                messages.warning(
-                    request,
-                    f"Created email address {email_address}, but failed to create "
-                    f"Mailgun route. You may need to create the route manually.",
-                )
-        else:
-            # No SITE_URL - just save the email
-            feed.inbound_email = email_address
-            feed.save(update_fields=["inbound_email"])
-            logger.warning(
-                f"Created email {email_address} for feed {feed.id} ({feed.name}) "
-                f"but SITE_URL not configured - route not created"
-            )
-            messages.warning(
-                request,
-                f"Created email address {email_address}, but SITE_URL is not configured. "
-                f"Mailgun route must be created manually.",
-            )
+        # Map result level to Django message
+        getattr(messages, result.level)(request, result.message)
 
         # Redirect back to where the user came from
         redirect_to = request.POST.get("redirect", "feed-list")
@@ -461,7 +396,9 @@ class FollowedFeedCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         """Set the user before saving."""
         form.instance.user = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "Followed feed created successfully.")
+        return response
 
 
 class FollowedFeedUpdateView(LoginRequiredMixin, UpdateView):
@@ -1015,6 +952,10 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
 class FeedArticleStatusView(LoginRequiredMixin, View):
     """Return JSON status for articles in a feed."""
 
+    # AIDEV-NOTE: pagination removed — JS polling never passed page params so
+    # articles beyond page 1 were stuck at "Processing" forever. Response is
+    # lightweight (~50 bytes/article) so returning all is fine.
+
     def get(self, request, feed_id):
         """Handle GET requests for article statuses."""
         feed = get_object_or_404(Feed, pk=feed_id, user=request.user)
@@ -1029,7 +970,12 @@ class FeedArticleStatusView(LoginRequiredMixin, View):
             for article in articles
         ]
 
-        return JsonResponse({"articles": data})
+        return JsonResponse(
+            {
+                "articles": data,
+                "total_count": len(data),
+            }
+        )
 
 
 @login_required

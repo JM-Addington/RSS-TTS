@@ -12,9 +12,9 @@ import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
-from django.conf import \
-    settings as \
-    django_settings  # Use a different alias to avoid conflict with fixture
+from django.conf import (
+    settings as django_settings,  # Use a different alias to avoid conflict with fixture
+)
 from django.contrib.auth import get_user_model
 
 # Configure Django settings before importing models and tasks
@@ -56,8 +56,7 @@ from openai import APIError as OpenAIAPIError
 from pydub import AudioSegment  # type: ignore[import-untyped]
 
 from text_to_audio.models import Article, Feed
-from text_to_audio.tasks import (_clamp_tts_speed, _legacy_chunk_text,
-                                 process_article)
+from text_to_audio.tasks import _clamp_tts_speed, _legacy_chunk_text, process_article
 
 User = get_user_model()
 TEST_MEDIA_ROOT = Path(__file__).parent / "test_media_tasks_global"
@@ -1212,9 +1211,11 @@ class ProcessArticleTests(TestCase):
         self._chunk_tone_patcher.stop()
         try:
             self._setup_audio_mocks(mock_audio_empty, mock_audio_from_file)
-            from text_to_audio.schemas.chunk_tone import (ChunkData,
-                                                          ChunkTonePayload,
-                                                          TTSVoice)
+            from text_to_audio.schemas.chunk_tone import (
+                ChunkData,
+                ChunkTonePayload,
+                TTSVoice,
+            )
 
             test_cases = [(0.2, 0.25), (2.5, 2.5), (4.5, 4.0)]
             for input_speed, expected_speed in test_cases:

@@ -1,31 +1,32 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Confirm Delete Article - RSS-TTS{% endblock %}
+{% block title %}{% trans "Confirm Delete Article" %} - RSS-TTS{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'feed-list' %}">My Feeds</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'feed-list' %}">{% trans "My Feeds" %}</a></li>
             {% if object.feed %}
             <li class="breadcrumb-item"><a href="{% url 'feed-articles' feed_id=object.feed.id %}">{{ object.feed.name }}</a></li>
             {% else %}
             {# Fallback if somehow feed is not associated, though unlikely with current setup #}
-            <li class="breadcrumb-item"><a href="{% url 'feed-list' %}">Feeds</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'feed-list' %}">{% trans "Feeds" %}</a></li>
             {% endif %}
-            <li class="breadcrumb-item active" aria-current="page">Confirm Delete Article</li>
+            <li class="breadcrumb-item active" aria-current="page">{% trans "Confirm Delete Article" %}</li>
         </ol>
     </nav>
 
-    <h1 class="mb-3">Confirm Delete Article</h1>
+    <h1 class="mb-3">{% trans "Confirm Delete Article" %}</h1>
 
-    <p>Are you sure you want to delete the article titled "<strong>{{ object.title }}</strong>"?</p>
-    <p class="text-danger"><strong>Warning:</strong> This action cannot be undone. The article details and its associated audio file will be permanently removed.</p>
+    <p>{% blocktrans with title=object.title %}Are you sure you want to delete the article titled "<strong>{{ title }}</strong>"?{% endblocktrans %}</p>
+    <p class="text-danger"><strong>{% trans "Warning:" %}</strong> {% trans "This action cannot be undone. The article details and its associated audio file will be permanently removed." %}</p>
 
     <form method="post" action="">
         {% csrf_token %}
-        <button type="submit" class="btn btn-danger">Confirm Delete</button>
-        <a href="{% if object.feed %}{% url 'feed-articles' feed_id=object.feed.id %}{% else %}{% url 'feed-list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-danger">{% trans "Confirm Delete" %}</button>
+        <a href="{% if object.feed %}{% url 'feed-articles' feed_id=object.feed.id %}{% else %}{% url 'feed-list' %}{% endif %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
     </form>
 </div>
 {% endblock %}

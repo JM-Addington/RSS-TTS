@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Voice Preferences{% endblock %}
+{% block title %}{% trans "Voice Preferences" %}{% endblock %}
 
 {% block content %}
 <div class="container py-5">
@@ -8,7 +9,7 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="mb-0">Voice Preferences</h2>
+                    <h2 class="mb-0">{% trans "Voice Preferences" %}</h2>
                 </div>
                 <div class="card-body">
                     {% if messages %}
@@ -18,15 +19,15 @@
                     {% endif %}
 
                     <p class="card-text mb-4">
-                        Customize your default voice settings for all articles.
-                        These settings will be used unless overridden by article-specific settings.
+                        {% trans "Customize your default voice settings for all articles." %}
+                        {% trans "These settings will be used unless overridden by article-specific settings." %}
                     </p>
 
                     <form method="post">
                         {% csrf_token %}
 
                         <div class="form-group mb-3">
-                            <label for="{{ form.preferred_voice.id_for_label }}">Voice</label>
+                            <label for="{{ form.preferred_voice.id_for_label }}">{% trans "Voice" %}</label>
                             {{ form.preferred_voice }}
                             {% if form.preferred_voice.help_text %}
                                 <small class="form-text text-muted">{{ form.preferred_voice.help_text }}</small>
@@ -37,7 +38,7 @@
                         </div>
 
                         <div class="form-group mb-3">
-                            <label for="{{ form.preferred_speed.id_for_label }}">Speed</label>
+                            <label for="{{ form.preferred_speed.id_for_label }}">{% trans "Speed" %}</label>
                             {{ form.preferred_speed }}
                             {% if form.preferred_speed.help_text %}
                                 <small class="form-text text-muted">{{ form.preferred_speed.help_text }}</small>
@@ -49,22 +50,21 @@
 
                         <div class="d-flex justify-content-between">
                             <div>
-                                <button type="submit" class="btn btn-primary">Save Preferences</button>
-                                <a href="{% url 'voice_preset_list' %}" class="btn btn-outline-success">Manage Voice Presets</a>
+                                <button type="submit" class="btn btn-primary">{% trans "Save Preferences" %}</button>
+                                <a href="{% url 'voice_preset_list' %}" class="btn btn-outline-success">{% trans "Manage Voice Presets" %}</a>
                             </div>
-                            <a href="{% url 'feed-list' %}" class="btn btn-secondary">Back to Feeds</a>
+                            <a href="{% url 'feed-list' %}" class="btn btn-secondary">{% trans "Back to Feeds" %}</a>
                         </div>
                     </form>
                 </div>
                 <div class="card-footer">
                     <p class="small text-muted mb-0">
-                        Voices are provided by OpenAI's text-to-speech API. Each voice has different characteristics
-                        that work well with different types of content.
+                        {% trans "Voices are provided by OpenAI's text-to-speech API. Each voice has different characteristics that work well with different types of content." %}
                     </p>
 
                     {% if presets %}
                     <div class="mt-3">
-                        <h5>Your Voice Presets</h5>
+                        <h5>{% trans "Your Voice Presets" %}</h5>
                         <ul class="list-group">
                             {% for preset in presets %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -72,12 +72,12 @@
                                     <strong>{{ preset.name }}</strong>
                                     <small class="text-muted d-block">{{ preset.voice_id }} at {{ preset.speed }}x speed</small>
                                 </div>
-                                <a href="{% url 'voice_preset_edit' preset.id %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                <a href="{% url 'voice_preset_edit' preset.id %}" class="btn btn-sm btn-outline-primary">{% trans "Edit" %}</a>
                             </li>
                             {% endfor %}
                         </ul>
                         <div class="mt-2">
-                            <a href="{% url 'voice_preset_list' %}" class="btn btn-sm btn-outline-primary">View All Presets</a>
+                            <a href="{% url 'voice_preset_list' %}" class="btn btn-sm btn-outline-primary">{% trans "View All Presets" %}</a>
                         </div>
                     </div>
                     {% endif %}

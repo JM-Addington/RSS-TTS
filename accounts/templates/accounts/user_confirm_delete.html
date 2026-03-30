@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
+{% load i18n %}
 
-{% block title %}Delete User{% endblock %}
+{% block title %}{% trans "Delete User" %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -8,29 +9,30 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h3>Delete User</h3>
+                    <h3>{% trans "Delete User" %}</h3>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-warning">
-                        <strong>Warning!</strong> This action cannot be undone.
+                        <strong>{% trans "Warning!" %}</strong> {% trans "This action cannot be undone." %}
                     </div>
 
-                    <p>Are you sure you want to delete the user <strong>{{ object.username }}</strong>?</p>
+                    <p>{% blocktrans with username=object.username %}Are you sure you want to delete the user <strong>{{ username }}</strong>?{% endblocktrans %}</p>
 
                     <div class="user-info mb-3">
                         <ul class="list-unstyled">
-                            <li><strong>Username:</strong> {{ object.username }}</li>
-                            <li><strong>Email:</strong> {{ object.email|default:"Not provided" }}</li>
-                            <li><strong>Full Name:</strong> {{ object.get_full_name|default:"Not provided" }}</li>
-                            <li><strong>Date Joined:</strong> {{ object.date_joined|date:"M d, Y" }}</li>
+                            <li><strong>{% trans "Username:" %}</strong> {{ object.username }}</li>
+                            {% trans "Not provided" as not_provided %}
+                            <li><strong>{% trans "Email:" %}</strong> {{ object.email|default:not_provided }}</li>
+                            <li><strong>{% trans "Full Name:" %}</strong> {{ object.get_full_name|default:not_provided }}</li>
+                            <li><strong>{% trans "Date Joined:" %}</strong> {{ object.date_joined|date:"M d, Y" }}</li>
                         </ul>
                     </div>
 
                     <form method="post">
                         {% csrf_token %}
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-danger">Yes, Delete User</button>
-                            <a href="{% url 'user-management' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-danger">{% trans "Yes, Delete User" %}</button>
+                            <a href="{% url 'user-management' %}" class="btn btn-secondary">{% trans "Cancel" %}</a>
                         </div>
                     </form>
                 </div>

@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
+{% load i18n %}
 
-{% block title %}Cost Analytics - RSS-TTS{% endblock %}
+{% block title %}{% trans "Cost Analytics" %} - RSS-TTS{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -34,13 +35,13 @@
 {% block content %}
 <div class="container-fluid">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="bi bi-graph-up"></i> Cost Analytics</h1>
+    <h1><i class="bi bi-graph-up"></i> {% trans "Cost Analytics" %}</h1>
     {% if is_admin %}
     <div class="btn-group" role="group">
       <a href="{% url 'cost-analytics' %}?days={{ selected_days }}"
-         class="btn btn-outline-secondary {% if not view_all %}active{% endif %}">My Costs</a>
+         class="btn btn-outline-secondary {% if not view_all %}active{% endif %}">{% trans "My Costs" %}</a>
       <a href="{% url 'cost-analytics' %}?days={{ selected_days }}&view=all"
-         class="btn btn-outline-secondary {% if view_all %}active{% endif %}">All Users</a>
+         class="btn btn-outline-secondary {% if view_all %}active{% endif %}">{% trans "All Users" %}</a>
     </div>
     {% endif %}
   </div>
@@ -51,22 +52,22 @@
       <input type="radio" class="btn-check" name="dateRange" id="days7" autocomplete="off"
              {% if selected_days == 7 %}checked{% endif %}
              onchange="window.location='{% url 'cost-analytics' %}?days=7{% if view_all %}&view=all{% endif %}'">
-      <label class="btn btn-outline-primary" for="days7">7 Days</label>
+      <label class="btn btn-outline-primary" for="days7">{% trans "7 Days" %}</label>
 
       <input type="radio" class="btn-check" name="dateRange" id="days30" autocomplete="off"
              {% if selected_days == 30 %}checked{% endif %}
              onchange="window.location='{% url 'cost-analytics' %}?days=30{% if view_all %}&view=all{% endif %}'">
-      <label class="btn btn-outline-primary" for="days30">30 Days</label>
+      <label class="btn btn-outline-primary" for="days30">{% trans "30 Days" %}</label>
 
       <input type="radio" class="btn-check" name="dateRange" id="days90" autocomplete="off"
              {% if selected_days == 90 %}checked{% endif %}
              onchange="window.location='{% url 'cost-analytics' %}?days=90{% if view_all %}&view=all{% endif %}'">
-      <label class="btn btn-outline-primary" for="days90">90 Days</label>
+      <label class="btn btn-outline-primary" for="days90">{% trans "90 Days" %}</label>
 
       <input type="radio" class="btn-check" name="dateRange" id="daysAll" autocomplete="off"
              {% if selected_days == 0 %}checked{% endif %}
              onchange="window.location='{% url 'cost-analytics' %}?days=0{% if view_all %}&view=all{% endif %}'">
-      <label class="btn btn-outline-primary" for="daysAll">All Time</label>
+      <label class="btn btn-outline-primary" for="daysAll">{% trans "All Time" %}</label>
     </div>
   </div>
 
@@ -75,10 +76,10 @@
     <div class="col-md-4">
       <div class="card cost-card total">
         <div class="card-body">
-          <h5 class="card-title text-muted">Total Cost</h5>
+          <h5 class="card-title text-muted">{% trans "Total Cost" %}</h5>
           <h2 class="card-text">${{ total_cost|floatformat:4 }}</h2>
           <small class="text-muted">
-            {% if selected_days > 0 %}Last {{ selected_days }} days{% else %}All time{% endif %}
+            {% if selected_days > 0 %}{% blocktrans with days=selected_days %}Last {{ days }} days{% endblocktrans %}{% else %}{% trans "All Time" %}{% endif %}
           </small>
         </div>
       </div>
@@ -87,11 +88,11 @@
     <div class="col-md-4">
       <div class="card cost-card {% if op.operation_type == 'LLM' %}llm{% else %}tts{% endif %}">
         <div class="card-body">
-          <h5 class="card-title text-muted">{{ op.operation_type }} Cost</h5>
+          <h5 class="card-title text-muted">{% blocktrans with type=op.operation_type %}{{ type }} Cost{% endblocktrans %}</h5>
           <h2 class="card-text">${{ op.total|floatformat:4 }}</h2>
           <small class="text-muted">
             {% widthratio op.total total_cost 100 as percent %}
-            {{ percent|default:0 }}% of total
+            {% blocktrans with percent=percent|default:0 %}{{ percent }}% of total{% endblocktrans %}
           </small>
         </div>
       </div>
@@ -100,7 +101,7 @@
     <div class="col-md-8">
       <div class="card">
         <div class="card-body text-center text-muted">
-          <i class="bi bi-info-circle"></i> No usage data available
+          <i class="bi bi-info-circle"></i> {% trans "No usage data available" %}
         </div>
       </div>
     </div>
@@ -113,7 +114,7 @@
     <div class="col-md-8">
       <div class="card">
         <div class="card-header">
-          <i class="bi bi-graph-up"></i> Cost Over Time
+          <i class="bi bi-graph-up"></i> {% trans "Cost Over Time" %}
         </div>
         <div class="card-body">
           <div class="chart-container">
@@ -127,7 +128,7 @@
     <div class="col-md-4">
       <div class="card">
         <div class="card-header">
-          <i class="bi bi-pie-chart"></i> Cost by Provider
+          <i class="bi bi-pie-chart"></i> {% trans "Cost by Provider" %}
         </div>
         <div class="card-body">
           <div class="chart-container">
@@ -144,15 +145,15 @@
     <div class="col-md-6 mb-4">
       <div class="card">
         <div class="card-header">
-          <i class="bi bi-cpu"></i> Cost by Model
+          <i class="bi bi-cpu"></i> {% trans "Cost by Model" %}
         </div>
         <div class="card-body">
           {% if costs_by_model %}
           <table class="table table-sm table-costs">
             <thead>
               <tr>
-                <th>Model</th>
-                <th class="text-end">Cost</th>
+                <th>{% trans "Model" %}</th>
+                <th class="text-end">{% trans "Cost" %}</th>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +166,7 @@
             </tbody>
           </table>
           {% else %}
-          <p class="text-muted text-center mb-0">No data available</p>
+          <p class="text-muted text-center mb-0">{% trans "No data available" %}</p>
           {% endif %}
         </div>
       </div>
@@ -175,15 +176,15 @@
     <div class="col-md-6 mb-4">
       <div class="card">
         <div class="card-header">
-          <i class="bi bi-rss"></i> Cost by Feed
+          <i class="bi bi-rss"></i> {% trans "Cost by Feed" %}
         </div>
         <div class="card-body">
           {% if costs_by_feed %}
           <table class="table table-sm table-costs">
             <thead>
               <tr>
-                <th>Feed</th>
-                <th class="text-end">Cost</th>
+                <th>{% trans "Feed" %}</th>
+                <th class="text-end">{% trans "Cost" %}</th>
               </tr>
             </thead>
             <tbody>
@@ -196,7 +197,7 @@
             </tbody>
           </table>
           {% else %}
-          <p class="text-muted text-center mb-0">No data available</p>
+          <p class="text-muted text-center mb-0">{% trans "No data available" %}</p>
           {% endif %}
         </div>
       </div>
@@ -207,14 +208,14 @@
     <div class="col-md-6 mb-4">
       <div class="card">
         <div class="card-header">
-          <i class="bi bi-people"></i> Cost by User
+          <i class="bi bi-people"></i> {% trans "Cost by User" %}
         </div>
         <div class="card-body">
           <table class="table table-sm table-costs">
             <thead>
               <tr>
-                <th>User</th>
-                <th class="text-end">Cost</th>
+                <th>{% trans "User" %}</th>
+                <th class="text-end">{% trans "Cost" %}</th>
               </tr>
             </thead>
             <tbody>
@@ -235,103 +236,14 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Cost Over Time Chart
-  const timeCtx = document.getElementById('costOverTimeChart');
-  if (timeCtx) {
-    const timeData = [
-      {% for item in costs_over_time %}
-      {
-        date: '{{ item.date|date:"Y-m-d" }}',
-        cost: {{ item.total|floatformat:6 }}
-      }{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ];
-
-    new Chart(timeCtx, {
-      type: 'line',
-      data: {
-        labels: timeData.map(d => d.date),
-        datasets: [{
-          label: 'Daily Cost ($)',
-          data: timeData.map(d => d.cost),
-          borderColor: 'rgb(13, 110, 253)',
-          backgroundColor: 'rgba(13, 110, 253, 0.1)',
-          fill: true,
-          tension: 0.3
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return '$' + value.toFixed(4);
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  // Provider Pie Chart
-  const providerCtx = document.getElementById('providerChart');
-  if (providerCtx) {
-    const providerData = [
-      {% for item in costs_by_provider %}
-      {
-        provider: '{{ item.provider }}',
-        cost: {{ item.total|floatformat:6 }}
-      }{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ];
-
-    if (providerData.length > 0) {
-      new Chart(providerCtx, {
-        type: 'doughnut',
-        data: {
-          labels: providerData.map(d => d.provider),
-          datasets: [{
-            data: providerData.map(d => d.cost),
-            backgroundColor: [
-              'rgb(13, 110, 253)',  // Blue for OpenAI
-              'rgb(25, 135, 84)',   // Green for Google
-            ],
-            borderWidth: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom'
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return context.label + ': $' + context.raw.toFixed(4);
-                }
-              }
-            }
-          }
-        }
-      });
-    } else {
-      providerCtx.parentElement.innerHTML = '<p class="text-muted text-center">No provider data available</p>';
-    }
-  }
-});
+{% load static %}
+{# AIDEV-NOTE: Chart data passed as JSON block, read by external cost_analytics.js #}
+<script type="application/json" id="chart-data">
+{
+  "costsOverTime": [{% for item in costs_over_time %}{"date": "{{ item.date|date:'Y-m-d' }}", "cost": {{ item.total|floatformat:6 }}}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "costsByProvider": [{% for item in costs_by_provider %}{"provider": "{{ item.provider }}", "cost": {{ item.total|floatformat:6 }}}{% if not forloop.last %},{% endif %}{% endfor %}]
+}
 </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{% static 'text_to_audio/js/cost_analytics.js' %}" defer></script>
 {% endblock %}

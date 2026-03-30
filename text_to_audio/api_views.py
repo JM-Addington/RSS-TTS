@@ -4,19 +4,22 @@ This module defines REST API endpoints for the RSS-TTS system.
 """
 
 import logging
+import math
 import uuid
 from typing import Any, Dict
 
-from django.shortcuts import get_object_or_404
+from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import serializers, status
+from rest_framework import generics, serializers, status
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Article, Feed, UserVoicePreset
+from .models import VOICE_CHOICES, Article, Feed, UserVoicePreset
 from .tasks import process_article
+from .validators import validate_url_not_ssrf
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +34,17 @@ class ArticleSubmissionSerializer(serializers.Serializer):
         help_text="Optional title for the article. If not provided, title will be extracted from content or generated.",
     )
     text_content = serializers.CharField(
+        max_length=500000,
         required=False,
         allow_blank=True,
         help_text="Text content of the article. Either text_content or source_url must be provided.",
     )
+    # AIDEV-NOTE: SSRF validator blocks private IPs, cloud metadata, non-HTTP schemes (#190)
     source_url = serializers.URLField(
         max_length=2000,
         required=False,
         allow_blank=True,
+        validators=[validate_url_not_ssrf],
         help_text="URL of the article to process. Either text_content or source_url must be provided.",
     )
     voice_id = serializers.CharField(
@@ -47,11 +53,35 @@ class ArticleSubmissionSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Voice ID to use for TTS conversion. Leave blank to auto-detect from content.",
     )
+    # AIDEV-NOTE: Speed bounds 0.25-4.0 match OpenAI TTS API limits
     speed = serializers.FloatField(
         required=False,
         allow_null=True,
-        help_text="Speed multiplier for TTS conversion (e.g., 1.0 for normal speed).",
+        min_value=0.25,
+        max_value=4.0,
+        help_text="Speed multiplier for TTS conversion (0.25 to 4.0, default 1.0).",
     )
+
+    # AIDEV-NOTE: NaN bypasses DRF min/max validators since NaN comparisons are always False
+    def validate_speed(self, value):
+        """Reject NaN and Infinity speed values."""
+        if value is not None and not math.isfinite(value):
+            raise serializers.ValidationError(
+                "Speed must be a finite number between 0.25 and 4.0."
+            )
+        return value
+
+    # AIDEV-NOTE: voice_id validated against VOICE_CHOICES for consistency with form/model (#198)
+    def validate_voice_id(self, value):
+        """Validate voice_id against known VOICE_CHOICES."""
+        if not value:  # allow blank/empty (field is optional)
+            return value
+        valid_ids = {choice[0] for choice in VOICE_CHOICES}
+        if value not in valid_ids:
+            raise serializers.ValidationError(
+                f"Invalid voice_id '{value}'. Use a valid voice ID from the available voices list."
+            )
+        return value
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate that either source_url or text_content is provided."""
@@ -107,13 +137,15 @@ class FeedArticleSubmitView(APIView):
         Returns:
             An HTTP response with the submission result.
         """
-        # Get the feed by token
-        feed = get_object_or_404(Feed, token=token)
+        # AIDEV-NOTE: Explicit lookup raises DRF NotFound for JSON 404 instead of Django HTML 404 (#195)
+        try:
+            feed = Feed.objects.get(token=token)
+        except Feed.DoesNotExist:
+            raise NotFound("Feed not found.")
 
-        # Validate request data
+        # Validate request data — raise_exception lets DRF route errors through exception handler
         serializer = ArticleSubmissionSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
         # Create new article
         article = Article(
@@ -141,13 +173,19 @@ class FeedArticleSubmitView(APIView):
         if article.source_url and not article.title:
             article.title = "Processing..."  # Placeholder, will be updated by task
 
-        # Run custom validation
+        # AIDEV-NOTE: Catch only DjangoValidationError; log others; never leak internals (#193)
         try:
             article.clean()
-        except Exception as e:
+        except DjangoValidationError:
             return Response(
-                {"error": f"Validation error: {str(e)}"},
+                {"error": "Article validation failed"},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception:
+            logger.exception("Unexpected error during article validation")
+            return Response(
+                {"error": "An internal error occurred"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         # Save article to database
@@ -156,12 +194,26 @@ class FeedArticleSubmitView(APIView):
         # Start processing the article
         process_article.delay(article.id)
 
-        # Return success response without article details
-        return Response({"success": True}, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                "success": True,
+                "id": article.id,
+                "audio_uuid": str(article.audio_uuid),
+                "status": article.status,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class VoicePresetSerializer(serializers.ModelSerializer):
     """Serializer for UserVoicePreset model."""
+
+    # AIDEV-NOTE: Override model field to add speed bounds validation (#196)
+    speed = serializers.FloatField(
+        default=1.0,
+        min_value=0.25,
+        max_value=4.0,
+    )
 
     class Meta:
         model = UserVoicePreset
@@ -187,7 +239,7 @@ class VoicePresetSerializer(serializers.ModelSerializer):
 @extend_schema_view(
     get=extend_schema(
         summary="List voice presets",
-        description="Returns all voice presets for the authenticated user.",
+        description="Returns all voice presets for the authenticated user, paginated.",
         responses={
             200: VoicePresetSerializer(many=True),
             401: {"description": "Authentication required"},
@@ -204,50 +256,24 @@ class VoicePresetSerializer(serializers.ModelSerializer):
         },
     ),
 )
-class VoicePresetListView(APIView):
+# AIDEV-NOTE: ListCreateAPIView provides automatic pagination via global PAGE_SIZE=20 (#191)
+class VoicePresetListView(generics.ListCreateAPIView):
     """API endpoint for listing and creating voice presets."""
 
+    serializer_class = VoicePresetSerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request: Request) -> Response:
-        """Return all voice presets for the authenticated user.
+    def get_queryset(self):
+        return UserVoicePreset.objects.filter(user=self.request.user).order_by("name")
 
-        Args:
-            request: The HTTP request object.
-
-        Returns:
-            A list of voice presets with their descriptions.
-        """
-        presets = UserVoicePreset.objects.filter(user=request.user).order_by("name")
-        serializer = VoicePresetSerializer(presets, many=True)
-        return Response(serializer.data)
-
-    def post(self, request: Request) -> Response:
-        """Create a new voice preset for the authenticated user.
-
-        Args:
-            request: The HTTP request object.
-
-        Returns:
-            The created voice preset.
-        """
-        serializer = VoicePresetSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check for duplicate name
+    def perform_create(self, serializer):
+        # Check for duplicate name — raise as field-level ValidationError for consistent format
         name = serializer.validated_data.get("name")
-        if UserVoicePreset.objects.filter(user=request.user, name=name).exists():
-            return Response(
-                {"name": ["A preset with this name already exists."]},
-                status=status.HTTP_400_BAD_REQUEST,
+        if UserVoicePreset.objects.filter(user=self.request.user, name=name).exists():
+            raise serializers.ValidationError(
+                {"name": ["A preset with this name already exists."]}
             )
-
-        # Save with the authenticated user
-        preset = serializer.save(user=request.user)
-        return Response(
-            VoicePresetSerializer(preset).data, status=status.HTTP_201_CREATED
-        )
+        serializer.save(user=self.request.user)
 
 
 @extend_schema_view(
@@ -277,6 +303,9 @@ class VoicePresetDetailView(APIView):
             The voice preset details.
         """
         # Only return presets belonging to the authenticated user
-        preset = get_object_or_404(UserVoicePreset, id=preset_id, user=request.user)
+        try:
+            preset = UserVoicePreset.objects.get(id=preset_id, user=request.user)
+        except UserVoicePreset.DoesNotExist:
+            raise NotFound("Voice preset not found.")
         serializer = VoicePresetSerializer(preset)
         return Response(serializer.data)

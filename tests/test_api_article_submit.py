@@ -5,6 +5,7 @@ import uuid
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -20,6 +21,10 @@ class FeedArticleSubmitAPITests(TestCase):
 
     def setUp(self):
         """Set up test data."""
+        # AIDEV-NOTE: Clear throttle cache so 30+ tests don't hit 30/min anon rate limit
+        from django.core.cache import cache
+
+        cache.clear()
         self.client = APIClient()
         self.user = User.objects.create_user(
             username="testuser", email="test@example.com", password="testpass123"
@@ -43,11 +48,16 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Check response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.json(), {"success": True})
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertIn("audio_uuid", data)
+        self.assertIn("id", data)
         self.assertEqual(Article.objects.count(), 1)
 
         # Verify article data
         article = Article.objects.first()
+        self.assertEqual(data["audio_uuid"], str(article.audio_uuid))
+        self.assertEqual(data["id"], article.id)
         self.assertEqual(article.title, "Test Article")
         self.assertEqual(
             article.text_content, "This is test content for the article submission API."
@@ -77,7 +87,9 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Check response - should return immediately without fetching URL
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.json(), {"success": True})
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertIn("audio_uuid", data)
         self.assertEqual(Article.objects.count(), 1)
 
         # Verify article data - URL is saved, content will be fetched async
@@ -152,7 +164,7 @@ class FeedArticleSubmitAPITests(TestCase):
         self.assertIn("must provide either", str(response.json()))
 
     def test_submit_to_nonexistent_feed(self):
-        """Test submitting to a feed that doesn't exist."""
+        """Test submitting to a feed that doesn't exist returns JSON error."""
         # Generate a random UUID that doesn't match any feed
         random_uuid = uuid.uuid4()
         url = reverse("api-feed-article-submit", kwargs={"token": random_uuid})
@@ -168,9 +180,12 @@ class FeedArticleSubmitAPITests(TestCase):
             url, data=json.dumps(payload), content_type="application/json"
         )
 
-        # Check response
+        # Check response — must be JSON with "error" key, not Django HTML 404
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(Article.objects.count(), 0)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("Feed not found", data["error"])
 
     @patch("text_to_audio.api_views.process_article")
     def test_submit_with_voice_parameters(self, mock_process):
@@ -190,7 +205,9 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Check response
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.json(), {"success": True})
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertIn("audio_uuid", data)
         self.assertEqual(Article.objects.count(), 1)
 
         # Verify article data
@@ -200,3 +217,409 @@ class FeedArticleSubmitAPITests(TestCase):
 
         # Verify task was called
         mock_process.delay.assert_called_once_with(article.id)
+
+    def test_speed_validation_rejects_negative(self):
+        """Test that negative speed values are rejected. Closes #194."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "speed": -1.0,
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_speed_validation_rejects_zero(self):
+        """Test that zero speed is rejected. Closes #194."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "speed": 0.0,
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_speed_validation_rejects_extreme_high(self):
+        """Test that extremely high speed values are rejected. Closes #194."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "speed": 100.0,
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_speed_validation_accepts_valid_bounds(self, mock_process):
+        """Test that speed at valid boundaries is accepted."""
+        for speed_val in [0.25, 1.0, 4.0]:
+            Article.objects.all().delete()
+            payload = {
+                "title": "Test Article",
+                "text_content": "Some content here.",
+                "speed": speed_val,
+            }
+            response = self.client.post(
+                self.url, data=json.dumps(payload), content_type="application/json"
+            )
+            self.assertEqual(
+                response.status_code,
+                status.HTTP_201_CREATED,
+                f"Speed {speed_val} should be accepted but got {response.status_code}",
+            )
+
+    def test_speed_validation_rejects_nan_string(self):
+        """Test that string 'NaN' speed value is rejected. Closes #194."""
+        # Send raw JSON string since json.dumps can't produce NaN literal
+        raw_payload = '{"title": "Test", "text_content": "Content", "speed": "NaN"}'
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_speed_validation_rejects_infinity_string(self):
+        """Test that string 'Infinity' speed value is rejected. Closes #194."""
+        raw_payload = (
+            '{"title": "Test", "text_content": "Content", "speed": "Infinity"}'
+        )
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_speed_validation_rejects_negative_infinity_string(self):
+        """Test that string '-Infinity' speed value is rejected. Closes #194."""
+        raw_payload = (
+            '{"title": "Test", "text_content": "Content", "speed": "-Infinity"}'
+        )
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_speed_validation_rejects_json_nan_literal(self):
+        """Test that JSON NaN literal speed value is rejected. Closes #194."""
+        # NaN is not valid JSON but Python's json module may parse it
+        raw_payload = '{"title": "Test", "text_content": "Content", "speed": NaN}'
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        # Should get 400 - either JSON parse error or validation error
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_400_BAD_REQUEST, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE],
+        )
+
+    def test_speed_validation_rejects_json_infinity_literal(self):
+        """Test that JSON Infinity literal speed value is rejected. Closes #194."""
+        raw_payload = '{"title": "Test", "text_content": "Content", "speed": Infinity}'
+        response = self.client.post(
+            self.url, data=raw_payload, content_type="application/json"
+        )
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_400_BAD_REQUEST, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE],
+        )
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_exception_leakage_prevented(self, mock_process):
+        """Test that internal exception details are not leaked to client. Closes #193."""
+        with patch.object(
+            Article,
+            "clean",
+            side_effect=DjangoValidationError(
+                "Internal DB constraint: column xyz violated"
+            ),
+        ):
+            payload = {
+                "title": "Test Article",
+                "text_content": "Some content here.",
+            }
+            response = self.client.post(
+                self.url, data=json.dumps(payload), content_type="application/json"
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            response_text = json.dumps(response.json())
+            # Should NOT contain internal exception details
+            self.assertNotIn("Internal DB constraint", response_text)
+            self.assertNotIn("column xyz", response_text)
+            # Should contain a generic error message
+            self.assertIn("error", response.json())
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_response_includes_audio_uuid(self, mock_process):
+        """Test that successful submission returns audio_uuid. Closes #197."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertIn("audio_uuid", data)
+        article = Article.objects.first()
+        self.assertEqual(data["audio_uuid"], str(article.audio_uuid))
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_response_includes_article_id(self, mock_process):
+        """Test that successful submission returns the article id."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertIn("id", data)
+        article = Article.objects.first()
+        self.assertEqual(data["id"], article.id)
+
+    def test_text_content_max_length_rejected(self):
+        """Test that extremely long text_content is rejected."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "a" * 500001,
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rate_limiting_returns_429(self):
+        """Test that rate limiting kicks in after threshold. Closes #189."""
+        from rest_framework.throttling import AnonRateThrottle
+
+        payload = {
+            "title": "Test",
+            "text_content": "Content.",
+        }
+        # Mock throttle to deny the request, simulating rate limit exceeded
+        with patch.object(AnonRateThrottle, "allow_request", return_value=False):
+            with patch.object(AnonRateThrottle, "wait", return_value=30):
+                response = self.client.post(
+                    self.url,
+                    data=json.dumps(payload),
+                    content_type="application/json",
+                )
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("throttled", data["error"].lower())
+
+    def test_ssrf_url_rejected(self):
+        """Test that SSRF URLs are rejected at the API layer. Closes #190."""
+        payload = {
+            "source_url": "http://169.254.169.254/latest/meta-data/",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        data = response.json()
+        # Field errors are now nested under "fields"
+        self.assertIn("error", data)
+        response_text = json.dumps(data)
+        self.assertIn("private", response_text.lower())
+
+    def test_submit_with_invalid_voice_id_rejected(self):
+        """Test that an invalid voice_id is rejected. Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "not-a-real-voice",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        data = response.json()
+        self.assertIn("error", data)
+        # Field-level error: voice_id should be in "fields"
+        response_text = json.dumps(data)
+        self.assertIn("voice_id", response_text)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_with_valid_openai_voice_id(self, mock_process):
+        """Test that a valid OpenAI voice_id is accepted. Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "nova",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_with_valid_google_voice_id(self, mock_process):
+        """Test that a valid Google Chirp3 HD voice_id is accepted. Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "en-US-Chirp3-HD-Achernar",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_with_valid_gemini_voice_id(self, mock_process):
+        """Test that a valid Gemini TTS voice_id is accepted. Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "Zephyr",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_with_empty_voice_id_allowed(self, mock_process):
+        """Test that empty voice_id is accepted (field is optional). Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+            "voice_id": "",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_submit_without_voice_id_allowed(self, mock_process):
+        """Test that omitting voice_id is accepted (field is optional). Closes #198."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content here.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_unexpected_exception_leakage_prevented(self, mock_process):
+        """Test that unexpected exceptions don't leak details to client. Closes #193."""
+        with patch.object(
+            Article,
+            "clean",
+            side_effect=RuntimeError("secret DB info: pg_constraint_abc123"),
+        ):
+            payload = {
+                "title": "Test Article",
+                "text_content": "Some content here.",
+            }
+            response = self.client.post(
+                self.url, data=json.dumps(payload), content_type="application/json"
+            )
+            self.assertEqual(
+                response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            response_text = json.dumps(response.json())
+            # Should NOT contain internal exception details
+            self.assertNotIn("secret DB info", response_text)
+            self.assertNotIn("pg_constraint_abc123", response_text)
+            # Should contain a generic error message
+            self.assertIn("error", response.json())
+
+    def test_error_response_format_consistent(self):
+        """Test that error responses use consistent format. Closes #195."""
+        payload = {"title": "Test Article"}
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        data = response.json()
+        self.assertIn("error", data)
+        # Non-field validation error should be a string, not a dict
+        self.assertIsInstance(data["error"], str)
+
+    def test_field_error_includes_fields_key(self):
+        """Test that field-level errors include both 'error' and 'fields' keys. Closes #195."""
+        payload = {
+            "title": "Test Article",
+            "text_content": "Some content.",
+            "speed": 999.0,  # exceeds max
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertEqual(data["error"], "Validation failed.")
+        self.assertIn("fields", data)
+        self.assertIn("speed", data["fields"])
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_text_content_word_limit_at_boundary(self, mock_process):
+        """Test that text_content with exactly 40,000 words is accepted. Closes #196."""
+        payload = {
+            "title": "Test Article",
+            "text_content": " ".join(["word"] * 40_000),
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        mock_process.delay.assert_called_once()
+
+    def test_text_content_word_limit_exceeded(self):
+        """Test that text_content with 40,001 words is rejected. Closes #196."""
+        payload = {
+            "title": "Test Article",
+            "text_content": " ".join(["word"] * 40_001),
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        data = response.json()
+        self.assertIn("error", data)
+        self.assertIn("40,000", data["error"])
+
+    @patch("text_to_audio.api_views.process_article")
+    def test_title_at_max_length(self, mock_process):
+        """Test that a title with exactly 1024 chars is accepted. Closes #196."""
+        payload = {
+            "title": "A" * 1024,
+            "text_content": "Some content here.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        article = Article.objects.first()
+        self.assertEqual(len(article.title), 1024)
+
+    def test_title_exceeds_max_length(self):
+        """Test that a title with 1025 chars is rejected. Closes #196."""
+        payload = {
+            "title": "A" * 1025,
+            "text_content": "Some content here.",
+        }
+        response = self.client.post(
+            self.url, data=json.dumps(payload), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_malformed_json_body(self):
+        """Test that a malformed JSON body returns 400. Closes #196."""
+        response = self.client.post(
+            self.url, data="{invalid json", content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
