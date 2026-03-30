@@ -9,9 +9,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, TestCase, override_settings
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import reverse
 
+from text_to_audio.mailgun_views import mailgun_incoming_webhook
 from text_to_audio.models import Article, Feed
 from text_to_audio.tasks import process_incoming_email
 
@@ -470,6 +471,90 @@ class MailgunWebhookTestCase(TestCase):
         call_args = mock_delay.call_args[0][0]
         self.assertEqual(len(call_args["attachments"]), 1)
         self.assertEqual(call_args["attachments"][0]["filename"], "doc.pdf")
+
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    def test_content_type_mime_param_stripping_accepts_valid(
+        self, mock_mailgun_service, mock_delay
+    ):
+        """Test that content-type MIME params (e.g. charset=utf-8) are stripped before validation.
+
+        AIDEV-NOTE: Mailgun sends content-type with params like 'text/plain; charset=utf-8'.
+        Django's test client strips these during multipart parsing, so we inject a mock file
+        into request.FILES to simulate real Mailgun behavior.
+        """
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        mock_file = MagicMock()
+        mock_file.name = "notes.txt"
+        mock_file.size = 100
+        mock_file.content_type = "text/plain; charset=utf-8"
+        mock_file.read.return_value = b"some text content"
+
+        factory = RequestFactory()
+        request = factory.post(
+            reverse("mailgun-incoming-webhook"),
+            {
+                "timestamp": "12345",
+                "token": "token",
+                "signature": "sig",
+                "recipient": "test-feed@mg.example.com",
+                "sender": "sender@example.com",
+                "subject": "Text with charset",
+                "body-plain": "See attached.",
+                "attachment-count": "1",
+            },
+        )
+        request.FILES["attachment-1"] = mock_file
+
+        response = mailgun_incoming_webhook(request)
+
+        self.assertEqual(response.status_code, 200)
+        mock_delay.assert_called_once()
+        call_args = mock_delay.call_args[0][0]
+        self.assertEqual(len(call_args["attachments"]), 1)
+        self.assertEqual(call_args["attachments"][0]["filename"], "notes.txt")
+
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    def test_content_type_mime_param_stripping_rejects_invalid(
+        self, mock_mailgun_service, mock_delay
+    ):
+        """Test that invalid content types with MIME params are still rejected."""
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        mock_file = MagicMock()
+        mock_file.name = "data.bin"
+        mock_file.size = 100
+        mock_file.content_type = "application/octet-stream; charset=utf-8"
+        mock_file.read.return_value = b"binary content"
+
+        factory = RequestFactory()
+        request = factory.post(
+            reverse("mailgun-incoming-webhook"),
+            {
+                "timestamp": "12345",
+                "token": "token",
+                "signature": "sig",
+                "recipient": "test-feed@mg.example.com",
+                "sender": "sender@example.com",
+                "subject": "Bad type with params",
+                "body-plain": "See attached.",
+                "attachment-count": "1",
+            },
+        )
+        request.FILES["attachment-1"] = mock_file
+
+        response = mailgun_incoming_webhook(request)
+
+        self.assertEqual(response.status_code, 200)
+        mock_delay.assert_called_once()
+        call_args = mock_delay.call_args[0][0]
+        self.assertEqual(len(call_args["attachments"]), 0)
 
     @patch("text_to_audio.mailgun_views.MailgunService")
     @patch("text_to_audio.mailgun_views.process_incoming_email.delay")

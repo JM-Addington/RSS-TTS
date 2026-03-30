@@ -96,7 +96,8 @@ def mailgun_incoming_webhook(request):
                         MAX_ATTACHMENT_SIZE,
                     )
                     continue
-                if file_obj.content_type.lower() not in ALLOWED_ATTACHMENT_CONTENT_TYPES:
+                # AIDEV-NOTE: strip MIME params (e.g. "; charset=utf-8") before checking
+                if file_obj.content_type.split(";")[0].strip().lower() not in ALLOWED_ATTACHMENT_CONTENT_TYPES:
                     logger.warning(
                         "Skipping attachment '%s' with disallowed content-type '%s'",
                         file_obj.name,
