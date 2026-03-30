@@ -4,6 +4,7 @@
 
 import os
 import uuid
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from django.conf import settings
@@ -61,6 +62,13 @@ class TestFrontendTemplates(TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "index.html")
+
+    def test_footer_contains_current_year(self):
+        """Test that the footer displays the current year dynamically."""
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        current_year = datetime.now().year
+        self.assertContains(response, f"&copy; {current_year} RSS-TTS")
 
 
 class TestArticleSubmission(TestCase):
