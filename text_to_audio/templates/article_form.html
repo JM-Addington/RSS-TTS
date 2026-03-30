@@ -46,29 +46,53 @@
 
           <div class="mb-3">
             <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
-            {{ form.title.errors }}
             {{ form.title|add_class:"form-control" }}
+            {% if form.title.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.title.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
             <div class="form-text">{% trans "Enter a title for this article (optional; a title will be generated if left blank)" %}</div>
           </div>
 
           <div class="mb-3">
             <label for="{{ form.source_url.id_for_label }}" class="form-label">{{ form.source_url.label }}</label>
-            {{ form.source_url.errors }}
             {{ form.source_url|add_class:"form-control" }}
+            {% if form.source_url.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.source_url.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
             <div class="form-text">{% trans "Enter the URL of an article to automatically extract its content" %}</div>
           </div>
 
           <div class="mb-3">
             <label for="{{ form.text_content.id_for_label }}" class="form-label">{{ form.text_content.label }}</label>
-            {{ form.text_content.errors }}
             {{ form.text_content|add_class:"form-control" }}
+            {% if form.text_content.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.text_content.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
             <div class="form-text">{% trans "Or paste/enter text content directly" %}</div>
           </div>
 
           <div class="mb-3">
             <label for="{{ form.document_file.id_for_label }}" class="form-label">{{ form.document_file.label }}</label>
-            {{ form.document_file.errors }}
             {{ form.document_file|add_class:"form-control" }}
+            {% if form.document_file.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.document_file.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
             {% if form.document_file.help_text %}
             <div class="form-text">{{ form.document_file.help_text }}</div>
             {% endif %}
@@ -78,15 +102,27 @@
 
           <div class="mb-3">
             <label for="{{ form.tts_provider.id_for_label }}" class="form-label">{% trans "TTS Provider" %}</label>
-            {{ form.tts_provider.errors }}
             {{ form.tts_provider|add_class:"form-control" }}
+            {% if form.tts_provider.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.tts_provider.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
             <div class="form-text">{% trans "Override TTS provider for this article (uses feed/global default if not set)" %}</div>
           </div>
 
           <div class="mb-3">
             <label for="{{ form.voice_preset.id_for_label }}" class="form-label">{% trans "Voice Preset" %}</label>
-            {{ form.voice_preset.errors }}
             {{ form.voice_preset|add_class:"form-control" }}
+            {% if form.voice_preset.errors %}
+              <div class="invalid-feedback d-block">
+                {% for error in form.voice_preset.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
+              </div>
+            {% endif %}
             <div class="form-text">{% trans "Select one of your saved voice presets" %}</div>
           </div>
 
@@ -95,16 +131,28 @@
             <div class="row">
               <div class="col-md-6">
                 <label for="{{ form.voice_id.id_for_label }}" class="form-label">{% trans "Voice" %}</label>
-                {{ form.voice_id.errors }}
                 {{ form.voice_id|add_class:"form-control" }}
+                {% if form.voice_id.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in form.voice_id.errors %}
+                        <p class="mb-0">{{ error }}</p>
+                    {% endfor %}
+                  </div>
+                {% endif %}
                 {% if form.voice_id.help_text %}
                 <div class="form-text">{{ form.voice_id.help_text }}</div>
                 {% endif %}
               </div>
               <div class="col-md-6">
                 <label for="{{ form.speed.id_for_label }}" class="form-label">{% trans "Speed" %}</label>
-                {{ form.speed.errors }}
                 {{ form.speed|add_class:"form-control" }}
+                {% if form.speed.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in form.speed.errors %}
+                        <p class="mb-0">{{ error }}</p>
+                    {% endfor %}
+                  </div>
+                {% endif %}
                 {% if form.speed.help_text %}
                 <div class="form-text">{{ form.speed.help_text }}</div>
                 {% endif %}

@@ -18,21 +18,33 @@
                             <label for="{{ form.username.id_for_label }}" class="form-label">{% trans "Username" %}</label>
                             {{ form.username }}
                             {% if form.username.errors %}
-                                <div class="text-danger">{{ form.username.errors }}</div>
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.username.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
                         <div class="mb-3">
                             <label for="{{ form.password1.id_for_label }}" class="form-label">{% trans "Password" %}</label>
                             {{ form.password1 }}
                             {% if form.password1.errors %}
-                                <div class="text-danger">{{ form.password1.errors }}</div>
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.password1.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
                         <div class="mb-3">
                             <label for="{{ form.password2.id_for_label }}" class="form-label">{% trans "Confirm Password" %}</label>
                             {{ form.password2 }}
                             {% if form.password2.errors %}
-                                <div class="text-danger">{{ form.password2.errors }}</div>
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.password2.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
                         <div class="d-grid gap-2">

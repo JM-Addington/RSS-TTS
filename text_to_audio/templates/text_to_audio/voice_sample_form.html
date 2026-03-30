@@ -13,8 +13,10 @@
             {{ form.text }}
             {% if form.text.help_text %}<div class="form-text">{{ form.text.help_text }}</div>{% endif %}
             {% if form.text.errors %}
-            <div class="text-danger">
-                {% for error in form.text.errors %}{{ error }}{% endfor %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.text.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
             </div>
             {% endif %}
         </div>

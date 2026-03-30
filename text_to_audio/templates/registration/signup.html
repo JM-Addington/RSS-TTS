@@ -18,9 +18,13 @@
     {% if form.username.help_text %}
       <div class="form-text">{{ form.username.help_text }}</div>
     {% endif %}
-    {% for error in form.username.errors %}
-      <div class="text-danger">{{ error }}</div>
-    {% endfor %}
+    {% if form.username.errors %}
+      <div class="invalid-feedback d-block">
+        {% for error in form.username.errors %}
+            <p class="mb-0">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
   <div class="mb-3">
     <label for="id_password1" class="form-label">{% trans "Password" %}</label>
@@ -28,9 +32,13 @@
     {% if form.password1.help_text %}
       <div class="form-text">{{ form.password1.help_text }}</div>
     {% endif %}
-    {% for error in form.password1.errors %}
-      <div class="text-danger">{{ error }}</div>
-    {% endfor %}
+    {% if form.password1.errors %}
+      <div class="invalid-feedback d-block">
+        {% for error in form.password1.errors %}
+            <p class="mb-0">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
   <div class="mb-3">
     <label for="id_password2" class="form-label">{% trans "Password confirmation" %}</label>
@@ -38,9 +46,13 @@
     {% if form.password2.help_text %}
       <div class="form-text">{{ form.password2.help_text }}</div>
     {% endif %}
-    {% for error in form.password2.errors %}
-      <div class="text-danger">{{ error }}</div>
-    {% endfor %}
+    {% if form.password2.errors %}
+      <div class="invalid-feedback d-block">
+        {% for error in form.password2.errors %}
+            <p class="mb-0">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
   <button type="submit" class="btn btn-primary">{% trans "Create Account" %}</button>
 </form>

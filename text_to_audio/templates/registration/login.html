@@ -15,16 +15,24 @@
   <div class="mb-3">
     <label for="id_username" class="form-label">{% trans "Username" %}</label>
     {{ form.username }}
-    {% for error in form.username.errors %}
-      <div class="text-danger">{{ error }}</div>
-    {% endfor %}
+    {% if form.username.errors %}
+      <div class="invalid-feedback d-block">
+        {% for error in form.username.errors %}
+            <p class="mb-0">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
   <div class="mb-3">
     <label for="id_password" class="form-label">{% trans "Password" %}</label>
     {{ form.password }}
-    {% for error in form.password.errors %}
-      <div class="text-danger">{{ error }}</div>
-    {% endfor %}
+    {% if form.password.errors %}
+      <div class="invalid-feedback d-block">
+        {% for error in form.password.errors %}
+            <p class="mb-0">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
   <button type="submit" class="btn btn-primary">{% trans "Login" %}</button>
 </form>

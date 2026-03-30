@@ -38,7 +38,11 @@
                                 <small class="form-text text-muted">{{ form.tts_provider.help_text }}</small>
                             {% endif %}
                             {% if form.tts_provider.errors %}
-                                <div class="invalid-feedback d-block">{{ form.tts_provider.errors }}</div>
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.tts_provider.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
 
@@ -49,7 +53,11 @@
                                 <small class="form-text text-muted">{{ form.voice_id.help_text }}</small>
                             {% endif %}
                             {% if form.voice_id.errors %}
-                                <div class="invalid-feedback d-block">{{ form.voice_id.errors }}</div>
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.voice_id.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
 
@@ -60,7 +68,11 @@
                                 <small class="form-text text-muted">{{ form.speed.help_text }}</small>
                             {% endif %}
                             {% if form.speed.errors %}
-                                <div class="invalid-feedback d-block">{{ form.speed.errors }}</div>
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.speed.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
 
@@ -71,7 +83,11 @@
                                 <small class="form-text text-muted">{{ form.voice_preset.help_text }}</small>
                             {% endif %}
                             {% if form.voice_preset.errors %}
-                                <div class="invalid-feedback d-block">{{ form.voice_preset.errors }}</div>
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.voice_preset.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
 

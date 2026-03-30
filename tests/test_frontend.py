@@ -217,6 +217,7 @@ class TestLoginView(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "This field is required.")
+        self.assertContains(response, "invalid-feedback")
 
 
 class TestSignUpView(TestCase):
@@ -280,6 +281,7 @@ class TestSignUpView(TestCase):
         self.assertEqual(response.status_code, 200)
         # Should show password mismatch error
         self.assertContains(response, "password")
+        self.assertContains(response, "invalid-feedback")
 
     def test_signup_password_help_text_escapes_html(self):
         """Password help_text must be HTML-escaped to prevent XSS."""

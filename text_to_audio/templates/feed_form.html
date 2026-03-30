@@ -31,8 +31,10 @@
                                    placeholder="{% trans 'e.g., Business News, Kids Stories, Tech Articles' %}"
                                    required>
                             {% if form.name.errors %}
-                                <div class="invalid-feedback">
-                                    {{ form.name.errors }}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.name.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
                                 </div>
                             {% endif %}
                             <div class="form-text">{% trans "Choose a descriptive name to help you organize your feeds." %}</div>
@@ -44,7 +46,9 @@
                             {{ form.tts_provider|add_class:"form-select" }}
                             {% if form.tts_provider.errors %}
                                 <div class="invalid-feedback d-block">
-                                    {{ form.tts_provider.errors }}
+                                    {% for error in form.tts_provider.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
                                 </div>
                             {% endif %}
                             <div class="form-text">{{ form.tts_provider.help_text }}</div>
@@ -56,7 +60,9 @@
                             {{ form.voice_mode|add_class:"form-select" }}
                             {% if form.voice_mode.errors %}
                                 <div class="invalid-feedback d-block">
-                                    {{ form.voice_mode.errors }}
+                                    {% for error in form.voice_mode.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
                                 </div>
                             {% endif %}
                             <div class="form-text">{{ form.voice_mode.help_text }}</div>

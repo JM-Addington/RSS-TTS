@@ -33,7 +33,11 @@
                                 <small class="form-text text-muted">{{ form.preferred_voice.help_text }}</small>
                             {% endif %}
                             {% if form.preferred_voice.errors %}
-                                <div class="invalid-feedback d-block">{{ form.preferred_voice.errors }}</div>
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.preferred_voice.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
 
@@ -44,7 +48,11 @@
                                 <small class="form-text text-muted">{{ form.preferred_speed.help_text }}</small>
                             {% endif %}
                             {% if form.preferred_speed.errors %}
-                                <div class="invalid-feedback d-block">{{ form.preferred_speed.errors }}</div>
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.preferred_speed.errors %}
+                                        <p class="mb-0">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
                         </div>
 

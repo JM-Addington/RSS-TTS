@@ -25,8 +25,10 @@
             {{ form.name }}
             {% if form.name.help_text %}<div class="form-text">{{ form.name.help_text }}</div>{% endif %}
             {% if form.name.errors %}
-            <div class="text-danger">
-                {% for error in form.name.errors %}{{ error }}{% endfor %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.name.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
             </div>
             {% endif %}
         </div>
@@ -36,8 +38,10 @@
             {{ form.voice_id }}
             {% if form.voice_id.help_text %}<div class="form-text">{{ form.voice_id.help_text }}</div>{% endif %}
             {% if form.voice_id.errors %}
-            <div class="text-danger">
-                {% for error in form.voice_id.errors %}{{ error }}{% endfor %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.voice_id.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
             </div>
             {% endif %}
         </div>
@@ -47,8 +51,10 @@
             {{ form.speed }}
             {% if form.speed.help_text %}<div class="form-text">{{ form.speed.help_text }}</div>{% endif %}
             {% if form.speed.errors %}
-            <div class="text-danger">
-                {% for error in form.speed.errors %}{{ error }}{% endfor %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.speed.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
             </div>
             {% endif %}
         </div>
@@ -58,8 +64,10 @@
             {{ form.prompt }}
             {% if form.prompt.help_text %}<div class="form-text">{{ form.prompt.help_text }}</div>{% endif %}
             {% if form.prompt.errors %}
-            <div class="text-danger">
-                {% for error in form.prompt.errors %}{{ error }}{% endfor %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.prompt.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
             </div>
             {% endif %}
         </div>
@@ -69,8 +77,10 @@
             {{ form.sample_input }}
             {% if form.sample_input.help_text %}<div class="form-text">{{ form.sample_input.help_text }}</div>{% endif %}
             {% if form.sample_input.errors %}
-            <div class="text-danger">
-                {% for error in form.sample_input.errors %}{{ error }}{% endfor %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.sample_input.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
             </div>
             {% endif %}
         </div>
@@ -80,8 +90,10 @@
             {{ form.description }}
             {% if form.description.help_text %}<div class="form-text">{{ form.description.help_text }}</div>{% endif %}
             {% if form.description.errors %}
-            <div class="text-danger">
-                {% for error in form.description.errors %}{{ error }}{% endfor %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.description.errors %}
+                    <p class="mb-0">{{ error }}</p>
+                {% endfor %}
             </div>
             {% endif %}
         </div>

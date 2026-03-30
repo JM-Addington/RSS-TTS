@@ -58,6 +58,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.openai_api_key.id_for_label }}" class="form-label">{% trans "OpenAI API Key" %}</label>
                                     {{ form.openai_api_key }}
+                                    {% if form.openai_api_key.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.openai_api_key.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.openai_api_key.help_text %}
                                         <div class="form-text">{{ form.openai_api_key.help_text }}</div>
                                     {% endif %}
@@ -67,6 +74,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.openai_title_model.id_for_label }}" class="form-label">{% trans "Title Generation Model" %}</label>
                                     {{ form.openai_title_model }}
+                                    {% if form.openai_title_model.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.openai_title_model.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.openai_title_model.help_text %}
                                         <div class="form-text">{{ form.openai_title_model.help_text }}</div>
                                     {% endif %}
@@ -78,6 +92,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.openai_tts_model.id_for_label }}" class="form-label">{% trans "TTS Model" %}</label>
                                     {{ form.openai_tts_model }}
+                                    {% if form.openai_tts_model.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.openai_tts_model.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.openai_tts_model.help_text %}
                                         <div class="form-text">{{ form.openai_tts_model.help_text }}</div>
                                     {% endif %}
@@ -87,6 +108,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.openai_tts_voice.id_for_label }}" class="form-label">{% trans "Default TTS Voice" %}</label>
                                     {{ form.openai_tts_voice }}
+                                    {% if form.openai_tts_voice.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.openai_tts_voice.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.openai_tts_voice.help_text %}
                                         <div class="form-text">{{ form.openai_tts_voice.help_text }}</div>
                                     {% endif %}
@@ -96,6 +124,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.openai_tts_response_format.id_for_label }}" class="form-label">{% trans "TTS Response Format" %}</label>
                                     {{ form.openai_tts_response_format }}
+                                    {% if form.openai_tts_response_format.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.openai_tts_response_format.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.openai_tts_response_format.help_text %}
                                         <div class="form-text">{{ form.openai_tts_response_format.help_text }}</div>
                                     {% endif %}
@@ -107,6 +142,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.openai_analysis_model.id_for_label }}" class="form-label">{% trans "Analysis Model" %}</label>
                                     {{ form.openai_analysis_model }}
+                                    {% if form.openai_analysis_model.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.openai_analysis_model.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.openai_analysis_model.help_text %}
                                         <div class="form-text">{{ form.openai_analysis_model.help_text }}</div>
                                     {% endif %}
@@ -116,6 +158,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.openai_classification_model.id_for_label }}" class="form-label">{% trans "Classification Model" %}</label>
                                     {{ form.openai_classification_model }}
+                                    {% if form.openai_classification_model.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.openai_classification_model.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.openai_classification_model.help_text %}
                                         <div class="form-text">{{ form.openai_classification_model.help_text }}</div>
                                     {% endif %}
@@ -138,6 +187,13 @@
                                     <label for="{{ form.use_gpt_for_url_extraction.id_for_label }}" class="form-check-label">
                                         {% trans "Use GPT for URL Extraction" %}
                                     </label>
+                                    {% if form.use_gpt_for_url_extraction.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.use_gpt_for_url_extraction.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.use_gpt_for_url_extraction.help_text %}
                                         <div class="form-text">{{ form.use_gpt_for_url_extraction.help_text }}</div>
                                     {% endif %}
@@ -147,6 +203,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.max_analysis_words.id_for_label }}" class="form-label">{% trans "Max Analysis Words" %}</label>
                                     {{ form.max_analysis_words }}
+                                    {% if form.max_analysis_words.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.max_analysis_words.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.max_analysis_words.help_text %}
                                         <div class="form-text">{{ form.max_analysis_words.help_text }}</div>
                                     {% endif %}
@@ -160,6 +223,13 @@
                                     <label for="{{ form.enable_chunk_tone_llm.id_for_label }}" class="form-check-label">
                                         {% trans "Enable ChunkTone LLM Service" %}
                                     </label>
+                                    {% if form.enable_chunk_tone_llm.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.enable_chunk_tone_llm.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.enable_chunk_tone_llm.help_text %}
                                         <div class="form-text">{{ form.enable_chunk_tone_llm.help_text }}</div>
                                     {% endif %}
@@ -169,6 +239,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.default_tts_provider.id_for_label }}" class="form-label">{% trans "Default TTS Provider" %}</label>
                                     {{ form.default_tts_provider }}
+                                    {% if form.default_tts_provider.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.default_tts_provider.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.default_tts_provider.help_text %}
                                         <div class="form-text">{{ form.default_tts_provider.help_text }}</div>
                                     {% endif %}
@@ -189,6 +266,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.google_tts_api_key.id_for_label }}" class="form-label">{% trans "Google TTS API Key" %}</label>
                                     {{ form.google_tts_api_key }}
+                                    {% if form.google_tts_api_key.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.google_tts_api_key.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.google_tts_api_key.help_text %}
                                         <div class="form-text">{{ form.google_tts_api_key.help_text }}</div>
                                     {% endif %}
@@ -198,6 +282,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.google_tts_default_voice_type.id_for_label }}" class="form-label">{% trans "Default Voice Type" %}</label>
                                     {{ form.google_tts_default_voice_type }}
+                                    {% if form.google_tts_default_voice_type.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.google_tts_default_voice_type.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.google_tts_default_voice_type.help_text %}
                                         <div class="form-text">{{ form.google_tts_default_voice_type.help_text }}</div>
                                     {% endif %}
@@ -209,6 +300,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.google_tts_credentials_json.id_for_label }}" class="form-label">{% trans "Service Account Credentials (JSON)" %}</label>
                                     {{ form.google_tts_credentials_json }}
+                                    {% if form.google_tts_credentials_json.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.google_tts_credentials_json.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.google_tts_credentials_json.help_text %}
                                         <div class="form-text">{{ form.google_tts_credentials_json.help_text }}</div>
                                     {% endif %}
@@ -230,6 +328,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.firecrawl_api_key.id_for_label }}" class="form-label">{% trans "Firecrawl API Key" %}</label>
                                     {{ form.firecrawl_api_key }}
+                                    {% if form.firecrawl_api_key.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.firecrawl_api_key.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.firecrawl_api_key.help_text %}
                                         <div class="form-text">{{ form.firecrawl_api_key.help_text }}</div>
                                     {% endif %}
@@ -241,6 +346,13 @@
                                     <label for="{{ form.use_firecrawl_by_default.id_for_label }}" class="form-check-label">
                                         {% trans "Use Firecrawl by Default" %}
                                     </label>
+                                    {% if form.use_firecrawl_by_default.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.use_firecrawl_by_default.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.use_firecrawl_by_default.help_text %}
                                         <div class="form-text">{{ form.use_firecrawl_by_default.help_text }}</div>
                                     {% endif %}
@@ -261,6 +373,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.site_url.id_for_label }}" class="form-label">{% trans "Site URL" %}</label>
                                     {{ form.site_url }}
+                                    {% if form.site_url.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.site_url.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.site_url.help_text %}
                                         <div class="form-text">{{ form.site_url.help_text }}</div>
                                     {% endif %}
@@ -270,6 +389,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.rss_external_hostname.id_for_label }}" class="form-label">{% trans "RSS External Hostname" %}</label>
                                     {{ form.rss_external_hostname }}
+                                    {% if form.rss_external_hostname.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.rss_external_hostname.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.rss_external_hostname.help_text %}
                                         <div class="form-text">{{ form.rss_external_hostname.help_text }}</div>
                                     {% endif %}
@@ -281,6 +407,13 @@
                                 <div class="mb-3">
                                     <label for="{{ form.podcast_image_url.id_for_label }}" class="form-label">{% trans "Default Podcast Image URL" %}</label>
                                     {{ form.podcast_image_url }}
+                                    {% if form.podcast_image_url.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.podcast_image_url.errors %}
+                                                <p class="mb-0">{{ error }}</p>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     {% if form.podcast_image_url.help_text %}
                                         <div class="form-text">{{ form.podcast_image_url.help_text }}</div>
                                     {% endif %}
