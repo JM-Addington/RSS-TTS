@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+from bs4 import BeautifulSoup
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
@@ -350,3 +351,91 @@ class TestPlayButtonToggle(TestCase):
         self.client.login(username="playuser", password="pass123")
         response = self.client.get(f"/feeds/{self.feed.pk}/")
         self.assertContains(response, "audioPlayer.pause(")
+
+
+class TestArticleListAccessibility(TestCase):
+    """Tests for accessibility of SVG icons and buttons in article_list.html."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = get_user_model().objects.create_user(
+            username="a11yuser", password="pass123"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="A11y Feed")
+        # Create a completed article so all action buttons render
+        self.article = Article.objects.create(
+            feed=self.feed,
+            title="Accessibility Test Article",
+            text_content="sample content",
+            status=Article.COMPLETED,
+            audio_uuid=str(uuid.uuid4()),
+        )
+        # Create a failed article to get retry/delete buttons for that state
+        self.failed_article = Article.objects.create(
+            feed=self.feed,
+            title="Failed Article",
+            text_content="sample",
+            status=Article.FAILED,
+            error_message="Test error",
+        )
+        self.client.login(username="a11yuser", password="pass123")
+
+    def _get_soup(self):
+        """Get BeautifulSoup parsed response from article list page."""
+        response = self.client.get(f"/feeds/{self.feed.pk}/")
+        self.assertEqual(response.status_code, 200)
+        return BeautifulSoup(response.content.decode(), "html.parser")
+
+    def test_article_list_svg_icons_have_aria_hidden(self):
+        """All server-rendered SVG elements should have aria-hidden='true'."""
+        soup = self._get_soup()
+        svgs = soup.find_all("svg")
+        self.assertGreater(len(svgs), 0, "Expected SVG elements in article list")
+        for svg in svgs:
+            self.assertEqual(
+                svg.get("aria-hidden"),
+                "true",
+                f"SVG with class='{svg.get('class')}' missing aria-hidden='true'",
+            )
+
+    def test_article_list_copy_buttons_have_aria_labels(self):
+        """Copy buttons should have descriptive aria-label attributes."""
+        soup = self._get_soup()
+        copy_button = soup.find("button", id="copy-button")
+        if copy_button:
+            self.assertTrue(
+                copy_button.get("aria-label"),
+                "Copy Feed URL button missing aria-label",
+            )
+        copy_api_button = soup.find("button", id="copy-api-button")
+        if copy_api_button:
+            self.assertTrue(
+                copy_api_button.get("aria-label"),
+                "Copy API URL button missing aria-label",
+            )
+        copy_email_button = soup.find("button", id="copy-email-button")
+        if copy_email_button:
+            self.assertTrue(
+                copy_email_button.get("aria-label"),
+                "Copy Email button missing aria-label",
+            )
+
+    def test_article_list_action_buttons_have_accessible_text(self):
+        """Buttons with SVGs should also contain visible text labels."""
+        soup = self._get_soup()
+        # Check action buttons that contain SVGs have text content
+        action_cells = soup.find_all("td", class_="action-cell")
+        for cell in action_cells:
+            buttons_and_links = cell.find_all(["button", "a"])
+            for element in buttons_and_links:
+                svg = element.find("svg")
+                if svg:
+                    # Get text content excluding SVG
+                    text = element.get_text(strip=True)
+                    # Remove any SVG text content
+                    svg_text = svg.get_text(strip=True)
+                    visible_text = text.replace(svg_text, "").strip()
+                    self.assertTrue(
+                        visible_text,
+                        f"Button/link with SVG has no visible text label: {element.get('class')}",
+                    )
