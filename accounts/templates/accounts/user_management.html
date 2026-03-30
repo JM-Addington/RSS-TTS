@@ -57,18 +57,31 @@
                                         {% endif %}
                                     </td>
                                     <td>{{ user.date_joined|date:"M d, Y" }}</td>
+                                    {# AIDEV-NOTE: approve/revoke/promote/demote are @require_POST — must use forms, not links #}
                                     <td>
                                         <div class="btn-group" role="group">
                                             {% if not user.is_approved and not user.is_super_admin %}
-                                                <a href="{% url 'user-approve' user.id %}" class="btn btn-sm btn-success">{% trans "Approve" %}</a>
+                                                <form method="post" action="{% url 'user-approve' user.id %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-success">{% trans "Approve" %}</button>
+                                                </form>
                                             {% elif user.is_approved and not user.is_super_admin %}
-                                                <a href="{% url 'user-revoke-approval' user.id %}" class="btn btn-sm btn-warning">{% trans "Revoke" %}</a>
+                                                <form method="post" action="{% url 'user-revoke-approval' user.id %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-warning">{% trans "Revoke" %}</button>
+                                                </form>
                                             {% endif %}
                                             <a href="{% url 'user-reset-password' user.id %}" class="btn btn-sm btn-info">{% trans "Reset Password" %}</a>
                                             {% if user.is_super_admin %}
-                                                <a href="{% url 'user-demote' user.id %}" class="btn btn-sm btn-warning">{% trans "Demote" %}</a>
+                                                <form method="post" action="{% url 'user-demote' user.id %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-warning">{% trans "Demote" %}</button>
+                                                </form>
                                             {% else %}
-                                                <a href="{% url 'user-promote' user.id %}" class="btn btn-sm btn-primary">{% trans "Make Super Admin" %}</a>
+                                                <form method="post" action="{% url 'user-promote' user.id %}" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-primary">{% trans "Make Super Admin" %}</button>
+                                                </form>
                                                 <a href="{% url 'user-delete' user.id %}" class="btn btn-sm btn-danger">{% trans "Delete" %}</a>
                                             {% endif %}
                                         </div>

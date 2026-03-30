@@ -412,6 +412,84 @@ class VoicePresetDeleteHttpMethodTest(HttpMethodRestrictionTestBase):
         self.assertEqual(response.status_code, 302)
 
 
+class UserManagementTemplateFormTest(SuperAdminTestBase):
+    """Tests that POST-only admin actions render as forms, not links."""
+
+    def get_url(self):
+        return reverse("user-management")
+
+    def _get_page_content(self):
+        response = self.client.get(self.get_url())
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_approve_rendered_as_form(self):
+        """Approve action should be a POST form, not a GET link."""
+        # target_user is unapproved by default
+        content = self._get_page_content()
+        approve_url = reverse("user-approve", args=[self.target_user.id])
+        self.assertIn(f'action="{approve_url}"', content)
+        self.assertNotIn(f'href="{approve_url}"', content)
+
+    def test_revoke_rendered_as_form(self):
+        """Revoke action should be a POST form, not a GET link."""
+        self.target_user.profile.is_approved = True
+        self.target_user.profile.save()
+        content = self._get_page_content()
+        revoke_url = reverse("user-revoke-approval", args=[self.target_user.id])
+        self.assertIn(f'action="{revoke_url}"', content)
+        self.assertNotIn(f'href="{revoke_url}"', content)
+
+    def test_promote_rendered_as_form(self):
+        """Promote action should be a POST form, not a GET link."""
+        content = self._get_page_content()
+        promote_url = reverse("user-promote", args=[self.target_user.id])
+        self.assertIn(f'action="{promote_url}"', content)
+        self.assertNotIn(f'href="{promote_url}"', content)
+
+    def test_demote_rendered_as_form(self):
+        """Demote action should be a POST form, not a GET link."""
+        self.target_user.profile.is_super_admin = True
+        self.target_user.profile.is_approved = True
+        self.target_user.profile.save()
+        content = self._get_page_content()
+        demote_url = reverse("user-demote", args=[self.target_user.id])
+        self.assertIn(f'action="{demote_url}"', content)
+        self.assertNotIn(f'href="{demote_url}"', content)
+
+    def test_approve_via_post_works(self):
+        """POST to approve should succeed (302), not 405."""
+        url = reverse("user-approve", args=[self.target_user.id])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_revoke_via_post_works(self):
+        """POST to revoke should succeed (302), not 405."""
+        self.target_user.profile.is_approved = True
+        self.target_user.profile.save()
+        url = reverse("user-revoke-approval", args=[self.target_user.id])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_promote_via_post_works(self):
+        """POST to promote should succeed (302), not 405."""
+        url = reverse("user-promote", args=[self.target_user.id])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_demote_via_post_works(self):
+        """POST to demote should succeed (302), not 405."""
+        self.target_user.profile.is_super_admin = True
+        self.target_user.profile.is_approved = True
+        self.target_user.profile.save()
+        self.target_user.is_staff = True
+        self.target_user.is_superuser = True
+        self.target_user.save()
+        url = reverse("user-demote", args=[self.target_user.id])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 302)
+
+
 class ArticleVoiceSettingsHttpMethodTest(HttpMethodRestrictionTestBase):
     """Tests for article_voice_settings view HTTP method restrictions."""
 
