@@ -17,8 +17,9 @@ from text_to_audio.utils import (
 class UrlUtilsTests(TestCase):
     """Test URL processing utility functions."""
 
+    @patch("text_to_audio.validators.validate_url_not_ssrf")
     @patch("text_to_audio.utils.requests.get")
-    def test_fetch_url_content_success(self, mock_get):
+    def test_fetch_url_content_success(self, mock_get, mock_ssrf):
         """Test fetching URL content successfully."""
         # Setup mock response
         mock_response = MagicMock()
@@ -35,11 +36,15 @@ class UrlUtilsTests(TestCase):
         self.assertTrue(success)
         self.assertEqual(content, mock_response.text)
         self.assertIsNone(error)
-        mock_get.assert_called_once_with("https://example.com", timeout=10)
+        # AIDEV-NOTE: allow_redirects=False because _fetch_with_safe_redirects handles redirects manually (#190)
+        mock_get.assert_called_once_with(
+            "https://example.com", timeout=10, allow_redirects=False
+        )
 
+    @patch("text_to_audio.validators.validate_url_not_ssrf")
     @patch("text_to_audio.utils.requests.get")
     @patch("text_to_audio.utils.requests.RequestException", new=Exception)
-    def test_fetch_url_content_failure(self, mock_get):
+    def test_fetch_url_content_failure(self, mock_get, mock_ssrf):
         """Test handling of a failed URL fetch."""
         # Setup mock to return a proper exception that's handled
         mock_get.side_effect = requests.RequestException("Connection error")
@@ -53,7 +58,9 @@ class UrlUtilsTests(TestCase):
         self.assertIsNotNone(error)
         if error:
             self.assertIn("Error fetching URL", error)
-        mock_get.assert_called_once_with("https://example.com", timeout=10)
+        mock_get.assert_called_once_with(
+            "https://example.com", timeout=10, allow_redirects=False
+        )
 
     def test_extract_article_text_success(self):
         """Test extracting article text from HTML content."""

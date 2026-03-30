@@ -450,7 +450,7 @@ class FeedArticleListView(LoginRequiredMixin, ListView):
         # AIDEV-NOTE: select_related avoids N+1 for get_display_voice_name() in template
         return Article.objects.filter(
             feed__pk=feed_id, feed__user=self.request.user
-        ).select_related("voice_preset").order_by("-created_at")
+        ).select_related("feed", "voice_preset").order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         """Add feed information to context."""
