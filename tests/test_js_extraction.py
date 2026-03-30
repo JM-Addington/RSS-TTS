@@ -36,6 +36,14 @@ class TestStaticJSFilesExist(TestCase):
         path = os.path.join(self.STATIC_JS_DIR, "cost_analytics.js")
         self.assertTrue(os.path.isfile(path), f"Missing {path}")
 
+    def test_clipboard_utils_js_exists(self):
+        path = os.path.join(self.STATIC_JS_DIR, "clipboard_utils.js")
+        self.assertTrue(os.path.isfile(path), f"Missing {path}")
+
+    def test_provider_filter_js_exists(self):
+        path = os.path.join(self.STATIC_JS_DIR, "provider_filter.js")
+        self.assertTrue(os.path.isfile(path), f"Missing {path}")
+
 
 class TestArticleListJSExtraction(TestCase):
     """Verify article_list.html references external JS and passes data via data-* attrs."""

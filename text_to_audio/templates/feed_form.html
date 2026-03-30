@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n static %}
 {% load widget_tweaks %}
 
 {% block title %}{% if form.instance.pk %}{% trans "Edit Feed" %}{% else %}{% trans "Create New Feed" %}{% endif %}{% endblock %}
@@ -113,55 +113,9 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Filter voice presets based on selected TTS provider
-    const presetSelect = document.querySelector('#{{ form.default_voice_preset.id_for_label }}');
-    const providerSelect = document.querySelector('#{{ form.tts_provider.id_for_label }}');
-
-    if (presetSelect && providerSelect) {
-        // Tag all preset options with their provider (based on voice in label)
-        Array.from(presetSelect.options).forEach(option => {
-            if (option.value && option.text) {
-                // Extract voice from preset label (e.g., "Preset Name (voice_id, 1.0x)")
-                const voiceMatch = option.text.match(/\(([^,]+),/);
-                if (voiceMatch) {
-                    const voiceId = voiceMatch[1].trim();
-                    option.dataset.provider = voiceId.startsWith('en-US-') ? 'google' : 'openai';
-                }
-            }
-        });
-
-        // Function to filter presets based on selected provider
-        function filterPresets() {
-            const selectedProvider = providerSelect.value;
-
-            Array.from(presetSelect.options).forEach(option => {
-                if (!option.value) {
-                    // Keep empty option visible
-                    option.style.display = '';
-                } else if (!selectedProvider) {
-                    // No provider selected - show all presets
-                    option.style.display = '';
-                } else {
-                    // Show only presets matching the selected provider
-                    option.style.display = option.dataset.provider === selectedProvider ? '' : 'none';
-                }
-            });
-
-            // If current selection is now hidden, reset
-            const currentPreset = presetSelect.options[presetSelect.selectedIndex];
-            if (currentPreset && currentPreset.style.display === 'none') {
-                presetSelect.value = '';
-            }
-        }
-
-        // Filter on provider change
-        providerSelect.addEventListener('change', filterPresets);
-
-        // Initial filter on page load
-        filterPresets();
-    }
-});
-</script>
+<div data-provider-filter
+     data-provider-select="#{{ form.tts_provider.id_for_label }}"
+     data-preset-select="#{{ form.default_voice_preset.id_for_label }}">
+</div>
+<script src="{% static 'text_to_audio/js/provider_filter.js' %}"></script>
 {% endblock %}

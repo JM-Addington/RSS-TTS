@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n static %}
 {% load duration_filters %}
 
 {% block title %}{% trans "My Feeds" %}{% endblock %}
@@ -32,7 +32,7 @@
                                         <label class="form-label small text-muted">{% trans "RSS Feed URL:" %}</label>
                                         <div class="input-group input-group-sm">
                                             <input type="text" class="form-control" value="{{ feed.rss_url }}" readonly id="rss-url-{{ feed.id }}">
-                                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('rss-url-{{ feed.id }}')">
+                                            <button class="btn btn-outline-secondary" type="button" data-clipboard-target="rss-url-{{ feed.id }}">
                                                 <i class="bi bi-clipboard"></i> {% trans "Copy" %}
                                             </button>
                                         </div>
@@ -45,7 +45,7 @@
                                         </label>
                                         <div class="input-group input-group-sm">
                                             <input type="text" class="form-control" value="{{ feed.inbound_email }}" readonly id="email-{{ feed.id }}" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
-                                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('email-{{ feed.id }}')">
+                                            <button class="btn btn-outline-secondary" type="button" data-clipboard-target="email-{{ feed.id }}">
                                                 <i class="bi bi-clipboard"></i> {% trans "Copy" %}
                                             </button>
                                         </div>
@@ -99,29 +99,5 @@
     </div>
 </div>
 
-<script>
-function copyToClipboard(inputId) {
-    const input = document.getElementById(inputId);
-    input.select();
-    input.setSelectionRange(0, 99999); // For mobile devices
-
-    try {
-        document.execCommand('copy');
-        // Show success feedback
-        const button = input.nextElementSibling;
-        const originalHTML = button.innerHTML;
-        button.innerHTML = '<i class="bi bi-check"></i> Copied!';
-        button.classList.remove('btn-outline-secondary');
-        button.classList.add('btn-success');
-
-        setTimeout(() => {
-            button.innerHTML = originalHTML;
-            button.classList.remove('btn-success');
-            button.classList.add('btn-outline-secondary');
-        }, 2000);
-    } catch (err) {
-        console.error('Failed to copy text: ', err);
-    }
-}
-</script>
+<script src="{% static 'text_to_audio/js/clipboard_utils.js' %}"></script>
 {% endblock %}
