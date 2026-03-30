@@ -2,3 +2,23 @@
 tr.now-playing {
     background-color: rgba(25, 135, 84, 0.1) !important;
 }
+
+/* AIDEV-NOTE: Extracted from inline style= attributes in article_list.html (issue #234) */
+.source-url-link {
+    max-width: 200px;
+}
+
+#audioPlayerContainer {
+    position: sticky;
+    bottom: 0;
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-top: 1px solid #dee2e6;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    display: none;
+    z-index: 1000;
+}
+
+#audioPlayer {
+    width: 100%;
+}

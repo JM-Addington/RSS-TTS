@@ -451,7 +451,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
-                <form method="post" action="{% url 'migrate-env-to-config' %}" style="display: inline;">
+                <form method="post" action="{% url 'migrate-env-to-config' %}" class="d-inline">
                     {% csrf_token %}
                     <input type="hidden" name="force" value="0" id="forceInput">
                     <button type="submit" class="btn btn-primary" onclick="document.getElementById('forceInput').value = document.getElementById('forceOverride').checked ? '1' : '0'">

@@ -157,7 +157,7 @@
                         </td>
                         <td>
                             {% if article.source_url %}
-                                <a href="{{ article.source_url }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ article.source_url }}">
+                                <a href="{{ article.source_url }}" target="_blank" class="text-truncate d-inline-block source-url-link" title="{{ article.source_url }}">
                                     {{ article.source_url|truncatechars:30 }}
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
@@ -301,8 +301,8 @@
     {% endif %}
 </div>
 
-<div id="audioPlayerContainer" style="position: sticky; bottom: 0; background-color: #f8f9fa; padding: 10px; border-top: 1px solid #dee2e6; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); display: none; z-index: 1000;">
-    <audio id="audioPlayer" controls style="width: 100%;"></audio>
+<div id="audioPlayerContainer">
+    <audio id="audioPlayer" controls></audio>
     <div id="nowPlayingInfo" class="text-center mt-2 small">{% trans "Now playing:" %} <span id="nowPlayingTitle"></span></div>
 </div>
 
@@ -311,7 +311,7 @@
 {% block extra_js %}
 {% if feed %}
 {# AIDEV-NOTE: js-config passes Django URL templates and feed data to external article_list.js #}
-<div id="js-config" style="display:none"
+<div id="js-config" class="d-none"
      data-csrf-token="{{ csrf_token }}"
      data-media-url="{% url 'article-media' '00000000-0000-0000-0000-000000000000' %}"
      data-voice-settings-url="{% url 'article_voice_settings' 0 %}"

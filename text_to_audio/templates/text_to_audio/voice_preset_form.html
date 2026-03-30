@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}
     {% if is_create %}{% trans "Create Voice Preset" %}{% else %}{% trans "Edit Voice Preset" %}{% endif %}
@@ -146,40 +146,12 @@
 {% endblock %}
 
 {% block extra_css %}
-<style>
-    /* Style form elements */
-    input[type="text"], textarea, select {
-        width: 100%;
-        padding: 0.375rem 0.75rem;
-        font-size: 1rem;
-        line-height: 1.5;
-        color: #212529;
-        background-color: #fff;
-        border: 1px solid #ced4da;
-        border-radius: 0.25rem;
-    }
-    textarea {
-        min-height: 100px;
-    }
-    .card {
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-    }
-    .card-header {
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-        padding: 0.75rem 1rem;
-    }
-    .card-body {
-        padding: 1rem;
-    }
-</style>
+<link rel="stylesheet" href="{% static 'text_to_audio/css/voice_preset_form.css' %}">
 {% endblock %}
 
 {% block extra_js %}
-{% load static %}
 {# AIDEV-NOTE: js-config passes Django URL and form field IDs to external voice_preset_form.js #}
-<div id="js-config" style="display:none"
+<div id="js-config" class="d-none"
      data-test-url="{% url 'voice_preset_test' %}"
      data-voice-id-field="{{ form.voice_id.id_for_label }}"
      data-speed-field="{{ form.speed.id_for_label }}"
