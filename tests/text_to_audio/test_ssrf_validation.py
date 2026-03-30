@@ -162,3 +162,64 @@ class TestSSRFValidatorEdgeCases(TestCase):
     def test_ipv4_mapped_ipv6(self):
         with self.assertRaises(ValidationError):
             self._validate("http://[::ffff:127.0.0.1]/")
+
+
+class TestFormSSRFValidation(TestCase):
+    """Test that ArticleSubmissionForm rejects SSRF URLs at the form validation layer.
+
+    AIDEV-NOTE: Ensures form-level SSRF check catches bad URLs before object creation (#190)
+    """
+
+    def _build_form_data(self, source_url):
+        """Build minimal form data with a source_url."""
+        return {
+            "source_url": source_url,
+            "text_content": "",
+            "title": "",
+            "tts_provider": "",
+            "voice_id": "",
+            "speed": "",
+            "voice_preset": "",
+        }
+
+    def _make_form(self, source_url):
+        from text_to_audio.forms import ArticleSubmissionForm
+
+        return ArticleSubmissionForm(data=self._build_form_data(source_url), user=None)
+
+    def test_form_rejects_ssrf_url(self):
+        """AWS metadata endpoint should be rejected at form validation."""
+        form = self._make_form("http://169.254.169.254/latest/meta-data/")
+        self.assertFalse(form.is_valid())
+        self.assertIn("source_url", form.errors)
+
+    def test_form_rejects_localhost_url(self):
+        """Localhost URLs should be rejected at form validation."""
+        form = self._make_form("http://localhost/path")
+        self.assertFalse(form.is_valid())
+        self.assertIn("source_url", form.errors)
+
+    def test_form_rejects_private_ip(self):
+        """Private IP URLs should be rejected at form validation."""
+        form = self._make_form("http://10.0.0.1/secret")
+        self.assertFalse(form.is_valid())
+        self.assertIn("source_url", form.errors)
+
+    def test_form_accepts_public_url(self):
+        """Public URLs should pass SSRF validation (may fail on other fields)."""
+        fake_result = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
+        ]
+        with patch("socket.getaddrinfo", return_value=fake_result):
+            form = self._make_form("https://example.com/article")
+            # Form may be invalid for other reasons (model fields), but
+            # source_url should NOT have SSRF errors
+            form.is_valid()
+            source_url_errors = form.errors.get("source_url", [])
+            ssrf_errors = [
+                e for e in source_url_errors
+                if "private" in str(e).lower()
+                or "internal" in str(e).lower()
+                or "not allowed" in str(e).lower()
+            ]
+            self.assertEqual(ssrf_errors, [])

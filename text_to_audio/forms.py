@@ -99,6 +99,16 @@ class ArticleSubmissionForm(forms.ModelForm):
         text_content = cleaned_data.get("text_content", "")
         document_file = cleaned_data.get("document_file")
 
+        # AIDEV-NOTE: SSRF check at form level prevents object creation for bad URLs (#190)
+        if source_url:
+            from text_to_audio.validators import validate_url_not_ssrf
+
+            try:
+                validate_url_not_ssrf(source_url)
+            except ValidationError as e:
+                self.add_error("source_url", e)
+                return cleaned_data
+
         # Ensure that exactly one of source_url, text_content, or document_file is provided.
         provided_fields = [source_url, text_content, document_file]
         if sum(bool(field) for field in provided_fields) != 1:
