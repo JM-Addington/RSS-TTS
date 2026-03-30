@@ -101,6 +101,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "text_to_audio.middleware.RateLimitMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -175,6 +176,18 @@ else:
 
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_TASK_ALWAYS_EAGER = False
+
+# Cache configuration — uses Redis for distributed rate limiting
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ.get("REDIS_URL", CELERY_BROKER_URL),
+    }
+}
+
+# Rate limiting settings (django-ratelimit)
+# AIDEV-NOTE: rate limits on TTS endpoints to prevent API quota exhaustion (issue #200)
+RATELIMIT_USE_CACHE = "default"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
