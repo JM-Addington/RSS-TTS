@@ -31,6 +31,14 @@
                     <form method="post">
                         {% csrf_token %}
 
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
                         {% include "includes/_form_field.html" with field=form.tts_provider %}
                         {% include "includes/_form_field.html" with field=form.voice_id %}
                         {% include "includes/_form_field.html" with field=form.speed %}

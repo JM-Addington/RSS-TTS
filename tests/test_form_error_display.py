@@ -5,10 +5,14 @@ and 'alert alert-danger' for non-field errors. No template should use
 'text-danger' for field error display.
 
 AIDEV-NOTE: These tests enforce the standard error display pattern from issue #233.
+AIDEV-NOTE: Non-field error tests added for issue #226 — all 7 missing templates.
 """
 
 # mypy: disable-error-code="attr-defined"
 
+import os
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
@@ -118,6 +122,20 @@ class TestUserFormErrorDisplay(TestCase):
         content = response.content.decode()
         self.assertIn("invalid-feedback d-block", content)
 
+    def test_non_field_errors_rendered(self):
+        """Template should contain non_field_errors display block."""
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "accounts",
+            "templates",
+            "accounts",
+            "user_form.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn("form.non_field_errors", content)
+        self.assertIn("alert alert-danger", content)
+
 
 class TestFeedFormErrorDisplay(TestCase):
     """Feed form should use invalid-feedback d-block for all field errors."""
@@ -205,6 +223,35 @@ class TestArticleFormErrorDisplay(TestCase):
         self.assertNotIn("text-danger", content)
         self.assertIn("invalid-feedback d-block", content)
 
+    def test_non_field_errors_rendered(self):
+        """Submitting both URL and text should show non_field_errors in alert-danger."""
+        response = self.client.post(
+            f"/feeds/{self.feed.pk}/add/",
+            {
+                "title": "Test",
+                "source_url": "http://example.com/article",
+                "text_content": "Some pasted text content",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("alert alert-danger", content)
+        self.assertIn(
+            "You must provide exactly one of", content
+        )
+
+    def test_template_has_non_field_errors_block(self):
+        """Article form template should have explicit non_field_errors display."""
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "text_to_audio",
+            "templates",
+            "article_form.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn("form.non_field_errors", content)
+
 
 class TestVoicePresetFormErrorDisplay(TestCase):
     """Voice preset form should use invalid-feedback d-block for field errors."""
@@ -262,6 +309,20 @@ class TestVoiceSampleFormErrorDisplay(TestCase):
         content = response.content.decode()
         self.assertNotIn("text-danger", content)
 
+    def test_non_field_errors_rendered(self):
+        """Template should contain non_field_errors display block."""
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "text_to_audio",
+            "templates",
+            "text_to_audio",
+            "voice_sample_form.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn("form.non_field_errors", content)
+        self.assertIn("alert alert-danger", content)
+
 
 class TestVoicePreferencesErrorDisplay(TestCase):
     """Voice preferences form should iterate errors, not render raw."""
@@ -301,6 +362,20 @@ class TestVoicePreferencesErrorDisplay(TestCase):
             or '_form_field.html' in content,
             "Template should use _form_field.html partial or inline error iteration",
         )
+
+    def test_non_field_errors_rendered(self):
+        """Template should contain non_field_errors display block."""
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "text_to_audio",
+            "templates",
+            "text_to_audio",
+            "voice_preferences.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn("form.non_field_errors", content)
+        self.assertIn("alert alert-danger", content)
 
 
 class TestArticleVoiceSettingsErrorDisplay(TestCase):
@@ -351,6 +426,20 @@ class TestArticleVoiceSettingsErrorDisplay(TestCase):
             "Template should use _form_field.html partial or inline error iteration",
         )
 
+    def test_non_field_errors_rendered(self):
+        """Template should contain non_field_errors display block."""
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "text_to_audio",
+            "templates",
+            "text_to_audio",
+            "article_voice_settings.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn("form.non_field_errors", content)
+        self.assertIn("alert alert-danger", content)
+
 
 class TestGlobalConfigErrorDisplay(TestCase):
     """Global config form should have field error display."""
@@ -388,6 +477,20 @@ class TestGlobalConfigErrorDisplay(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
         self.assertIn("invalid-feedback", content)
+
+    def test_non_field_errors_rendered(self):
+        """Template should contain non_field_errors display block."""
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "accounts",
+            "templates",
+            "accounts",
+            "global_config.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn("form.non_field_errors", content)
+        self.assertIn("alert alert-danger", content)
 
 
 class TestFollowedFeedFormErrorDisplay(TestCase):
@@ -496,3 +599,35 @@ class TestFormFieldPartialTemplate(TestCase):
         with open(template_path) as f:
             content = f.read()
         self.assertIn("help_text", content)
+
+
+class TestArticleDetailErrorDisplay(TestCase):
+    """Article detail form should display non_field_errors."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="detailuser", password="pass123"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="DetailFeed")
+        self.article = Article.objects.create(
+            feed=self.feed,
+            title="Test Article",
+            text_content="content",
+            status=Article.COMPLETED,
+        )
+        self.client.login(username="detailuser", password="pass123")
+
+    def test_non_field_errors_rendered(self):
+        """Template should contain non_field_errors display block."""
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "text_to_audio",
+            "templates",
+            "text_to_audio",
+            "article_detail.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn("form.non_field_errors", content)
+        self.assertIn("alert alert-danger", content)

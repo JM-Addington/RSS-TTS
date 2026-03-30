@@ -47,6 +47,14 @@
             <form method="post">
                 {% csrf_token %}
 
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
                 <!-- OpenAI Configuration -->
                 <div class="card mb-4">
                     <div class="card-header">
