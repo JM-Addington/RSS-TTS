@@ -13,7 +13,7 @@ from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 from accounts.models_profile import UserProfile
 from appconfig.models import GlobalConfig
 
-from .forms import CustomUserCreationForm
+from .forms import AdminPasswordResetForm, CustomUserCreationForm
 
 # User is now imported directly from django.contrib.auth.models
 
@@ -112,35 +112,20 @@ def user_reset_password(request, user_id):
     user = get_object_or_404(User, id=user_id)
 
     if request.method == "POST":
-        new_password = request.POST.get("new_password")
-        confirm_password = request.POST.get("confirm_password")
-
-        if not new_password or not confirm_password:
-            messages.error(request, "Both password fields are required.")
-            return render(
-                request, "accounts/user_reset_password.html", {"target_user": user}
+        form = AdminPasswordResetForm(request.POST, user=user)
+        if form.is_valid():
+            user.set_password(form.cleaned_data["new_password"])
+            user.save()
+            messages.success(
+                request, f'Password reset successfully for user "{user.username}".'
             )
+            return redirect("user-management")
+    else:
+        form = AdminPasswordResetForm(user=user)
 
-        if new_password != confirm_password:
-            messages.error(request, "Passwords do not match.")
-            return render(
-                request, "accounts/user_reset_password.html", {"target_user": user}
-            )
-
-        if len(new_password) < 8:
-            messages.error(request, "Password must be at least 8 characters long.")
-            return render(
-                request, "accounts/user_reset_password.html", {"target_user": user}
-            )
-
-        user.set_password(new_password)
-        user.save()
-        messages.success(
-            request, f'Password reset successfully for user "{user.username}".'
-        )
-        return redirect("user-management")
-
-    return render(request, "accounts/user_reset_password.html", {"target_user": user})
+    return render(
+        request, "accounts/user_reset_password.html", {"target_user": user, "form": form}
+    )
 
 
 @login_required

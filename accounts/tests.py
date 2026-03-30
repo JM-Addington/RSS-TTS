@@ -557,6 +557,119 @@ class TestSignupFormPasswordHelpText(TestCase):
         self.assertIn("character", help_text.lower())
 
 
+@override_settings(
+    MIDDLEWARE=[
+        "django.middleware.security.SecurityMiddleware",
+        "django.contrib.sessions.middleware.SessionMiddleware",
+        "django.middleware.common.CommonMiddleware",
+        "django.middleware.csrf.CsrfViewMiddleware",
+        "django.contrib.auth.middleware.AuthenticationMiddleware",
+        "django.contrib.messages.middleware.MessageMiddleware",
+        "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    ]
+)
+class TestUserResetPasswordValidation(TestCase):
+    """Test that user_reset_password uses Django's validate_password."""
+
+    def setUp(self):
+        self.client = Client()
+        self.super_admin = User.objects.create_user(
+            username="admin", email="admin@example.com", password="testpass123"
+        )
+        self.target_user = User.objects.create_user(
+            username="targetuser", email="target@example.com", password="oldpass123"
+        )
+        self.client.login(username="admin", password="testpass123")
+        self.url = reverse("user-reset-password", args=[self.target_user.id])
+
+    def test_mismatched_passwords_rejected(self):
+        """Submit mismatched passwords, expect form error."""
+        response = self.client.post(
+            self.url,
+            {"new_password": "StrongPass!99", "confirm_password": "DifferentPass!99"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Passwords do not match")
+
+    def test_empty_passwords_rejected(self):
+        """Submit blank fields, expect form error."""
+        response = self.client.post(
+            self.url, {"new_password": "", "confirm_password": ""}
+        )
+        self.assertEqual(response.status_code, 200)
+        # Form should show required field errors
+        self.assertContains(response, "This field is required")
+
+    def test_common_password_rejected(self):
+        """Submit a common password, expect CommonPasswordValidator error."""
+        response = self.client.post(
+            self.url,
+            {"new_password": "password", "confirm_password": "password"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "too common")
+
+    def test_numeric_only_password_rejected(self):
+        """Submit numeric-only password, expect NumericPasswordValidator error."""
+        response = self.client.post(
+            self.url,
+            {"new_password": "48293756102948", "confirm_password": "48293756102948"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "entirely numeric")
+
+    def test_short_password_rejected(self):
+        """Submit short password, expect MinimumLengthValidator error."""
+        response = self.client.post(
+            self.url, {"new_password": "abc", "confirm_password": "abc"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "at least 8 characters")
+
+    def test_similar_to_username_password_rejected(self):
+        """Submit password matching target user's username, expect similarity error."""
+        response = self.client.post(
+            self.url,
+            {"new_password": "targetuser", "confirm_password": "targetuser"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "too similar")
+
+    def test_valid_password_succeeds(self):
+        """Submit a strong password, expect redirect + password changed."""
+        response = self.client.post(
+            self.url,
+            {"new_password": "X#kq9!mZ&vR2", "confirm_password": "X#kq9!mZ&vR2"},
+        )
+        self.assertRedirects(response, reverse("user-management"))
+        self.target_user.refresh_from_db()
+        self.assertTrue(self.target_user.check_password("X#kq9!mZ&vR2"))
+
+    def test_valid_password_shows_success_message(self):
+        """Successful reset should show a success message."""
+        response = self.client.post(
+            self.url,
+            {"new_password": "X#kq9!mZ&vR2", "confirm_password": "X#kq9!mZ&vR2"},
+            follow=True,
+        )
+        messages_list = list(get_messages(response.wsgi_request))
+        self.assertTrue(
+            any("reset successfully" in str(m) for m in messages_list)
+        )
+
+    def test_password_help_text_displayed(self):
+        """GET request should show password requirements help text."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "at least 8 characters")
+
+    def test_non_admin_cannot_access(self):
+        """Non-admin user should get 403."""
+        self.client.login(username="targetuser", password="oldpass123")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 403)
+
+
 class TestUserConfirmDeleteTemplate(TestCase):
     """Test that user_confirm_delete.html renders correctly with missing fields."""
 
