@@ -81,7 +81,9 @@ class VoicePresetTestRateLimitTest(TestCase):
 
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(username="ratelimituser", password="testpass")
+        self.user = User.objects.create_user(
+            username="ratelimituser", password="testpass"
+        )
         self.client.login(username="ratelimituser", password="testpass")
         # Clear rate limit cache between tests
         from django.core.cache import cache

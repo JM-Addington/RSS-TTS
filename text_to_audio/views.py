@@ -11,7 +11,6 @@ import uuid
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django_ratelimit.decorators import ratelimit
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import (
     FileResponse,
@@ -29,6 +28,7 @@ from django.views.generic import (
     TemplateView,
     UpdateView,
 )
+from django_ratelimit.decorators import ratelimit
 
 from accounts.forms import CustomUserCreationForm
 from appconfig.utils import get_site_url
