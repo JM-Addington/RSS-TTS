@@ -14,6 +14,10 @@ from .tasks import process_incoming_email
 
 logger = logging.getLogger(__name__)
 
+# AIDEV-NOTE: defense-in-depth — Mailgun enforces ~25MB upstream, but we cap at 10MB
+# to limit memory use (base64 adds ~33% overhead) and match forms.py MAX_UPLOAD_SIZE.
+MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10MB
+
 
 @csrf_exempt
 @require_POST
@@ -72,6 +76,14 @@ def mailgun_incoming_webhook(request):
             attachment_key = f"attachment-{i}"
             if attachment_key in request.FILES:
                 file_obj = request.FILES[attachment_key]
+                if file_obj.size > MAX_ATTACHMENT_SIZE:
+                    logger.warning(
+                        "Skipping oversized attachment '%s' (%d bytes, limit %d bytes)",
+                        file_obj.name,
+                        file_obj.size,
+                        MAX_ATTACHMENT_SIZE,
+                    )
+                    continue
                 file_obj.seek(0)
                 file_bytes = file_obj.read()
                 attachments_data.append(

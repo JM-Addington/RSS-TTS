@@ -172,6 +172,173 @@ class MailgunWebhookTestCase(TestCase):
         self.assertEqual(decoded_data, pdf_content)
 
 
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_webhook_rejects_oversized_attachment(
+        self, mock_delay, mock_mailgun_service
+    ):
+        """Test that webhook skips attachments exceeding 10MB."""
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        # Create an oversized attachment (10MB + 1 byte)
+        oversized_content = b"x" * (10 * 1024 * 1024 + 1)
+        oversized_file = SimpleUploadedFile(
+            "huge.pdf",
+            oversized_content,
+            content_type="application/pdf",
+        )
+
+        response = self.client.post(
+            reverse("mailgun-incoming-webhook"),
+            {
+                "timestamp": "12345",
+                "token": "token",
+                "signature": "sig",
+                "recipient": "test-feed@mg.example.com",
+                "sender": "sender@example.com",
+                "subject": "Email with huge PDF",
+                "body-plain": "See attached.",
+                "attachment-count": "1",
+                "attachment-1": oversized_file,
+            },
+        )
+
+        # Webhook should still return 200 (valid request, just skip the file)
+        self.assertEqual(response.status_code, 200)
+
+        # Verify the oversized attachment was NOT included in the task payload
+        call_args = mock_delay.call_args[0][0]
+        self.assertEqual(len(call_args["attachments"]), 0)
+
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_webhook_accepts_attachment_at_size_limit(
+        self, mock_delay, mock_mailgun_service
+    ):
+        """Test that webhook accepts attachments exactly at the 10MB limit."""
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        # Create an attachment exactly at the limit (10MB)
+        limit_content = b"x" * (10 * 1024 * 1024)
+        limit_file = SimpleUploadedFile(
+            "exact.pdf",
+            limit_content,
+            content_type="application/pdf",
+        )
+
+        response = self.client.post(
+            reverse("mailgun-incoming-webhook"),
+            {
+                "timestamp": "12345",
+                "token": "token",
+                "signature": "sig",
+                "recipient": "test-feed@mg.example.com",
+                "sender": "sender@example.com",
+                "subject": "Email with exact limit PDF",
+                "body-plain": "See attached.",
+                "attachment-count": "1",
+                "attachment-1": limit_file,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        # Verify attachment was accepted
+        call_args = mock_delay.call_args[0][0]
+        self.assertEqual(len(call_args["attachments"]), 1)
+        self.assertEqual(call_args["attachments"][0]["filename"], "exact.pdf")
+
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_webhook_skips_oversized_but_keeps_valid_attachments(
+        self, mock_delay, mock_mailgun_service
+    ):
+        """Test that only oversized attachments are skipped; valid ones are kept."""
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        # One valid small attachment
+        small_content = b"small file content"
+        small_file = SimpleUploadedFile(
+            "small.txt",
+            small_content,
+            content_type="text/plain",
+        )
+        # One oversized attachment
+        oversized_content = b"x" * (10 * 1024 * 1024 + 1)
+        oversized_file = SimpleUploadedFile(
+            "huge.pdf",
+            oversized_content,
+            content_type="application/pdf",
+        )
+
+        response = self.client.post(
+            reverse("mailgun-incoming-webhook"),
+            {
+                "timestamp": "12345",
+                "token": "token",
+                "signature": "sig",
+                "recipient": "test-feed@mg.example.com",
+                "sender": "sender@example.com",
+                "subject": "Mixed attachments",
+                "body-plain": "See attached.",
+                "attachment-count": "2",
+                "attachment-1": small_file,
+                "attachment-2": oversized_file,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        # Only the small attachment should be included
+        call_args = mock_delay.call_args[0][0]
+        self.assertEqual(len(call_args["attachments"]), 1)
+        self.assertEqual(call_args["attachments"][0]["filename"], "small.txt")
+
+    @patch("text_to_audio.mailgun_views.MailgunService")
+    @patch("text_to_audio.mailgun_views.process_incoming_email.delay")
+    def test_webhook_logs_oversized_attachment(
+        self, mock_delay, mock_mailgun_service
+    ):
+        """Test that skipping an oversized attachment logs a warning."""
+        mock_instance = MagicMock()
+        mock_instance.verify_webhook_signature.return_value = True
+        mock_mailgun_service.return_value = mock_instance
+
+        oversized_content = b"x" * (10 * 1024 * 1024 + 1)
+        oversized_file = SimpleUploadedFile(
+            "huge.pdf",
+            oversized_content,
+            content_type="application/pdf",
+        )
+
+        with self.assertLogs("text_to_audio.mailgun_views", level="WARNING") as cm:
+            self.client.post(
+                reverse("mailgun-incoming-webhook"),
+                {
+                    "timestamp": "12345",
+                    "token": "token",
+                    "signature": "sig",
+                    "recipient": "test-feed@mg.example.com",
+                    "sender": "sender@example.com",
+                    "subject": "Oversized",
+                    "body-plain": "Content.",
+                    "attachment-count": "1",
+                    "attachment-1": oversized_file,
+                },
+            )
+
+        # Verify the warning log contains filename and size info
+        log_output = "\n".join(cm.output)
+        self.assertIn("huge.pdf", log_output)
+        self.assertIn("oversized", log_output.lower())
+
+
 class ProcessIncomingEmailTaskTestCase(TestCase):
     """Tests for the process_incoming_email Celery task."""
 
