@@ -383,6 +383,51 @@ class TestPlayButtonToggle(TestCase):
         self.assertContains(response, "text_to_audio/js/article_list.js")
 
 
+class TestArticleFormAccessibility(TestCase):
+    """Tests for accessibility of the article submission form."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = get_user_model().objects.create_user(
+            username="formuser", password="pass123"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="Form Feed")
+        self.client.login(username="formuser", password="pass123")
+
+    def test_voice_settings_fieldset_legend(self):
+        """Voice settings section should use fieldset/legend for screen readers."""
+        response = self.client.get(f"/feeds/{self.feed.pk}/add/")
+        self.assertEqual(response.status_code, 200)
+        soup = BeautifulSoup(response.content.decode(), "html.parser")
+
+        # Should have a fieldset
+        fieldset = soup.find("fieldset")
+        self.assertIsNotNone(fieldset, "Expected a <fieldset> in the article form")
+
+        # Fieldset should contain a legend with "Voice Settings"
+        legend = fieldset.find("legend")
+        self.assertIsNotNone(legend, "Expected a <legend> inside the fieldset")
+        self.assertIn("Voice Settings", legend.get_text())
+
+        # The old <h5> with "Voice Settings" should NOT exist
+        h5_tags = soup.find_all("h5")
+        for h5 in h5_tags:
+            self.assertNotIn(
+                "Voice Settings",
+                h5.get_text(),
+                "<h5> with 'Voice Settings' should be replaced by <legend>",
+            )
+
+        # Voice settings fields should be inside the fieldset
+        fieldset_html = str(fieldset)
+        for field_name in ["tts_provider", "voice_preset", "voice_id", "speed"]:
+            self.assertIn(
+                field_name,
+                fieldset_html,
+                f"Field '{field_name}' should be inside the fieldset",
+            )
+
+
 class TestArticleListAccessibility(TestCase):
     """Tests for accessibility of SVG icons and buttons in article_list.html."""
 

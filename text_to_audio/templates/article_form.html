@@ -98,7 +98,8 @@
             {% endif %}
           </div>
 
-          <h5 class="mt-4 mb-3">{% trans "Voice Settings" %}</h5>
+          <fieldset class="mt-4 border-0 p-0">
+          <legend class="h5 mb-3">{% trans "Voice Settings" %}</legend>
 
           <div class="mb-3">
             <label for="{{ form.tts_provider.id_for_label }}" class="form-label">{% trans "TTS Provider" %}</label>
@@ -159,6 +160,7 @@
               </div>
             </div>
           </div>
+          </fieldset>
 
           <div class="d-grid">
             <button type="submit" class="btn btn-primary">{% trans "Convert to Audio" %}</button>
