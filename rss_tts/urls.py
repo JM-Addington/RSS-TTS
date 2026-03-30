@@ -7,6 +7,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from accounts.forms import BootstrapAuthenticationForm
 from text_to_audio.permissions import IsStaffOrDebug
 from text_to_audio.api_views import (FeedArticleSubmitView,
                                      VoicePresetDetailView,
@@ -30,7 +31,7 @@ from text_to_audio.views import (ArticleCreateView, ArticleDeleteView,
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("accounts/login/", auth_views.LoginView.as_view(), name="login"),
+    path("accounts/login/", auth_views.LoginView.as_view(authentication_form=BootstrapAuthenticationForm), name="login"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("accounts/signup/", SignUpView.as_view(), name="signup"),
     path("accounts/", include("accounts.urls")),

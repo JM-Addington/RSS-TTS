@@ -195,6 +195,28 @@ class TestLoginView(TestCase):
         self.assertNotIn("_auth_user_id", self.client.session)
         self.assertContains(response, "Please enter a correct username and password")
 
+    def test_login_form_has_accessible_labels(self):
+        """Test that login form inputs have proper <label for> elements and Bootstrap classes."""
+        response = self.client.get("/accounts/login/")
+        content = response.content.decode()
+        # Explicit labels with for attribute
+        self.assertIn('<label for="id_username"', content)
+        self.assertIn('<label for="id_password"', content)
+        # Inputs with matching ids
+        self.assertIn('id="id_username"', content)
+        self.assertIn('id="id_password"', content)
+        # Bootstrap form-control class on inputs
+        self.assertContains(response, 'class="form-control"')
+
+    def test_login_form_shows_field_errors(self):
+        """Test that login form renders error messages on invalid POST."""
+        response = self.client.post(
+            "/accounts/login/",
+            {"username": "", "password": ""},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "This field is required.")
+
 
 class TestSignUpView(TestCase):
     """Tests for the user signup view."""
@@ -228,6 +250,35 @@ class TestSignUpView(TestCase):
         user = User.objects.get(username="newuser")
         self.assertTrue(user.is_superuser)
         self.assertTrue(user.is_staff)
+
+    def test_signup_form_has_accessible_labels(self):
+        """Test that signup form inputs have proper <label for> elements and Bootstrap classes."""
+        response = self.client.get("/accounts/signup/")
+        content = response.content.decode()
+        # Explicit labels with for attribute
+        self.assertIn('<label for="id_username"', content)
+        self.assertIn('<label for="id_password1"', content)
+        self.assertIn('<label for="id_password2"', content)
+        # Inputs with matching ids
+        self.assertIn('id="id_username"', content)
+        self.assertIn('id="id_password1"', content)
+        self.assertIn('id="id_password2"', content)
+        # Bootstrap form-control class on inputs
+        self.assertContains(response, 'class="form-control"')
+
+    def test_signup_form_shows_field_errors(self):
+        """Test that signup form renders error messages on invalid POST."""
+        response = self.client.post(
+            "/accounts/signup/",
+            {
+                "username": "newuser",
+                "password1": "short",
+                "password2": "mismatch",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        # Should show password mismatch error
+        self.assertContains(response, "password")
 
     def test_signup_disabled_when_user_exists(self):
         """Additional signups should redirect to login and not create users."""

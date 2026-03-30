@@ -4,7 +4,27 @@
 {% block content %}
 <form method="post">
   {% csrf_token %}
-  {{ form.as_p }}
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+      {% for error in form.non_field_errors %}
+        <p>{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="mb-3">
+    <label for="id_username" class="form-label">Username</label>
+    {{ form.username }}
+    {% for error in form.username.errors %}
+      <div class="text-danger">{{ error }}</div>
+    {% endfor %}
+  </div>
+  <div class="mb-3">
+    <label for="id_password" class="form-label">Password</label>
+    {{ form.password }}
+    {% for error in form.password.errors %}
+      <div class="text-danger">{{ error }}</div>
+    {% endfor %}
+  </div>
   <button type="submit" class="btn btn-primary">Login</button>
 </form>
 <p class="mt-3">Don't have an account? <a href="{% url 'signup' %}">Sign up</a>.</p>
