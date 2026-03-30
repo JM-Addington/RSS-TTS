@@ -178,13 +178,21 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/
 CELERY_TASK_ALWAYS_EAGER = False
 
 # Cache configuration (used by django-ratelimit for rate limiting)
-# AIDEV-NOTE: Uses same Redis instance as Celery broker; db 1 to avoid key collisions
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.environ.get("REDIS_CACHE_URL", "redis://localhost:6379/1"),
+# AIDEV-NOTE: Uses Redis when REDIS_CACHE_URL is set (Docker/prod), falls back to LocMemCache (CI/testing)
+REDIS_CACHE_URL = os.environ.get("REDIS_CACHE_URL", "")
+if REDIS_CACHE_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_CACHE_URL,
+        }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
 
 # django-ratelimit settings
 RATELIMIT_USE_CACHE = "default"

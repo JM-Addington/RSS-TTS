@@ -24,6 +24,7 @@ services:
     env_file: .env
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
     # Port mapping removed - now accessed through Caddy
     volumes:
       - ./data/sqlite-data:/app/data
@@ -48,6 +49,7 @@ services:
     env_file: .env
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
     volumes:
       - ./data/sqlite-data:/app/data
       - ./media:/app/media  # Bind mount for saving MP3 files
