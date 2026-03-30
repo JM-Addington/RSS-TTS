@@ -205,45 +205,6 @@ class UserManagementViewTests(TestCase):
         self.super_admin.refresh_from_db()
         self.assertTrue(self.super_admin.is_super_admin)
 
-    def test_concurrent_demote_preserves_last_super_admin(self):
-        """Two concurrent demotes with 2 super admins must leave at least 1."""
-        import threading
-
-        self.client.login(username="admin", password="testpass123")
-
-        # Make regular_user a super admin too (now 2 super admins)
-        self.regular_user.profile.is_super_admin = True
-        self.regular_user.profile.is_approved = True
-        self.regular_user.profile.save()
-        self.regular_user.is_staff = True
-        self.regular_user.is_superuser = True
-        self.regular_user.save()
-
-        results = []
-        barrier = threading.Barrier(2, timeout=5)
-
-        def demote_user(user_id):
-            c = Client()
-            c.login(username="admin", password="testpass123")
-            barrier.wait()
-            resp = c.get(reverse("user-demote", args=[user_id]))
-            results.append(resp.status_code)
-
-        t1 = threading.Thread(
-            target=demote_user, args=[self.super_admin.id]
-        )
-        t2 = threading.Thread(
-            target=demote_user, args=[self.regular_user.id]
-        )
-        t1.start()
-        t2.start()
-        t1.join(timeout=10)
-        t2.join(timeout=10)
-
-        # At least one super admin must remain
-        remaining = UserProfile.objects.filter(is_super_admin=True).count()
-        self.assertGreaterEqual(remaining, 1)
-
     def test_promote_uses_atomic_transaction(self):
         """If user.save() fails mid-promote, profile changes should roll back."""
         self.client.login(username="admin", password="testpass123")
@@ -398,6 +359,70 @@ class UserManagementViewTests(TestCase):
         self.assertIn('autocomplete="new-password"', content)
         # There should be exactly 2 occurrences (new_password and confirm_password)
         self.assertEqual(content.count('autocomplete="new-password"'), 2)
+
+
+@override_settings(
+    MIDDLEWARE=[
+        "django.middleware.security.SecurityMiddleware",
+        "django.contrib.sessions.middleware.SessionMiddleware",
+        "django.middleware.common.CommonMiddleware",
+        "django.middleware.csrf.CsrfViewMiddleware",
+        "django.contrib.auth.middleware.AuthenticationMiddleware",
+        "django.contrib.messages.middleware.MessageMiddleware",
+        "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    ]
+)
+class ConcurrentDemoteTests(TransactionTestCase):
+    """Test concurrent demotion requires TransactionTestCase for real DB concurrency."""
+
+    def setUp(self):
+        """Set up test data."""
+        self.client = Client()
+        self.super_admin = User.objects.create_user(
+            username="admin", email="admin@example.com", password="testpass123"
+        )
+        self.regular_user = User.objects.create_user(
+            username="regular", email="regular@example.com", password="testpass123"
+        )
+
+    def test_concurrent_demote_preserves_last_super_admin(self):
+        """Two concurrent demotes with 2 super admins must leave at least 1."""
+        import threading
+
+        self.client.login(username="admin", password="testpass123")
+
+        # Make regular_user a super admin too (now 2 super admins)
+        self.regular_user.profile.is_super_admin = True
+        self.regular_user.profile.is_approved = True
+        self.regular_user.profile.save()
+        self.regular_user.is_staff = True
+        self.regular_user.is_superuser = True
+        self.regular_user.save()
+
+        results = []
+        barrier = threading.Barrier(2, timeout=5)
+
+        def demote_user(user_id):
+            c = Client()
+            c.login(username="admin", password="testpass123")
+            barrier.wait()
+            resp = c.get(reverse("user-demote", args=[user_id]))
+            results.append(resp.status_code)
+
+        t1 = threading.Thread(
+            target=demote_user, args=[self.super_admin.id]
+        )
+        t2 = threading.Thread(
+            target=demote_user, args=[self.regular_user.id]
+        )
+        t1.start()
+        t2.start()
+        t1.join(timeout=10)
+        t2.join(timeout=10)
+
+        # At least one super admin must remain
+        remaining = UserProfile.objects.filter(is_super_admin=True).count()
+        self.assertGreaterEqual(remaining, 1)
 
 
 @override_settings(
