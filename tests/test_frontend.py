@@ -299,12 +299,15 @@ class TestSignUpView(TestCase):
         self.assertIn("&lt;script&gt;", html)
 
     def test_signup_password_help_text_displays_requirements(self):
-        """Password requirements should still be visible on the signup page."""
+        """Password requirements should be visible as readable text, not escaped HTML."""
         response = self.client.get("/accounts/signup/")
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
+        # Must NOT contain escaped HTML tags (sign of raw HTML in help_text)
+        self.assertNotIn("&lt;ul&gt;", content)
+        self.assertNotIn("&lt;li&gt;", content)
         # Django's default password validators produce text about requirements
-        self.assertIn("password", content.lower())
+        self.assertIn("character", content.lower())
 
     def test_signup_disabled_when_user_exists(self):
         """Additional signups should redirect to login and not create users."""

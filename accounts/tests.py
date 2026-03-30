@@ -431,6 +431,24 @@ class TestMigrateEnvToConfigForceParam(TestCase):
         self.assertEqual(self.config.openai_tts_voice, "existing_voice")
 
 
+class TestSignupFormPasswordHelpText(TestCase):
+    """Test that CustomUserCreationForm provides plain-text password help_text."""
+
+    def test_signup_form_password1_help_text_is_plain_text(self):
+        """password1.help_text must contain no HTML tags (plain text only)."""
+        from accounts.forms import CustomUserCreationForm
+
+        form = CustomUserCreationForm()
+        help_text = form.fields["password1"].help_text
+        # Must not contain HTML tags
+        self.assertNotIn("<ul>", help_text)
+        self.assertNotIn("<li>", help_text)
+        self.assertNotIn("<script>", help_text)
+        self.assertNotIn("</", help_text)
+        # Must still describe password requirements
+        self.assertIn("character", help_text.lower())
+
+
 class TestUserConfirmDeleteTemplate(TestCase):
     """Test that user_confirm_delete.html renders correctly with missing fields."""
 
