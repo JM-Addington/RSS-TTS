@@ -236,103 +236,14 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Cost Over Time Chart
-  const timeCtx = document.getElementById('costOverTimeChart');
-  if (timeCtx) {
-    const timeData = [
-      {% for item in costs_over_time %}
-      {
-        date: '{{ item.date|date:"Y-m-d" }}',
-        cost: {{ item.total|floatformat:6 }}
-      }{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ];
-
-    new Chart(timeCtx, {
-      type: 'line',
-      data: {
-        labels: timeData.map(d => d.date),
-        datasets: [{
-          label: 'Daily Cost ($)',
-          data: timeData.map(d => d.cost),
-          borderColor: 'rgb(13, 110, 253)',
-          backgroundColor: 'rgba(13, 110, 253, 0.1)',
-          fill: true,
-          tension: 0.3
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return '$' + value.toFixed(4);
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  // Provider Pie Chart
-  const providerCtx = document.getElementById('providerChart');
-  if (providerCtx) {
-    const providerData = [
-      {% for item in costs_by_provider %}
-      {
-        provider: '{{ item.provider }}',
-        cost: {{ item.total|floatformat:6 }}
-      }{% if not forloop.last %},{% endif %}
-      {% endfor %}
-    ];
-
-    if (providerData.length > 0) {
-      new Chart(providerCtx, {
-        type: 'doughnut',
-        data: {
-          labels: providerData.map(d => d.provider),
-          datasets: [{
-            data: providerData.map(d => d.cost),
-            backgroundColor: [
-              'rgb(13, 110, 253)',  // Blue for OpenAI
-              'rgb(25, 135, 84)',   // Green for Google
-            ],
-            borderWidth: 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom'
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return context.label + ': $' + context.raw.toFixed(4);
-                }
-              }
-            }
-          }
-        }
-      });
-    } else {
-      providerCtx.parentElement.innerHTML = '<p class="text-muted text-center">No provider data available</p>';
-    }
-  }
-});
+{% load static %}
+{# AIDEV-NOTE: Chart data passed as JSON block, read by external cost_analytics.js #}
+<script type="application/json" id="chart-data">
+{
+  "costsOverTime": [{% for item in costs_over_time %}{"date": "{{ item.date|date:'Y-m-d' }}", "cost": {{ item.total|floatformat:6 }}}{% if not forloop.last %},{% endif %}{% endfor %}],
+  "costsByProvider": [{% for item in costs_by_provider %}{"provider": "{{ item.provider }}", "cost": {{ item.total|floatformat:6 }}}{% if not forloop.last %},{% endif %}{% endfor %}]
+}
 </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{% static 'text_to_audio/js/cost_analytics.js' %}" defer></script>
 {% endblock %}

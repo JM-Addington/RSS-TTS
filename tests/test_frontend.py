@@ -321,10 +321,10 @@ class TestFeedArticleAutoUpdate(TestCase):
         )
 
     def test_article_list_contains_update_script(self):
-        """Verify update script and data attributes are in the HTML."""
+        """Verify external JS file is referenced and data attributes are in the HTML."""
         self.client.login(username="autoupdate", password="pass123")
         response = self.client.get(f"/feeds/{self.feed.pk}/")
-        self.assertContains(response, "updateArticleStatus")
+        self.assertContains(response, "text_to_audio/js/article_list.js")
         self.assertContains(response, "data-article-id")
         self.assertContains(response, "status-badge")
         self.assertContains(response, "action-cell")
@@ -350,7 +350,7 @@ class TestPlayButtonToggle(TestCase):
     def test_article_list_contains_pause_script(self):
         self.client.login(username="playuser", password="pass123")
         response = self.client.get(f"/feeds/{self.feed.pk}/")
-        self.assertContains(response, "audioPlayer.pause(")
+        self.assertContains(response, "text_to_audio/js/article_list.js")
 
 
 class TestArticleListAccessibility(TestCase):
