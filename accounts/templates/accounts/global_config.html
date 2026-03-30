@@ -451,10 +451,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
-                <form method="post" action="{% url 'migrate-env-to-config' %}" class="d-inline">
+                <form method="post" action="{% url 'migrate-env-to-config' %}" class="d-inline" id="migrationForm">
                     {% csrf_token %}
                     <input type="hidden" name="force" value="0" id="forceInput">
-                    <button type="submit" class="btn btn-primary" onclick="document.getElementById('forceInput').value = document.getElementById('forceOverride').checked ? '1' : '0'">
+                    <button type="submit" class="btn btn-primary">
                         {% trans "Migrate Settings" %}
                     </button>
                 </form>
@@ -463,4 +463,8 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'accounts/js/global_config.js' %}" defer></script>
 {% endblock %}

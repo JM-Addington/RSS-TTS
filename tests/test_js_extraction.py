@@ -24,6 +24,14 @@ class TestStaticJSFilesExist(TestCase):
         "js",
     )
 
+    ACCOUNTS_JS_DIR = os.path.join(
+        settings.BASE_DIR,
+        "accounts",
+        "static",
+        "accounts",
+        "js",
+    )
+
     def test_article_list_js_exists(self):
         path = os.path.join(self.STATIC_JS_DIR, "article_list.js")
         self.assertTrue(os.path.isfile(path), f"Missing {path}")
@@ -42,6 +50,10 @@ class TestStaticJSFilesExist(TestCase):
 
     def test_provider_filter_js_exists(self):
         path = os.path.join(self.STATIC_JS_DIR, "provider_filter.js")
+        self.assertTrue(os.path.isfile(path), f"Missing {path}")
+
+    def test_global_config_js_exists(self):
+        path = os.path.join(self.ACCOUNTS_JS_DIR, "global_config.js")
         self.assertTrue(os.path.isfile(path), f"Missing {path}")
 
 
@@ -178,3 +190,50 @@ class TestCostAnalyticsJSExtraction(TestCase):
                 20,
                 f"Inline script block has {len(lines)} lines (max 20):\n{block[:200]}...",
             )
+
+
+class TestGlobalConfigJSExtraction(TestCase):
+    """Verify global_config.html uses external JS instead of inline onclick."""
+
+    ACCOUNTS_JS_DIR = os.path.join(
+        settings.BASE_DIR,
+        "accounts",
+        "static",
+        "accounts",
+        "js",
+    )
+
+    TEMPLATE_PATH = os.path.join(
+        settings.BASE_DIR,
+        "accounts",
+        "templates",
+        "accounts",
+        "global_config.html",
+    )
+
+    def setUp(self):
+        self.client = Client()
+        self.user = get_user_model().objects.create_user(
+            username="gctest", password="pass123", is_superuser=True, is_staff=True
+        )
+        self.client.login(username="gctest", password="pass123")
+
+    def test_static_js_file_exists(self):
+        path = os.path.join(self.ACCOUNTS_JS_DIR, "global_config.js")
+        self.assertTrue(os.path.isfile(path), f"Missing {path}")
+
+    def test_template_references_external_js(self):
+        with open(self.TEMPLATE_PATH) as f:
+            content = f.read()
+        self.assertIn("accounts/js/global_config.js", content)
+
+    def test_no_inline_onclick_in_template(self):
+        with open(self.TEMPLATE_PATH) as f:
+            content = f.read()
+        self.assertNotIn("onclick=", content)
+
+    def test_js_file_has_addEventListener(self):
+        path = os.path.join(self.ACCOUNTS_JS_DIR, "global_config.js")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("addEventListener", content)
