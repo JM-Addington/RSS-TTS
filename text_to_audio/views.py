@@ -861,9 +861,9 @@ class ArticleDetailView(LoginRequiredMixin, View):
 
     def get(self, request, article_id):
         """Render the detail form with the article's data."""
-        # AIDEV-NOTE: select_related("feed") avoids N+1 when template accesses article.feed
+        # AIDEV-NOTE: select_related avoids N+1 for feed and voice_preset access
         article = get_object_or_404(
-            Article.objects.select_related("feed"),
+            Article.objects.select_related("feed", "voice_preset"),
             pk=article_id,
             feed__user=request.user,
         )
@@ -872,9 +872,9 @@ class ArticleDetailView(LoginRequiredMixin, View):
 
     def post(self, request, article_id):
         """Create a new article based on submitted data."""
-        # AIDEV-NOTE: select_related("feed") avoids N+1 when accessing original.feed
+        # AIDEV-NOTE: select_related avoids N+1 for feed and voice_preset access
         original = get_object_or_404(
-            Article.objects.select_related("feed"),
+            Article.objects.select_related("feed", "voice_preset"),
             pk=article_id,
             feed__user=request.user,
         )
