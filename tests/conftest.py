@@ -35,6 +35,16 @@ import pytest  # noqa: E402  # pylint: disable=wrong-import-position
 
 
 @pytest.fixture(autouse=True)
+def _use_locmem_cache(settings):
+    """Ensure all tests use LocMemCache regardless of environment."""
+    settings.CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+
+
+@pytest.fixture(autouse=True)
 def patch_openai(monkeypatch):
     """Autouse fixture to patch openai chat completion create methods."""
 
