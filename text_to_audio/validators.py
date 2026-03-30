@@ -25,14 +25,21 @@ ALLOWED_SCHEMES = frozenset({"http", "https"})
 # Additional IP networks to block beyond what ipaddress considers private/reserved.
 # Includes cloud metadata endpoints and CGNAT (RFC 6598) shared address space.
 EXTRA_BLOCKED_NETWORKS = [
-    ipaddress.ip_network("100.64.0.0/10"),   # RFC 6598 CGNAT / Alibaba metadata
-    ipaddress.ip_network("169.254.0.0/16"),   # Link-local (belt-and-suspenders)
+    ipaddress.ip_network("100.64.0.0/10"),  # RFC 6598 CGNAT / Alibaba metadata
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local (belt-and-suspenders)
 ]
 
 
 def _is_ip_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Check if an IP address is private, loopback, link-local, or otherwise blocked."""
-    if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+    if (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_reserved
+        or ip.is_multicast
+        or ip.is_unspecified
+    ):
         return True
 
     # Check against extra blocked networks (cloud metadata, CGNAT)
@@ -80,7 +87,9 @@ def validate_url_not_ssrf(url: str) -> None:
     try:
         ip = ipaddress.ip_address(hostname)
         if _is_ip_blocked(ip):
-            raise ValidationError("Access to private or internal network addresses is not allowed.")
+            raise ValidationError(
+                "Access to private or internal network addresses is not allowed."
+            )
         # It's a valid public IP literal — allow it
         return
     except ValueError:
@@ -89,7 +98,9 @@ def validate_url_not_ssrf(url: str) -> None:
 
     # 5. Resolve hostname and check all returned IPs
     try:
-        addrinfo = socket.getaddrinfo(hostname, parsed.port or 80, proto=socket.IPPROTO_TCP)
+        addrinfo = socket.getaddrinfo(
+            hostname, parsed.port or 80, proto=socket.IPPROTO_TCP
+        )
     except socket.gaierror:
         raise ValidationError(f"Could not resolve hostname: {hostname}")
 
@@ -101,7 +112,11 @@ def validate_url_not_ssrf(url: str) -> None:
         try:
             ip = ipaddress.ip_address(ip_str)
             if _is_ip_blocked(ip):
-                logger.warning("SSRF blocked: %s resolved to private IP %s", hostname, ip_str)
-                raise ValidationError("Access to private or internal network addresses is not allowed.")
+                logger.warning(
+                    "SSRF blocked: %s resolved to private IP %s", hostname, ip_str
+                )
+                raise ValidationError(
+                    "Access to private or internal network addresses is not allowed."
+                )
         except ValueError:
             continue

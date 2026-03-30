@@ -60,7 +60,6 @@ class TestProjectStructure(unittest.TestCase):
         compose_data = yaml.safe_load(compose_content)
         self.assertIn("redis", compose_data.get("services", {}))
 
-
     def test_dead_template_feed_form_improved_removed(self):
         """Verify that the dead template feed_form_improved.html does not exist."""
         self.assertFalse(

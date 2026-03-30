@@ -8,7 +8,10 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase
 
 from text_to_audio.services.gemini_tts_provider import (
-    GEMINI_TTS_MODELS, GEMINI_VOICE_NAMES, is_gemini_api_available)
+    GEMINI_TTS_MODELS,
+    GEMINI_VOICE_NAMES,
+    is_gemini_api_available,
+)
 
 
 class GeminiTTSProviderTest(TestCase):
@@ -63,8 +66,7 @@ class GeminiTTSProviderTest(TestCase):
         """Test GeminiTTSProvider raises ValueError if API key not configured."""
         # The import happens inside the class, so we need to mock at the module level
         # where it gets imported from
-        from text_to_audio.services.gemini_tts_provider import \
-            GeminiTTSProvider
+        from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
         with self.assertRaises(ValueError) as cm:
             GeminiTTSProvider()
@@ -80,8 +82,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="explicit-key")
 
@@ -97,8 +98,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider()
 
@@ -114,8 +114,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider()
 
@@ -143,8 +142,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
 
@@ -180,8 +178,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
 
@@ -223,8 +220,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
 
@@ -247,8 +243,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
 
@@ -277,8 +272,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
             provider.synthesize_speech(text="Test", voice_name="Kore")
@@ -306,8 +300,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
             provider.synthesize_speech(text="Test", voice_name="Kore", model="unknown")
@@ -337,8 +330,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
 
@@ -372,8 +364,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
 
@@ -404,8 +395,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
 
@@ -478,8 +468,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
 
@@ -512,8 +501,7 @@ class GeminiTTSProviderTest(TestCase):
         with patch.dict(
             sys.modules, {"google": mock_google, "google.genai": mock_genai}
         ):
-            from text_to_audio.services.gemini_tts_provider import \
-                GeminiTTSProvider
+            from text_to_audio.services.gemini_tts_provider import GeminiTTSProvider
 
             provider = GeminiTTSProvider(api_key="test-key")
 

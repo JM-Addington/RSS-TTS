@@ -8,35 +8,68 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from accounts.forms import BootstrapAuthenticationForm
-from text_to_audio.permissions import IsStaffOrDebug
-from text_to_audio.api_views import (FeedArticleSubmitView,
-                                     VoicePresetDetailView,
-                                     VoicePresetListView)
+from text_to_audio.api_views import (
+    FeedArticleSubmitView,
+    VoicePresetDetailView,
+    VoicePresetListView,
+)
 from text_to_audio.feeds import UserFeed
 from text_to_audio.mailgun_views import mailgun_incoming_webhook
-from text_to_audio.views import (ArticleCreateView, ArticleDeleteView,
-                                 ArticleDetailView, ArticleListView,
-                                 ArticleMediaView, CostAnalyticsView,
-                                 FeedArticleCreateView, FeedArticleListView,
-                                 FeedArticleStatusView, FeedCreateView,
-                                 FeedDeleteView, FeedListView, FeedUpdateView,
-                                 FollowedFeedCreateView,
-                                 FollowedFeedDeleteView, FollowedFeedListView,
-                                 FollowedFeedUpdateView, GenerateFeedEmailView,
-                                 HomeView, RegenerateArticleView, SignUpView,
-                                 article_voice_settings, voice_preferences,
-                                 voice_preset_create, voice_preset_delete,
-                                 voice_preset_edit, voice_preset_list,
-                                 voice_preset_sample, voice_preset_test)
+from text_to_audio.permissions import IsStaffOrDebug
+from text_to_audio.views import (
+    ArticleCreateView,
+    ArticleDeleteView,
+    ArticleDetailView,
+    ArticleListView,
+    ArticleMediaView,
+    CostAnalyticsView,
+    FeedArticleCreateView,
+    FeedArticleListView,
+    FeedArticleStatusView,
+    FeedCreateView,
+    FeedDeleteView,
+    FeedListView,
+    FeedUpdateView,
+    FollowedFeedCreateView,
+    FollowedFeedDeleteView,
+    FollowedFeedListView,
+    FollowedFeedUpdateView,
+    GenerateFeedEmailView,
+    HomeView,
+    RegenerateArticleView,
+    SignUpView,
+    article_voice_settings,
+    voice_preferences,
+    voice_preset_create,
+    voice_preset_delete,
+    voice_preset_edit,
+    voice_preset_list,
+    voice_preset_sample,
+    voice_preset_test,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("accounts/login/", auth_views.LoginView.as_view(authentication_form=BootstrapAuthenticationForm), name="login"),
+    path(
+        "accounts/login/",
+        auth_views.LoginView.as_view(authentication_form=BootstrapAuthenticationForm),
+        name="login",
+    ),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("accounts/signup/", SignUpView.as_view(), name="signup"),
     path("accounts/", include("accounts.urls")),
-    path("api/schema/", SpectacularAPIView.as_view(permission_classes=[IsStaffOrDebug]), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsStaffOrDebug]), name="docs"),
+    path(
+        "api/schema/",
+        SpectacularAPIView.as_view(permission_classes=[IsStaffOrDebug]),
+        name="schema",
+    ),
+    path(
+        "api/docs/",
+        SpectacularSwaggerView.as_view(
+            url_name="schema", permission_classes=[IsStaffOrDebug]
+        ),
+        name="docs",
+    ),
     path("articles/", ArticleListView.as_view(), name="article-list"),
     path("articles/submit/", ArticleCreateView.as_view(), name="article-submit"),
     path(

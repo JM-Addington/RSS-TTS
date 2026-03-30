@@ -217,7 +217,8 @@ class TestFormSSRFValidation(TestCase):
             form.is_valid()
             source_url_errors = form.errors.get("source_url", [])
             ssrf_errors = [
-                e for e in source_url_errors
+                e
+                for e in source_url_errors
                 if "private" in str(e).lower()
                 or "internal" in str(e).lower()
                 or "not allowed" in str(e).lower()

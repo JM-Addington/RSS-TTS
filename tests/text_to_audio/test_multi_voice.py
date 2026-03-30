@@ -7,8 +7,7 @@ from django.test import TestCase, override_settings
 
 from text_to_audio.models import Article, Feed
 from text_to_audio.services.user_preferences import UserPreferencesService
-from text_to_audio.services.voice_configuration import \
-    VoiceConfigurationService
+from text_to_audio.services.voice_configuration import VoiceConfigurationService
 from text_to_audio.tasks import _is_valid_multi_voice_data, process_article
 
 User = get_user_model()

@@ -57,7 +57,9 @@ class FeedEmailServiceTests(TestCase):
         SITE_URL="https://example.com",
     )
     @patch("text_to_audio.services.feed_email_service.MailgunService")
-    @patch.object(Feed, "generate_inbound_email", return_value="happy-river-42@mg.example.com")
+    @patch.object(
+        Feed, "generate_inbound_email", return_value="happy-river-42@mg.example.com"
+    )
     def test_generate_email_success_with_route(self, mock_gen, mock_mailgun_cls):
         """Full success: email generated + Mailgun route created + feed saved."""
         mock_mailgun = mock_mailgun_cls.return_value
@@ -81,7 +83,9 @@ class FeedEmailServiceTests(TestCase):
         SITE_URL="https://example.com",
     )
     @patch("text_to_audio.services.feed_email_service.MailgunService")
-    @patch.object(Feed, "generate_inbound_email", return_value="happy-river-42@mg.example.com")
+    @patch.object(
+        Feed, "generate_inbound_email", return_value="happy-river-42@mg.example.com"
+    )
     def test_generate_email_success_route_fails(self, mock_gen, mock_mailgun_cls):
         """Email saved but route creation fails — partial success with warning."""
         mock_mailgun = mock_mailgun_cls.return_value
@@ -105,7 +109,9 @@ class FeedEmailServiceTests(TestCase):
         MAILGUN_DOMAIN="mg.example.com",
         SITE_URL=None,
     )
-    @patch.object(Feed, "generate_inbound_email", return_value="happy-river-42@mg.example.com")
+    @patch.object(
+        Feed, "generate_inbound_email", return_value="happy-river-42@mg.example.com"
+    )
     def test_generate_email_no_site_url(self, mock_gen):
         """Email saved without route when SITE_URL is not configured."""
         result = self.service.generate_email_for_feed(self.feed)
@@ -125,7 +131,9 @@ class FeedEmailServiceTests(TestCase):
         SITE_URL="https://example.com",
     )
     @patch("text_to_audio.services.feed_email_service.MailgunService")
-    @patch.object(Feed, "generate_inbound_email", return_value="happy-river-42@mg.example.com")
+    @patch.object(
+        Feed, "generate_inbound_email", return_value="happy-river-42@mg.example.com"
+    )
     def test_generate_email_saves_correct_fields(self, mock_gen, mock_mailgun_cls):
         """Verifies only inbound_email and mailgun_route_id are saved."""
         mock_mailgun = mock_mailgun_cls.return_value

@@ -72,7 +72,9 @@ class FeedEmailService:
         # Generate email address
         email_address = feed.generate_inbound_email()
         if not email_address:
-            logger.error(f"Failed to generate email address for feed {feed.id} ({feed.name})")
+            logger.error(
+                f"Failed to generate email address for feed {feed.id} ({feed.name})"
+            )
             return FeedEmailResult(
                 success=False,
                 message=f"Failed to generate email address for feed '{feed.name}'.",

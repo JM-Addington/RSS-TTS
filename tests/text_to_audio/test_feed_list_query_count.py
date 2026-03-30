@@ -20,9 +20,7 @@ class FeedListQueryCountTests(TestCase):
     """Tests that FeedListView query count is constant regardless of feed count."""
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            username="querytest", password="testpass"
-        )
+        self.user = User.objects.create_user(username="querytest", password="testpass")
         self.client = Client()
         self.client.login(username="querytest", password="testpass")
 

@@ -8,9 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from text_to_audio.services.logging_setup import (SafeFileHandler,
-                                                  SafeRotatingFileHandler,
-                                                  configure_logging)
+from text_to_audio.services.logging_setup import (
+    SafeFileHandler,
+    SafeRotatingFileHandler,
+    configure_logging,
+)
 
 
 @pytest.fixture

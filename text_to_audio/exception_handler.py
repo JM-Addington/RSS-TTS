@@ -34,7 +34,9 @@ def api_exception_handler(exc, context):
         # Extract as top-level error message instead of treating as field errors
         if "non_field_errors" in data and len(data) == 1:
             errors = data["non_field_errors"]
-            response.data = {"error": str(errors[0]) if errors else "Validation failed."}
+            response.data = {
+                "error": str(errors[0]) if errors else "Validation failed."
+            }
             return response
         # Field-level errors dict — wrap in envelope
         response.data = {"error": "Validation failed.", "fields": data}

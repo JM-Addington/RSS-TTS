@@ -284,7 +284,9 @@ class FeedArticleSubmitAPITests(TestCase):
 
     def test_speed_validation_rejects_infinity_string(self):
         """Test that string 'Infinity' speed value is rejected. Closes #194."""
-        raw_payload = '{"title": "Test", "text_content": "Content", "speed": "Infinity"}'
+        raw_payload = (
+            '{"title": "Test", "text_content": "Content", "speed": "Infinity"}'
+        )
         response = self.client.post(
             self.url, data=raw_payload, content_type="application/json"
         )
@@ -292,7 +294,9 @@ class FeedArticleSubmitAPITests(TestCase):
 
     def test_speed_validation_rejects_negative_infinity_string(self):
         """Test that string '-Infinity' speed value is rejected. Closes #194."""
-        raw_payload = '{"title": "Test", "text_content": "Content", "speed": "-Infinity"}'
+        raw_payload = (
+            '{"title": "Test", "text_content": "Content", "speed": "-Infinity"}'
+        )
         response = self.client.post(
             self.url, data=raw_payload, content_type="application/json"
         )

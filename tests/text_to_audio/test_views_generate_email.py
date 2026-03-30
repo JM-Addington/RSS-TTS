@@ -21,7 +21,9 @@ class GenerateFeedEmailViewTests(TestCase):
         self.user.profile.is_approved = True
         self.user.profile.save()
 
-        self.other_user = User.objects.create_user(username="other", password="testpass")
+        self.other_user = User.objects.create_user(
+            username="other", password="testpass"
+        )
         self.other_user.profile.is_approved = True
         self.other_user.profile.save()
 
@@ -34,7 +36,9 @@ class GenerateFeedEmailViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn("/login", response.url)
 
-    @patch("text_to_audio.services.feed_email_service.FeedEmailService.generate_email_for_feed")
+    @patch(
+        "text_to_audio.services.feed_email_service.FeedEmailService.generate_email_for_feed"
+    )
     def test_view_calls_service_and_sets_messages(self, mock_generate):
         """View delegates to service and maps result to Django messages."""
         mock_generate.return_value = FeedEmailResult(
@@ -55,9 +59,13 @@ class GenerateFeedEmailViewTests(TestCase):
         # Check Django messages
         msg_list = list(response.context["messages"])
         self.assertEqual(len(msg_list), 1)
-        self.assertEqual(str(msg_list[0]), "Successfully created email address: test@mg.example.com")
+        self.assertEqual(
+            str(msg_list[0]), "Successfully created email address: test@mg.example.com"
+        )
 
-    @patch("text_to_audio.services.feed_email_service.FeedEmailService.generate_email_for_feed")
+    @patch(
+        "text_to_audio.services.feed_email_service.FeedEmailService.generate_email_for_feed"
+    )
     def test_view_redirects_to_feed_list_by_default(self, mock_generate):
         """Default redirect goes to feed-list."""
         mock_generate.return_value = FeedEmailResult(
@@ -70,7 +78,9 @@ class GenerateFeedEmailViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn("/feeds", response.url)
 
-    @patch("text_to_audio.services.feed_email_service.FeedEmailService.generate_email_for_feed")
+    @patch(
+        "text_to_audio.services.feed_email_service.FeedEmailService.generate_email_for_feed"
+    )
     def test_view_redirects_to_feed_articles_when_requested(self, mock_generate):
         """Redirect to feed-articles when POST param redirect=feed-articles."""
         mock_generate.return_value = FeedEmailResult(

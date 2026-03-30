@@ -192,7 +192,9 @@ def fetch_url_content(
 
         validate_url_not_ssrf(url)
     except Exception as ssrf_exc:
-        logger.warning("SSRF check blocked URL in fetch_url_content: %s — %s", url, ssrf_exc)
+        logger.warning(
+            "SSRF check blocked URL in fetch_url_content: %s — %s", url, ssrf_exc
+        )
         return False, "", f"URL blocked by security policy: {ssrf_exc}"
 
     retry_count = 0
@@ -679,8 +681,7 @@ def process_url_to_text(url: str) -> Tuple[bool, str, Optional[str]]:
         Tuple of (success, extracted_text, error_message).
         If successful, error_message will be None.
     """
-    from appconfig.utils import (get_firecrawl_api_key,
-                                 get_use_firecrawl_by_default)
+    from appconfig.utils import get_firecrawl_api_key, get_use_firecrawl_by_default
 
     html = ""
     success = False

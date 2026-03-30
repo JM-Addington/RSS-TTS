@@ -28,7 +28,9 @@ class ExceptionHandlerTests(TestCase):
 
     def test_field_level_validation_error(self):
         """Field-level errors get wrapped in envelope with 'fields' key."""
-        exc = ValidationError({"speed": ["Ensure this value is less than or equal to 4.0."]})
+        exc = ValidationError(
+            {"speed": ["Ensure this value is less than or equal to 4.0."]}
+        )
         response = self._call_handler(exc)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["error"], "Validation failed.")
@@ -97,10 +99,12 @@ class ExceptionHandlerTests(TestCase):
 
     def test_multiple_field_errors(self):
         """Multiple field-level errors all appear under 'fields'."""
-        exc = ValidationError({
-            "speed": ["Too fast."],
-            "voice_id": ["Invalid voice."],
-        })
+        exc = ValidationError(
+            {
+                "speed": ["Too fast."],
+                "voice_id": ["Invalid voice."],
+            }
+        )
         response = self._call_handler(exc)
         self.assertEqual(response.data["error"], "Validation failed.")
         self.assertIn("speed", response.data["fields"])

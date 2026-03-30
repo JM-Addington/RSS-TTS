@@ -185,9 +185,7 @@ class TestI18nTransTags(TestCase):
         self._assert_has_trans(content, "Status", "article_list.html")
 
     def test_article_confirm_delete_template_trans_tags(self):
-        content = _read_template(
-            "article_confirm_delete.html", TTA_TEMPLATE_DIR
-        )
+        content = _read_template("article_confirm_delete.html", TTA_TEMPLATE_DIR)
         self._assert_has_trans(
             content, "Confirm Delete Article", "article_confirm_delete.html"
         )
@@ -195,9 +193,7 @@ class TestI18nTransTags(TestCase):
         self._assert_has_trans(content, "Cancel", "article_confirm_delete.html")
 
     def test_article_detail_template_trans_tags(self):
-        content = _read_template(
-            "text_to_audio/article_detail.html", TTA_TEMPLATE_DIR
-        )
+        content = _read_template("text_to_audio/article_detail.html", TTA_TEMPLATE_DIR)
         self._assert_has_trans(content, "Article Details", "article_detail.html")
         self._assert_has_trans(content, "Source URL", "article_detail.html")
         self._assert_has_trans(content, "Regenerate Audio", "article_detail.html")
@@ -209,9 +205,7 @@ class TestI18nTransTags(TestCase):
         self._assert_has_trans(
             content, "Voice Settings for Article", "article_voice_settings.html"
         )
-        self._assert_has_trans(
-            content, "Save Settings", "article_voice_settings.html"
-        )
+        self._assert_has_trans(content, "Save Settings", "article_voice_settings.html")
 
     # --- Voice/Preset templates ---
 
@@ -226,12 +220,8 @@ class TestI18nTransTags(TestCase):
         content = _read_template(
             "text_to_audio/voice_preset_list.html", TTA_TEMPLATE_DIR
         )
-        self._assert_has_trans(
-            content, "Your Voice Presets", "voice_preset_list.html"
-        )
-        self._assert_has_trans(
-            content, "Create New Preset", "voice_preset_list.html"
-        )
+        self._assert_has_trans(content, "Your Voice Presets", "voice_preset_list.html")
+        self._assert_has_trans(content, "Create New Preset", "voice_preset_list.html")
 
     def test_voice_preset_confirm_delete_template_trans_tags(self):
         content = _read_template(
@@ -255,17 +245,11 @@ class TestI18nTransTags(TestCase):
 
     def test_global_config_template_trans_tags(self):
         content = _read_template("accounts/global_config.html", ACCOUNTS_TEMPLATE_DIR)
-        self._assert_has_trans(
-            content, "Global Configuration", "global_config.html"
-        )
-        self._assert_has_trans(
-            content, "Save Configuration", "global_config.html"
-        )
+        self._assert_has_trans(content, "Global Configuration", "global_config.html")
+        self._assert_has_trans(content, "Save Configuration", "global_config.html")
 
     def test_user_management_template_trans_tags(self):
-        content = _read_template(
-            "accounts/user_management.html", ACCOUNTS_TEMPLATE_DIR
-        )
+        content = _read_template("accounts/user_management.html", ACCOUNTS_TEMPLATE_DIR)
         self._assert_has_trans(content, "User Management", "user_management.html")
         self._assert_has_trans(content, "Create New User", "user_management.html")
         self._assert_has_trans(content, "Username", "user_management.html")
@@ -275,9 +259,7 @@ class TestI18nTransTags(TestCase):
             "accounts/user_confirm_delete.html", ACCOUNTS_TEMPLATE_DIR
         )
         self._assert_has_trans(content, "Delete User", "user_confirm_delete.html")
-        self._assert_has_trans(
-            content, "Yes, Delete User", "user_confirm_delete.html"
-        )
+        self._assert_has_trans(content, "Yes, Delete User", "user_confirm_delete.html")
         self._assert_has_trans(content, "Cancel", "user_confirm_delete.html")
 
     def test_user_form_template_trans_tags(self):
@@ -291,17 +273,13 @@ class TestI18nTransTags(TestCase):
             "accounts/user_reset_password.html", ACCOUNTS_TEMPLATE_DIR
         )
         self._assert_has_trans(content, "New Password", "user_reset_password.html")
-        self._assert_has_trans(
-            content, "Reset Password", "user_reset_password.html"
-        )
+        self._assert_has_trans(content, "Reset Password", "user_reset_password.html")
         self._assert_has_trans(content, "Cancel", "user_reset_password.html")
 
     # --- Other templates ---
 
     def test_cost_analytics_template_trans_tags(self):
-        content = _read_template(
-            "text_to_audio/cost_analytics.html", TTA_TEMPLATE_DIR
-        )
+        content = _read_template("text_to_audio/cost_analytics.html", TTA_TEMPLATE_DIR)
         self._assert_has_trans(content, "Cost Analytics", "cost_analytics.html")
         self._assert_has_trans(content, "Total Cost", "cost_analytics.html")
         self._assert_has_trans(content, "Cost by Model", "cost_analytics.html")
@@ -310,9 +288,7 @@ class TestI18nTransTags(TestCase):
         content = _read_template(
             "text_to_audio/followedfeed_list.html", TTA_TEMPLATE_DIR
         )
-        self._assert_has_trans(
-            content, "My Followed Feeds", "followedfeed_list.html"
-        )
+        self._assert_has_trans(content, "My Followed Feeds", "followedfeed_list.html")
         self._assert_has_trans(
             content, "Add New Followed Feed", "followedfeed_list.html"
         )
@@ -327,9 +303,7 @@ class TestI18nTransTags(TestCase):
         self._assert_has_trans(
             content, "Yes, Delete", "followedfeed_confirm_delete.html"
         )
-        self._assert_has_trans(
-            content, "Cancel", "followedfeed_confirm_delete.html"
-        )
+        self._assert_has_trans(content, "Cancel", "followedfeed_confirm_delete.html")
 
 
 class TestI18nRenderIntegrity(TestCase):

@@ -7,8 +7,11 @@ from django.test import TestCase
 
 from text_to_audio.models import Article, Feed
 from text_to_audio.services.cost_calculator import (
-    calculate_llm_cost, calculate_tts_cost, estimate_cost_from_total_tokens,
-    format_cost_display)
+    calculate_llm_cost,
+    calculate_tts_cost,
+    estimate_cost_from_total_tokens,
+    format_cost_display,
+)
 from text_to_audio.services.usage_logging import log_openai_usage
 
 User = get_user_model()

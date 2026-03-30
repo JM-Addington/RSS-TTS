@@ -275,8 +275,7 @@ class Feed(models.Model):
         """
         from django.conf import settings
 
-        from .mailgun_utils import (generate_feed_email_address,
-                                    validate_mailgun_domain)
+        from .mailgun_utils import generate_feed_email_address, validate_mailgun_domain
 
         domain = settings.MAILGUN_DOMAIN
         if not domain or not validate_mailgun_domain(domain):

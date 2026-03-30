@@ -2,8 +2,9 @@
 
 import logging
 
-from text_to_audio.services.voice_parameter_generation import \
-    VoiceParameterGenerationService
+from text_to_audio.services.voice_parameter_generation import (
+    VoiceParameterGenerationService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -218,8 +219,7 @@ class VoiceConfigurationService:
         # ------------------------------------------------------------------
 
         from text_to_audio.models import Feed
-        from text_to_audio.services.user_preferences import \
-            UserPreferencesService
+        from text_to_audio.services.user_preferences import UserPreferencesService
 
         preferences_service = UserPreferencesService()
         feed = article.feed

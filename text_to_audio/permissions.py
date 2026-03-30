@@ -11,8 +11,4 @@ class IsStaffOrDebug(BasePermission):
     def has_permission(self, request, view):
         if settings.DEBUG:
             return True
-        return (
-            request.user
-            and request.user.is_authenticated
-            and request.user.is_staff
-        )
+        return request.user and request.user.is_authenticated and request.user.is_staff
