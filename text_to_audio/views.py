@@ -861,13 +861,23 @@ class ArticleDetailView(LoginRequiredMixin, View):
 
     def get(self, request, article_id):
         """Render the detail form with the article's data."""
-        article = get_object_or_404(Article, pk=article_id, feed__user=request.user)
+        # AIDEV-NOTE: select_related("feed") avoids N+1 when template accesses article.feed
+        article = get_object_or_404(
+            Article.objects.select_related("feed"),
+            pk=article_id,
+            feed__user=request.user,
+        )
         form = ArticleDetailForm(instance=article)
         return render(request, self.template_name, {"form": form, "article": article})
 
     def post(self, request, article_id):
         """Create a new article based on submitted data."""
-        original = get_object_or_404(Article, pk=article_id, feed__user=request.user)
+        # AIDEV-NOTE: select_related("feed") avoids N+1 when accessing original.feed
+        original = get_object_or_404(
+            Article.objects.select_related("feed"),
+            pk=article_id,
+            feed__user=request.user,
+        )
         form = ArticleDetailForm(request.POST)
         if form.is_valid():
             new_article = Article(
