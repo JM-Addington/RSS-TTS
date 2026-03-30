@@ -361,13 +361,13 @@ class VoicePresetViewsTest(TestCase):
             user=self.user, name="Delete View Test", voice_id="nova", speed=1.0
         )
 
-        # Get the delete confirmation
+        # GET should return 405 (POST-only view)
         delete_id = preset.id  # type: ignore[attr-defined]
         delete_url = reverse("voice_preset_delete", args=[delete_id])
         response = self.client.get(delete_url)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 405)
 
-        # Submit the form
+        # Submit the form via POST
         response = self.client.post(delete_url)
 
         # Should redirect to list view

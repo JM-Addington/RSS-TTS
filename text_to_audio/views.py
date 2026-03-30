@@ -21,6 +21,7 @@ from django.http import (
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
+from django.views.decorators.http import require_http_methods, require_POST
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -981,6 +982,7 @@ class FeedArticleStatusView(LoginRequiredMixin, View):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def voice_preferences(request):
     """View for managing user voice preferences."""
     # Get or create profile
@@ -1026,6 +1028,7 @@ def voice_preset_list(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def voice_preset_create(request):
     """View for creating a new voice preset."""
     if request.method == "POST":
@@ -1061,6 +1064,7 @@ def voice_preset_create(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def voice_preset_edit(request, preset_id):
     """View for editing a voice preset."""
     # Get the preset
@@ -1090,6 +1094,7 @@ def voice_preset_edit(request, preset_id):
 
 
 @login_required
+@require_POST
 def voice_preset_delete(request, preset_id):
     """View for deleting a voice preset."""
     # Get the preset
@@ -1258,6 +1263,7 @@ def voice_preset_sample(request, preset_id):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def article_voice_settings(request, article_id):
     """View for managing article-specific voice settings."""
     # AIDEV-NOTE: select_related avoids N+1 for voice_preset.id and feed.pk access
