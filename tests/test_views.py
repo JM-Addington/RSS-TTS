@@ -711,3 +711,60 @@ class CeleryBrokerFailureViewTests(TestCase):
         new_article = Article.objects.first()
         self.assertIsNotNone(new_article)
         self.assertFalse(new_article.celery_task_id)
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_article_detail_post_redis_down_redirects_with_error(self, mock_delay):
+        """ArticleDetailView POST redirects with error when Redis is down."""
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        mock_delay.side_effect = RedisConnectionError("Connection refused")
+
+        data = {
+            "title": "New Title",
+            "text_content": "new text content",
+            "summary": "new sum",
+            "voice_id": "echo",
+            "speed": "1.0",
+        }
+        response = self.client.post(
+            reverse("article-detail", kwargs={"article_id": self.article.pk}),
+            data,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any("could not be started" in str(m) for m in messages_list)
+        )
+        # Article should still be created
+        new_article = Article.objects.exclude(pk=self.article.pk).first()
+        self.assertIsNotNone(new_article)
+        self.assertEqual(new_article.title, "New Title")
+        self.assertFalse(new_article.celery_task_id)
+
+    @mock.patch("text_to_audio.views.process_article.delay")
+    def test_feed_article_create_redis_down_redirects_with_error(self, mock_delay):
+        """FeedArticleCreateView redirects with error when Redis is down."""
+        from redis.exceptions import ConnectionError as RedisConnectionError
+
+        mock_delay.side_effect = RedisConnectionError("Connection refused")
+
+        data = {
+            "text_content": "Some article text for testing broker failure.",
+        }
+        response = self.client.post(
+            reverse("feed-article-create", kwargs={"feed_id": self.feed.pk}),
+            data,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context["messages"])
+        self.assertTrue(
+            any("could not be started" in str(m) for m in messages_list)
+        )
+        # Article should still be saved
+        new_article = Article.objects.first()
+        self.assertIsNotNone(new_article)
+        self.assertFalse(new_article.celery_task_id)
