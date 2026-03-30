@@ -1,8 +1,11 @@
+from unittest.mock import patch
+
 from django.contrib.auth.models import User
 from django.contrib.messages import get_messages
-from django.test import Client, TestCase, override_settings
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
+from accounts.models_profile import UserProfile
 from appconfig.models import GlobalConfig
 
 
@@ -201,6 +204,111 @@ class UserManagementViewTests(TestCase):
 
         self.super_admin.refresh_from_db()
         self.assertTrue(self.super_admin.is_super_admin)
+
+    def test_concurrent_demote_preserves_last_super_admin(self):
+        """Two concurrent demotes with 2 super admins must leave at least 1."""
+        import threading
+
+        self.client.login(username="admin", password="testpass123")
+
+        # Make regular_user a super admin too (now 2 super admins)
+        self.regular_user.profile.is_super_admin = True
+        self.regular_user.profile.is_approved = True
+        self.regular_user.profile.save()
+        self.regular_user.is_staff = True
+        self.regular_user.is_superuser = True
+        self.regular_user.save()
+
+        results = []
+        barrier = threading.Barrier(2, timeout=5)
+
+        def demote_user(user_id):
+            c = Client()
+            c.login(username="admin", password="testpass123")
+            barrier.wait()
+            resp = c.get(reverse("user-demote", args=[user_id]))
+            results.append(resp.status_code)
+
+        t1 = threading.Thread(
+            target=demote_user, args=[self.super_admin.id]
+        )
+        t2 = threading.Thread(
+            target=demote_user, args=[self.regular_user.id]
+        )
+        t1.start()
+        t2.start()
+        t1.join(timeout=10)
+        t2.join(timeout=10)
+
+        # At least one super admin must remain
+        remaining = UserProfile.objects.filter(is_super_admin=True).count()
+        self.assertGreaterEqual(remaining, 1)
+
+    def test_promote_uses_atomic_transaction(self):
+        """If user.save() fails mid-promote, profile changes should roll back."""
+        self.client.login(username="admin", password="testpass123")
+
+        with patch(
+            "django.contrib.auth.models.User.save",
+            side_effect=Exception("DB error"),
+        ):
+            try:
+                self.client.get(
+                    reverse("user-promote", args=[self.regular_user.id])
+                )
+            except Exception:
+                pass
+
+        self.regular_user.profile.refresh_from_db()
+        # Profile should NOT have been promoted since user.save() failed
+        self.assertFalse(self.regular_user.profile.is_super_admin)
+
+    def test_demote_uses_atomic_transaction(self):
+        """If user.save() fails mid-demote, profile changes should roll back."""
+        self.client.login(username="admin", password="testpass123")
+
+        # Make regular_user a super admin
+        self.regular_user.profile.is_super_admin = True
+        self.regular_user.profile.is_approved = True
+        self.regular_user.profile.save()
+        self.regular_user.is_staff = True
+        self.regular_user.is_superuser = True
+        self.regular_user.save()
+
+        with patch(
+            "django.contrib.auth.models.User.save",
+            side_effect=Exception("DB error"),
+        ):
+            try:
+                self.client.get(
+                    reverse("user-demote", args=[self.regular_user.id])
+                )
+            except Exception:
+                pass
+
+        self.regular_user.profile.refresh_from_db()
+        # Profile should still be super admin since user.save() failed
+        self.assertTrue(self.regular_user.profile.is_super_admin)
+
+    def test_demote_with_select_for_update_locks_rows(self):
+        """Verify that demote view uses select_for_update for the count query."""
+        self.client.login(username="admin", password="testpass123")
+
+        # Make regular_user a super admin (2 super admins total)
+        self.regular_user.profile.is_super_admin = True
+        self.regular_user.profile.is_approved = True
+        self.regular_user.profile.save()
+        self.regular_user.is_staff = True
+        self.regular_user.is_superuser = True
+        self.regular_user.save()
+
+        with patch.object(
+            UserProfile.objects, "select_for_update", wraps=UserProfile.objects.select_for_update
+        ) as mock_sfu:
+            self.client.get(
+                reverse("user-demote", args=[self.regular_user.id])
+            )
+            mock_sfu.assert_called()
 
     def test_delete_super_admin_user_post_returns_forbidden(self):
         """POST to delete a super_admin user should return HTTP 403."""

@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.http import HttpResponseForbidden, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -150,18 +151,20 @@ def user_promote(request, user_id):
             "You don't have permission to perform this action."
         )
 
-    user = get_object_or_404(User, id=user_id)
+    # AIDEV-NOTE: atomic + select_for_update prevents partial state if save fails
+    with transaction.atomic():
+        user = get_object_or_404(User.objects.select_for_update(), id=user_id)
 
-    if user.is_super_admin:
-        messages.warning(request, f'User "{user.username}" is already a super admin.')
-        return redirect("user-management")
+        if user.is_super_admin:
+            messages.warning(request, f'User "{user.username}" is already a super admin.')
+            return redirect("user-management")
 
-    user.profile.is_super_admin = True
-    user.profile.is_approved = True
-    user.profile.save()
-    user.is_staff = True
-    user.is_superuser = True
-    user.save()
+        user.profile.is_super_admin = True
+        user.profile.is_approved = True
+        user.profile.save()
+        user.is_staff = True
+        user.is_superuser = True
+        user.save()
 
     messages.success(request, f'User "{user.username}" promoted to super admin.')
     return redirect("user-management")
@@ -175,22 +178,29 @@ def user_demote(request, user_id):
             "You don't have permission to perform this action."
         )
 
-    user = get_object_or_404(User, id=user_id)
+    # AIDEV-NOTE: atomic + select_for_update prevents race where two concurrent demotes
+    # both see count=2 and demote, leaving zero super admins
+    with transaction.atomic():
+        user = get_object_or_404(User.objects.select_for_update(), id=user_id)
 
-    if not user.is_super_admin:
-        messages.warning(request, f'User "{user.username}" is not a super admin.')
-        return redirect("user-management")
+        if not user.is_super_admin:
+            messages.warning(request, f'User "{user.username}" is not a super admin.')
+            return redirect("user-management")
 
-    super_admin_count = UserProfile.objects.filter(is_super_admin=True).count()
-    if super_admin_count <= 1:
-        messages.error(request, "Cannot demote the last super admin.")
-        return redirect("user-management")
+        super_admin_count = (
+            UserProfile.objects.select_for_update()
+            .filter(is_super_admin=True)
+            .count()
+        )
+        if super_admin_count <= 1:
+            messages.error(request, "Cannot demote the last super admin.")
+            return redirect("user-management")
 
-    user.profile.is_super_admin = False
-    user.profile.save()
-    user.is_staff = False
-    user.is_superuser = False
-    user.save()
+        user.profile.is_super_admin = False
+        user.profile.save()
+        user.is_staff = False
+        user.is_superuser = False
+        user.save()
 
     messages.success(request, f'User "{user.username}" demoted from super admin.')
     return redirect("user-management")
