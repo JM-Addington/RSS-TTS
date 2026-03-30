@@ -443,9 +443,10 @@ class FeedArticleListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         """Return only articles for the specified feed."""
         feed_id = self.kwargs.get("feed_id")
+        # AIDEV-NOTE: select_related avoids N+1 for get_display_voice_name() in template
         return Article.objects.filter(
             feed__pk=feed_id, feed__user=self.request.user
-        ).order_by("-created_at")
+        ).select_related("voice_preset").order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         """Add feed information to context."""
@@ -1259,7 +1260,12 @@ def voice_preset_sample(request, preset_id):
 @login_required
 def article_voice_settings(request, article_id):
     """View for managing article-specific voice settings."""
-    article = get_object_or_404(Article, id=article_id, feed__user=request.user)
+    # AIDEV-NOTE: select_related avoids N+1 for voice_preset.id and feed.pk access
+    article = get_object_or_404(
+        Article.objects.select_related("voice_preset", "feed"),
+        id=article_id,
+        feed__user=request.user,
+    )
 
     if request.method == "POST":
         form = ArticleVoiceForm(request.POST, user=request.user)
