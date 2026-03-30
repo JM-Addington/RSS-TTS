@@ -33,7 +33,7 @@
                             {% if form.url.errors %}
                                 <div class="invalid-feedback d-block">
                                     {% for error in form.url.errors %}
-                                        {{ error }}
+                                        <p class="mb-0">{{ error }}</p>
                                     {% endfor %}
                                 </div>
                             {% endif %}
@@ -48,7 +48,7 @@
                             {% if form.destination_feed.errors %}
                                 <div class="invalid-feedback d-block">
                                     {% for error in form.destination_feed.errors %}
-                                        {{ error }}
+                                        <p class="mb-0">{{ error }}</p>
                                     {% endfor %}
                                 </div>
                             {% endif %}
@@ -65,7 +65,7 @@
                             {% if form.is_active.errors %}
                                 <div class="invalid-feedback d-block">
                                     {% for error in form.is_active.errors %}
-                                        {{ error }}
+                                        <p class="mb-0">{{ error }}</p>
                                     {% endfor %}
                                 </div>
                             {% endif %}
