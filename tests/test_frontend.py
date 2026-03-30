@@ -281,6 +281,31 @@ class TestSignUpView(TestCase):
         # Should show password mismatch error
         self.assertContains(response, "password")
 
+    def test_signup_password_help_text_escapes_html(self):
+        """Password help_text must be HTML-escaped to prevent XSS."""
+        response = self.client.get("/accounts/signup/")
+        self.assertEqual(response.status_code, 200)
+        # Temporarily override help_text with a malicious script tag
+        from django.contrib.auth.forms import UserCreationForm
+
+        form = UserCreationForm()
+        form.fields["password1"].help_text = '<script>alert("xss")</script>'
+        # Re-render the template with the malicious form
+        from django.template.loader import render_to_string
+
+        html = render_to_string("registration/signup.html", {"form": form})
+        # The raw <script> tag must NOT appear — it should be escaped
+        self.assertNotIn("<script>", html)
+        self.assertIn("&lt;script&gt;", html)
+
+    def test_signup_password_help_text_displays_requirements(self):
+        """Password requirements should still be visible on the signup page."""
+        response = self.client.get("/accounts/signup/")
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # Django's default password validators produce text about requirements
+        self.assertIn("password", content.lower())
+
     def test_signup_disabled_when_user_exists(self):
         """Additional signups should redirect to login and not create users."""
         User = get_user_model()
