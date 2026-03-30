@@ -419,3 +419,27 @@ class TestMigrateEnvToConfigForceParam(TestCase):
         self.client.post(self.url, {"force": ""})
         self.config.refresh_from_db()
         self.assertEqual(self.config.openai_tts_voice, "existing_voice")
+
+
+class TestUserConfirmDeleteTemplate(TestCase):
+    """Test that user_confirm_delete.html renders correctly with missing fields."""
+
+    def setUp(self):
+        # First user becomes super admin (can_manage_users() returns True)
+        self.admin = User.objects.create_user(
+            username="admin", email="admin@example.com", password="testpass123"
+        )
+        # User with no email and no name — should show "Not provided" fallback
+        self.target_user = User.objects.create_user(
+            username="emptyuser", email="", password="testpass123"
+        )
+        self.client.login(username="admin", password="testpass123")
+
+    def test_delete_page_shows_not_provided_for_blank_fields(self):
+        """Template must render 'Not provided' when email/name are blank."""
+        url = reverse("user-delete", kwargs={"user_id": self.target_user.id})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # AIDEV-NOTE: verifies fix for _() Python syntax used in Django template (commit 132a078)
+        self.assertIn("Not provided", content)
