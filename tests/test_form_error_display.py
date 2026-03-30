@@ -12,7 +12,7 @@ AIDEV-NOTE: These tests enforce the standard error display pattern from issue #2
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
-from text_to_audio.models import Article, Feed
+from text_to_audio.models import Article, Feed, FollowedFeed
 
 User = get_user_model()
 
@@ -281,8 +281,7 @@ class TestVoicePreferencesErrorDisplay(TestCase):
         self.assertNotIn("text-danger", content)
 
     def test_errors_are_iterated(self):
-        """Error display should use paragraph iteration, not raw error rendering."""
-        # Read the template source to verify iteration pattern
+        """Error display should use the standard form field partial."""
         import os
 
         from django.conf import settings
@@ -296,9 +295,12 @@ class TestVoicePreferencesErrorDisplay(TestCase):
         )
         with open(template_path) as f:
             content = f.read()
-        # Should iterate errors with for loop
-        self.assertIn("for error in", content)
-        self.assertIn('<p class="mb-0">', content)
+        # Should use the standard partial or inline error iteration
+        self.assertTrue(
+            "for error in" in content
+            or '_form_field.html' in content,
+            "Template should use _form_field.html partial or inline error iteration",
+        )
 
 
 class TestArticleVoiceSettingsErrorDisplay(TestCase):
@@ -328,7 +330,7 @@ class TestArticleVoiceSettingsErrorDisplay(TestCase):
         self.assertNotIn("text-danger", content)
 
     def test_errors_are_iterated(self):
-        """Error display should use paragraph iteration, not raw error rendering."""
+        """Error display should use the standard form field partial."""
         import os
 
         from django.conf import settings
@@ -342,8 +344,12 @@ class TestArticleVoiceSettingsErrorDisplay(TestCase):
         )
         with open(template_path) as f:
             content = f.read()
-        self.assertIn("for error in", content)
-        self.assertIn('<p class="mb-0">', content)
+        # Should use the standard partial or inline error iteration
+        self.assertTrue(
+            "for error in" in content
+            or '_form_field.html' in content,
+            "Template should use _form_field.html partial or inline error iteration",
+        )
 
 
 class TestGlobalConfigErrorDisplay(TestCase):
@@ -382,3 +388,111 @@ class TestGlobalConfigErrorDisplay(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
         self.assertIn("invalid-feedback", content)
+
+
+class TestFollowedFeedFormErrorDisplay(TestCase):
+    """FollowedFeed form should use invalid-feedback d-block with <p class="mb-0"> for errors."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="followuser", password="pass123"
+        )
+        self.feed = Feed.objects.create(user=self.user, name="DestFeed")
+        self.client.login(username="followuser", password="pass123")
+
+    def test_field_errors_use_invalid_feedback_d_block(self):
+        """POST empty URL should show errors with invalid-feedback d-block."""
+        response = self.client.post(
+            "/followed-feeds/new/",
+            {"url": "", "destination_feed": "", "is_active": "on"},
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertIn("invalid-feedback d-block", content)
+        self.assertNotIn("text-danger", content)
+
+    def test_field_errors_use_paragraph_wrappers(self):
+        """Each field error should be wrapped in <p class="mb-0">."""
+        response = self.client.post(
+            "/followed-feeds/new/",
+            {"url": "", "destination_feed": "", "is_active": "on"},
+        )
+        content = response.content.decode()
+        self.assertIn('<p class="mb-0">', content)
+
+    def test_template_source_has_paragraph_wrappers(self):
+        """Template source should contain <p class="mb-0"> in error blocks."""
+        import os
+
+        from django.conf import settings
+
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "text_to_audio",
+            "templates",
+            "text_to_audio",
+            "followedfeed_form.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn('<p class="mb-0">', content)
+        self.assertIn("invalid-feedback d-block", content)
+
+
+class TestFormFieldPartialTemplate(TestCase):
+    """The reusable _form_field.html partial should exist with standard patterns."""
+
+    def test_partial_template_exists(self):
+        """includes/_form_field.html should exist."""
+        import os
+
+        from django.conf import settings
+
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "text_to_audio",
+            "templates",
+            "includes",
+            "_form_field.html",
+        )
+        self.assertTrue(
+            os.path.exists(template_path),
+            f"Partial template not found at {template_path}",
+        )
+
+    def test_partial_has_standard_error_pattern(self):
+        """Partial should contain invalid-feedback d-block and <p class="mb-0"> pattern."""
+        import os
+
+        from django.conf import settings
+
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "text_to_audio",
+            "templates",
+            "includes",
+            "_form_field.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn("invalid-feedback d-block", content)
+        self.assertIn('<p class="mb-0">', content)
+        self.assertIn("for error in", content)
+
+    def test_partial_has_help_text_support(self):
+        """Partial should handle help_text."""
+        import os
+
+        from django.conf import settings
+
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            "text_to_audio",
+            "templates",
+            "includes",
+            "_form_field.html",
+        )
+        with open(template_path) as f:
+            content = f.read()
+        self.assertIn("help_text", content)

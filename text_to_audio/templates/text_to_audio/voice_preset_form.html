@@ -20,83 +20,12 @@
         </div>
         {% endif %}
 
-        <div class="mb-3">
-            <label for="{{ form.name.id_for_label }}" class="form-label">{{ form.name.label }}</label>
-            {{ form.name }}
-            {% if form.name.help_text %}<div class="form-text">{{ form.name.help_text }}</div>{% endif %}
-            {% if form.name.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.name.errors %}
-                    <p class="mb-0">{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label for="{{ form.voice_id.id_for_label }}" class="form-label">{{ form.voice_id.label }}</label>
-            {{ form.voice_id }}
-            {% if form.voice_id.help_text %}<div class="form-text">{{ form.voice_id.help_text }}</div>{% endif %}
-            {% if form.voice_id.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.voice_id.errors %}
-                    <p class="mb-0">{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label for="{{ form.speed.id_for_label }}" class="form-label">{{ form.speed.label }}</label>
-            {{ form.speed }}
-            {% if form.speed.help_text %}<div class="form-text">{{ form.speed.help_text }}</div>{% endif %}
-            {% if form.speed.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.speed.errors %}
-                    <p class="mb-0">{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label for="{{ form.prompt.id_for_label }}" class="form-label">{{ form.prompt.label }}</label>
-            {{ form.prompt }}
-            {% if form.prompt.help_text %}<div class="form-text">{{ form.prompt.help_text }}</div>{% endif %}
-            {% if form.prompt.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.prompt.errors %}
-                    <p class="mb-0">{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label for="{{ form.sample_input.id_for_label }}" class="form-label">{{ form.sample_input.label }}</label>
-            {{ form.sample_input }}
-            {% if form.sample_input.help_text %}<div class="form-text">{{ form.sample_input.help_text }}</div>{% endif %}
-            {% if form.sample_input.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.sample_input.errors %}
-                    <p class="mb-0">{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="mb-3">
-            <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
-            {{ form.description }}
-            {% if form.description.help_text %}<div class="form-text">{{ form.description.help_text }}</div>{% endif %}
-            {% if form.description.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.description.errors %}
-                    <p class="mb-0">{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
+        {% include "includes/_form_field.html" with field=form.name %}
+        {% include "includes/_form_field.html" with field=form.voice_id %}
+        {% include "includes/_form_field.html" with field=form.speed %}
+        {% include "includes/_form_field.html" with field=form.prompt %}
+        {% include "includes/_form_field.html" with field=form.sample_input %}
+        {% include "includes/_form_field.html" with field=form.description %}
 
         <!-- Voice Sample Testing Section -->
         <div class="card mb-4">

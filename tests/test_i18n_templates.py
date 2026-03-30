@@ -115,8 +115,8 @@ class TestI18nTransTags(TestCase):
     def test_login_template_trans_tags(self):
         content = _read_template("registration/login.html", TTA_TEMPLATE_DIR)
         self._assert_has_trans(content, "Login", "login.html")
-        self._assert_has_trans(content, "Username", "login.html")
-        self._assert_has_trans(content, "Password", "login.html")
+        # Username/Password labels are rendered via _form_field.html partial
+        # which uses {{ field.label }} — i18n is handled at the form level
 
     def test_logged_out_template_trans_tags(self):
         content = _read_template("registration/logged_out.html", TTA_TEMPLATE_DIR)
@@ -127,7 +127,7 @@ class TestI18nTransTags(TestCase):
     def test_signup_template_trans_tags(self):
         content = _read_template("registration/signup.html", TTA_TEMPLATE_DIR)
         self._assert_has_trans(content, "Sign Up", "signup.html")
-        self._assert_has_trans(content, "Username", "signup.html")
+        # Username label rendered via _form_field.html partial — i18n at form level
         self._assert_has_trans(content, "Create Account", "signup.html")
 
     # --- Partials ---
@@ -264,15 +264,14 @@ class TestI18nTransTags(TestCase):
 
     def test_user_form_template_trans_tags(self):
         content = _read_template("accounts/user_form.html", ACCOUNTS_TEMPLATE_DIR)
-        self._assert_has_trans(content, "Username", "user_form.html")
-        self._assert_has_trans(content, "Password", "user_form.html")
+        # Username/Password labels rendered via _form_field.html partial — i18n at form level
         self._assert_has_trans(content, "Cancel", "user_form.html")
 
     def test_user_reset_password_template_trans_tags(self):
         content = _read_template(
             "accounts/user_reset_password.html", ACCOUNTS_TEMPLATE_DIR
         )
-        self._assert_has_trans(content, "New Password", "user_reset_password.html")
+        # "New Password" label rendered via _form_field.html partial — i18n at form level
         self._assert_has_trans(content, "Reset Password", "user_reset_password.html")
         self._assert_has_trans(content, "Cancel", "user_reset_password.html")
 

@@ -26,35 +26,8 @@
                     <form method="post">
                         {% csrf_token %}
 
-                        <div class="form-group mb-3">
-                            <label for="{{ form.preferred_voice.id_for_label }}">{% trans "Voice" %}</label>
-                            {{ form.preferred_voice }}
-                            {% if form.preferred_voice.help_text %}
-                                <small class="form-text text-muted">{{ form.preferred_voice.help_text }}</small>
-                            {% endif %}
-                            {% if form.preferred_voice.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {% for error in form.preferred_voice.errors %}
-                                        <p class="mb-0">{{ error }}</p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-
-                        <div class="form-group mb-3">
-                            <label for="{{ form.preferred_speed.id_for_label }}">{% trans "Speed" %}</label>
-                            {{ form.preferred_speed }}
-                            {% if form.preferred_speed.help_text %}
-                                <small class="form-text text-muted">{{ form.preferred_speed.help_text }}</small>
-                            {% endif %}
-                            {% if form.preferred_speed.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {% for error in form.preferred_speed.errors %}
-                                        <p class="mb-0">{{ error }}</p>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
+                        {% include "includes/_form_field.html" with field=form.preferred_voice %}
+                        {% include "includes/_form_field.html" with field=form.preferred_speed %}
 
                         <div class="d-flex justify-content-between">
                             <div>

@@ -1,0 +1,17 @@
+{# includes/_form_field.html - Standard form field with error display #}
+{# AIDEV-NOTE: Reusable partial for consistent form field rendering (issue #233) #}
+{# Usage: {% include "includes/_form_field.html" with field=form.name %} #}
+<div class="mb-3">
+    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+    {{ field }}
+    {% if field.errors %}
+        <div class="invalid-feedback d-block">
+            {% for error in field.errors %}
+                <p class="mb-0">{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% if field.help_text %}
+        <div class="form-text">{{ field.help_text }}</div>
+    {% endif %}
+</div>

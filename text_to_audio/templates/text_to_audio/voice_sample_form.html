@@ -8,18 +8,7 @@
     <h1>{% blocktrans with name=preset.name %}Generate Sample for {{ name }}{% endblocktrans %}</h1>
     <form id="sampleForm" method="post">
         {% csrf_token %}
-        <div class="mb-3">
-            <label for="{{ form.text.id_for_label }}" class="form-label">{{ form.text.label }}</label>
-            {{ form.text }}
-            {% if form.text.help_text %}<div class="form-text">{{ form.text.help_text }}</div>{% endif %}
-            {% if form.text.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.text.errors %}
-                    <p class="mb-0">{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
+        {% include "includes/_form_field.html" with field=form.text %}
         <button type="submit" class="btn btn-primary" id="generateBtn">
             <span id="btnText">{% trans "Generate Sample" %}</span>
             <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
