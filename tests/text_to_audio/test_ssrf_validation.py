@@ -1,11 +1,14 @@
 """Tests for SSRF URL validation.
 
 Covers blocked IP ranges, blocked schemes, DNS rebinding, hostname blocks,
-valid URLs, and edge cases like decimal IPs and IPv4-mapped IPv6.
+valid URLs, edge cases like decimal IPs and IPv4-mapped IPv6, and
+redirect-based SSRF bypass prevention.
 """
 
 import socket
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import requests
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -224,3 +227,125 @@ class TestFormSSRFValidation(TestCase):
                 or "not allowed" in str(e).lower()
             ]
             self.assertEqual(ssrf_errors, [])
+
+
+class TestSSRFRedirectBypass(TestCase):
+    """Test that redirect-based SSRF bypass is blocked in fetch_url_content.
+
+    AIDEV-NOTE: Validates redirect following validates each hop with SSRF check (#190)
+    """
+
+    PUBLIC_DNS = [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
+    ]
+
+    def _make_redirect_response(self, location, status_code=302):
+        """Create a mock response that represents a redirect."""
+        resp = MagicMock(spec=requests.Response)
+        resp.status_code = status_code
+        resp.headers = {"Location": location}
+        resp.is_redirect = True
+        resp.text = ""
+        return resp
+
+    def _make_ok_response(self, content="<html>OK</html>"):
+        """Create a mock 200 OK response."""
+        resp = MagicMock(spec=requests.Response)
+        resp.status_code = 200
+        resp.headers = {}
+        resp.is_redirect = False
+        resp.text = content
+        return resp
+
+    @patch("socket.getaddrinfo")
+    @patch("text_to_audio.utils.requests.get")
+    def test_redirect_to_private_ip_blocked(self, mock_get, mock_dns):
+        """Public URL redirecting to 127.0.0.1 should be blocked."""
+        from text_to_audio.utils import fetch_url_content
+
+        mock_dns.return_value = self.PUBLIC_DNS
+        # First request returns a redirect to a private IP
+        mock_get.return_value = self._make_redirect_response(
+            "http://127.0.0.1/secret"
+        )
+
+        success, content, error = fetch_url_content(
+            "https://example.com/article", max_retries=1
+        )
+        self.assertFalse(success)
+        self.assertIn("blocked", error.lower())
+
+    @patch("socket.getaddrinfo")
+    @patch("text_to_audio.utils.requests.get")
+    def test_redirect_to_metadata_endpoint_blocked(self, mock_get, mock_dns):
+        """Public URL redirecting to cloud metadata endpoint should be blocked."""
+        from text_to_audio.utils import fetch_url_content
+
+        mock_dns.return_value = self.PUBLIC_DNS
+        mock_get.return_value = self._make_redirect_response(
+            "http://169.254.169.254/latest/meta-data/"
+        )
+
+        success, content, error = fetch_url_content(
+            "https://example.com/article", max_retries=1
+        )
+        self.assertFalse(success)
+        self.assertIn("blocked", error.lower())
+
+    @patch("socket.getaddrinfo")
+    @patch("text_to_audio.utils.requests.get")
+    def test_redirect_to_public_url_allowed(self, mock_get, mock_dns):
+        """Public URL redirecting to another public URL should work."""
+        from text_to_audio.utils import fetch_url_content
+
+        mock_dns.return_value = self.PUBLIC_DNS
+        # First call: redirect; second call: OK
+        mock_get.side_effect = [
+            self._make_redirect_response("https://cdn.example.com/article"),
+            self._make_ok_response("<html>Article content</html>"),
+        ]
+
+        success, content, error = fetch_url_content(
+            "https://example.com/article", max_retries=1
+        )
+        self.assertTrue(success)
+        self.assertEqual(content, "<html>Article content</html>")
+
+    @patch("socket.getaddrinfo")
+    @patch("text_to_audio.utils.requests.get")
+    def test_multiple_redirects_to_private_ip_blocked(self, mock_get, mock_dns):
+        """Chain of redirects ending at private IP should be blocked."""
+        from text_to_audio.utils import fetch_url_content
+
+        mock_dns.return_value = self.PUBLIC_DNS
+        # Two public redirects, then a redirect to private IP
+        mock_get.side_effect = [
+            self._make_redirect_response("https://cdn1.example.com/"),
+            self._make_redirect_response("https://cdn2.example.com/"),
+            self._make_redirect_response("http://10.0.0.1/internal"),
+        ]
+
+        success, content, error = fetch_url_content(
+            "https://example.com/article", max_retries=1
+        )
+        self.assertFalse(success)
+        self.assertIn("blocked", error.lower())
+
+    @patch("socket.getaddrinfo")
+    @patch("text_to_audio.utils.requests.get")
+    def test_too_many_redirects_blocked(self, mock_get, mock_dns):
+        """Exceeding max redirect depth should be blocked."""
+        from text_to_audio.utils import fetch_url_content
+
+        mock_dns.return_value = self.PUBLIC_DNS
+        # 11 redirects (exceeds limit of 10)
+        mock_get.side_effect = [
+            self._make_redirect_response(f"https://hop{i}.example.com/")
+            for i in range(11)
+        ]
+
+        success, content, error = fetch_url_content(
+            "https://example.com/article", max_retries=1
+        )
+        self.assertFalse(success)
+        self.assertIn("redirect", error.lower())

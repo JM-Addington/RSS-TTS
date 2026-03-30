@@ -172,6 +172,9 @@ def _handle_retry(retry_count: int, max_retries: int, url: str, error: str) -> N
         time.sleep(2**retry_count)
 
 
+_MAX_REDIRECTS = 10
+
+
 def fetch_url_content(
     url: str, timeout: int = 10, max_retries: int = 5
 ) -> Tuple[bool, str, Optional[str]]:
@@ -205,7 +208,8 @@ def fetch_url_content(
             logger.info(
                 f"Fetching URL: {url} (Attempt {retry_count + 1}/{max_retries})"
             )
-            response = requests.get(url, timeout=timeout)
+            # AIDEV-NOTE: allow_redirects=False to manually validate each redirect target (#190)
+            response = _fetch_with_safe_redirects(url, timeout)
 
             # Handle common HTTP error status codes
             result = _handle_http_error(response.status_code, url)
@@ -223,6 +227,12 @@ def fetch_url_content(
 
             # Success - return the content
             return True, response.text, None
+
+        except _SSRFRedirectError as e:
+            return False, "", f"URL blocked by security policy: {e}"
+
+        except _TooManyRedirectsError as e:
+            return False, "", str(e)
 
         except requests.Timeout:
             last_error = f"Connection timed out after {timeout} seconds."
@@ -245,6 +255,56 @@ def fetch_url_content(
     # If we've exhausted our retries
     logger.error(f"Max retries ({max_retries}) exceeded for URL {url}: {last_error}")
     return False, "", f"Failed after {max_retries} attempts: {last_error}"
+
+
+class _SSRFRedirectError(Exception):
+    """Raised when a redirect target fails SSRF validation."""
+
+
+class _TooManyRedirectsError(Exception):
+    """Raised when redirect depth exceeds the limit."""
+
+
+def _fetch_with_safe_redirects(
+    url: str, timeout: int
+) -> requests.Response:
+    """Fetch a URL, manually following redirects with SSRF validation on each hop.
+
+    AIDEV-NOTE: Prevents redirect-based SSRF bypass by validating each Location header (#190)
+
+    Raises:
+        _SSRFRedirectError: If a redirect target points to a private/internal address.
+        _TooManyRedirectsError: If redirect chain exceeds _MAX_REDIRECTS.
+    """
+    from text_to_audio.validators import validate_url_not_ssrf
+
+    current_url = url
+    for redirect_count in range(_MAX_REDIRECTS + 1):
+        response = requests.get(current_url, timeout=timeout, allow_redirects=False)
+
+        if response.status_code not in (301, 302, 303, 307, 308):
+            return response
+
+        location = response.headers.get("Location")
+        if not location:
+            return response
+
+        # Resolve relative redirects
+        current_url = requests.compat.urljoin(current_url, location)
+
+        try:
+            validate_url_not_ssrf(current_url)
+        except Exception as e:
+            logger.warning(
+                "SSRF check blocked redirect target: %s — %s", current_url, e
+            )
+            raise _SSRFRedirectError(
+                f"Redirect to {current_url} blocked by security policy"
+            ) from e
+
+    raise _TooManyRedirectsError(
+        f"Too many redirects (max {_MAX_REDIRECTS}) following {url}"
+    )
 
 
 def fetch_html_with_firecrawl(url: str) -> Tuple[bool, str, Optional[str]]:
