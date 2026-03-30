@@ -8,6 +8,7 @@ from django.db import transaction
 from django.http import HttpResponseForbidden, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.views.decorators.http import require_http_methods, require_POST
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
 from accounts.models_profile import UserProfile
@@ -66,6 +67,7 @@ class UserCreateView(SuperAdminRequiredMixin, LoginRequiredMixin, CreateView):
 
 
 @login_required
+@require_POST  # AIDEV-NOTE: security hardening — only POST allowed (#235)
 def user_approve(request, user_id):
     """Approve a user account."""
     if not request.user.can_manage_users():
@@ -82,6 +84,7 @@ def user_approve(request, user_id):
 
 
 @login_required
+@require_POST  # AIDEV-NOTE: security hardening — only POST allowed (#235)
 def user_revoke_approval(request, user_id):
     """Revoke approval for a user account."""
     if not request.user.can_manage_users():
@@ -102,6 +105,7 @@ def user_revoke_approval(request, user_id):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])  # AIDEV-NOTE: security hardening (#235)
 def user_reset_password(request, user_id):
     """Reset a user's password."""
     if not request.user.can_manage_users():
@@ -129,6 +133,7 @@ def user_reset_password(request, user_id):
 
 
 @login_required
+@require_POST  # AIDEV-NOTE: security hardening — only POST allowed (#235)
 def user_promote(request, user_id):
     """Promote a user to super admin."""
     if not request.user.can_manage_users():
@@ -156,6 +161,7 @@ def user_promote(request, user_id):
 
 
 @login_required
+@require_POST  # AIDEV-NOTE: security hardening — only POST allowed (#235)
 def user_demote(request, user_id):
     """Demote a user from super admin."""
     if not request.user.can_manage_users():
@@ -281,6 +287,7 @@ class GlobalConfigView(SuperAdminRequiredMixin, LoginRequiredMixin, UpdateView):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])  # AIDEV-NOTE: security hardening (#235)
 def migrate_env_to_config(request):
     """View to trigger environment to database migration."""
     if not request.user.can_manage_users():

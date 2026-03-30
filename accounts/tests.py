@@ -104,7 +104,7 @@ class UserManagementViewTests(TestCase):
         self.assertFalse(self.regular_user.is_approved)
 
         # Approve the user
-        response = self.client.get(reverse("user-approve", args=[self.regular_user.id]))
+        response = self.client.post(reverse("user-approve", args=[self.regular_user.id]))
         self.assertEqual(response.status_code, 302)  # Redirect after approval
 
         # Check that user is now approved
@@ -120,7 +120,7 @@ class UserManagementViewTests(TestCase):
         self.regular_user.profile.save()
 
         # Revoke approval
-        response = self.client.get(
+        response = self.client.post(
             reverse("user-revoke-approval", args=[self.regular_user.id])
         )
         self.assertEqual(response.status_code, 302)  # Redirect after revocation
@@ -134,7 +134,7 @@ class UserManagementViewTests(TestCase):
         self.client.login(username="admin", password="testpass123")
 
         # Try to revoke super admin approval
-        response = self.client.get(
+        response = self.client.post(
             reverse("user-revoke-approval", args=[self.super_admin.id])
         )
         self.assertEqual(response.status_code, 302)  # Redirect
@@ -167,7 +167,7 @@ class UserManagementViewTests(TestCase):
         """Test promoting a user via view."""
         self.client.login(username="admin", password="testpass123")
 
-        response = self.client.get(reverse("user-promote", args=[self.regular_user.id]))
+        response = self.client.post(reverse("user-promote", args=[self.regular_user.id]))
         self.assertEqual(response.status_code, 302)
 
         self.regular_user.refresh_from_db()
@@ -187,7 +187,7 @@ class UserManagementViewTests(TestCase):
         self.regular_user.is_superuser = True
         self.regular_user.save()
 
-        response = self.client.get(reverse("user-demote", args=[self.regular_user.id]))
+        response = self.client.post(reverse("user-demote", args=[self.regular_user.id]))
         self.assertEqual(response.status_code, 302)
 
         self.regular_user.refresh_from_db()
@@ -199,7 +199,7 @@ class UserManagementViewTests(TestCase):
         """Ensure last super admin cannot be demoted."""
         self.client.login(username="admin", password="testpass123")
 
-        response = self.client.get(reverse("user-demote", args=[self.super_admin.id]))
+        response = self.client.post(reverse("user-demote", args=[self.super_admin.id]))
         self.assertEqual(response.status_code, 302)
 
         self.super_admin.refresh_from_db()
@@ -214,7 +214,7 @@ class UserManagementViewTests(TestCase):
             side_effect=Exception("DB error"),
         ):
             try:
-                self.client.get(
+                self.client.post(
                     reverse("user-promote", args=[self.regular_user.id])
                 )
             except Exception:
@@ -241,7 +241,7 @@ class UserManagementViewTests(TestCase):
             side_effect=Exception("DB error"),
         ):
             try:
-                self.client.get(
+                self.client.post(
                     reverse("user-demote", args=[self.regular_user.id])
                 )
             except Exception:
@@ -266,7 +266,7 @@ class UserManagementViewTests(TestCase):
         with patch.object(
             UserProfile.objects, "select_for_update", wraps=UserProfile.objects.select_for_update
         ) as mock_sfu:
-            self.client.get(
+            self.client.post(
                 reverse("user-demote", args=[self.regular_user.id])
             )
             mock_sfu.assert_called()
@@ -406,7 +406,7 @@ class ConcurrentDemoteTests(TransactionTestCase):
             c = Client()
             c.login(username="admin", password="testpass123")
             barrier.wait()
-            resp = c.get(reverse("user-demote", args=[user_id]))
+            resp = c.post(reverse("user-demote", args=[user_id]))
             results.append(resp.status_code)
 
         t1 = threading.Thread(

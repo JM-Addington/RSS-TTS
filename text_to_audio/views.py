@@ -21,7 +21,7 @@ from django.http import (
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -1053,6 +1053,7 @@ def voice_preferences(request):
 
 
 @login_required
+@require_GET  # AIDEV-NOTE: security hardening — read-only view (#235)
 def voice_preset_list(request):
     """View for listing user's voice presets."""
     # Get user presets
@@ -1158,6 +1159,7 @@ def voice_preset_delete(request, preset_id):
 
 
 @login_required
+@require_POST  # AIDEV-NOTE: security hardening — only POST allowed (#235)
 @ratelimit(key="user", rate="10/m", method="POST", block=True)
 def voice_preset_test(request, preset_id=None):
     """Generate a real-time voice sample with current form values."""
@@ -1230,6 +1232,7 @@ def voice_preset_test(request, preset_id=None):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])  # AIDEV-NOTE: security hardening (#235)
 @ratelimit(key="user", rate="10/m", method="POST", block=True)
 def voice_preset_sample(request, preset_id):
     """Generate an audio sample for a voice preset."""
