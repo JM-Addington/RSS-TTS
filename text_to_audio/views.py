@@ -108,30 +108,16 @@ class ArticleMediaView(View):
 
         file_path = self._find_audio_file(article)
         if not file_path:
-            # Add debug information to help diagnose issues
-            if settings.DEBUG:
-                # Get user_id and feed_id for debugging
-                feed_id = (
-                    str(article.feed.id) if hasattr(article.feed, "id") else "unknown"
-                )
-                user_id = (
-                    str(article.feed.user_id)
-                    if hasattr(article.feed, "user_id")
-                    else "unknown"
-                )
-
-                error_msg = (
-                    f"Audio file not found. Details:\n"
-                    f"- UUID: {article.audio_uuid}\n"
-                    f"- Stored path: {article.audio_file_path}\n"
-                    f"- Feed User ID: {user_id}\n"
-                    f"- Feed ID: {feed_id}\n"
-                    f"- MEDIA_ROOT: {settings.MEDIA_ROOT}\n"
-                    f"- BASE_DIR: {settings.BASE_DIR}"
-                )
-                return HttpResponseNotFound(error_msg)
-            else:
-                return HttpResponseNotFound("Audio file not found")
+            # AIDEV-NOTE: Never leak server paths in response body — log instead (#210)
+            logger.warning(
+                "Audio file not found. Details: UUID=%s, stored_path=%s, feed_user_id=%s, feed_id=%s, MEDIA_ROOT=%s",
+                article.audio_uuid,
+                article.audio_file_path,
+                getattr(article.feed, "user_id", "unknown"),
+                getattr(article.feed, "id", "unknown"),
+                settings.MEDIA_ROOT,
+            )
+            return HttpResponseNotFound("Audio file not found")
 
         # Serve the file
         response = FileResponse(open(file_path, "rb"))
