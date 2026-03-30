@@ -9,7 +9,6 @@ Verifies that:
 import os
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 
 # AIDEV-NOTE: All template paths relative to their app's templates dir

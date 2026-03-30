@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from text_to_audio.models import Article, Feed, FollowedFeed
+from text_to_audio.models import Article, Feed
 
 User = get_user_model()
 
