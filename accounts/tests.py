@@ -2,6 +2,8 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
+from appconfig.models import GlobalConfig
+
 
 class UserProfileTests(TestCase):
     """Test cases for the UserProfile model."""
@@ -254,3 +256,62 @@ class AdminApprovalMiddlewareTests(TestCase):
         # Try to access login page
         response = self.client.get(reverse("login"))
         self.assertEqual(response.status_code, 200)  # Should be accessible
+
+
+class TestMigrateEnvToConfigForceParam(TestCase):
+    """Test that the force parameter in migrate_env_to_config is parsed safely.
+
+    The bug: request.POST.get("force", False) returns a string from POST data.
+    Any non-empty string (including "false") is truthy in Python, so force=false
+    was incorrectly treated as True.
+    """
+
+    def setUp(self):
+        # First user becomes super admin (can_manage_users() returns True)
+        self.admin = User.objects.create_user(
+            username="admin", email="admin@example.com", password="testpass123"
+        )
+        self.client.login(username="admin", password="testpass123")
+        self.url = reverse("migrate-env-to-config")
+
+        # Create a GlobalConfig with an existing value that should NOT be
+        # overwritten unless force is truly truthy
+        self.config = GlobalConfig.get_or_create_with_env_migration()
+        self.config.openai_tts_voice = "existing_voice"
+        self.config.save()
+
+    @override_settings(OPENAI_TTS_VOICE="env_voice")
+    def test_force_true_overwrites_existing(self):
+        """force=true should overwrite existing config values."""
+        self.client.post(self.url, {"force": "true"})
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.openai_tts_voice, "env_voice")
+
+    @override_settings(OPENAI_TTS_VOICE="env_voice")
+    def test_force_false_does_not_overwrite_existing(self):
+        """force=false must NOT overwrite existing config values (the bug case)."""
+        self.client.post(self.url, {"force": "false"})
+        self.config.refresh_from_db()
+        # AIDEV-NOTE: This is the key bug assertion — "false" string was truthy before fix
+        self.assertEqual(self.config.openai_tts_voice, "existing_voice")
+
+    @override_settings(OPENAI_TTS_VOICE="env_voice")
+    def test_force_1_overwrites_existing(self):
+        """force=1 should overwrite existing config values."""
+        self.client.post(self.url, {"force": "1"})
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.openai_tts_voice, "env_voice")
+
+    @override_settings(OPENAI_TTS_VOICE="env_voice")
+    def test_missing_force_does_not_overwrite_existing(self):
+        """Missing force param should not overwrite existing config values."""
+        self.client.post(self.url, {})
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.openai_tts_voice, "existing_voice")
+
+    @override_settings(OPENAI_TTS_VOICE="env_voice")
+    def test_empty_force_does_not_overwrite_existing(self):
+        """force= (empty string) should not overwrite existing config values."""
+        self.client.post(self.url, {"force": ""})
+        self.config.refresh_from_db()
+        self.assertEqual(self.config.openai_tts_voice, "existing_voice")

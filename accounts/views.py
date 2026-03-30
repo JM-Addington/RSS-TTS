@@ -320,7 +320,8 @@ def migrate_env_to_config(request):
             "rss_external_hostname": ("RSS_EXTERNAL_HOSTNAME", None),
         }
 
-        force = request.POST.get("force", False)
+        # AIDEV-NOTE: POST data is always a string; must parse explicitly to avoid "false" being truthy
+        force = request.POST.get("force", "").lower() in ("true", "1", "yes", "on")
         migrated_count = 0
 
         from django.conf import settings
