@@ -778,7 +778,9 @@ class RegenerateArticleView(LoginRequiredMixin, View):
         """
         # Get the original article
         original_article = get_object_or_404(
-            Article, pk=article_id, feed__user=request.user
+            Article.objects.select_related("voice_preset"),
+            pk=article_id,
+            feed__user=request.user,
         )
 
         # Create a new article with the same content and voice
