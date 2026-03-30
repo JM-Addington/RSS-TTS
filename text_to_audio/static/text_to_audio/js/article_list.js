@@ -4,6 +4,13 @@
 
 // Read config from DOM element populated by Django template
 const configEl = document.getElementById('js-config');
+
+// AIDEV-NOTE: csrfToken must be declared before the early return so functions
+// like handleRegenerateClick() can reference it on "all articles" pages.
+const csrfToken = configEl
+    ? configEl.dataset.csrfToken
+    : (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+
 if (!configEl) {
     // No config element means we're on the "all articles" page without a feed context
     // Only set up basic clipboard and play button functionality
@@ -16,8 +23,6 @@ if (!configEl) {
     });
     return;
 }
-
-const csrfToken = configEl.dataset.csrfToken;
 // Strip placeholder UUID/IDs from URL templates so we can append real values
 const mediaUrlTemplate = configEl.dataset.mediaUrl
     .replace('00000000-0000-0000-0000-000000000000/', '');

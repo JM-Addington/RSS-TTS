@@ -12,7 +12,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.paginator import EmptyPage, Paginator
 from django.http import (
     FileResponse,
     HttpResponseBadRequest,
@@ -953,32 +952,14 @@ class ArticleDeleteView(LoginRequiredMixin, DeleteView):
 class FeedArticleStatusView(LoginRequiredMixin, View):
     """Return JSON status for articles in a feed."""
 
-    # AIDEV-NOTE: pagination added for #211 — default 100, max 100
-    DEFAULT_PAGE_SIZE = 100
-    MAX_PAGE_SIZE = 100
+    # AIDEV-NOTE: pagination removed — JS polling never passed page params so
+    # articles beyond page 1 were stuck at "Processing" forever. Response is
+    # lightweight (~50 bytes/article) so returning all is fine.
 
     def get(self, request, feed_id):
         """Handle GET requests for article statuses."""
         feed = get_object_or_404(Feed, pk=feed_id, user=request.user)
         articles = Article.objects.filter(feed=feed).order_by("-created_at")
-
-        try:
-            page_size = int(request.GET.get("page_size", self.DEFAULT_PAGE_SIZE))
-        except (ValueError, TypeError):
-            page_size = self.DEFAULT_PAGE_SIZE
-        page_size = min(max(page_size, 1), self.MAX_PAGE_SIZE)
-
-        paginator = Paginator(articles, page_size)
-
-        try:
-            page_num = int(request.GET.get("page", 1))
-        except (ValueError, TypeError):
-            page_num = 1
-
-        try:
-            page = paginator.page(page_num)
-        except EmptyPage:
-            page = paginator.page(paginator.num_pages)
 
         data = [
             {
@@ -986,20 +967,13 @@ class FeedArticleStatusView(LoginRequiredMixin, View):
                 "status": article.status,
                 "audio_uuid": str(article.audio_uuid) if article.audio_uuid else "",
             }
-            for article in page
+            for article in articles
         ]
 
         return JsonResponse(
             {
                 "articles": data,
-                "pagination": {
-                    "page": page.number,
-                    "page_size": page_size,
-                    "total_count": paginator.count,
-                    "total_pages": paginator.num_pages,
-                    "has_next": page.has_next(),
-                    "has_previous": page.has_previous(),
-                },
+                "total_count": len(data),
             }
         )
 

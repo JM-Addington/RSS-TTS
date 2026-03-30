@@ -98,72 +98,23 @@ class ArticleStatusAPITests(TestCase):
         url = reverse("feed-article-status", kwargs={"feed_id": self.feed.pk})
         return self.client.get(url, params)
 
-    def test_pagination_default_limit(self):
-        """Test that default page size is 100 and pagination metadata is present."""
+    def test_returns_all_articles_without_pagination(self):
+        """Test that ALL articles are returned even when >100 exist.
+
+        Regression test: pagination was breaking JS polling — articles beyond
+        page 1 were stuck at 'Processing' forever because the JS client never
+        passed pagination params.
+        """
         self._create_articles(110)  # + 2 from setUp = 112 total
         response = self._get_status()
         data = json.loads(response.content)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(data["articles"]), 100)
-        pagination = data["pagination"]
-        self.assertEqual(pagination["total_count"], 112)
-        self.assertEqual(pagination["page"], 1)
-        self.assertEqual(pagination["page_size"], 100)
-        self.assertEqual(pagination["total_pages"], 2)
-        self.assertTrue(pagination["has_next"])
-        self.assertFalse(pagination["has_previous"])
+        self.assertEqual(len(data["articles"]), 112)
+        self.assertEqual(data["total_count"], 112)
 
-    def test_pagination_page_param(self):
-        """Test requesting page 2 returns remaining articles."""
-        self._create_articles(110)  # 112 total
-        response = self._get_status(page=2)
-        data = json.loads(response.content)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(data["articles"]), 12)
-        self.assertEqual(data["pagination"]["page"], 2)
-        self.assertTrue(data["pagination"]["has_previous"])
-        self.assertFalse(data["pagination"]["has_next"])
-
-    def test_pagination_custom_page_size(self):
-        """Test that page_size param controls number of results."""
-        # 2 articles from setUp
-        response = self._get_status(page_size=1)
-        data = json.loads(response.content)
-        self.assertEqual(len(data["articles"]), 1)
-        self.assertEqual(data["pagination"]["page_size"], 1)
-        self.assertEqual(data["pagination"]["total_pages"], 2)
-
-    def test_pagination_max_page_size(self):
-        """Test that page_size is capped at 100."""
-        self._create_articles(110)  # 112 total
-        response = self._get_status(page_size=500)
-        data = json.loads(response.content)
-        self.assertEqual(len(data["articles"]), 100)
-        self.assertEqual(data["pagination"]["page_size"], 100)
-
-    def test_pagination_invalid_page(self):
-        """Test that an out-of-range page returns the last page."""
-        # 2 articles from setUp, page_size=100 -> 1 page
-        response = self._get_status(page=999)
-        data = json.loads(response.content)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(data["articles"]), 2)
-        self.assertEqual(data["pagination"]["page"], 1)
-
-    def test_pagination_invalid_page_number_type(self):
-        """Test that non-integer page/page_size params fall back to defaults."""
-        response = self._get_status(page="abc", page_size="xyz")
-        data = json.loads(response.content)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(data["pagination"]["page"], 1)
-        self.assertEqual(data["pagination"]["page_size"], 100)
-
-    def test_existing_behavior_preserved(self):
-        """Test that small feeds return all articles with pagination metadata."""
+    def test_small_feed_returns_all_articles(self):
+        """Test that small feeds return all articles with total count."""
         response = self._get_status()
         data = json.loads(response.content)
         self.assertEqual(len(data["articles"]), 2)
-        self.assertEqual(data["pagination"]["total_count"], 2)
-        self.assertEqual(data["pagination"]["total_pages"], 1)
-        self.assertFalse(data["pagination"]["has_next"])
-        self.assertFalse(data["pagination"]["has_previous"])
+        self.assertEqual(data["total_count"], 2)
