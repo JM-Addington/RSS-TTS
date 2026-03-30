@@ -337,122 +337,27 @@ class FeedDeleteView(LoginRequiredMixin, DeleteView):
 
 
 class GenerateFeedEmailView(LoginRequiredMixin, View):
-    """View for generating an email address for a feed."""
+    """View for generating an email address for a feed.
 
+    Delegates business logic to FeedEmailService; handles HTTP concerns only.
+    """
+
+    # AIDEV-NOTE: business logic extracted to FeedEmailService (see services/feed_email_service.py)
     def post(self, request, feed_id):
-        """Handle POST requests to generate an email address for a feed.
-
-        Args:
-            request: The HTTP request object
-            feed_id: The ID of the feed
-
-        Returns:
-            Redirect to the feed list or article list
-        """
-        # Get the feed (must be owned by current user)
+        """Handle POST requests to generate an email address for a feed."""
         feed = get_object_or_404(Feed, pk=feed_id, user=request.user)
 
         logger.info(
             f"User {request.user.username} requested email generation for feed {feed.id} ({feed.name})"
         )
 
-        # Check if feed already has an email
-        if feed.inbound_email:
-            logger.warning(
-                f"Feed {feed.id} ({feed.name}) already has email: {feed.inbound_email}"
-            )
-            messages.info(
-                request,
-                f"Feed '{feed.name}' already has an email address: {feed.inbound_email}",
-            )
-            # Check where the request came from
-            redirect_to = request.POST.get("redirect", "feed-list")
-            if redirect_to == "feed-articles":
-                return redirect("feed-articles", feed_id=feed_id)
-            return redirect("feed-list")
+        from .services.feed_email_service import FeedEmailService
 
-        # Check if Mailgun is configured
-        if not settings.MAILGUN_API_KEY or not settings.MAILGUN_DOMAIN:
-            logger.error(
-                f"Mailgun not configured - cannot generate email for feed {feed.id} ({feed.name})"
-            )
-            messages.error(
-                request,
-                "Mailgun is not configured. Please contact the administrator.",
-            )
-            redirect_to = request.POST.get("redirect", "feed-list")
-            if redirect_to == "feed-articles":
-                return redirect("feed-articles", feed_id=feed_id)
-            return redirect("feed-list")
+        service = FeedEmailService()
+        result = service.generate_email_for_feed(feed)
 
-        # Generate email address
-        email_address = feed.generate_inbound_email()
-        if not email_address:
-            logger.error(
-                f"Failed to generate email address for feed {feed.id} ({feed.name})"
-            )
-            messages.error(
-                request,
-                f"Failed to generate email address for feed '{feed.name}'.",
-            )
-            redirect_to = request.POST.get("redirect", "feed-list")
-            if redirect_to == "feed-articles":
-                return redirect("feed-articles", feed_id=feed_id)
-            return redirect("feed-list")
-
-        # Try to create Mailgun route
-        site_url = getattr(settings, "SITE_URL", None)
-        if site_url:
-            webhook_url = f"{site_url.rstrip('/')}/api/v1/mailgun/incoming/"
-
-            from .services.mailgun_service import MailgunService
-
-            mailgun_service = MailgunService()
-            success, route_id, error = mailgun_service.create_route(
-                feed_email=email_address,
-                webhook_url=webhook_url,
-                description=f"Route for feed: {feed.name} (ID: {feed.id})",
-            )
-
-            if success and route_id:
-                # Save email and route ID
-                feed.inbound_email = email_address
-                feed.mailgun_route_id = route_id
-                feed.save(update_fields=["inbound_email", "mailgun_route_id"])
-                logger.info(
-                    f"Successfully created email {email_address} and route {route_id} "
-                    f"for feed {feed.id} ({feed.name}) by user {request.user.username}"
-                )
-                messages.success(
-                    request,
-                    f"Successfully created email address: {email_address}",
-                )
-            else:
-                # Save just the email address
-                feed.inbound_email = email_address
-                feed.save(update_fields=["inbound_email"])
-                logger.warning(
-                    f"Created email {email_address} for feed {feed.id} ({feed.name}) "
-                    f"but failed to create Mailgun route: {error}"
-                )
-                messages.warning(
-                    request,
-                    f"Created email address {email_address}, but failed to create "
-                    f"Mailgun route. You may need to create the route manually.",
-                )
-        else:
-            # No SITE_URL - just save the email
-            feed.inbound_email = email_address
-            feed.save(update_fields=["inbound_email"])
-            logger.warning(
-                f"Created email {email_address} for feed {feed.id} ({feed.name}) "
-                f"but SITE_URL not configured - route not created"
-            )
-            messages.warning(
-                request,
-                f"Created email address {email_address}, but SITE_URL is not configured. "
-                f"Mailgun route must be created manually.",
-            )
+        # Map result level to Django message
+        getattr(messages, result.level)(request, result.message)
 
         # Redirect back to where the user came from
         redirect_to = request.POST.get("redirect", "feed-list")
