@@ -1,16 +1,17 @@
 {% extends 'base.html' %}
+{% load i18n %}
 {% load widget_tweaks %}
 
-{% block title %}Submit Article - RSS-TTS{% endblock %}
-{% block header_title %}Submit Article{% endblock %}
+{% block title %}{% trans "Submit Article" %} - RSS-TTS{% endblock %}
+{% block header_title %}{% trans "Submit Article" %}{% endblock %}
 
 {% block content %}
 {% if feed %}
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{% url 'feed-list' %}">My Feeds</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'feed-list' %}">{% trans "My Feeds" %}</a></li>
     <li class="breadcrumb-item"><a href="{% url 'feed-articles' feed.id %}">{{ feed.name }}</a></li>
-    <li class="breadcrumb-item active" aria-current="page">Add Article</li>
+    <li class="breadcrumb-item active" aria-current="page">{% trans "Add Article" %}</li>
   </ol>
 </nav>
 {% endif %}
@@ -19,17 +20,17 @@
   <div class="col-lg-8">
     <div class="card mb-4">
       <div class="card-header bg-light">
-        <h4>Add New Article{% if feed %} to {{ feed.name }}{% endif %}</h4>
+        <h4>{% if feed %}{% blocktrans with name=feed.name %}Add New Article to {{ name }}{% endblocktrans %}{% else %}{% trans "Add New Article" %}{% endif %}</h4>
       </div>
       <div class="card-body">
         <div class="alert alert-info">
           <i class="bi bi-info-circle me-2"></i>
-          You can either paste a URL to import content automatically, or enter text directly.
+          {% trans "You can either paste a URL to import content automatically, or enter text directly." %}
         </div>
 
         {% if form.errors %}
         <div class="alert alert-danger">
-          <strong>Please correct the errors below:</strong>
+          <strong>{% trans "Please correct the errors below:" %}</strong>
           <ul class="mb-0">
             {% for field, errors in form.errors.items %}
               {% for error in errors %}
@@ -47,21 +48,21 @@
             <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
             {{ form.title.errors }}
             {{ form.title|add_class:"form-control" }}
-            <div class="form-text">Enter a title for this article (optional; a title will be generated if left blank)</div>
+            <div class="form-text">{% trans "Enter a title for this article (optional; a title will be generated if left blank)" %}</div>
           </div>
 
           <div class="mb-3">
             <label for="{{ form.source_url.id_for_label }}" class="form-label">{{ form.source_url.label }}</label>
             {{ form.source_url.errors }}
             {{ form.source_url|add_class:"form-control" }}
-            <div class="form-text">Enter the URL of an article to automatically extract its content</div>
+            <div class="form-text">{% trans "Enter the URL of an article to automatically extract its content" %}</div>
           </div>
 
           <div class="mb-3">
             <label for="{{ form.text_content.id_for_label }}" class="form-label">{{ form.text_content.label }}</label>
             {{ form.text_content.errors }}
             {{ form.text_content|add_class:"form-control" }}
-            <div class="form-text">Or paste/enter text content directly</div>
+            <div class="form-text">{% trans "Or paste/enter text content directly" %}</div>
           </div>
 
           <div class="mb-3">
@@ -73,27 +74,27 @@
             {% endif %}
           </div>
 
-          <h5 class="mt-4 mb-3">Voice Settings</h5>
+          <h5 class="mt-4 mb-3">{% trans "Voice Settings" %}</h5>
 
           <div class="mb-3">
-            <label for="{{ form.tts_provider.id_for_label }}" class="form-label">TTS Provider</label>
+            <label for="{{ form.tts_provider.id_for_label }}" class="form-label">{% trans "TTS Provider" %}</label>
             {{ form.tts_provider.errors }}
             {{ form.tts_provider|add_class:"form-control" }}
-            <div class="form-text">Override TTS provider for this article (uses feed/global default if not set)</div>
+            <div class="form-text">{% trans "Override TTS provider for this article (uses feed/global default if not set)" %}</div>
           </div>
 
           <div class="mb-3">
-            <label for="{{ form.voice_preset.id_for_label }}" class="form-label">Voice Preset</label>
+            <label for="{{ form.voice_preset.id_for_label }}" class="form-label">{% trans "Voice Preset" %}</label>
             {{ form.voice_preset.errors }}
             {{ form.voice_preset|add_class:"form-control" }}
-            <div class="form-text">Select one of your saved voice presets</div>
+            <div class="form-text">{% trans "Select one of your saved voice presets" %}</div>
           </div>
 
           <div class="mb-3">
-            <label class="form-label">Or set individual voice options:</label>
+            <label class="form-label">{% trans "Or set individual voice options:" %}</label>
             <div class="row">
               <div class="col-md-6">
-                <label for="{{ form.voice_id.id_for_label }}" class="form-label">Voice</label>
+                <label for="{{ form.voice_id.id_for_label }}" class="form-label">{% trans "Voice" %}</label>
                 {{ form.voice_id.errors }}
                 {{ form.voice_id|add_class:"form-control" }}
                 {% if form.voice_id.help_text %}
@@ -101,7 +102,7 @@
                 {% endif %}
               </div>
               <div class="col-md-6">
-                <label for="{{ form.speed.id_for_label }}" class="form-label">Speed</label>
+                <label for="{{ form.speed.id_for_label }}" class="form-label">{% trans "Speed" %}</label>
                 {{ form.speed.errors }}
                 {{ form.speed|add_class:"form-control" }}
                 {% if form.speed.help_text %}
@@ -112,7 +113,7 @@
           </div>
 
           <div class="d-grid">
-            <button type="submit" class="btn btn-primary">Convert to Audio</button>
+            <button type="submit" class="btn btn-primary">{% trans "Convert to Audio" %}</button>
           </div>
         </form>
       </div>

@@ -1,12 +1,13 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}My Followed Feeds{% endblock %}
+{% block title %}{% trans "My Followed Feeds" %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>My Followed Feeds</h2>
-        <a href="{% url 'followedfeed-create' %}" class="btn btn-primary">Add New Followed Feed</a>
+        <h2>{% trans "My Followed Feeds" %}</h2>
+        <a href="{% url 'followedfeed-create' %}" class="btn btn-primary">{% trans "Add New Followed Feed" %}</a>
     </div>
 
     {% if messages %}
@@ -22,11 +23,11 @@
         <table class="table table-striped table-hover">
             <thead class="table-light">
                 <tr>
-                    <th>RSS Feed URL</th>
-                    <th>Destination Feed</th>
-                    <th>Status</th>
-                    <th>Last Checked</th>
-                    <th>Actions</th>
+                    <th>{% trans "RSS Feed URL" %}</th>
+                    <th>{% trans "Destination Feed" %}</th>
+                    <th>{% trans "Status" %}</th>
+                    <th>{% trans "Last Checked" %}</th>
+                    <th>{% trans "Actions" %}</th>
                 </tr>
             </thead>
             <tbody>
@@ -36,18 +37,18 @@
                         <td>{{ followed_feed.destination_feed.name }}</td>
                         <td>
                             {% if followed_feed.is_active %}
-                                <span class="badge bg-success">Active</span>
+                                <span class="badge bg-success">{% trans "Active" %}</span>
                             {% else %}
-                                <span class="badge bg-secondary">Inactive</span>
+                                <span class="badge bg-secondary">{% trans "Inactive" %}</span>
                             {% endif %}
                         </td>
-                        <td>{{ followed_feed.last_checked|date:"Y-m-d H:i"|default:"Never" }}</td>
+                        <td>{% if followed_feed.last_checked %}{{ followed_feed.last_checked|date:"Y-m-d H:i" }}{% else %}{% trans "Never" %}{% endif %}</td>
                         <td>
                             <a href="{% url 'followedfeed-edit' followed_feed.pk %}" class="btn btn-sm btn-outline-secondary me-1">
-                                <i class="fas fa-edit"></i> Edit
+                                <i class="fas fa-edit"></i> {% trans "Edit" %}
                             </a>
                             <a href="{% url 'followedfeed-delete' followed_feed.pk %}" class="btn btn-sm btn-outline-danger">
-                                <i class="fas fa-trash-alt"></i> Delete
+                                <i class="fas fa-trash-alt"></i> {% trans "Delete" %}
                             </a>
                         </td>
                     </tr>
@@ -56,7 +57,7 @@
         </table>
     {% else %}
         <div class="alert alert-info" role="alert">
-            You are not following any RSS feeds yet. <a href="{% url 'followedfeed-create' %}" class="alert-link">Add one now!</a>
+            {% url 'followedfeed-create' as create_url %}{% blocktrans with url=create_url %}You are not following any RSS feeds yet. <a href="{{ url }}" class="alert-link">Add one now!</a>{% endblocktrans %}
         </div>
     {% endif %}
 </div>

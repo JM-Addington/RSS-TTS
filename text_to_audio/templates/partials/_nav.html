@@ -1,52 +1,53 @@
+{% load i18n %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
     <a class="navbar-brand" href="/">RSS-TTS</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="{% trans 'Toggle navigation' %}">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav ms-auto">
         {% if user.is_authenticated %}
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'feed-list' %}">My Feeds</a>
+          <a class="nav-link" href="{% url 'feed-list' %}">{% trans "My Feeds" %}</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'cost-analytics' %}"><i class="bi bi-graph-up"></i> Costs</a>
+          <a class="nav-link" href="{% url 'cost-analytics' %}"><i class="bi bi-graph-up"></i> {% trans "Costs" %}</a>
         </li>
         {% if user.can_manage_users %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Admin
+            {% trans "Admin" %}
           </a>
           <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-            <li><a class="dropdown-item" href="{% url 'user-management' %}">User Management</a></li>
-            <li><a class="dropdown-item" href="{% url 'global-config' %}">Global Configuration</a></li>
+            <li><a class="dropdown-item" href="{% url 'user-management' %}">{% trans "User Management" %}</a></li>
+            <li><a class="dropdown-item" href="{% url 'global-config' %}">{% trans "Global Configuration" %}</a></li>
           </ul>
         </li>
         {% endif %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="voiceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Voice Settings
+            {% trans "Voice Settings" %}
           </a>
           <ul class="dropdown-menu" aria-labelledby="voiceDropdown">
-            <li><a class="dropdown-item" href="{% url 'voice_preferences' %}">Default Voice</a></li>
-            <li><a class="dropdown-item" href="{% url 'voice_preset_list' %}">Voice Presets</a></li>
+            <li><a class="dropdown-item" href="{% url 'voice_preferences' %}">{% trans "Default Voice" %}</a></li>
+            <li><a class="dropdown-item" href="{% url 'voice_preset_list' %}">{% trans "Voice Presets" %}</a></li>
             <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="{% url 'voice_preset_create' %}">Create New Preset</a></li>
+            <li><a class="dropdown-item" href="{% url 'voice_preset_create' %}">{% trans "Create New Preset" %}</a></li>
           </ul>
         </li>
         <li class="nav-item">
           <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
-            <button class="nav-link btn btn-link" type="submit">Logout</button>
+            <button class="nav-link btn btn-link" type="submit">{% trans "Logout" %}</button>
           </form>
         </li>
         {% else %}
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'login' %}">Login</a>
+          <a class="nav-link" href="{% url 'login' %}">{% trans "Login" %}</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'signup' %}">Sign Up</a>
+          <a class="nav-link" href="{% url 'signup' %}">{% trans "Sign Up" %}</a>
         </li>
         {% endif %}
       </ul>

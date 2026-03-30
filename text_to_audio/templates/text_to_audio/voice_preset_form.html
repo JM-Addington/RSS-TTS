@@ -1,12 +1,13 @@
 {% extends "base.html" %}
+{% load i18n %}
 
 {% block title %}
-    {% if is_create %}Create Voice Preset{% else %}Edit Voice Preset{% endif %}
+    {% if is_create %}{% trans "Create Voice Preset" %}{% else %}{% trans "Edit Voice Preset" %}{% endif %}
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h1>{% if is_create %}Create Voice Preset{% else %}Edit Voice Preset{% endif %}</h1>
+    <h1>{% if is_create %}{% trans "Create Voice Preset" %}{% else %}{% trans "Edit Voice Preset" %}{% endif %}</h1>
 
     <form method="post" class="mt-4">
         {% csrf_token %}
@@ -89,17 +90,17 @@
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">
-                    <i class="bi bi-play-circle"></i> Test Voice Settings
+                    <i class="bi bi-play-circle"></i> {% trans "Test Voice Settings" %}
                 </h5>
             </div>
             <div class="card-body">
                 <div class="mb-3">
-                    <label for="testText" class="form-label">Sample Text</label>
+                    <label for="testText" class="form-label">{% trans "Sample Text" %}</label>
                     <textarea
                         class="form-control"
                         id="testText"
                         rows="3"
-                        placeholder="Enter text to test the voice (up to 100 words)"
+                        placeholder="{% trans 'Enter text to test the voice (up to 100 words)' %}"
                     >Welcome to our text-to-speech service. This is a sample of how your voice preset will sound when converting articles to audio.</textarea>
                     <div class="form-text">Change voice settings above and click "Test Voice" to hear how it sounds. The prompt will be applied as instructions to the TTS model (if supported).
                     <!-- AIDEV-NOTE: Prompt handling here must match TTS pipeline in tasks.py --></div>
@@ -107,7 +108,7 @@
 
                 <button type="button" class="btn btn-success" id="testVoiceBtn">
                     <span id="testBtnText">
-                        <i class="bi bi-play-circle"></i> Test Voice
+                        <i class="bi bi-play-circle"></i> {% trans "Test Voice" %}
                     </span>
                     <span id="testBtnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
                 </button>
@@ -124,9 +125,9 @@
 
         <div class="mt-4 d-flex">
             <button type="submit" class="btn btn-primary me-2">
-                {% if is_create %}Create Preset{% else %}Update Preset{% endif %}
+                {% if is_create %}{% trans "Create Preset" %}{% else %}{% trans "Update Preset" %}{% endif %}
             </button>
-            <a href="{% url 'voice_preset_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            <a href="{% url 'voice_preset_list' %}" class="btn btn-outline-secondary">{% trans "Cancel" %}</a>
         </div>
     </form>
 </div>

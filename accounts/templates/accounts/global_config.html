@@ -1,17 +1,18 @@
 {% extends 'base.html' %}
+{% load i18n %}
 
-{% block title %}Global Configuration{% endblock %}
+{% block title %}{% trans "Global Configuration" %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Global Configuration</h2>
+                <h2>{% trans "Global Configuration" %}</h2>
                 <div>
-                    <a href="{% url 'user-management' %}" class="btn btn-secondary me-2">User Management</a>
+                    <a href="{% url 'user-management' %}" class="btn btn-secondary me-2">{% trans "User Management" %}</a>
                     <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#migrateModal">
-                        Migrate from Environment
+                        {% trans "Migrate from Environment" %}
                     </button>
                 </div>
             </div>
@@ -27,14 +28,14 @@
 
             {% if conflicts %}
                 <div class="alert alert-warning" role="alert">
-                    <h5><i class="fas fa-exclamation-triangle"></i> Configuration Conflicts Detected</h5>
-                    <p>The following settings have different values in environment variables vs. database:</p>
+                    <h5><i class="fas fa-exclamation-triangle"></i> {% trans "Configuration Conflicts Detected" %}</h5>
+                    <p>{% trans "The following settings have different values in environment variables vs. database:" %}</p>
                     <ul class="mb-0">
                         {% for conflict in conflicts %}
-                            <li><strong>{{ conflict.human_name }}</strong>: Database = "{{ conflict.db_value }}", Environment = "{{ conflict.env_value }}"</li>
+                            <li>{% blocktrans with human_name=conflict.human_name db_value=conflict.db_value env_value=conflict.env_value %}<strong>{{ human_name }}</strong>: Database = "{{ db_value }}", Environment = "{{ env_value }}"{% endblocktrans %}</li>
                         {% endfor %}
                     </ul>
-                    <p class="mt-2 mb-0"><small>Database values take precedence. Use "Migrate from Environment" to override if needed.</small></p>
+                    <p class="mt-2 mb-0"><small>{% trans "Database values take precedence. Use \"Migrate from Environment\" to override if needed." %}</small></p>
                 </div>
             {% endif %}
 
@@ -44,13 +45,13 @@
                 <!-- OpenAI Configuration -->
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-robot"></i> OpenAI Configuration</h5>
+                        <h5 class="mb-0"><i class="fas fa-robot"></i> {% trans "OpenAI Configuration" %}</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.openai_api_key.id_for_label }}" class="form-label">OpenAI API Key</label>
+                                    <label for="{{ form.openai_api_key.id_for_label }}" class="form-label">{% trans "OpenAI API Key" %}</label>
                                     {{ form.openai_api_key }}
                                     {% if form.openai_api_key.help_text %}
                                         <div class="form-text">{{ form.openai_api_key.help_text }}</div>
@@ -59,7 +60,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.openai_title_model.id_for_label }}" class="form-label">Title Generation Model</label>
+                                    <label for="{{ form.openai_title_model.id_for_label }}" class="form-label">{% trans "Title Generation Model" %}</label>
                                     {{ form.openai_title_model }}
                                     {% if form.openai_title_model.help_text %}
                                         <div class="form-text">{{ form.openai_title_model.help_text }}</div>
@@ -70,7 +71,7 @@
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="{{ form.openai_tts_model.id_for_label }}" class="form-label">TTS Model</label>
+                                    <label for="{{ form.openai_tts_model.id_for_label }}" class="form-label">{% trans "TTS Model" %}</label>
                                     {{ form.openai_tts_model }}
                                     {% if form.openai_tts_model.help_text %}
                                         <div class="form-text">{{ form.openai_tts_model.help_text }}</div>
@@ -79,7 +80,7 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="{{ form.openai_tts_voice.id_for_label }}" class="form-label">Default TTS Voice</label>
+                                    <label for="{{ form.openai_tts_voice.id_for_label }}" class="form-label">{% trans "Default TTS Voice" %}</label>
                                     {{ form.openai_tts_voice }}
                                     {% if form.openai_tts_voice.help_text %}
                                         <div class="form-text">{{ form.openai_tts_voice.help_text }}</div>
@@ -88,7 +89,7 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="{{ form.openai_tts_response_format.id_for_label }}" class="form-label">TTS Response Format</label>
+                                    <label for="{{ form.openai_tts_response_format.id_for_label }}" class="form-label">{% trans "TTS Response Format" %}</label>
                                     {{ form.openai_tts_response_format }}
                                     {% if form.openai_tts_response_format.help_text %}
                                         <div class="form-text">{{ form.openai_tts_response_format.help_text }}</div>
@@ -99,7 +100,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.openai_analysis_model.id_for_label }}" class="form-label">Analysis Model</label>
+                                    <label for="{{ form.openai_analysis_model.id_for_label }}" class="form-label">{% trans "Analysis Model" %}</label>
                                     {{ form.openai_analysis_model }}
                                     {% if form.openai_analysis_model.help_text %}
                                         <div class="form-text">{{ form.openai_analysis_model.help_text }}</div>
@@ -108,7 +109,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.openai_classification_model.id_for_label }}" class="form-label">Classification Model</label>
+                                    <label for="{{ form.openai_classification_model.id_for_label }}" class="form-label">{% trans "Classification Model" %}</label>
                                     {{ form.openai_classification_model }}
                                     {% if form.openai_classification_model.help_text %}
                                         <div class="form-text">{{ form.openai_classification_model.help_text }}</div>
@@ -122,7 +123,7 @@
                 <!-- Content Processing -->
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-cogs"></i> Content Processing</h5>
+                        <h5 class="mb-0"><i class="fas fa-cogs"></i> {% trans "Content Processing" %}</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -130,7 +131,7 @@
                                 <div class="mb-3 form-check">
                                     {{ form.use_gpt_for_url_extraction }}
                                     <label for="{{ form.use_gpt_for_url_extraction.id_for_label }}" class="form-check-label">
-                                        Use GPT for URL Extraction
+                                        {% trans "Use GPT for URL Extraction" %}
                                     </label>
                                     {% if form.use_gpt_for_url_extraction.help_text %}
                                         <div class="form-text">{{ form.use_gpt_for_url_extraction.help_text }}</div>
@@ -139,7 +140,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.max_analysis_words.id_for_label }}" class="form-label">Max Analysis Words</label>
+                                    <label for="{{ form.max_analysis_words.id_for_label }}" class="form-label">{% trans "Max Analysis Words" %}</label>
                                     {{ form.max_analysis_words }}
                                     {% if form.max_analysis_words.help_text %}
                                         <div class="form-text">{{ form.max_analysis_words.help_text }}</div>
@@ -152,7 +153,7 @@
                                 <div class="mb-3 form-check">
                                     {{ form.enable_chunk_tone_llm }}
                                     <label for="{{ form.enable_chunk_tone_llm.id_for_label }}" class="form-check-label">
-                                        Enable ChunkTone LLM Service
+                                        {% trans "Enable ChunkTone LLM Service" %}
                                     </label>
                                     {% if form.enable_chunk_tone_llm.help_text %}
                                         <div class="form-text">{{ form.enable_chunk_tone_llm.help_text }}</div>
@@ -161,7 +162,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.default_tts_provider.id_for_label }}" class="form-label">Default TTS Provider</label>
+                                    <label for="{{ form.default_tts_provider.id_for_label }}" class="form-label">{% trans "Default TTS Provider" %}</label>
                                     {{ form.default_tts_provider }}
                                     {% if form.default_tts_provider.help_text %}
                                         <div class="form-text">{{ form.default_tts_provider.help_text }}</div>
@@ -175,13 +176,13 @@
                 <!-- Google Cloud TTS Configuration -->
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-cloud"></i> Google Cloud TTS Configuration</h5>
+                        <h5 class="mb-0"><i class="fas fa-cloud"></i> {% trans "Google Cloud TTS Configuration" %}</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.google_tts_api_key.id_for_label }}" class="form-label">Google TTS API Key</label>
+                                    <label for="{{ form.google_tts_api_key.id_for_label }}" class="form-label">{% trans "Google TTS API Key" %}</label>
                                     {{ form.google_tts_api_key }}
                                     {% if form.google_tts_api_key.help_text %}
                                         <div class="form-text">{{ form.google_tts_api_key.help_text }}</div>
@@ -190,7 +191,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.google_tts_default_voice_type.id_for_label }}" class="form-label">Default Voice Type</label>
+                                    <label for="{{ form.google_tts_default_voice_type.id_for_label }}" class="form-label">{% trans "Default Voice Type" %}</label>
                                     {{ form.google_tts_default_voice_type }}
                                     {% if form.google_tts_default_voice_type.help_text %}
                                         <div class="form-text">{{ form.google_tts_default_voice_type.help_text }}</div>
@@ -201,12 +202,12 @@
                         <div class="row">
                             <div class="col-md-12">
                                 <div class="mb-3">
-                                    <label for="{{ form.google_tts_credentials_json.id_for_label }}" class="form-label">Service Account Credentials (JSON)</label>
+                                    <label for="{{ form.google_tts_credentials_json.id_for_label }}" class="form-label">{% trans "Service Account Credentials (JSON)" %}</label>
                                     {{ form.google_tts_credentials_json }}
                                     {% if form.google_tts_credentials_json.help_text %}
                                         <div class="form-text">{{ form.google_tts_credentials_json.help_text }}</div>
                                     {% endif %}
-                                    <div class="form-text"><small><em>Alternative to API key. Paste your service account JSON here (optional).</em></small></div>
+                                    <div class="form-text"><small><em>{% trans "Alternative to API key. Paste your service account JSON here (optional)." %}</em></small></div>
                                 </div>
                             </div>
                         </div>
@@ -216,13 +217,13 @@
                 <!-- Firecrawl Configuration -->
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-spider"></i> Firecrawl Configuration</h5>
+                        <h5 class="mb-0"><i class="fas fa-spider"></i> {% trans "Firecrawl Configuration" %}</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.firecrawl_api_key.id_for_label }}" class="form-label">Firecrawl API Key</label>
+                                    <label for="{{ form.firecrawl_api_key.id_for_label }}" class="form-label">{% trans "Firecrawl API Key" %}</label>
                                     {{ form.firecrawl_api_key }}
                                     {% if form.firecrawl_api_key.help_text %}
                                         <div class="form-text">{{ form.firecrawl_api_key.help_text }}</div>
@@ -233,7 +234,7 @@
                                 <div class="mb-3 form-check">
                                     {{ form.use_firecrawl_by_default }}
                                     <label for="{{ form.use_firecrawl_by_default.id_for_label }}" class="form-check-label">
-                                        Use Firecrawl by Default
+                                        {% trans "Use Firecrawl by Default" %}
                                     </label>
                                     {% if form.use_firecrawl_by_default.help_text %}
                                         <div class="form-text">{{ form.use_firecrawl_by_default.help_text }}</div>
@@ -247,13 +248,13 @@
                 <!-- RSS/Podcast Configuration -->
                 <div class="card mb-4">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-podcast"></i> RSS/Podcast Configuration</h5>
+                        <h5 class="mb-0"><i class="fas fa-podcast"></i> {% trans "RSS/Podcast Configuration" %}</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.site_url.id_for_label }}" class="form-label">Site URL</label>
+                                    <label for="{{ form.site_url.id_for_label }}" class="form-label">{% trans "Site URL" %}</label>
                                     {{ form.site_url }}
                                     {% if form.site_url.help_text %}
                                         <div class="form-text">{{ form.site_url.help_text }}</div>
@@ -262,7 +263,7 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.rss_external_hostname.id_for_label }}" class="form-label">RSS External Hostname</label>
+                                    <label for="{{ form.rss_external_hostname.id_for_label }}" class="form-label">{% trans "RSS External Hostname" %}</label>
                                     {{ form.rss_external_hostname }}
                                     {% if form.rss_external_hostname.help_text %}
                                         <div class="form-text">{{ form.rss_external_hostname.help_text }}</div>
@@ -273,7 +274,7 @@
                         <div class="row">
                             <div class="col-md-12">
                                 <div class="mb-3">
-                                    <label for="{{ form.podcast_image_url.id_for_label }}" class="form-label">Default Podcast Image URL</label>
+                                    <label for="{{ form.podcast_image_url.id_for_label }}" class="form-label">{% trans "Default Podcast Image URL" %}</label>
                                     {{ form.podcast_image_url }}
                                     {% if form.podcast_image_url.help_text %}
                                         <div class="form-text">{{ form.podcast_image_url.help_text }}</div>
@@ -285,7 +286,7 @@
                 </div>
 
                 <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <button type="submit" class="btn btn-primary">Save Configuration</button>
+                    <button type="submit" class="btn btn-primary">{% trans "Save Configuration" %}</button>
                 </div>
             </form>
         </div>
@@ -297,26 +298,26 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="migrateModalLabel">Migrate from Environment Variables</h5>
+                <h5 class="modal-title" id="migrateModalLabel">{% trans "Migrate from Environment Variables" %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>This will copy settings from environment variables to the database.</p>
-                <p><strong>Note:</strong> This will only update empty database fields unless you force the migration.</p>
+                <p>{% trans "This will copy settings from environment variables to the database." %}</p>
+                <p><strong>{% trans "Note:" %}</strong> {% trans "This will only update empty database fields unless you force the migration." %}</p>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" value="1" id="forceOverride" name="force">
                     <label class="form-check-label" for="forceOverride">
-                        Force override existing database values
+                        {% trans "Force override existing database values" %}
                     </label>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
                 <form method="post" action="{% url 'migrate-env-to-config' %}" style="display: inline;">
                     {% csrf_token %}
                     <input type="hidden" name="force" value="0" id="forceInput">
                     <button type="submit" class="btn btn-primary" onclick="document.getElementById('forceInput').value = document.getElementById('forceOverride').checked ? '1' : '0'">
-                        Migrate Settings
+                        {% trans "Migrate Settings" %}
                     </button>
                 </form>
             </div>

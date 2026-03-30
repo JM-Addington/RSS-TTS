@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}{% if feed %}{{ feed.name }} - {% endif %}Articles - RSS-TTS{% endblock %}
+{% block title %}{% if feed %}{{ feed.name }} - {% endif %}{% trans "Articles" %} - RSS-TTS{% endblock %}
 
 {% block content %}
 {% load static %}
@@ -22,7 +23,7 @@ tr.now-playing {
     {% if feed %}
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'feed-list' %}">My Feeds</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'feed-list' %}">{% trans "My Feeds" %}</a></li>
                 <li class="breadcrumb-item active" aria-current="page">{{ feed.name }}</li>
             </ol>
         </nav>
@@ -30,24 +31,24 @@ tr.now-playing {
             <h1>{{ feed.name }}</h1>
             <div class="btn-group" role="group">
                 <a href="{% url 'feed-article-create' feed.id %}" class="btn btn-primary">
-                    <i class="bi bi-plus-circle"></i> Add Article
+                    <i class="bi bi-plus-circle"></i> {% trans "Add Article" %}
                 </a>
                 <a href="{% url 'feed-update' feed.id %}" class="btn btn-secondary">
-                    <i class="bi bi-pencil"></i> Edit Feed
+                    <i class="bi bi-pencil"></i> {% trans "Edit Feed" %}
                 </a>
             </div>
         </div>
     {% else %}
-        <h1 class="mb-4">Your Articles</h1>
+        <h1 class="mb-4">{% trans "Your Articles" %}</h1>
     {% endif %}
 
     {% if feed_url %}
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Your Private RSS Feed</h5>
+            <h5 class="mb-0">{% trans "Your Private RSS Feed" %}</h5>
         </div>
         <div class="card-body">
-            <p class="card-text">Subscribe to your personalized podcast feed in any podcast app using this URL:</p>
+            <p class="card-text">{% trans "Subscribe to your personalized podcast feed in any podcast app using this URL:" %}</p>
             <div class="input-group mb-3">
                 <input type="text" class="form-control" value="{{ feed_url }}" id="feed-url" readonly>
                 <button class="btn btn-outline-secondary" type="button" onclick="copyFeedUrl()" id="copy-button" aria-label="Copy feed URL">
@@ -55,10 +56,10 @@ tr.now-playing {
                         <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
                         <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
                     </svg>
-                    Copy
+                    {% trans "Copy" %}
                 </button>
             </div>
-            <p class="card-text text-muted small">⚠️ Keep this URL private - anyone with this link can access your feed.</p>
+            <p class="card-text text-muted small">{% trans "⚠️ Keep this URL private - anyone with this link can access your feed." %}</p>
         </div>
     </div>
     {% endif %}
@@ -66,22 +67,22 @@ tr.now-playing {
     {% if api_url %}
     <div class="card mb-4">
         <div class="card-header bg-secondary text-white">
-            <h5 class="mb-0">Article Submission API</h5>
+            <h5 class="mb-0">{% trans "Article Submission API" %}</h5>
         </div>
         <div class="card-body">
-            <p class="card-text">POST text or URLs to this endpoint to add articles programmatically:</p>
+            <p class="card-text">{% trans "POST text or URLs to this endpoint to add articles programmatically:" %}</p>
             <div class="input-group mb-3">
                 <input type="text" class="form-control" value="{{ api_url }}" id="api-url" readonly>
-                <button class="btn btn-outline-secondary" type="button" onclick="copyApiUrl()" id="copy-api-button" aria-label="Copy API URL">
+                <button class="btn btn-outline-secondary" type="button" onclick="copyApiUrl()" id="copy-api-button" aria-label="{% trans 'Copy API URL' %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16" aria-hidden="true">
                         <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
                         <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
                     </svg>
-                    Copy
+                    {% trans "Copy" %}
                 </button>
             </div>
             <p class="card-text text-muted small">
-                View the <a href="/api/docs/" target="_blank">API documentation</a> for details on request format.
+                {% blocktrans %}View the <a href="/api/docs/" target="_blank">API documentation</a> for details on request format.{% endblocktrans %}
             </p>
         </div>
     </div>
@@ -91,24 +92,23 @@ tr.now-playing {
     <div class="card mb-4">
         <div class="card-header bg-success text-white">
             <h5 class="mb-0">
-                <i class="bi bi-envelope"></i> Email to Feed
+                <i class="bi bi-envelope"></i> {% trans "Email to Feed" %}
             </h5>
         </div>
         <div class="card-body">
-            <p class="card-text">Forward emails or newsletters to this address to automatically add them to your feed:</p>
+            <p class="card-text">{% trans "Forward emails or newsletters to this address to automatically add them to your feed:" %}</p>
             <div class="input-group mb-3">
                 <input type="text" class="form-control" value="{{ feed.inbound_email }}" id="feed-email" readonly autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
-                <button class="btn btn-outline-secondary" type="button" onclick="copyFeedEmail()" id="copy-email-button" aria-label="Copy feed email address">
+                <button class="btn btn-outline-secondary" type="button" onclick="copyFeedEmail()" id="copy-email-button" aria-label="{% trans 'Copy feed email address' %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16" aria-hidden="true">
                         <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
                         <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
                     </svg>
-                    Copy
+                    {% trans "Copy" %}
                 </button>
             </div>
             <p class="card-text text-muted small">
-                <i class="bi bi-info-circle"></i> Supported formats: Plain text emails, HTML emails, PDF attachments, and HTML attachments.
-                The email subject will be used as the article title.
+                <i class="bi bi-info-circle"></i> {% trans "Supported formats: Plain text emails, HTML emails, PDF attachments, and HTML attachments. The email subject will be used as the article title." %}
             </p>
         </div>
     </div>
@@ -116,20 +116,20 @@ tr.now-playing {
     <div class="card mb-4">
         <div class="card-header bg-warning text-dark">
             <h5 class="mb-0">
-                <i class="bi bi-envelope-plus"></i> Email to Feed
+                <i class="bi bi-envelope-plus"></i> {% trans "Email to Feed" %}
             </h5>
         </div>
         <div class="card-body">
-            <p class="card-text">Generate an email address to forward emails or newsletters directly to this feed:</p>
+            <p class="card-text">{% trans "Generate an email address to forward emails or newsletters directly to this feed:" %}</p>
             <form method="post" action="{% url 'feed-generate-email' feed.id %}" class="d-inline">
                 {% csrf_token %}
                 <input type="hidden" name="redirect" value="feed-articles">
                 <button type="submit" class="btn btn-success">
-                    <i class="bi bi-envelope-plus"></i> Generate Email Address
+                    <i class="bi bi-envelope-plus"></i> {% trans "Generate Email Address" %}
                 </button>
             </form>
             <p class="card-text text-muted small mt-3">
-                <i class="bi bi-info-circle"></i> Once generated, you can forward emails or newsletters to this address to automatically convert them to audio articles.
+                <i class="bi bi-info-circle"></i> {% trans "Once generated, you can forward emails or newsletters to this address to automatically convert them to audio articles." %}
             </p>
         </div>
     </div>
@@ -140,12 +140,12 @@ tr.now-playing {
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>Title</th>
-                        <th>Source</th>
-                        <th>Voice</th>
-                        <th>Date Added</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th>{% trans "Title" %}</th>
+                        <th>{% trans "Source" %}</th>
+                        <th>{% trans "Voice" %}</th>
+                        <th>{% trans "Date Added" %}</th>
+                        <th>{% trans "Status" %}</th>
+                        <th>{% trans "Actions" %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -154,7 +154,7 @@ tr.now-playing {
                         <td class="status-cell">
                             {{ article.title }}
                             {% if article.source_url %}
-                                <span class="badge bg-info text-dark">URL Import</span>
+                                <span class="badge bg-info text-dark">{% trans "URL Import" %}</span>
                             {% endif %}
                         </td>
                         <td>
@@ -164,110 +164,110 @@ tr.now-playing {
                                     <i class="bi bi-box-arrow-up-right"></i>
                                 </a>
                             {% else %}
-                                <span class="text-muted">Direct entry</span>
+                                <span class="text-muted">{% trans "Direct entry" %}</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if article.get_display_voice_name %}
                                 <span class="badge bg-secondary">{{ article.get_display_voice_name }}</span>
                             {% else %}
-                                <span class="text-muted">Default</span> {# Or handle as appropriate if a default is always expected #}
+                                <span class="text-muted">{% trans "Default" %}</span>
                             {% endif %}
                         </td>
                         <td>{{ article.created_at|date:"M d, Y" }}</td>
                         <td class="status-badge">
                             {% if article.status == 'COMPLETED' %}
-                                <span class="badge bg-success">Completed</span>
+                                <span class="badge bg-success">{% trans "Completed" %}</span>
                             {% elif article.status == 'PROCESSING' %}
-                                <span class="badge bg-warning text-dark">Processing</span>
+                                <span class="badge bg-warning text-dark">{% trans "Processing" %}</span>
                             {% elif article.status == 'FAILED' %}
-                                <span class="badge bg-danger">Failed</span>
+                                <span class="badge bg-danger">{% trans "Failed" %}</span>
                             {% endif %}
                         </td>
                         <td class="action-cell">
                             {% if article.status == 'COMPLETED' %}
                                 <div class="btn-group btn-group-sm">
                                     <a href="{% url 'article-detail' article.id %}" class="btn btn-secondary btn-sm">
-                                        <i class="bi bi-info-circle"></i> Details
+                                        <i class="bi bi-info-circle"></i> {% trans "Details" %}
                                     </a>
                                     <a href="{% url 'article-media' article.audio_uuid %}" class="btn btn-primary btn-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16" aria-hidden="true">
                                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                             <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                                         </svg>
-                                        Download MP3
+                                        {% trans "Download MP3" %}
                                     </a>
                                     <button type="button" class="btn btn-success btn-sm play-audio-btn" data-audio-url="{% url 'article-media' article.audio_uuid %}" data-article-id="{{ article.id }}" data-article-title="{{ article.title|escapejs }}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-circle" viewBox="0 0 16 16" aria-hidden="true">
                                             <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                                             <path d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445z"/>
-                                        </svg> Play
+                                        </svg> {% trans "Play" %}
                                     </button>
                                     <a href="{% url 'article_voice_settings' article.id %}" class="btn btn-info btn-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16" aria-hidden="true">
                                             <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
                                             <path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
                                         </svg>
-                                        Voice Settings
+                                        {% trans "Voice Settings" %}
                                     </a>
                                     <button type="button" class="btn btn-outline-secondary btn-sm regenerate-btn" data-article-id="{{ article.id }}" data-regenerate-url="{% url 'article-regenerate' article.id %}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16" aria-hidden="true">
                                             <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
                                             <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
                                         </svg>
-                                        Regenerate
+                                        {% trans "Regenerate" %}
                                     </button>
                                     <a href="{% url 'article-delete' feed_id=article.feed.id article_id=article.id %}" class="btn btn-danger btn-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16" aria-hidden="true">
                                             <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
                                             <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
                                         </svg>
-                                        Delete
+                                        {% trans "Delete" %}
                                     </a>
                                 </div>
                             {% elif article.status == 'PROCESSING' %}
-                                <span class="text-muted">Processing...</span>
+                                <span class="text-muted">{% trans "Processing..." %}</span>
                                 <a href="{% url 'article-delete' feed_id=article.feed.id article_id=article.id %}" class="btn btn-outline-danger btn-sm mt-1 d-block">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16" aria-hidden="true">
                                         <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
                                         <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
                                     </svg>
-                                    Delete
+                                    {% trans "Delete" %}
                                 </a>
                             {% elif article.status == 'FAILED' %}
                                 <div class="d-flex flex-column gap-2">
                                     <div class="btn-group btn-group-sm">
                                         <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#errorDetails{{ article.id }}" aria-expanded="false">
-                                            Show Error Details
+                                            {% trans "Show Error Details" %}
                                         </button>
                                         <button type="button" class="btn btn-outline-primary btn-sm regenerate-btn" data-article-id="{{ article.id }}" data-regenerate-url="{% url 'article-regenerate' article.id %}">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16" aria-hidden="true">
                                                 <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
                                                 <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
                                             </svg>
-                                            Retry
+                                            {% trans "Retry" %}
                                         </button>
                                         <a href="{% url 'article-delete' feed_id=article.feed.id article_id=article.id %}" class="btn btn-danger btn-sm">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16" aria-hidden="true">
                                                 <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
                                                 <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
                                             </svg>
-                                            Delete
+                                            {% trans "Delete" %}
                                         </a>
                                     </div>
                                     <div class="collapse" id="errorDetails{{ article.id }}">
                                         <div class="card card-body bg-light">
                                             {% if "404" in article.error_message %}
                                                 <div class="alert alert-warning mb-0">
-                                                    <strong>404 Not Found:</strong> The page could not be found. Please check if the URL is correct.
+                                                    <strong>{% trans "404 Not Found:" %}</strong> {% trans "The page could not be found. Please check if the URL is correct." %}
                                                 </div>
                                             {% elif "403" in article.error_message %}
                                                 <div class="alert alert-warning mb-0">
-                                                    <strong>403 Forbidden:</strong> Access to this page is restricted. It may require login credentials or not allow automated access.
+                                                    <strong>{% trans "403 Forbidden:" %}</strong> {% trans "Access to this page is restricted. It may require login credentials or not allow automated access." %}
                                                 </div>
                                             {% elif "500" in article.error_message %}
                                                 <div class="alert alert-warning mb-0">
-                                                    <strong>500 Server Error:</strong> The website's server encountered an error. You may try again later.
+                                                    <strong>{% trans "500 Server Error:" %}</strong> {% trans "The website's server encountered an error. You may try again later." %}
                                                 </div>
                                             {% else %}
                                                 <div class="alert alert-danger mb-0">
@@ -286,18 +286,18 @@ tr.now-playing {
         </div>
         <div class="mt-3">
             {% if feed %}
-                <a href="{% url 'feed-article-create' feed.id %}" class="btn btn-primary">Add Another Article</a>
+                <a href="{% url 'feed-article-create' feed.id %}" class="btn btn-primary">{% trans "Add Another Article" %}</a>
             {% else %}
-                <a href="{% url 'article-submit' %}" class="btn btn-primary">Add Another Article</a>
+                <a href="{% url 'article-submit' %}" class="btn btn-primary">{% trans "Add Another Article" %}</a>
             {% endif %}
         </div>
     {% else %}
         <div class="alert alert-info">
-            <p>You haven't added any articles yet.</p>
+            <p>{% trans "You haven't added any articles yet." %}</p>
             {% if feed %}
-                <a href="{% url 'feed-article-create' feed.id %}" class="btn btn-primary mt-2">Add an Article</a>
+                <a href="{% url 'feed-article-create' feed.id %}" class="btn btn-primary mt-2">{% trans "Add an Article" %}</a>
             {% else %}
-                <a href="{% url 'article-submit' %}" class="btn btn-primary mt-2">Add an Article</a>
+                <a href="{% url 'article-submit' %}" class="btn btn-primary mt-2">{% trans "Add an Article" %}</a>
             {% endif %}
         </div>
     {% endif %}
@@ -305,7 +305,7 @@ tr.now-playing {
 
 <div id="audioPlayerContainer" style="position: sticky; bottom: 0; background-color: #f8f9fa; padding: 10px; border-top: 1px solid #dee2e6; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); display: none; z-index: 1000;">
     <audio id="audioPlayer" controls style="width: 100%;"></audio>
-    <div id="nowPlayingInfo" class="text-center mt-2 small">Now playing: <span id="nowPlayingTitle"></span></div>
+    <div id="nowPlayingInfo" class="text-center mt-2 small">{% trans "Now playing:" %} <span id="nowPlayingTitle"></span></div>
 </div>
 
 {% endblock %}

@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
-{% block title %}Sign Up - RSS-TTS{% endblock %}
-{% block header_title %}Sign Up{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "Sign Up" %} - RSS-TTS{% endblock %}
+{% block header_title %}{% trans "Sign Up" %}{% endblock %}
 {% block content %}
 <form method="post">
   {% csrf_token %}
@@ -12,7 +13,7 @@
     </div>
   {% endif %}
   <div class="mb-3">
-    <label for="id_username" class="form-label">Username</label>
+    <label for="id_username" class="form-label">{% trans "Username" %}</label>
     {{ form.username }}
     {% if form.username.help_text %}
       <div class="form-text">{{ form.username.help_text }}</div>
@@ -22,7 +23,7 @@
     {% endfor %}
   </div>
   <div class="mb-3">
-    <label for="id_password1" class="form-label">Password</label>
+    <label for="id_password1" class="form-label">{% trans "Password" %}</label>
     {{ form.password1 }}
     {% if form.password1.help_text %}
       <div class="form-text">{{ form.password1.help_text|safe }}</div>
@@ -32,7 +33,7 @@
     {% endfor %}
   </div>
   <div class="mb-3">
-    <label for="id_password2" class="form-label">Password confirmation</label>
+    <label for="id_password2" class="form-label">{% trans "Password confirmation" %}</label>
     {{ form.password2 }}
     {% if form.password2.help_text %}
       <div class="form-text">{{ form.password2.help_text }}</div>
@@ -41,6 +42,6 @@
       <div class="text-danger">{{ error }}</div>
     {% endfor %}
   </div>
-  <button type="submit" class="btn btn-primary">Create Account</button>
+  <button type="submit" class="btn btn-primary">{% trans "Create Account" %}</button>
 </form>
 {% endblock %}

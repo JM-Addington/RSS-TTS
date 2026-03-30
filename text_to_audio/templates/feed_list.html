@@ -1,16 +1,17 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load duration_filters %}
 
-{% block title %}My Feeds{% endblock %}
+{% block title %}{% trans "My Feeds" %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1>My Feeds</h1>
+                <h1>{% trans "My Feeds" %}</h1>
                 <a href="{% url 'feed-create' %}" class="btn btn-primary">
-                    <i class="bi bi-plus-circle"></i> Create New Feed
+                    <i class="bi bi-plus-circle"></i> {% trans "Create New Feed" %}
                 </a>
             </div>
 
@@ -24,15 +25,15 @@
                                     <p class="card-text text-muted">
                                         <i class="bi bi-file-earmark-text"></i> {{ feed.article_count }} article{{ feed.article_count|pluralize }}{% if feed.total_audio_duration %} <span class="ms-2"><i class="bi bi-clock"></i> {{ feed.total_audio_duration|format_duration }}</span>{% endif %}
                                         <br>
-                                        <i class="bi bi-calendar"></i> Created {{ feed.created_at|date:"M d, Y" }}
+                                        <i class="bi bi-calendar"></i> {% trans "Created" %} {{ feed.created_at|date:"M d, Y" }}
                                     </p>
 
                                     <div class="mb-3">
-                                        <label class="form-label small text-muted">RSS Feed URL:</label>
+                                        <label class="form-label small text-muted">{% trans "RSS Feed URL:" %}</label>
                                         <div class="input-group input-group-sm">
                                             <input type="text" class="form-control" value="{{ feed.rss_url }}" readonly id="rss-url-{{ feed.id }}">
                                             <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('rss-url-{{ feed.id }}')">
-                                                <i class="bi bi-clipboard"></i> Copy
+                                                <i class="bi bi-clipboard"></i> {% trans "Copy" %}
                                             </button>
                                         </div>
                                     </div>
@@ -40,15 +41,15 @@
                                     {% if feed.inbound_email %}
                                     <div class="mb-3">
                                         <label class="form-label small text-muted">
-                                            <i class="bi bi-envelope"></i> Email to Feed:
+                                            <i class="bi bi-envelope"></i> {% trans "Email to Feed:" %}
                                         </label>
                                         <div class="input-group input-group-sm">
                                             <input type="text" class="form-control" value="{{ feed.inbound_email }}" readonly id="email-{{ feed.id }}" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
                                             <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('email-{{ feed.id }}')">
-                                                <i class="bi bi-clipboard"></i> Copy
+                                                <i class="bi bi-clipboard"></i> {% trans "Copy" %}
                                             </button>
                                         </div>
-                                        <small class="form-text text-muted">Forward emails or newsletters to this address to add them to your feed.</small>
+                                        <small class="form-text text-muted">{% trans "Forward emails or newsletters to this address to add them to your feed." %}</small>
                                     </div>
                                     {% else %}
                                     <div class="mb-3">
@@ -56,25 +57,25 @@
                                             {% csrf_token %}
                                             <input type="hidden" name="redirect" value="feed-list">
                                             <button type="submit" class="btn btn-sm btn-outline-success">
-                                                <i class="bi bi-envelope-plus"></i> Generate Email Address
+                                                <i class="bi bi-envelope-plus"></i> {% trans "Generate Email Address" %}
                                             </button>
                                         </form>
-                                        <small class="form-text text-muted d-block mt-1">Generate an email address to forward content to this feed.</small>
+                                        <small class="form-text text-muted d-block mt-1">{% trans "Generate an email address to forward content to this feed." %}</small>
                                     </div>
                                     {% endif %}
 
                                     <div class="d-flex gap-2 flex-wrap">
                                         <a href="{% url 'feed-article-create' feed.id %}" class="btn btn-sm btn-success">
-                                            <i class="bi bi-plus-circle"></i> Add Article
+                                            <i class="bi bi-plus-circle"></i> {% trans "Add Article" %}
                                         </a>
                                         <a href="{% url 'feed-articles' feed.id %}" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-eye"></i> View Articles
+                                            <i class="bi bi-eye"></i> {% trans "View Articles" %}
                                         </a>
                                         <a href="{% url 'feed-update' feed.id %}" class="btn btn-sm btn-secondary">
-                                            <i class="bi bi-pencil"></i> Edit
+                                            <i class="bi bi-pencil"></i> {% trans "Edit" %}
                                         </a>
                                         <a href="{% url 'feed-delete' feed.id %}" class="btn btn-sm btn-danger">
-                                            <i class="bi bi-trash"></i> Delete
+                                            <i class="bi bi-trash"></i> {% trans "Delete" %}
                                         </a>
                                     </div>
                                 </div>
@@ -84,12 +85,12 @@
                 </div>
             {% else %}
                 <div class="alert alert-info" role="alert">
-                    <h5 class="alert-heading">No feeds yet!</h5>
-                    <p>Get started by creating your first feed. You can create separate feeds for different types of content - for example, one for business news and another for children's stories.</p>
+                    <h5 class="alert-heading">{% trans "No feeds yet!" %}</h5>
+                    <p>{% trans "Get started by creating your first feed. You can create separate feeds for different types of content - for example, one for business news and another for children's stories." %}</p>
                     <hr>
                     <p class="mb-0">
                         <a href="{% url 'feed-create' %}" class="btn btn-primary">
-                            <i class="bi bi-plus-circle"></i> Create Your First Feed
+                            <i class="bi bi-plus-circle"></i> {% trans "Create Your First Feed" %}
                         </a>
                     </p>
                 </div>

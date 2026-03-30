@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Generate Sample{% endblock %}
+{% block title %}{% trans "Generate Sample" %}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h1>Generate Sample for {{ preset.name }}</h1>
+    <h1>{% blocktrans with name=preset.name %}Generate Sample for {{ name }}{% endblocktrans %}</h1>
     <form id="sampleForm" method="post">
         {% csrf_token %}
         <div class="mb-3">
@@ -18,16 +19,16 @@
             {% endif %}
         </div>
         <button type="submit" class="btn btn-primary" id="generateBtn">
-            <span id="btnText">Generate Sample</span>
+            <span id="btnText">{% trans "Generate Sample" %}</span>
             <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
         </button>
-        <a href="{% url 'voice_preset_list' %}" class="btn btn-outline-secondary">Back</a>
+        <a href="{% url 'voice_preset_list' %}" class="btn btn-outline-secondary">{% trans "Back" %}</a>
     </form>
 
     <div id="audioPlayer" class="mt-4 d-none">
-        <h5>Voice Sample:</h5>
+        <h5>{% trans "Voice Sample:" %}</h5>
         <audio controls class="w-100" id="audioElement">
-            Your browser does not support the audio element.
+            {% trans "Your browser does not support the audio element." %}
         </audio>
     </div>
 
