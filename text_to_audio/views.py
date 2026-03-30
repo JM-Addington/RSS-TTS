@@ -274,7 +274,11 @@ class FeedCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         """Set the user before saving."""
         form.instance.user = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(
+            self.request, f'Feed "{self.object.name}" created successfully.'
+        )
+        return response
 
     def get_success_url(self):
         """Redirect to the new feed's article list."""
@@ -474,7 +478,9 @@ class FollowedFeedCreateView(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         """Set the user before saving."""
         form.instance.user = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        messages.success(self.request, "Followed feed created successfully.")
+        return response
 
 
 class FollowedFeedUpdateView(LoginRequiredMixin, UpdateView):
