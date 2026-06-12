@@ -19,7 +19,7 @@ jobs:
     #   github.event.pull_request.user.login == 'new-developer' ||
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
 
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       pull-requests: write  # Changed from read to write to allow PR comments
@@ -54,7 +54,7 @@ jobs:
           claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
 
   security-scan:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       pull-requests: write
@@ -131,7 +131,7 @@ jobs:
           claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
 
   authentication-review:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       pull-requests: write
@@ -205,7 +205,7 @@ jobs:
           claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
 
   placeholder-detection:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: read
       pull-requests: write
