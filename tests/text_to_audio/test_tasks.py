@@ -309,6 +309,83 @@ class ChunkTextTests(TestCase):
         self.assertTrue(success)
         self.assertEqual(chunks, ["The U.S. envoy spoke.", "The audience listened."])
 
+    def test_no_as_number_prefix_not_split(self):
+        # "No. 1" is an ordinal-number abbreviation and must stay together;
+        # the real sentence break after "class." should be used instead.
+        text = "He is No. 1 in the class. Everyone agreed."
+        success, chunks = _legacy_chunk_text(text, max_length=28)
+        self.assertGreater(len(chunks), 1)
+        for chunk in chunks:
+            self.assertFalse(
+                chunk.endswith("No."),
+                f"Chunk ends mid-abbreviation: {chunk!r}",
+            )
+
+    def test_no_ending_sentence_still_splits(self):
+        # "no." here ends a real sentence, so the boundary must be respected.
+        text = "I said no. He agreed with me completely."
+        success, chunks = _legacy_chunk_text(text, max_length=20)
+        self.assertTrue(success)
+        self.assertIn("I said no.", chunks)
+        self.assertTrue(
+            any(chunk.endswith("no.") for chunk in chunks),
+            f"Expected a chunk ending with 'no.': {chunks!r}",
+        )
+
+    def test_plural_title_not_split(self):
+        # Plural prefix-only titles ("Sens.", "Drs.") always precede a name and
+        # must never be treated as a sentence boundary.
+        text = "Sens. Smith and Jones introduced it. Drs. Lee and Poe agreed."
+        success, chunks = _legacy_chunk_text(text, max_length=35)
+        self.assertGreater(len(chunks), 1)
+        for chunk in chunks:
+            self.assertFalse(
+                chunk.endswith(("Sens.", "Drs.")),
+                f"Chunk ends mid-abbreviation: {chunk!r}",
+            )
+
+    def test_reps_ending_sentence_still_splits(self):
+        # "reps." is the common fitness word, NOT a title abbreviation; the
+        # sentence boundary must be respected (guards against blanket-adding it).
+        text = "He did ten reps. Then he rested for a while."
+        success, chunks = _legacy_chunk_text(text, max_length=20)
+        self.assertTrue(success)
+        self.assertIn("He did ten reps.", chunks)
+        self.assertTrue(
+            any(chunk.endswith("reps.") for chunk in chunks),
+            f"Expected a chunk ending with 'reps.': {chunks!r}",
+        )
+
+    def test_profs_ending_sentence_still_splits(self):
+        # "profs." is an informal standalone word, NOT a title abbreviation;
+        # the sentence boundary must be respected (guards against adding it).
+        text = "Students praised their profs. Leaders approved the plan."
+        success, chunks = _legacy_chunk_text(text, max_length=30)
+        self.assertTrue(success)
+        self.assertTrue(
+            any(chunk.endswith("profs.") for chunk in chunks),
+            f"Expected a chunk ending with 'profs.': {chunks!r}",
+        )
+
+    def test_word_boundary_orphan_preserves_characters(self):
+        # Super-edge: on the forced-overflow word-boundary fallback an
+        # abbreviation may be orphaned from its following token ("Dr." | "Name").
+        # That is an accepted tradeoff, but it must NEVER corrupt characters
+        # WITHIN a chunk (no "Dr.Name" gluing). The boundary space simply becomes
+        # the inter-chunk pause. This characterizes/guards that invariant.
+        text = "He met Dr. Montgomery."
+        success, chunks = _legacy_chunk_text(text, max_length=20)
+        # No chunk may contain an abbreviation glued to the next word.
+        for chunk in chunks:
+            self.assertNotRegex(
+                chunk,
+                r"\b(?:Dr|Mr|Mrs|Ms|No)\.\S",
+                f"Abbreviation glued to next token inside a chunk: {chunk!r}",
+            )
+        # Characters are preserved modulo the single boundary space that becomes
+        # the pause: joining chunks with a space reconstructs the input.
+        self.assertEqual(" ".join(chunks), text)
+
 
 @override_settings(
     MEDIA_ROOT=TEST_MEDIA_ROOT,

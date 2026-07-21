@@ -252,6 +252,15 @@ _NON_SENTENCE_ABBREVIATIONS = frozenset(
         "adm",
         "jr",
         "sr",
+        # Plural title forms that are prefix-only (always precede a name, never
+        # end a sentence). AIDEV-NOTE: only add plurals that are NOT common
+        # standalone English words. "sens"/"drs"/"messrs" are safe; "reps"
+        # (fitness), "revs" (engine), "cos", and "profs" (informal plural of
+        # professor) collide with real words and would recreate the "no."
+        # false-positive bug, so they are excluded.
+        "sens",
+        "drs",
+        "messrs",
         # Common textual abbreviations
         "vs",
         "etc",
@@ -265,7 +274,9 @@ _NON_SENTENCE_ABBREVIATIONS = frozenset(
         "ltd",
         "co",
         "corp",
-        "no",
+        # AIDEV-NOTE: "no" is NOT a blanket abbreviation; "no." commonly ends real
+        # sentences. Handled as an ordinal-number prefix ("No. 1") in
+        # _period_ends_sentence instead. Keep "nos" (plural, rare as a word).
         "nos",
         "vol",
         "vols",
@@ -294,6 +305,22 @@ _NON_SENTENCE_ABBREVIATIONS = frozenset(
 _DOTTED_ACRONYM_RE = re.compile(r"(?:[A-Za-z]\.){2,}$")
 
 
+# AIDEV-NOTE: Heuristic splitter that deliberately ERRS TOWARD NOT SPLITTING.
+# Accepted tradeoffs (missed pause, not a wrong pause): a sentence ending in a
+# dotted acronym ("...banned in the U.S. Canada permits it.") or followed by a
+# lowercase-initial brand ("...yesterday. iPhone users...") gets no inter-sentence
+# pause. Splitting those would reintroduce audible pauses inside phrases like
+# "the U.S. economy", which is worse. Do NOT "fix" without weighing that regression.
+# Also accepted: an abbreviation/ordinal ("No. 1", "Dr. Smith") can be split away
+# from its following token, but ONLY on the forced-overflow path — when a span
+# longer than max_length contains no sentence-ending period and no clause comma/
+# semicolon, so _legacy_find_best_break_point falls through to the word-boundary
+# fallback and the rightmost space happens to follow an abbreviation. In real
+# article prose (commas/periods every few words) this is ~never reached at
+# max_length=4000; the split is clean (boundary space becomes the pause, no
+# within-chunk char corruption). Special seam-rewriting to prevent it risks
+# dropping the token's internal space (e.g. "No.1"), a worse defect, so it is
+# left as a super-edge tradeoff.
 def _period_ends_sentence(text: str, i: int) -> bool:
     """Return True if the period at ``text[i]`` ends a sentence.
 
@@ -312,15 +339,24 @@ def _period_ends_sentence(text: str, i: int) -> bool:
         return False
 
     core = word[:-1].strip("\"'()[]“”‘’")
+    core_lower = core.lower()
     if len(core) == 1 and core.isalpha():
         return False
-    if core.lower() in _NON_SENTENCE_ABBREVIATIONS:
+    if core_lower in _NON_SENTENCE_ABBREVIATIONS:
         return False
 
-    # Peek at the next word: lowercase start implies the sentence continues.
+    # Peek at the next non-space character.
     j = i + 1
     while j < len(text) and text[j].isspace():
         j += 1
+
+    # AIDEV-NOTE: "No." is an abbreviation for "number" only when followed by a
+    # digit ("No. 1", "No. 5"); otherwise "no." ends a real sentence and must
+    # remain a boundary (e.g. "The answer is no. He agreed.").
+    if core_lower == "no" and j < len(text) and text[j].isdigit():
+        return False
+
+    # Lowercase start implies the sentence continues.
     if j < len(text) and text[j].islower():
         return False
 
