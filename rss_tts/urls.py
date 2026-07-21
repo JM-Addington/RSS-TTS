@@ -8,6 +8,12 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from accounts.forms import BootstrapAuthenticationForm
+from mcp_server.oauth_views import (
+    authorization_server_metadata,
+    protected_resource_metadata,
+    register_client,
+)
+from mcp_server.views import McpEndpointView
 from text_to_audio.api_views import (
     FeedArticleSubmitView,
     VoicePresetDetailView,
@@ -50,6 +56,25 @@ from text_to_audio.views import (
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # MCP server (Streamable HTTP, stateless) + OAuth 2.1 infrastructure
+    path("mcp", McpEndpointView.as_view(), name="mcp-endpoint"),
+    path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
+    path(
+        ".well-known/oauth-authorization-server",
+        authorization_server_metadata,
+        name="oauth-authorization-server-metadata",
+    ),
+    path(
+        ".well-known/oauth-protected-resource",
+        protected_resource_metadata,
+        name="oauth-protected-resource-metadata",
+    ),
+    path(
+        ".well-known/oauth-protected-resource/mcp",
+        protected_resource_metadata,
+        name="oauth-protected-resource-metadata-mcp",
+    ),
+    path("oauth/register/", register_client, name="oauth-dcr"),
     path(
         "accounts/login/",
         auth_views.LoginView.as_view(authentication_form=BootstrapAuthenticationForm),
