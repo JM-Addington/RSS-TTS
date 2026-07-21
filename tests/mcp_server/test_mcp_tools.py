@@ -566,6 +566,44 @@ class WordCapAndPresetAssignmentTests(ToolTestBase):
         article = Article.objects.get(pk=data["id"])
         self.assertEqual(article.voice_preset, self.preset)
         self.assertEqual(data["voice_preset_id"], self.preset.id)
+        # Preset voice/speed must be copied onto the article, or
+        # VoiceConfigurationService will override the preset at processing
+        # time (it only honors presets whose voice fields already match).
+        self.assertEqual(article.voice, self.preset.voice_id)
+        self.assertEqual(article.speed, self.preset.speed)
+
+    @patch("mcp_server.tools.process_article")
+    def test_create_article_preset_speed_can_be_overridden(self, mock_process):
+        data = structured(
+            self.call(
+                "create_article",
+                {
+                    "feed_id": self.feed.id,
+                    "title": "T",
+                    "text_content": "hello",
+                    "voice_preset_id": self.preset.id,
+                    "speed": 1.7,
+                },
+            )
+        )
+        article = Article.objects.get(pk=data["id"])
+        self.assertEqual(article.voice, self.preset.voice_id)
+        self.assertAlmostEqual(article.speed, 1.7)
+
+    @patch("mcp_server.tools.process_article")
+    def test_create_article_rejects_voice_and_preset_together(self, mock_process):
+        response = self.call(
+            "create_article",
+            {
+                "feed_id": self.feed.id,
+                "title": "T",
+                "text_content": "hello",
+                "voice": "alloy",
+                "voice_preset_id": self.preset.id,
+            },
+        )
+        self.assert_tool_error(response)
+        mock_process.delay.assert_not_called()
 
     @patch("mcp_server.tools.process_article")
     def test_create_article_rejects_foreign_voice_preset(self, mock_process):

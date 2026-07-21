@@ -509,12 +509,25 @@ def create_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
         source_url=source_url,
         status=Article.PROCESSING,
     )
+    if preset is not None and voice is not None:
+        raise ToolError("Provide either 'voice' or 'voice_preset_id', not both.")
     if voice is not None:
         article.voice = voice
     if speed is not None:
         article.speed = float(speed)
     if preset is not None:
+        # AIDEV-NOTE: copy preset voice/speed like the web submission flow —
+        # VoiceConfigurationService only honors presets already applied to
+        # the article's voice fields (see views.py FeedArticleCreateView)
         article.voice_preset = preset
+        if preset.voice_id in VALID_VOICE_IDS:
+            article.voice = preset.voice_id
+            article.voice_id = None
+        else:
+            article.voice_id = preset.voice_id
+            article.voice = "alloy"
+        if speed is None:
+            article.speed = preset.speed
     try:
         article.full_clean(exclude=["audio_uuid", "voice_id"])
     except ValidationError as exc:
