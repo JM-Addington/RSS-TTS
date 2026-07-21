@@ -43,6 +43,8 @@ VALID_ARTICLE_STATUSES = {choice[0] for choice in Article.STATUS_CHOICES}
 
 MAX_LIST_LIMIT = 200
 DEFAULT_LIST_LIMIT = 50
+# Same hard cap the REST API and Celery task enforce (see api_views.py)
+MAX_ARTICLE_WORDS = 40000
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +105,44 @@ def _limit(args: dict[str, Any]) -> int:
     return min(limit, MAX_LIST_LIMIT)
 
 
+# AIDEV-NOTE: isinstance guard before set membership — unhashable JSON values
+# (dicts/lists) would otherwise raise TypeError -> 500 (PR #240 review)
+def _optional_choice(args: dict[str, Any], key: str, valid: set[str]) -> str | None:
+    if key not in args or args[key] is None:
+        return None
+    value = args[key]
+    if not isinstance(value, str) or value not in valid:
+        raise ToolError(f"'{key}' must be one of: {', '.join(sorted(valid))}.")
+    return value
+
+
+def _optional_voice(args: dict[str, Any], key: str) -> str | None:
+    if key not in args or args[key] is None:
+        return None
+    value = args[key]
+    if not isinstance(value, str) or value not in VALID_VOICE_IDS:
+        raise ToolError(f"'{key}' is not a recognized voice id.")
+    return value
+
+
+def _check_word_cap(text_content: str) -> None:
+    # AIDEV-NOTE: 40k-word cap must stay in parity with api_views.py / tasks.py
+    word_count = len(text_content.split())
+    if word_count > MAX_ARTICLE_WORDS:
+        raise ToolError(
+            f"'text_content' is too long ({word_count:,} words). "
+            f"Please limit to {MAX_ARTICLE_WORDS:,} words or less."
+        )
+
+
+def _optional_owned_preset(
+    user: User, args: dict[str, Any], key: str
+) -> UserVoicePreset | None:
+    if key not in args or args[key] is None:
+        return None
+    return _get_owned(UserVoicePreset, user, _require_int(args, key), "Voice preset")
+
+
 # ---------------------------------------------------------------------------
 # Serializers
 # ---------------------------------------------------------------------------
@@ -138,6 +178,7 @@ def serialize_article(article: Article, include_text: bool = False) -> dict[str,
         "source_url": article.source_url,
         "voice": article.voice,
         "voice_id": article.voice_id,
+        "voice_preset_id": article.voice_preset_id,
         "speed": article.speed,
         "summary": article.summary,
         "error_message": article.error_message,
@@ -212,6 +253,10 @@ def serialize_voice_preset(preset: UserVoicePreset) -> dict[str, Any]:
                 "enum": sorted(VALID_TTS_PROVIDERS),
                 "description": "TTS provider override (defaults to global setting).",
             },
+            "default_voice_preset_id": {
+                "type": "integer",
+                "description": "Id of an owned voice preset to narrate new articles with.",
+            },
         },
         required=["name"],
     ),
@@ -224,11 +269,13 @@ def create_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
         raise ToolError("'name' is required and must be a non-empty string.")
     voice_mode = _validated_voice_mode(args)
     tts_provider = _validated_tts_provider(args)
+    preset = _optional_owned_preset(user, args, "default_voice_preset_id")
     feed = Feed.objects.create(
         user=user,
         name=name.strip(),
         voice_mode=voice_mode or Feed.VOICE_MODE_AUTO,
         tts_provider=tts_provider,
+        default_voice_preset=preset,
     )
     return serialize_feed(feed)
 
@@ -265,13 +312,20 @@ def get_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
 @register(
     "update_feed",
     title="Update feed",
-    description="Update a feed's name, voice mode, or TTS provider.",
+    description=(
+        "Update a feed's name, voice mode, TTS provider, or default voice "
+        "preset (pass default_voice_preset_id null to clear it)."
+    ),
     input_schema=_obj(
         {
             "feed_id": {"type": "integer", "description": "Feed id."},
             "name": {"type": "string", "maxLength": 100},
             "voice_mode": {"type": "string", "enum": sorted(VALID_VOICE_MODES)},
             "tts_provider": {"type": "string", "enum": sorted(VALID_TTS_PROVIDERS)},
+            "default_voice_preset_id": {
+                "type": ["integer", "null"],
+                "description": "Owned voice preset id, or null to clear.",
+            },
         },
         required=["feed_id"],
     ),
@@ -290,6 +344,10 @@ def update_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
         feed.voice_mode = voice_mode
     if "tts_provider" in args:
         feed.tts_provider = _validated_tts_provider(args)
+    if "default_voice_preset_id" in args:
+        feed.default_voice_preset = _optional_owned_preset(
+            user, args, "default_voice_preset_id"
+        )
     feed.save()
     return serialize_feed(feed)
 
@@ -316,25 +374,11 @@ def delete_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _validated_voice_mode(args: dict[str, Any]) -> str | None:
-    voice_mode = args.get("voice_mode")
-    if voice_mode is None:
-        return None
-    if voice_mode not in VALID_VOICE_MODES:
-        raise ToolError(
-            f"'voice_mode' must be one of: {', '.join(sorted(VALID_VOICE_MODES))}."
-        )
-    return voice_mode
+    return _optional_choice(args, "voice_mode", VALID_VOICE_MODES)
 
 
 def _validated_tts_provider(args: dict[str, Any]) -> str | None:
-    provider = args.get("tts_provider")
-    if provider is None:
-        return None
-    if provider not in VALID_TTS_PROVIDERS:
-        raise ToolError(
-            f"'tts_provider' must be one of: {', '.join(sorted(VALID_TTS_PROVIDERS))}."
-        )
-    return provider
+    return _optional_choice(args, "tts_provider", VALID_TTS_PROVIDERS)
 
 
 # ---------------------------------------------------------------------------
@@ -366,6 +410,10 @@ def _validated_tts_provider(args: dict[str, Any]) -> str | None:
                 "description": "Voice id to narrate with (defaults per feed).",
             },
             "speed": {"type": "number", "minimum": 0.25, "maximum": 4.0},
+            "voice_preset_id": {
+                "type": "integer",
+                "description": "Id of an owned voice preset to narrate with.",
+            },
         },
         required=["feed_id"],
     ),
@@ -375,27 +423,29 @@ def _validated_tts_provider(args: dict[str, Any]) -> str | None:
 def create_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
     feed = _get_owned(Feed, user, _require_int(args, "feed_id"), "Feed")
     title = (_optional_str(args, "title", 1024) or "").strip()
-    text_content = args.get("text_content") or ""
-    source_url = (args.get("source_url") or "").strip()
-
-    if not isinstance(text_content, str):
+    text_content = args.get("text_content")
+    if text_content is not None and not isinstance(text_content, str):
         raise ToolError("'text_content' must be a string.")
+    text_content = text_content or ""
+    source_url = (_optional_str(args, "source_url", 2000) or "").strip()
+
     if not source_url and not text_content:
         raise ToolError("Provide 'source_url' or 'title' + 'text_content'.")
     if text_content and not source_url and not title:
         raise ToolError("'title' is required when submitting raw 'text_content'.")
     if source_url:
         _validate_public_url(source_url, "source_url")
+    if text_content:
+        _check_word_cap(text_content)
 
-    voice = args.get("voice")
-    if voice is not None and voice not in VALID_VOICE_IDS:
-        raise ToolError("'voice' is not a recognized voice id.")
+    voice = _optional_voice(args, "voice")
     speed = args.get("speed")
     if speed is not None:
         if not isinstance(speed, (int, float)) or isinstance(speed, bool):
             raise ToolError("'speed' must be a number.")
         if not 0.25 <= float(speed) <= 4.0:
             raise ToolError("'speed' must be between 0.25 and 4.0.")
+    preset = _optional_owned_preset(user, args, "voice_preset_id")
 
     article = Article(
         feed=feed,
@@ -408,7 +458,12 @@ def create_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
         article.voice = voice
     if speed is not None:
         article.speed = float(speed)
-    article.full_clean(exclude=["audio_uuid", "voice_id"])
+    if preset is not None:
+        article.voice_preset = preset
+    try:
+        article.full_clean(exclude=["audio_uuid", "voice_id"])
+    except ValidationError as exc:
+        raise ToolError(f"Validation failed: {'; '.join(exc.messages)}")
     article.save()
     process_article.delay(article.pk)
     return serialize_article(article)
@@ -443,12 +498,8 @@ def list_articles(user: User, args: dict[str, Any]) -> dict[str, Any]:
         articles = articles.filter(
             feed=_get_owned(Feed, user, _require_int(args, "feed_id"), "Feed")
         )
-    status = args.get("status")
+    status = _optional_choice(args, "status", VALID_ARTICLE_STATUSES)
     if status is not None:
-        if status not in VALID_ARTICLE_STATUSES:
-            raise ToolError(
-                f"'status' must be one of: {', '.join(sorted(VALID_ARTICLE_STATUSES))}."
-            )
         articles = articles.filter(status=status)
     return {"articles": [serialize_article(a) for a in articles[: _limit(args)]]}
 
@@ -499,6 +550,7 @@ def update_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
     if "text_content" in args and args["text_content"] is not None:
         if not isinstance(args["text_content"], str):
             raise ToolError("'text_content' must be a string.")
+        _check_word_cap(args["text_content"])
         article.text_content = args["text_content"]
     if "summary" in args and args["summary"] is not None:
         if not isinstance(args["summary"], str):
@@ -565,9 +617,10 @@ def _get_owned_article(user: User, article_id: int) -> Article:
     annotations=write_annotations(destructive=False, idempotent=False),
 )
 def create_followed_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
-    url = (args.get("url") or "").strip()
-    if not url or not isinstance(url, str):
-        raise ToolError("'url' is required.")
+    url = args.get("url")
+    if not isinstance(url, str) or not url.strip():
+        raise ToolError("'url' is required and must be a non-empty string.")
+    url = url.strip()
     if len(url) > 2000:
         raise ToolError("'url' must be at most 2000 characters.")
     _validate_public_url(url, "url")
@@ -644,7 +697,9 @@ def update_followed_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
         FollowedFeed, user, _require_int(args, "followed_feed_id"), "Followed feed"
     )
     if "url" in args and args["url"] is not None:
-        url = str(args["url"]).strip()
+        if not isinstance(args["url"], str):
+            raise ToolError("'url' must be a string.")
+        url = args["url"].strip()
         if len(url) > 2000:
             raise ToolError("'url' must be at most 2000 characters.")
         _validate_public_url(url, "url")
@@ -739,8 +794,8 @@ def create_voice_preset(user: User, args: dict[str, Any]) -> dict[str, Any]:
     name = (_optional_str(args, "name", 100) or "").strip()
     if not name:
         raise ToolError("'name' is required and must be a non-empty string.")
-    voice_id = args.get("voice_id")
-    if voice_id not in VALID_VOICE_IDS:
+    voice_id = _optional_voice(args, "voice_id")
+    if voice_id is None:
         raise ToolError("'voice_id' is not a recognized voice id.")
     if UserVoicePreset.objects.filter(user=user, name=name).exists():
         raise ToolError(f"A voice preset named '{name}' already exists.")
@@ -821,10 +876,9 @@ def update_voice_preset(user: User, args: dict[str, Any]) -> dict[str, Any]:
         ):
             raise ToolError(f"A voice preset named '{name}' already exists.")
         preset.name = name
-    if "voice_id" in args and args["voice_id"] is not None:
-        if args["voice_id"] not in VALID_VOICE_IDS:
-            raise ToolError("'voice_id' is not a recognized voice id.")
-        preset.voice_id = args["voice_id"]
+    voice_id = _optional_voice(args, "voice_id")
+    if voice_id is not None:
+        preset.voice_id = voice_id
     _apply_preset_fields(preset, args)
     preset.save()
     return serialize_voice_preset(preset)

@@ -53,7 +53,7 @@ Here's a summary of key information from other files in the repository:
 
 ### Key Constraints
 
-*   URL/text length hard-cap = 30 000 words.
+*   URL/text length hard-cap = 40 000 words (enforced in api_views.py, forms.py, tasks.py, mcp_server/tools.py).
 *   Local storage of MP3s (no external bucket in Phase 0-2).
 *   One TTS chunk ≤ 4 096 chars.
 *   Private feeds via unguessable UUID tokens (no auth headers).

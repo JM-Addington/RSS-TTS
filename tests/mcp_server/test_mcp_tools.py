@@ -390,3 +390,196 @@ class VoicePresetCrudTests(ToolTestBase):
         data = structured(self.call("delete_voice_preset", {"preset_id": preset.id}))
         self.assertTrue(data["deleted"])
         self.assertFalse(UserVoicePreset.objects.filter(pk=preset.id).exists())
+
+
+class MalformedInputRobustnessTests(ToolTestBase):
+    """Non-string / unhashable JSON values must yield isError tool results,
+    never TypeError/AttributeError 500s (PR #240 review)."""
+
+    def setUp(self):
+        super().setUp()
+        self.feed = Feed.objects.create(user=self.user, name="Feed")
+
+    def test_create_feed_rejects_non_string_voice_mode(self):
+        response = self.call(
+            "create_feed", {"name": "F", "voice_mode": {"nested": "dict"}}
+        )
+        self.assert_tool_error(response, "voice_mode")
+
+    def test_create_feed_rejects_non_string_tts_provider(self):
+        response = self.call("create_feed", {"name": "F", "tts_provider": ["openai"]})
+        self.assert_tool_error(response, "tts_provider")
+
+    def test_create_article_rejects_non_string_voice(self):
+        response = self.call(
+            "create_article",
+            {"feed_id": self.feed.id, "title": "T", "text_content": "x", "voice": {}},
+        )
+        self.assert_tool_error(response, "voice")
+
+    def test_create_article_rejects_non_string_source_url(self):
+        response = self.call(
+            "create_article",
+            {"feed_id": self.feed.id, "source_url": ["https://example.com"]},
+        )
+        self.assert_tool_error(response, "source_url")
+
+    def test_create_article_model_validation_is_tool_error(self):
+        # Valid public URL but longer than the model's 2000-char limit:
+        # full_clean must surface as an isError result, not a 500.
+        long_url = "https://example.com/" + "a" * 2100
+        response = self.call(
+            "create_article", {"feed_id": self.feed.id, "source_url": long_url}
+        )
+        self.assert_tool_error(response)
+
+    def test_list_articles_rejects_non_string_status(self):
+        response = self.call("list_articles", {"status": ["COMPLETED"]})
+        self.assert_tool_error(response, "status")
+
+    def test_create_followed_feed_rejects_non_string_url(self):
+        response = self.call(
+            "create_followed_feed",
+            {"url": ["https://example.com/rss"], "destination_feed_id": self.feed.id},
+        )
+        self.assert_tool_error(response, "url")
+
+    def test_update_followed_feed_rejects_non_string_url(self):
+        followed = FollowedFeed.objects.create(
+            user=self.user, url="https://example.com/rss", destination_feed=self.feed
+        )
+        response = self.call(
+            "update_followed_feed",
+            {"followed_feed_id": followed.id, "url": ["https://evil.example"]},
+        )
+        self.assert_tool_error(response, "url")
+        followed.refresh_from_db()
+        self.assertEqual(followed.url, "https://example.com/rss")
+
+    def test_create_voice_preset_rejects_non_string_voice_id(self):
+        response = self.call(
+            "create_voice_preset", {"name": "P", "voice_id": {"voice": "nova"}}
+        )
+        self.assert_tool_error(response, "voice_id")
+
+    def test_update_voice_preset_rejects_non_string_voice_id(self):
+        preset = UserVoicePreset.objects.create(
+            user=self.user, name="P", voice_id="nova", speed=1.0
+        )
+        response = self.call(
+            "update_voice_preset", {"preset_id": preset.id, "voice_id": ["alloy"]}
+        )
+        self.assert_tool_error(response, "voice_id")
+
+    def test_unexpected_handler_exception_returns_internal_error(self):
+        """Safety net: an unexpected exception inside a tool handler must map
+        to JSON-RPC -32603, never a Django 500."""
+        from mcp_server import registry
+
+        tool = registry.get_tool("list_feeds")
+        original_handler = tool.handler
+        tool.handler = lambda user, args: (_ for _ in ()).throw(RuntimeError("boom"))
+        try:
+            response = self.call("list_feeds")
+        finally:
+            tool.handler = original_handler
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["error"]["code"], -32603)
+        self.assertNotIn("boom", body["error"]["message"])  # no detail leakage
+
+
+class WordCapAndPresetAssignmentTests(ToolTestBase):
+    """Codex review: enforce the 40k-word article cap (parity with the REST
+    API) and make voice presets assignable to feeds and articles."""
+
+    def setUp(self):
+        super().setUp()
+        self.feed = Feed.objects.create(user=self.user, name="Feed")
+        self.preset = UserVoicePreset.objects.create(
+            user=self.user, name="Mine", voice_id="nova", speed=1.0
+        )
+
+    @patch("mcp_server.tools.process_article")
+    def test_create_article_enforces_word_cap(self, mock_process):
+        response = self.call(
+            "create_article",
+            {
+                "feed_id": self.feed.id,
+                "title": "Long",
+                "text_content": "word " * 40001,
+            },
+        )
+        self.assert_tool_error(response, "words")
+        mock_process.delay.assert_not_called()
+        self.assertEqual(Article.objects.count(), 0)
+
+    def test_update_article_enforces_word_cap(self):
+        article = Article.objects.create(feed=self.feed, title="T", text_content="x")
+        response = self.call(
+            "update_article",
+            {"article_id": article.id, "text_content": "word " * 40001},
+        )
+        self.assert_tool_error(response, "words")
+        article.refresh_from_db()
+        self.assertEqual(article.text_content, "x")
+
+    def test_feed_default_voice_preset_set_and_clear(self):
+        data = structured(
+            self.call(
+                "create_feed",
+                {"name": "WithPreset", "default_voice_preset_id": self.preset.id},
+            )
+        )
+        self.assertEqual(data["default_voice_preset_id"], self.preset.id)
+        data = structured(
+            self.call(
+                "update_feed",
+                {"feed_id": data["id"], "default_voice_preset_id": None},
+            )
+        )
+        self.assertIsNone(data["default_voice_preset_id"])
+
+    def test_feed_preset_must_be_owned(self):
+        other_preset = UserVoicePreset.objects.create(
+            user=self.other_user, name="Theirs", voice_id="alloy", speed=1.0
+        )
+        response = self.call(
+            "create_feed",
+            {"name": "F", "default_voice_preset_id": other_preset.id},
+        )
+        self.assert_tool_error(response, "not found")
+
+    @patch("mcp_server.tools.process_article")
+    def test_create_article_with_voice_preset(self, mock_process):
+        data = structured(
+            self.call(
+                "create_article",
+                {
+                    "feed_id": self.feed.id,
+                    "title": "T",
+                    "text_content": "hello world",
+                    "voice_preset_id": self.preset.id,
+                },
+            )
+        )
+        article = Article.objects.get(pk=data["id"])
+        self.assertEqual(article.voice_preset, self.preset)
+        self.assertEqual(data["voice_preset_id"], self.preset.id)
+
+    @patch("mcp_server.tools.process_article")
+    def test_create_article_rejects_foreign_voice_preset(self, mock_process):
+        other_preset = UserVoicePreset.objects.create(
+            user=self.other_user, name="Theirs", voice_id="alloy", speed=1.0
+        )
+        response = self.call(
+            "create_article",
+            {
+                "feed_id": self.feed.id,
+                "title": "T",
+                "text_content": "hello",
+                "voice_preset_id": other_preset.id,
+            },
+        )
+        self.assert_tool_error(response, "not found")
+        mock_process.delay.assert_not_called()

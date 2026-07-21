@@ -11,12 +11,15 @@ protocol errors (-32602); tool business failures are isError results.
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from django.contrib.auth.models import User
 
 from . import tools  # noqa: F401  # importing registers all tools
 from .registry import ToolError, all_tools, get_tool
+
+logger = logging.getLogger(__name__)
 
 PROTOCOL_VERSION_LATEST = "2025-11-25"
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-03-26", "2025-06-18", "2025-11-25")
@@ -89,6 +92,13 @@ def handle_tools_call(
                 "content": [{"type": "text", "text": f"Error: {exc}"}],
                 "isError": True,
             },
+        )
+    except Exception:
+        # AIDEV-NOTE: safety net — never let a handler bug become a Django 500;
+        # log the traceback, return a generic -32603 without leaking details.
+        logger.exception("Unhandled error in MCP tool %r", tool.name)
+        return error_response(
+            req_id, INTERNAL_ERROR, "Internal error while executing tool"
         )
     return result_response(
         req_id,
