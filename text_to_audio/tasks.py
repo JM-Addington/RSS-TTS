@@ -307,10 +307,14 @@ _DOTTED_ACRONYM_RE = re.compile(r"(?:[A-Za-z]\.){2,}$")
 
 # AIDEV-NOTE: Heuristic splitter that deliberately ERRS TOWARD NOT SPLITTING.
 # Accepted tradeoffs (missed pause, not a wrong pause): a sentence ending in a
-# dotted acronym ("...banned in the U.S. Canada permits it.") or followed by a
-# lowercase-initial brand ("...yesterday. iPhone users...") gets no inter-sentence
-# pause. Splitting those would reintroduce audible pauses inside phrases like
-# "the U.S. economy", which is worse. Do NOT "fix" without weighing that regression.
+# dotted acronym ("...banned in the U.S. Canada permits it."), a terminal-capable
+# abbreviation ("...led by Acme Inc. Shares rose."; also "etc.", "Corp.", "Ltd."),
+# or followed by a lowercase-initial brand ("...yesterday. iPhone users...") gets
+# no inter-sentence pause. Splitting those would reintroduce audible pauses inside
+# phrases like "the U.S. economy" or "Lakers vs. Celtics", which is worse — a
+# capitalized next word does NOT disambiguate (titles like "Dr. Smith" and "vs.
+# Celtics" also precede capitals). Do NOT "fix" without weighing that regression;
+# tracked as an enhancement, not a bug (missed pauses only, never corrupted audio).
 # Also accepted: an abbreviation/ordinal ("No. 1", "Dr. Smith") can be split away
 # from its following token, but ONLY on the forced-overflow path — when a span
 # longer than max_length contains no sentence-ending period and no clause comma/
@@ -504,12 +508,18 @@ def _legacy_find_best_break_point(text: str, max_length: int) -> int:
     search_text = text[:max_length]
 
     # Priority 1: Sentence breaks with space after (skipping abbreviations
-    # like "Dr." and "U.S.", which would otherwise become audio pauses)
+    # like "Dr." and "U.S.", which would otherwise become audio pauses).
+    # AIDEV-NOTE: pass the FULL `text` (not truncated `search_text`) so the
+    # boundary check's forward peek can see past the max_length slice — e.g. a
+    # "No. 1" ordinal straddling the boundary in the tail `remaining` path needs
+    # the digit "1" that lies just beyond search_text. `search_text` is a prefix
+    # of `text`, so index `i` refers to the same char in both; this is inert on
+    # the main overflow path (there current_chunk == search_text).
     for i in range(len(search_text) - 2, -1, -1):
         if (
             search_text[i] in {".", "!", "?"}
             and search_text[i + 1].isspace()
-            and _is_sentence_boundary(search_text, i)
+            and _is_sentence_boundary(text, i)
         ):
             return i + 2  # Include the punctuation and space
 
