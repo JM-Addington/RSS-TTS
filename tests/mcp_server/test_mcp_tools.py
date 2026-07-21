@@ -583,3 +583,106 @@ class WordCapAndPresetAssignmentTests(ToolTestBase):
         )
         self.assert_tool_error(response, "not found")
         mock_process.delay.assert_not_called()
+
+
+class PresetModeCouplingTests(ToolTestBase):
+    """Codex review: a default preset must actually take effect — processing
+    only honors feed.default_voice_preset in single_custom voice mode."""
+
+    def setUp(self):
+        super().setUp()
+        self.preset = UserVoicePreset.objects.create(
+            user=self.user, name="Narrator", voice_id="nova", speed=1.0
+        )
+
+    def test_create_feed_with_preset_defaults_to_single_custom(self):
+        data = structured(
+            self.call(
+                "create_feed",
+                {"name": "F", "default_voice_preset_id": self.preset.id},
+            )
+        )
+        self.assertEqual(data["voice_mode"], "single_custom")
+        self.assertEqual(data["default_voice_preset_id"], self.preset.id)
+
+    def test_create_feed_preset_with_conflicting_mode_is_rejected(self):
+        response = self.call(
+            "create_feed",
+            {
+                "name": "F",
+                "default_voice_preset_id": self.preset.id,
+                "voice_mode": "auto",
+            },
+        )
+        self.assert_tool_error(response, "single_custom")
+
+    def test_update_feed_preset_switches_mode_and_clearing_reverts(self):
+        feed = Feed.objects.create(user=self.user, name="F")
+        data = structured(
+            self.call(
+                "update_feed",
+                {"feed_id": feed.id, "default_voice_preset_id": self.preset.id},
+            )
+        )
+        self.assertEqual(data["voice_mode"], "single_custom")
+        data = structured(
+            self.call(
+                "update_feed",
+                {"feed_id": feed.id, "default_voice_preset_id": None},
+            )
+        )
+        self.assertIsNone(data["default_voice_preset_id"])
+        self.assertEqual(data["voice_mode"], "auto")
+
+
+class AudioFileCleanupTests(ToolTestBase):
+    """Codex review: deleting articles/feeds must remove the canonical MP3s,
+    matching the web ArticleDeleteView behavior."""
+
+    def setUp(self):
+        super().setUp()
+        self.feed = Feed.objects.create(user=self.user, name="Feed")
+
+    def _make_article_with_audio(self, media_root, title="A"):
+        import os
+        import uuid as uuid_module
+
+        article = Article.objects.create(
+            feed=self.feed,
+            title=title,
+            text_content="x",
+            status=Article.COMPLETED,
+            audio_uuid=uuid_module.uuid4(),
+        )
+        audio_dir = os.path.join(media_root, "articles")
+        os.makedirs(audio_dir, exist_ok=True)
+        path = os.path.join(audio_dir, f"{article.audio_uuid}.mp3")
+        with open(path, "wb") as f:
+            f.write(b"fake mp3 bytes")
+        return article, path
+
+    def test_delete_article_removes_audio_file(self):
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.settings(MEDIA_ROOT=tmp):
+                article, path = self._make_article_with_audio(tmp)
+                data = structured(
+                    self.call("delete_article", {"article_id": article.id})
+                )
+                self.assertTrue(data["deleted"])
+                self.assertFalse(os.path.exists(path))
+
+    def test_delete_feed_removes_article_audio_files(self):
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.settings(MEDIA_ROOT=tmp):
+                _, path_a = self._make_article_with_audio(tmp, "A")
+                _, path_b = self._make_article_with_audio(tmp, "B")
+                data = structured(self.call("delete_feed", {"feed_id": self.feed.id}))
+                self.assertTrue(data["deleted"])
+                self.assertFalse(os.path.exists(path_a))
+                self.assertFalse(os.path.exists(path_b))

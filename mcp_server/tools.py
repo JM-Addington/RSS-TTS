@@ -10,6 +10,8 @@ which tool to call. Validation failures raise ToolError (-> isError result).
 
 from __future__ import annotations
 
+import logging
+import os
 from typing import Any
 
 from django.contrib.auth.models import User
@@ -24,6 +26,7 @@ from text_to_audio.models import (
     UserVoicePreset,
 )
 from text_to_audio.tasks import process_article
+from text_to_audio.utils import safe_delete_audio_file
 from text_to_audio.validators import validate_url_not_ssrf
 
 from .auth import issuer_base
@@ -35,6 +38,8 @@ from .registry import (
     register,
     write_annotations,
 )
+
+logger = logging.getLogger(__name__)
 
 VALID_VOICE_IDS = {choice[0] for choice in VOICE_CHOICES}
 VALID_VOICE_MODES = {choice[0] for choice in Feed.VOICE_MODE_CHOICES}
@@ -141,6 +146,27 @@ def _optional_owned_preset(
     if key not in args or args[key] is None:
         return None
     return _get_owned(UserVoicePreset, user, _require_int(args, key), "Voice preset")
+
+
+def _delete_article_audio(article: Article) -> None:
+    """Best-effort removal of the article's canonical MP3.
+
+    Mirrors the web ArticleDeleteView: resolve the canonical path, delete via
+    the directory-protected helper, and never let cleanup failures block the
+    database deletion.
+    """
+    try:
+        path = article.get_canonical_audio_path()
+    except ValueError:
+        return  # no audio_uuid — nothing was ever rendered
+    except Exception:
+        logger.exception("Cannot resolve audio path for article %s", article.pk)
+        return
+    try:
+        if os.path.exists(path):
+            safe_delete_audio_file(path)
+    except Exception:
+        logger.warning("Could not delete audio file %s", path, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +281,10 @@ def serialize_voice_preset(preset: UserVoicePreset) -> dict[str, Any]:
             },
             "default_voice_preset_id": {
                 "type": "integer",
-                "description": "Id of an owned voice preset to narrate new articles with.",
+                "description": (
+                    "Id of an owned voice preset to narrate new articles "
+                    "with (sets voice_mode to single_custom)."
+                ),
             },
         },
         required=["name"],
@@ -270,6 +299,16 @@ def create_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
     voice_mode = _validated_voice_mode(args)
     tts_provider = _validated_tts_provider(args)
     preset = _optional_owned_preset(user, args, "default_voice_preset_id")
+    # AIDEV-NOTE: processing honors default_voice_preset only in single_custom
+    # mode (voice_configuration.py) — couple them so the preset takes effect
+    if preset is not None:
+        if voice_mode is None:
+            voice_mode = Feed.VOICE_MODE_SINGLE_CUSTOM
+        elif voice_mode != Feed.VOICE_MODE_SINGLE_CUSTOM:
+            raise ToolError(
+                "'default_voice_preset_id' requires voice_mode 'single_custom' "
+                "(omit voice_mode to set it automatically)."
+            )
     feed = Feed.objects.create(
         user=user,
         name=name.strip(),
@@ -324,7 +363,10 @@ def get_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
             "tts_provider": {"type": "string", "enum": sorted(VALID_TTS_PROVIDERS)},
             "default_voice_preset_id": {
                 "type": ["integer", "null"],
-                "description": "Owned voice preset id, or null to clear.",
+                "description": (
+                    "Owned voice preset id (sets voice_mode to single_custom), "
+                    "or null to clear it (reverts voice_mode to auto)."
+                ),
             },
         },
         required=["feed_id"],
@@ -345,9 +387,19 @@ def update_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
     if "tts_provider" in args:
         feed.tts_provider = _validated_tts_provider(args)
     if "default_voice_preset_id" in args:
-        feed.default_voice_preset = _optional_owned_preset(
-            user, args, "default_voice_preset_id"
-        )
+        preset = _optional_owned_preset(user, args, "default_voice_preset_id")
+        feed.default_voice_preset = preset
+        # Keep voice_mode consistent so the preset actually takes effect
+        # (or stops applying) — see voice_configuration.py gating.
+        if preset is not None:
+            if voice_mode is not None and voice_mode != Feed.VOICE_MODE_SINGLE_CUSTOM:
+                raise ToolError(
+                    "'default_voice_preset_id' requires voice_mode "
+                    "'single_custom' (omit voice_mode to set it automatically)."
+                )
+            feed.voice_mode = Feed.VOICE_MODE_SINGLE_CUSTOM
+        elif voice_mode is None and feed.voice_mode == Feed.VOICE_MODE_SINGLE_CUSTOM:
+            feed.voice_mode = Feed.VOICE_MODE_AUTO
     feed.save()
     return serialize_feed(feed)
 
@@ -369,6 +421,9 @@ def update_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
 def delete_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
     feed_id = _require_int(args, "feed_id")
     feed = _get_owned(Feed, user, feed_id, "Feed")
+    # Remove rendered MP3s before the cascade delete drops the article rows.
+    for article in feed.articles.all():
+        _delete_article_audio(article)
     feed.delete()
     return {"deleted": True, "id": feed_id}
 
@@ -574,6 +629,7 @@ def update_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
 def delete_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
     article_id = _require_int(args, "article_id")
     article = _get_owned_article(user, article_id)
+    _delete_article_audio(article)
     article.delete()
     return {"deleted": True, "id": article_id}
 
