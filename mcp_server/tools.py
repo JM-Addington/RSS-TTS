@@ -554,12 +554,22 @@ def create_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
             article.voice = "alloy"
         if speed is None:
             article.speed = preset.speed
+    if preset is None and (voice is not None or speed is not None):
+        # AIDEV-NOTE: marker consumed by VoiceConfigurationService — without
+        # it, feed-level auto/default config overwrites explicit selections
+        article.voice_parameters = {"user_selected_voice": True}
     try:
         article.full_clean(exclude=["audio_uuid", "voice_id"])
     except ValidationError as exc:
         raise ToolError(f"Validation failed: {'; '.join(exc.messages)}")
     article.save()
-    process_article.delay(article.pk)
+    task = process_article.delay(article.pk)
+    # Persist the task id (like the web/email submission paths) so deletion
+    # can revoke in-flight narration and the timeout sweep can find it.
+    task_id = getattr(task, "id", None)
+    if task_id:
+        article.celery_task_id = str(task_id)
+        article.save(update_fields=["celery_task_id", "updated_at"])
     return serialize_article(article)
 
 

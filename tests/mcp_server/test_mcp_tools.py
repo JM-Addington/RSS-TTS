@@ -825,3 +825,77 @@ class ExclusiveInputAndTaskRevocationTests(ToolTestBase):
         data = structured(self.call("delete_article", {"article_id": article.id}))
         self.assertTrue(data["deleted"])
         self.assertFalse(Article.objects.filter(pk=article.id).exists())
+
+
+class TaskIdAndExplicitVoiceTests(ToolTestBase):
+    """Codex review round 6: persist the Celery task id (so revocation works)
+    and keep explicitly selected voices from being overwritten by feed-level
+    auto voice configuration."""
+
+    def setUp(self):
+        super().setUp()
+        self.feed = Feed.objects.create(user=self.user, name="Feed")
+
+    @patch("mcp_server.tools.process_article")
+    def test_create_article_persists_celery_task_id(self, mock_process):
+        mock_process.delay.return_value.id = "task-xyz"
+        data = structured(
+            self.call(
+                "create_article",
+                {"feed_id": self.feed.id, "title": "T", "text_content": "hello"},
+            )
+        )
+        article = Article.objects.get(pk=data["id"])
+        self.assertEqual(article.celery_task_id, "task-xyz")
+
+    @patch("mcp_server.tools.process_article")
+    def test_explicit_voice_sets_user_selected_marker(self, mock_process):
+        data = structured(
+            self.call(
+                "create_article",
+                {
+                    "feed_id": self.feed.id,
+                    "title": "T",
+                    "text_content": "hello",
+                    "voice": "nova",
+                },
+            )
+        )
+        article = Article.objects.get(pk=data["id"])
+        self.assertTrue((article.voice_parameters or {}).get("user_selected_voice"))
+
+    @patch("mcp_server.tools.process_article")
+    def test_preset_only_does_not_set_marker(self, mock_process):
+        preset = UserVoicePreset.objects.create(
+            user=self.user, name="P", voice_id="nova", speed=1.0
+        )
+        data = structured(
+            self.call(
+                "create_article",
+                {
+                    "feed_id": self.feed.id,
+                    "title": "T",
+                    "text_content": "hello",
+                    "voice_preset_id": preset.id,
+                },
+            )
+        )
+        article = Article.objects.get(pk=data["id"])
+        self.assertFalse((article.voice_parameters or {}).get("user_selected_voice"))
+
+    def test_voice_configuration_respects_user_selected_marker(self):
+        from text_to_audio.services.voice_configuration import (
+            VoiceConfigurationService,
+        )
+
+        article = Article.objects.create(
+            feed=self.feed,  # feed defaults to auto voice mode
+            title="T",
+            text_content="hello world",
+            voice="nova",
+            voice_parameters={"user_selected_voice": True},
+        )
+        result = VoiceConfigurationService().configure_article_voice(article)
+        self.assertEqual(result.voice, "nova")
+        # Auto configuration would have overwritten voice_parameters entirely
+        self.assertTrue(result.voice_parameters.get("user_selected_voice"))
