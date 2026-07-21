@@ -768,6 +768,16 @@ def update_followed_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
         followed.fetch_full_text = _optional_bool(args, "fetch_full_text", True)
     if "is_active" in args:
         followed.is_active = _optional_bool(args, "is_active", True)
+    # Pre-check the unique constraint so a duplicate (url, destination) pair
+    # is a clean validation error rather than an IntegrityError -> -32603.
+    if (
+        FollowedFeed.objects.filter(
+            user=user, url=followed.url, destination_feed=followed.destination_feed
+        )
+        .exclude(pk=followed.pk)
+        .exists()
+    ):
+        raise ToolError("Already following this feed for that destination.")
     followed.save()
     return serialize_followed_feed(followed)
 

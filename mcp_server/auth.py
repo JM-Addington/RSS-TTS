@@ -102,6 +102,14 @@ def authenticate(
         return None, unauthorized(
             error="invalid_token", description="Access token has expired."
         )
+    # AIDEV-NOTE: mirror AdminApprovalRequiredMiddleware — bearer auth bypasses
+    # session middleware, so revoked/deactivated accounts must be checked here
+    user = token.user
+    if not user.is_active or (hasattr(user, "profile") and not user.is_approved):
+        return None, unauthorized(
+            error="invalid_token",
+            description="User account is inactive or not approved.",
+        )
     if not any(scope in token.scope.split() for scope in MCP_SCOPES):
         return None, forbidden_scope("mcp:read mcp:write")
     return token, None

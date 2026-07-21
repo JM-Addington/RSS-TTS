@@ -128,3 +128,32 @@ class DynamicClientRegistrationTests(TestCase):
     def test_register_get_not_allowed(self):
         response = self.client.get(REGISTER_URL)
         self.assertEqual(response.status_code, 405)
+
+
+class DcrMalformedMetadataTests(TestCase):
+    """Codex review: unhashable JSON elements must yield 400, not 500."""
+
+    def setUp(self):
+        cache.clear()
+
+    def test_register_rejects_non_string_grant_type_elements(self):
+        response = register(
+            self.client,
+            {
+                "redirect_uris": ["https://example.com/cb"],
+                "grant_types": [{}],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "invalid_client_metadata")
+
+    def test_register_rejects_non_string_auth_method(self):
+        response = register(
+            self.client,
+            {
+                "redirect_uris": ["https://example.com/cb"],
+                "token_endpoint_auth_method": {"method": "none"},
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "invalid_client_metadata")

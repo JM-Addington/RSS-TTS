@@ -686,3 +686,24 @@ class AudioFileCleanupTests(ToolTestBase):
                 self.assertTrue(data["deleted"])
                 self.assertFalse(os.path.exists(path_a))
                 self.assertFalse(os.path.exists(path_b))
+
+
+class FollowedFeedDuplicateUpdateTests(ToolTestBase):
+    """Codex review: updating a followed feed into an existing (url,
+    destination) pair must be a validation error, not an IntegrityError."""
+
+    def test_update_into_duplicate_pair_is_tool_error(self):
+        feed = Feed.objects.create(user=self.user, name="Dest")
+        FollowedFeed.objects.create(
+            user=self.user, url="https://example.com/a.xml", destination_feed=feed
+        )
+        other = FollowedFeed.objects.create(
+            user=self.user, url="https://example.com/b.xml", destination_feed=feed
+        )
+        response = self.call(
+            "update_followed_feed",
+            {"followed_feed_id": other.id, "url": "https://example.com/a.xml"},
+        )
+        self.assert_tool_error(response, "Already following")
+        other.refresh_from_db()
+        self.assertEqual(other.url, "https://example.com/b.xml")

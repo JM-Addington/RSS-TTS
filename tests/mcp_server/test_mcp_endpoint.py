@@ -232,3 +232,44 @@ class ScopeEnforcementTests(McpEndpointBase):
         no_scope = make_token(self.user, scope="something:else")
         response = mcp_post(self.client, rpc("ping"), token=no_scope.token)
         self.assertEqual(response.status_code, 403)
+
+
+@override_settings(MCP_ISSUER_URL=BASE)
+class AccountStatusTests(McpEndpointBase):
+    """Codex review P1: revoking approval or deactivating an account must
+    invalidate existing bearer tokens immediately."""
+
+    def _second_user_token(self):
+        # Not the first user, so the profile is created unapproved by default.
+        user = User.objects.create_user(
+            username="revoked", email="revoked@example.com", password="testpass123"
+        )
+        return user, make_token(user)
+
+    def test_unapproved_user_token_is_rejected(self):
+        user, token = self._second_user_token()
+        self.assertFalse(user.is_approved)
+        response = mcp_post(self.client, rpc("ping"), token=token.token)
+        self.assertEqual(response.status_code, 401)
+        self.assertIn('error="invalid_token"', response["WWW-Authenticate"])
+
+    def test_approved_then_revoked_user_token_is_rejected(self):
+        user, token = self._second_user_token()
+        user.profile.is_approved = True
+        user.profile.save()
+        response = mcp_post(self.client, rpc("ping"), token=token.token)
+        self.assertEqual(response.status_code, 200)
+
+        user.profile.is_approved = False
+        user.profile.save()
+        response = mcp_post(self.client, rpc("ping"), token=token.token)
+        self.assertEqual(response.status_code, 401)
+
+    def test_inactive_user_token_is_rejected(self):
+        user, token = self._second_user_token()
+        user.profile.is_approved = True
+        user.profile.save()
+        user.is_active = False
+        user.save()
+        response = mcp_post(self.client, rpc("ping"), token=token.token)
+        self.assertEqual(response.status_code, 401)

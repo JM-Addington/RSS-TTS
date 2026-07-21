@@ -124,6 +124,9 @@ def register_client(request: HttpRequest) -> JsonResponse:
     grant_types = metadata.get("grant_types", ["authorization_code"])
     if (
         not isinstance(grant_types, list)
+        # elements must be strings first — unhashable values would make the
+        # set() constructor raise TypeError -> 500
+        or not all(isinstance(grant, str) for grant in grant_types)
         or not set(grant_types) <= SUPPORTED_GRANT_TYPES
     ):
         return _dcr_error(
@@ -142,7 +145,7 @@ def register_client(request: HttpRequest) -> JsonResponse:
         )
 
     auth_method = metadata.get("token_endpoint_auth_method", "none")
-    if auth_method not in SUPPORTED_AUTH_METHODS:
+    if not isinstance(auth_method, str) or auth_method not in SUPPORTED_AUTH_METHODS:
         return _dcr_error(
             "invalid_client_metadata",
             f"token_endpoint_auth_method must be one of {sorted(SUPPORTED_AUTH_METHODS)}",
