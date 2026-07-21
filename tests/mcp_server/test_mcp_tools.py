@@ -745,3 +745,83 @@ class FollowedFeedDuplicateUpdateTests(ToolTestBase):
         self.assert_tool_error(response, "Already following")
         other.refresh_from_db()
         self.assertEqual(other.url, "https://example.com/b.xml")
+
+
+class ExclusiveInputAndTaskRevocationTests(ToolTestBase):
+    """Codex review round 5: reject url+text together (REST parity) and
+    revoke in-flight narration tasks when deleting articles/feeds."""
+
+    def setUp(self):
+        super().setUp()
+        self.feed = Feed.objects.create(user=self.user, name="Feed")
+
+    @patch("mcp_server.tools.process_article")
+    def test_create_article_rejects_url_and_text_together(self, mock_process):
+        response = self.call(
+            "create_article",
+            {
+                "feed_id": self.feed.id,
+                "title": "T",
+                "text_content": "some text",
+                "source_url": "https://example.com/story",
+            },
+        )
+        self.assert_tool_error(response, "not both")
+        mock_process.delay.assert_not_called()
+
+    @patch("mcp_server.tools.celery_app")
+    def test_delete_article_revokes_processing_task(self, mock_celery):
+        article = Article.objects.create(
+            feed=self.feed,
+            title="T",
+            text_content="x",
+            status=Article.PROCESSING,
+            celery_task_id="task-abc",
+        )
+        structured(self.call("delete_article", {"article_id": article.id}))
+        mock_celery.control.revoke.assert_called_once_with("task-abc", terminate=True)
+
+    @patch("mcp_server.tools.celery_app")
+    def test_delete_completed_article_does_not_revoke(self, mock_celery):
+        article = Article.objects.create(
+            feed=self.feed,
+            title="T",
+            text_content="x",
+            status=Article.COMPLETED,
+            celery_task_id="task-abc",
+        )
+        structured(self.call("delete_article", {"article_id": article.id}))
+        mock_celery.control.revoke.assert_not_called()
+
+    @patch("mcp_server.tools.celery_app")
+    def test_delete_feed_revokes_processing_tasks(self, mock_celery):
+        Article.objects.create(
+            feed=self.feed,
+            title="A",
+            text_content="x",
+            status=Article.PROCESSING,
+            celery_task_id="task-1",
+        )
+        Article.objects.create(
+            feed=self.feed,
+            title="B",
+            text_content="x",
+            status=Article.COMPLETED,
+            celery_task_id="task-2",
+        )
+        structured(self.call("delete_feed", {"feed_id": self.feed.id}))
+        mock_celery.control.revoke.assert_called_once_with("task-1", terminate=True)
+
+    @patch("mcp_server.tools.celery_app")
+    def test_revoke_failure_does_not_block_deletion(self, mock_celery):
+        mock_celery.control.revoke.side_effect = RuntimeError("broker down")
+        article = Article.objects.create(
+            feed=self.feed,
+            title="T",
+            text_content="x",
+            status=Article.PROCESSING,
+            celery_task_id="task-abc",
+        )
+        data = structured(self.call("delete_article", {"article_id": article.id}))
+        self.assertTrue(data["deleted"])
+        self.assertFalse(Article.objects.filter(pk=article.id).exists())

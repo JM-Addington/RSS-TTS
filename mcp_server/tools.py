@@ -18,6 +18,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 
+from rss_tts.celery import app as celery_app
 from text_to_audio.models import (
     VOICE_CHOICES,
     Article,
@@ -167,6 +168,25 @@ def _delete_article_audio(article: Article) -> None:
             safe_delete_audio_file(path)
     except Exception:
         logger.warning("Could not delete audio file %s", path, exc_info=True)
+
+
+def _revoke_article_task(article: Article) -> None:
+    """Best-effort revocation of an in-flight narration task before deletion.
+
+    Same pattern as the stale-article timeout task; failures never block the
+    deletion (process_article also rechecks existence before exporting).
+    """
+    if article.status != Article.PROCESSING or not article.celery_task_id:
+        return
+    try:
+        celery_app.control.revoke(article.celery_task_id, terminate=True)
+    except Exception:
+        logger.warning(
+            "Could not revoke task %s for article %s",
+            article.celery_task_id,
+            article.pk,
+            exc_info=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -421,8 +441,10 @@ def update_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
 def delete_feed(user: User, args: dict[str, Any]) -> dict[str, Any]:
     feed_id = _require_int(args, "feed_id")
     feed = _get_owned(Feed, user, feed_id, "Feed")
-    # Remove rendered MP3s before the cascade delete drops the article rows.
+    # Stop in-flight narration and remove rendered MP3s before the cascade
+    # delete drops the article rows.
     for article in feed.articles.all():
+        _revoke_article_task(article)
         _delete_article_audio(article)
     feed.delete()
     return {"deleted": True, "id": feed_id}
@@ -486,6 +508,10 @@ def create_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
 
     if not source_url and not text_content:
         raise ToolError("Provide 'source_url' or 'title' + 'text_content'.")
+    if source_url and text_content:
+        # REST-API parity: the worker ignores source_url when text is present,
+        # which would record misleading provenance — refuse the combination.
+        raise ToolError("Provide 'source_url' or 'text_content', not both.")
     if text_content and not source_url and not title:
         raise ToolError("'title' is required when submitting raw 'text_content'.")
     if source_url:
@@ -642,6 +668,7 @@ def update_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
 def delete_article(user: User, args: dict[str, Any]) -> dict[str, Any]:
     article_id = _require_int(args, "article_id")
     article = _get_owned_article(user, article_id)
+    _revoke_article_task(article)
     _delete_article_audio(article)
     article.delete()
     return {"deleted": True, "id": article_id}
