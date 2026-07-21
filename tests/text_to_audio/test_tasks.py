@@ -213,6 +213,87 @@ class ChunkTextTests(TestCase):
                 total_chunk_chars = sum(len(chunk) for chunk in chunks)
                 self.assertGreaterEqual(total_chunk_chars, len(text) * 0.9)
 
+    # AIDEV-NOTE: Chunk boundaries become 400ms audio pauses (SEGMENT_PAUSE_MS),
+    # so abbreviations like "Dr." / "U.S." must never end a chunk.
+    def test_no_split_after_title_abbreviations(self):
+        text = (
+            "Yesterday Dr. Smith met with Mr. Jones and Mrs. Lee to talk. "
+            "They spoke for hours about the plan and its details."
+        )
+        success, chunks = _legacy_chunk_text(text, max_length=60)
+        self.assertTrue(success)
+        self.assertGreater(len(chunks), 1)
+        for chunk in chunks:
+            self.assertFalse(
+                chunk.endswith(("Dr.", "Mr.", "Mrs.")),
+                f"Chunk ends mid-abbreviation: {chunk!r}",
+            )
+
+    def test_no_split_after_dotted_acronyms(self):
+        text = (
+            "The U.S. economy grew this year. Analysts say growth will "
+            "continue into next year across most regions of the U.S. market."
+        )
+        success, chunks = _legacy_chunk_text(text, max_length=60)
+        self.assertTrue(success)
+        self.assertGreater(len(chunks), 1)
+        for chunk in chunks:
+            self.assertFalse(
+                chunk.endswith("U.S."),
+                f"Chunk ends mid-acronym: {chunk!r}",
+            )
+
+    def test_no_split_after_single_letter_initials(self):
+        text = (
+            "Author J. K. Rowling wrote many books. The books sold well "
+            "around the world for many years after their release."
+        )
+        success, chunks = _legacy_chunk_text(text, max_length=60)
+        self.assertTrue(success)
+        self.assertGreater(len(chunks), 1)
+        for chunk in chunks:
+            self.assertFalse(
+                chunk.endswith(("J.", "K.")),
+                f"Chunk ends mid-initials: {chunk!r}",
+            )
+
+    def test_no_split_after_latin_abbreviations(self):
+        text = (
+            "Some fruits, e.g. apples and pears, are cheap right now. "
+            "Other fruits are far more expensive in the winter months."
+        )
+        success, chunks = _legacy_chunk_text(text, max_length=60)
+        self.assertTrue(success)
+        self.assertGreater(len(chunks), 1)
+        for chunk in chunks:
+            self.assertFalse(
+                chunk.endswith("e.g."),
+                f"Chunk ends mid-abbreviation: {chunk!r}",
+            )
+
+    def test_break_point_search_skips_abbreviations(self):
+        # No real sentence break exists, so the backward break-point search
+        # must not pick the period in "Dr." and should fall back to a
+        # word-boundary split instead.
+        text = (
+            "He met Dr. Brown yesterday afternoon and they talked for a "
+            "long time without stopping once during the entire meeting"
+        )
+        success, chunks = _legacy_chunk_text(text, max_length=40)
+        self.assertGreater(len(chunks), 1)
+        for chunk in chunks:
+            self.assertLessEqual(len(chunk), 40)
+            self.assertFalse(
+                chunk.endswith("Dr."),
+                f"Chunk ends mid-abbreviation: {chunk!r}",
+            )
+
+    def test_real_sentence_breaks_still_split(self):
+        text = "First sentence here. Second sentence there. Third one now."
+        success, chunks = _legacy_chunk_text(text, max_length=30)
+        self.assertTrue(success)
+        self.assertEqual(len(chunks), 3)
+
 
 @override_settings(
     MEDIA_ROOT=TEST_MEDIA_ROOT,

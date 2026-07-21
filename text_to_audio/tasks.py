@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time  # Added for timing API calls
 import traceback
 import uuid
@@ -218,6 +219,122 @@ def _save_openai_usage_stats(
         )
 
 
+# AIDEV-NOTE: Chunk boundaries become 400ms audio pauses (SEGMENT_PAUSE_MS), so a
+# period that is part of an abbreviation must never be treated as a sentence end.
+# Common abbreviations whose trailing period does not end a sentence.
+_NON_SENTENCE_ABBREVIATIONS = frozenset(
+    {
+        # Titles and honorifics
+        "mr",
+        "mrs",
+        "ms",
+        "dr",
+        "prof",
+        "rev",
+        "hon",
+        "fr",
+        "st",
+        "gen",
+        "sen",
+        "rep",
+        "gov",
+        "pres",
+        "sec",
+        "amb",
+        "lt",
+        "col",
+        "sgt",
+        "capt",
+        "cmdr",
+        "maj",
+        "cpl",
+        "pvt",
+        "adm",
+        "jr",
+        "sr",
+        # Common textual abbreviations
+        "vs",
+        "etc",
+        "approx",
+        "appt",
+        "apt",
+        "dept",
+        "est",
+        "fig",
+        "inc",
+        "ltd",
+        "co",
+        "corp",
+        "no",
+        "nos",
+        "vol",
+        "vols",
+        "al",
+        "ave",
+        "blvd",
+        "rd",
+        "mt",
+        "ft",
+        "jan",
+        "feb",
+        "mar",
+        "apr",
+        "jun",
+        "jul",
+        "aug",
+        "sep",
+        "sept",
+        "oct",
+        "nov",
+        "dec",
+    }
+)
+
+# Dotted acronyms and initialisms such as "U.S.", "U.K.", "e.g.", "i.e.", "a.m.".
+_DOTTED_ACRONYM_RE = re.compile(r"(?:[A-Za-z]\.){2,}$")
+
+
+def _period_ends_sentence(text: str, i: int) -> bool:
+    """Return True if the period at ``text[i]`` ends a sentence.
+
+    A period does NOT end a sentence when it belongs to an abbreviation
+    ("Dr.", "vs."), a dotted acronym ("U.S.", "e.g."), a single-letter
+    initial ("J. Smith"), or when the next word starts with a lowercase
+    letter (which almost never happens after a real sentence boundary).
+    """
+    # Extract the whitespace-delimited word ending at (and including) the period.
+    start = i
+    while start > 0 and not text[start - 1].isspace():
+        start -= 1
+    word = text[start : i + 1]
+
+    if _DOTTED_ACRONYM_RE.search(word):
+        return False
+
+    core = word[:-1].strip("\"'()[]“”‘’")
+    if len(core) == 1 and core.isalpha():
+        return False
+    if core.lower() in _NON_SENTENCE_ABBREVIATIONS:
+        return False
+
+    # Peek at the next word: lowercase start implies the sentence continues.
+    j = i + 1
+    while j < len(text) and text[j].isspace():
+        j += 1
+    if j < len(text) and text[j].islower():
+        return False
+
+    return True
+
+
+def _is_sentence_boundary(text: str, i: int) -> bool:
+    """Return True if the break character at ``text[i]`` is a real sentence end."""
+    char = text[i]
+    if char in ("!", "?"):
+        return True
+    return _period_ends_sentence(text, i)
+
+
 def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
     """Split text into chunks for TTS processing (optimized for large texts).
 
@@ -296,8 +413,14 @@ def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[st
             # Line break - highest priority
             chunks.append(current_chunk.strip())
             current_chunk = ""
-        elif char in sentence_breaks and i + 1 < text_len and text[i + 1].isspace():
-            # Sentence break followed by space
+        elif (
+            char in sentence_breaks
+            and i + 1 < text_len
+            and text[i + 1].isspace()
+            and _is_sentence_boundary(text, i)
+        ):
+            # Sentence break followed by space (abbreviations like "Dr." and
+            # "U.S." are not sentence breaks — see _period_ends_sentence)
             current_chunk += text[i + 1]  # Include the space
             chunks.append(current_chunk.strip())
             current_chunk = ""
@@ -344,9 +467,14 @@ def _legacy_find_best_break_point(text: str, max_length: int) -> int:
     # Search backwards from max_length for break opportunities
     search_text = text[:max_length]
 
-    # Priority 1: Sentence breaks with space after
+    # Priority 1: Sentence breaks with space after (skipping abbreviations
+    # like "Dr." and "U.S.", which would otherwise become audio pauses)
     for i in range(len(search_text) - 2, -1, -1):
-        if search_text[i] in {".", "!", "?"} and search_text[i + 1].isspace():
+        if (
+            search_text[i] in {".", "!", "?"}
+            and search_text[i + 1].isspace()
+            and _is_sentence_boundary(search_text, i)
+        ):
             return i + 2  # Include the punctuation and space
 
     # Priority 2: Clause breaks with space after
