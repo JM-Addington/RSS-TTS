@@ -30,3 +30,4 @@ mike2.txt
 logs/
 googlegemini.json
 *.sqlite3
+.venv-ci/
