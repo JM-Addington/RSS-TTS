@@ -294,6 +294,21 @@ class ChunkTextTests(TestCase):
         self.assertTrue(success)
         self.assertEqual(len(chunks), 3)
 
+    # Exact-boundary regression tests: the abbreviation stays attached to its
+    # own sentence AND the following real sentence still splits into its own
+    # chunk (guards against over-merging that would swallow real boundaries).
+    def test_title_abbreviation_exact_chunk_boundaries(self):
+        text = "Dr. Smith left. He waved."
+        success, chunks = _legacy_chunk_text(text, max_length=20)
+        self.assertTrue(success)
+        self.assertEqual(chunks, ["Dr. Smith left.", "He waved."])
+
+    def test_initialism_exact_chunk_boundaries(self):
+        text = "The U.S. envoy spoke. The audience listened."
+        success, chunks = _legacy_chunk_text(text, max_length=25)
+        self.assertTrue(success)
+        self.assertEqual(chunks, ["The U.S. envoy spoke.", "The audience listened."])
+
 
 @override_settings(
     MEDIA_ROOT=TEST_MEDIA_ROOT,
