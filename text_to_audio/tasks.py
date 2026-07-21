@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time  # Added for timing API calls
 import traceback
 import uuid
@@ -224,7 +225,7 @@ def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[st
     Uses a linear scanning approach for better performance on large documents.
     Prioritizes natural breaks in this order:
     1. Line breaks (\n)
-    2. Sentence boundaries (. ! ?)
+    2. Sentence boundaries (. ! ?), excluding abbreviations
     3. Clause boundaries (; ,)
     4. Word boundaries (spaces)
     5. Force splits within words as last resort
@@ -296,7 +297,12 @@ def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[st
             # Line break - highest priority
             chunks.append(current_chunk.strip())
             current_chunk = ""
-        elif char in sentence_breaks and i + 1 < text_len and text[i + 1].isspace():
+        elif (
+            char in sentence_breaks
+            and i + 1 < text_len
+            and text[i + 1].isspace()
+            and not _legacy_is_abbreviation(current_chunk)
+        ):
             # Sentence break followed by space
             current_chunk += text[i + 1]  # Include the space
             chunks.append(current_chunk.strip())
@@ -331,6 +337,22 @@ def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[st
     chunks = [chunk for chunk in chunks if chunk]
 
     return perfect_split, chunks
+
+
+def _legacy_is_abbreviation(text: str) -> bool:
+    """Return whether text ends in an abbreviation rather than a sentence.
+
+    The chunker inserts a pause between generated audio files. Splitting after
+    an abbreviation would therefore create an unnatural pause in speech.
+    """
+    token = text.rstrip()
+    return bool(
+        re.search(
+            r"(?:\b(?:dr|mr|mrs|ms|prof|sr|jr|st|mt|vs|etc)\.|\b(?:[A-Za-z]\.){2,})$",
+            token,
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 def _legacy_find_best_break_point(text: str, max_length: int) -> int:

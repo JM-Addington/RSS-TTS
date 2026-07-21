@@ -122,6 +122,24 @@ class ChunkTextTests(TestCase):
         self.assertIn("Second sentence", chunks[1])
         self.assertIn("Third one", chunks[2])
 
+    def test_does_not_split_after_title_abbreviation(self):
+        """Keep a title abbreviation with the sentence it introduces."""
+        text = "Dr. Smith left. He waved."
+
+        success, chunks = _legacy_chunk_text(text, max_length=20)
+
+        self.assertTrue(success)
+        self.assertEqual(chunks, ["Dr. Smith left.", "He waved."])
+
+    def test_does_not_split_after_initialism_abbreviation(self):
+        """Keep an initialism abbreviation with the rest of its sentence."""
+        text = "The U.S. envoy spoke. The audience listened."
+
+        success, chunks = _legacy_chunk_text(text, max_length=25)
+
+        self.assertTrue(success)
+        self.assertEqual(chunks, ["The U.S. envoy spoke.", "The audience listened."])
+
     def test_long_word_handling(self):
         text = "Supercalifragilisticexpialidocious"
         success, chunks = _legacy_chunk_text(text, max_length=20)
