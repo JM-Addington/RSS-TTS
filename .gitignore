@@ -26,6 +26,10 @@ mike2.txt
 # pytest cache
 .pytest_cache/
 
+# Virtual environments
+.venv/
+venv/
+
 # Log files
 logs/
 googlegemini.json

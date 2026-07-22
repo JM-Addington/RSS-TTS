@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time  # Added for timing API calls
 import traceback
 import uuid
@@ -218,6 +219,162 @@ def _save_openai_usage_stats(
         )
 
 
+# AIDEV-NOTE: Chunk boundaries become 400ms audio pauses (SEGMENT_PAUSE_MS), so a
+# period that is part of an abbreviation must never be treated as a sentence end.
+# Common abbreviations whose trailing period does not end a sentence.
+_NON_SENTENCE_ABBREVIATIONS = frozenset(
+    {
+        # Titles and honorifics
+        "mr",
+        "mrs",
+        "ms",
+        "dr",
+        "prof",
+        "rev",
+        "hon",
+        "fr",
+        "st",
+        "gen",
+        "sen",
+        "rep",
+        "gov",
+        "pres",
+        "sec",
+        "amb",
+        "lt",
+        "col",
+        "sgt",
+        "capt",
+        "cmdr",
+        "maj",
+        "cpl",
+        "pvt",
+        "adm",
+        "jr",
+        "sr",
+        # Plural title forms that are prefix-only (always precede a name, never
+        # end a sentence). AIDEV-NOTE: only add plurals that are NOT common
+        # standalone English words. "sens"/"drs"/"messrs" are safe; "reps"
+        # (fitness), "revs" (engine), "cos", and "profs" (informal plural of
+        # professor) collide with real words and would recreate the "no."
+        # false-positive bug, so they are excluded.
+        "sens",
+        "drs",
+        "messrs",
+        # Common textual abbreviations
+        "vs",
+        "etc",
+        "approx",
+        "appt",
+        "apt",
+        "dept",
+        "est",
+        "fig",
+        "inc",
+        "ltd",
+        "co",
+        "corp",
+        # AIDEV-NOTE: "no" is NOT a blanket abbreviation; "no." commonly ends real
+        # sentences. Handled as an ordinal-number prefix ("No. 1") in
+        # _period_ends_sentence instead. Keep "nos" (plural, rare as a word).
+        "nos",
+        "vol",
+        "vols",
+        "al",
+        "ave",
+        "blvd",
+        "rd",
+        "mt",
+        "ft",
+        "jan",
+        "feb",
+        "mar",
+        "apr",
+        "jun",
+        "jul",
+        "aug",
+        "sep",
+        "sept",
+        "oct",
+        "nov",
+        "dec",
+    }
+)
+
+# Dotted acronyms and initialisms such as "U.S.", "U.K.", "e.g.", "i.e.", "a.m.".
+_DOTTED_ACRONYM_RE = re.compile(r"(?:[A-Za-z]\.){2,}$")
+
+
+# AIDEV-NOTE: Heuristic splitter that deliberately ERRS TOWARD NOT SPLITTING.
+# Accepted tradeoffs (missed pause, not a wrong pause): a sentence ending in a
+# dotted acronym ("...banned in the U.S. Canada permits it."), a terminal-capable
+# abbreviation ("...led by Acme Inc. Shares rose."; also "etc.", "Corp.", "Ltd."),
+# or followed by a lowercase-initial brand ("...yesterday. iPhone users...") gets
+# no inter-sentence pause. Splitting those would reintroduce audible pauses inside
+# phrases like "the U.S. economy" or "Lakers vs. Celtics", which is worse — a
+# capitalized next word does NOT disambiguate (titles like "Dr. Smith" and "vs.
+# Celtics" also precede capitals). Do NOT "fix" without weighing that regression;
+# tracked as an enhancement, not a bug (missed pauses only, never corrupted audio).
+# Also accepted: an abbreviation/ordinal ("No. 1", "Dr. Smith") can be split away
+# from its following token, but ONLY on the forced-overflow path — when a span
+# longer than max_length contains no sentence-ending period and no clause comma/
+# semicolon, so _legacy_find_best_break_point falls through to the word-boundary
+# fallback and the rightmost space happens to follow an abbreviation. In real
+# article prose (commas/periods every few words) this is ~never reached at
+# max_length=4000; the split is clean (boundary space becomes the pause, no
+# within-chunk char corruption). Special seam-rewriting to prevent it risks
+# dropping the token's internal space (e.g. "No.1"), a worse defect, so it is
+# left as a super-edge tradeoff.
+def _period_ends_sentence(text: str, i: int) -> bool:
+    """Return True if the period at ``text[i]`` ends a sentence.
+
+    A period does NOT end a sentence when it belongs to an abbreviation
+    ("Dr.", "vs."), a dotted acronym ("U.S.", "e.g."), a single-letter
+    initial ("J. Smith"), or when the next word starts with a lowercase
+    letter (which almost never happens after a real sentence boundary).
+    """
+    # Extract the whitespace-delimited word ending at (and including) the period.
+    start = i
+    while start > 0 and not text[start - 1].isspace():
+        start -= 1
+    word = text[start : i + 1]
+
+    if _DOTTED_ACRONYM_RE.search(word):
+        return False
+
+    core = word[:-1].strip("\"'()[]“”‘’")
+    core_lower = core.lower()
+    if len(core) == 1 and core.isalpha():
+        return False
+    if core_lower in _NON_SENTENCE_ABBREVIATIONS:
+        return False
+
+    # Peek at the next non-space character.
+    j = i + 1
+    while j < len(text) and text[j].isspace():
+        j += 1
+
+    # AIDEV-NOTE: "No." is an abbreviation for "number" only when followed by a
+    # digit ("No. 1", "No. 5"); otherwise "no." ends a real sentence and must
+    # remain a boundary (e.g. "The answer is no. He agreed.").
+    if core_lower == "no" and j < len(text) and text[j].isdigit():
+        return False
+
+    # Lowercase start implies the sentence continues.
+    if j < len(text) and text[j].islower():
+        return False
+
+    return True
+
+
+def _is_sentence_boundary(text: str, i: int) -> bool:
+    """Return True if the break character at ``text[i]`` is a real sentence end."""
+    char = text[i]
+    if char in ("!", "?"):
+        return True
+    return _period_ends_sentence(text, i)
+
+
 def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[str]]:
     """Split text into chunks for TTS processing (optimized for large texts).
 
@@ -296,8 +453,14 @@ def _legacy_chunk_text(text: str, max_length: int = 4000) -> tuple[bool, list[st
             # Line break - highest priority
             chunks.append(current_chunk.strip())
             current_chunk = ""
-        elif char in sentence_breaks and i + 1 < text_len and text[i + 1].isspace():
-            # Sentence break followed by space
+        elif (
+            char in sentence_breaks
+            and i + 1 < text_len
+            and text[i + 1].isspace()
+            and _is_sentence_boundary(text, i)
+        ):
+            # Sentence break followed by space (abbreviations like "Dr." and
+            # "U.S." are not sentence breaks — see _period_ends_sentence)
             current_chunk += text[i + 1]  # Include the space
             chunks.append(current_chunk.strip())
             current_chunk = ""
@@ -344,9 +507,20 @@ def _legacy_find_best_break_point(text: str, max_length: int) -> int:
     # Search backwards from max_length for break opportunities
     search_text = text[:max_length]
 
-    # Priority 1: Sentence breaks with space after
+    # Priority 1: Sentence breaks with space after (skipping abbreviations
+    # like "Dr." and "U.S.", which would otherwise become audio pauses).
+    # AIDEV-NOTE: pass the FULL `text` (not truncated `search_text`) so the
+    # boundary check's forward peek can see past the max_length slice — e.g. a
+    # "No. 1" ordinal straddling the boundary in the tail `remaining` path needs
+    # the digit "1" that lies just beyond search_text. `search_text` is a prefix
+    # of `text`, so index `i` refers to the same char in both; this is inert on
+    # the main overflow path (there current_chunk == search_text).
     for i in range(len(search_text) - 2, -1, -1):
-        if search_text[i] in {".", "!", "?"} and search_text[i + 1].isspace():
+        if (
+            search_text[i] in {".", "!", "?"}
+            and search_text[i + 1].isspace()
+            and _is_sentence_boundary(text, i)
+        ):
             return i + 2  # Include the punctuation and space
 
     # Priority 2: Clause breaks with space after
