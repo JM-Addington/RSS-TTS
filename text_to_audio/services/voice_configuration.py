@@ -198,6 +198,16 @@ class VoiceConfigurationService:
         # user's choice with the AUTO-voice logic while still allowing normal
         # behaviour for articles without a preset.
 
+        # AIDEV-NOTE: articles created with an explicit voice/speed selection
+        # (MCP API) carry a user_selected_voice marker in voice_parameters —
+        # honor it like an attached preset instead of applying feed config.
+        if (
+            not force_auto
+            and isinstance(getattr(article, "voice_parameters", None), dict)
+            and article.voice_parameters.get("user_selected_voice")
+        ):
+            return article
+
         if not force_auto and getattr(article, "voice_preset_id", None):
             try:
                 preset = article.voice_preset  # May hit DB but cached

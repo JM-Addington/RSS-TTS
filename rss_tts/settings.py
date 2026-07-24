@@ -95,9 +95,11 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "widget_tweaks",
+    "oauth2_provider",
     "appconfig",
     "accounts",
     "text_to_audio",
+    "mcp_server",
 ]
 
 MIDDLEWARE = [
@@ -276,6 +278,29 @@ LOGOUT_REDIRECT_URL = "home"
 PODCAST_IMAGE_URL = os.environ.get("PODCAST_IMAGE_URL", "")
 RSS_EXTERNAL_HOSTNAME = os.environ.get("RSS_EXTERNAL_HOSTNAME", "")
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
+
+# MCP server / OAuth 2.1 settings
+# AIDEV-NOTE: MCP_ISSUER_URL is the canonical public base URL (issuer + RFC 8707
+# resource host). It must match the URL users type into claude.ai exactly.
+MCP_ISSUER_URL = os.environ.get("MCP_ISSUER_URL", SITE_URL)
+
+# django-oauth-toolkit: the co-hosted OAuth 2.1 authorization server for /mcp.
+# PKCE (S256) is mandatory per the MCP authorization spec (2025-11-25).
+OAUTH2_PROVIDER = {
+    "PKCE_REQUIRED": True,
+    "SCOPES": {
+        "mcp:read": "Read your feeds, articles, and voice presets",
+        "mcp:write": "Create, update, and delete feeds, articles, and voice presets",
+    },
+    "DEFAULT_SCOPES": ["mcp:read"],
+    "ACCESS_TOKEN_EXPIRE_SECONDS": 3600,  # short-lived, per OAuth 2.1 guidance
+    "REFRESH_TOKEN_EXPIRE_SECONDS": 60 * 60 * 24 * 30,
+    "ROTATE_REFRESH_TOKEN": True,  # MUST rotate for public clients (OAuth 2.1)
+    "REFRESH_TOKEN_GRACE_PERIOD_SECONDS": 120,
+    # http is allowed only so RFC 8252 loopback redirects work (Claude Code);
+    # the DCR endpoint rejects non-loopback http redirect URIs.
+    "ALLOWED_REDIRECT_URI_SCHEMES": ["https", "http"],
+}
 
 # Logging setup is imported at the top of the file
 

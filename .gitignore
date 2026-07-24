@@ -34,3 +34,4 @@ venv/
 logs/
 googlegemini.json
 *.sqlite3
+.venv-ci/
