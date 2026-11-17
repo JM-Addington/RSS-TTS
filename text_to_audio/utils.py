@@ -196,7 +196,9 @@ def _decode_body(data: bytes, content_type: Optional[str]) -> str:
             charset = match.group(1)
     try:
         return data.decode(charset, errors="replace")
-    except LookupError:
+    except (LookupError, UnicodeError):
+        # LookupError: unknown name. UnicodeError: codecs that reject errors="replace" or
+        # are not text codecs (idna, punycode, undefined) -- the charset is attacker-chosen.
         return data.decode("utf-8", errors="replace")
 
 
