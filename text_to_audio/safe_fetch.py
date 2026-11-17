@@ -62,7 +62,9 @@ from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
 
 DEFAULT_PORTS = {"http": 80, "https": 443}
-MAX_REDIRECTS = 3
+# AIDEV-NOTE: 10, not Tandem's 3: real chains (doi.org -> publisher, nature.com's cookie hop) run
+# past 3. Each hop is fully re-checked and shares one deadline, so the count only bounds work.
+MAX_REDIRECTS = 10
 TOTAL_TIMEOUT_SECONDS = 15
 CONNECT_TIMEOUT_SECONDS = 5
 RESOLVE_TIMEOUT_SECONDS = 3
@@ -110,10 +112,13 @@ _NAT64 = (
 )
 #: Ranges ipaddress calls is_global that are not ordinary unicast destinations:
 #: fec0::/10, deprecated IPv6 site-local (RFC 3879), still routed inside some sites;
-#: 192.88.99.0/24, the 6to4 relay anycast (RFC 7526). Checked AFTER the IPv4-mapped unwrap.
+#: 192.88.99.0/24, the 6to4 relay anycast (RFC 7526);
+#: 168.63.129.16/32, Azure's WireServer: public, but answers only inside Azure (host metadata/agent).
+#: Checked AFTER the IPv4-mapped unwrap.
 _EXTRA_REFUSED = (
     ipaddress.ip_network("fec0::/10"),
     ipaddress.ip_network("192.88.99.0/24"),
+    ipaddress.ip_network("168.63.129.16/32"),
 )
 
 
@@ -144,6 +149,8 @@ class FetchResult:
     #: The response's header values as sent, None when absent. Never judged here.
     content_type: str | None
     content_encoding: str | None
+    #: The URL the bytes came from (after redirects): the base for relative links in the body.
+    final_url: str = ""
 
 
 @dataclass(frozen=True)
@@ -389,7 +396,7 @@ def open_pinned(pool, watchdog: Watchdog, *, host, path, accept, user_agent):
             "GET",
             path,
             headers={
-                "Host": host,
+                "Host": host_header(host),
                 "User-Agent": user_agent,
                 "Accept": accept,
                 "Accept-Encoding": "identity",
@@ -407,6 +414,11 @@ def open_pinned(pool, watchdog: Watchdog, *, host, path, accept, user_agent):
         raise
     response.safe_fetch_watchdog = watchdog
     return response
+
+
+def host_header(host: str) -> str:
+    """The Host header value for ``host``: an IPv6 literal goes in brackets (RFC 7230 5.4)."""
+    return f"[{host}]" if ":" in host else host
 
 
 def connect_pinned(
@@ -541,9 +553,9 @@ def fetch_url(
     redirects = 0
     try:
         while True:
-            # The wall clock covers the RESOLVE too: no hop starts a resolve once the deadline has
-            # passed, and the default resolve waits at most the time left. A resolve that fails
-            # because the deadline passed during it is ``timeout``, not ``dns_failed``.
+            # AIDEV-NOTE: security; the wall clock covers the RESOLVE too: no hop starts a
+            # resolve once the deadline has passed, and the default resolve waits at most the
+            # time left. A resolve failing because the deadline passed is ``timeout``.
             remaining = deadline - clock()
             if remaining <= 0:
                 raise FetchRefused(TIMEOUT)
@@ -587,7 +599,12 @@ def fetch_url(
                     # AIDEV-NOTE: security; back to the TOP of the loop, so the new URL goes
                     # through checked_target in full, under the same ports policy (M-HOP).
                     # Invalidated if a redirect is ever followed by urllib3 (redirect=True).
-                    current = urljoin(current, str(location))
+                    try:
+                        current = urljoin(current, str(location))
+                    except ValueError:
+                        # urljoin runs urlsplit, which raises on e.g. "http://[x/": a refusal,
+                        # never a bare exception out of fetch_url (callers loop over many feeds).
+                        raise FetchRefused(URL_HOST) from None
                     continue
                 if status != 200:
                     raise FetchRefused(HTTP_STATUS, status=status)
@@ -606,6 +623,7 @@ def fetch_url(
                 content_encoding=(
                     None if content_encoding is None else str(content_encoding)
                 ),
+                final_url=current,
             )
     except FetchRefused as refused:
         if refused.host is None:
