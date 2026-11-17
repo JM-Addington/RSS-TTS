@@ -436,7 +436,10 @@ class ImportFollowedFeedsRobustnessTests(NetworkTripwire):
         victim.refresh_from_db()
         self.assertIsNotNone(victim.last_checked)
 
-    def test_malformed_entry_link_with_full_text_falls_back_to_summary(self):
+    def test_malformed_entry_link_dropped_and_summary_used(self):
+        """With content-location set, feedparser resolves links via urljoin and drops one urlsplit
+        rejects (to ''), so it never reaches fetch_url_content here. PASSES under M-MALFORMED by
+        design: test_malformed_url_returns_tuple_not_raises pins that guard directly."""
         victim = self._follow(self.user, self.feed, "https://good.example.com/rss")
         self._follow(
             self.attacker,
@@ -460,9 +463,9 @@ class ImportFollowedFeedsRobustnessTests(NetworkTripwire):
         )
         victim.refresh_from_db()
         self.assertIsNotNone(victim.last_checked)
-        self.assertEqual(
-            Article.objects.get(title="Evil").text_content, "summary of Evil"
-        )
+        evil = Article.objects.get(title="Evil")
+        self.assertEqual(evil.source_url, "")
+        self.assertEqual(evil.text_content, "summary of Evil")
 
     def test_bad_charset_entry_page_does_not_stop_older_feed(self):
         victim = self._follow(self.user, self.feed, "https://good.example.com/rss")
