@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Available Gemini TTS models
 # AIDEV-NOTE: 2.5 flash/pro preview TTS shut down 2026-11-17 (#243); track Google's Gemini deprecations page
-# AIDEV-NOTE: "pro" has no 3.8 TTS model; kept as alias of flash so stored "pro" config values still work
+# AIDEV-NOTE: "pro" has no 3.8 TTS model; kept as a flash alias for callers passing model="pro" (no stored config)
 GEMINI_TTS_MODELS = {
     "flash": "gemini-3.8-flash-tts",
     "pro": "gemini-3.8-flash-tts",
@@ -252,7 +252,7 @@ class GeminiTTSProvider:
                 {"Speaker1": "Kore", "Speaker2": "Charon"}
             prompt: Optional styling instructions for the conversation
             output_format: Audio format (wav)
-            model: Model: "flash" or "pro"
+            model: Model: "flash" or "pro" (alias of flash since #243)
 
         Returns:
             Audio bytes with multi-speaker dialogue
