@@ -182,8 +182,9 @@ def _handle_retry(
 
 
 # AIDEV-NOTE: byte caps for user-URL fetches (#190); overridable in settings. The cap is what keeps a
-# hostile URL from streaming an unbounded body into the worker's memory.
-DEFAULT_ARTICLE_URL_MAX_BYTES = 5 * 1024 * 1024
+# hostile URL from streaming an unbounded body into the worker's memory. It counts UNCOMPRESSED bytes
+# (safe_fetch sends Accept-Encoding: identity): 5 MiB refused 9/60 cnn.com articles (max 6.3 MiB).
+DEFAULT_ARTICLE_URL_MAX_BYTES = 20 * 1024 * 1024
 ARTICLE_URL_ACCEPT = "text/html,application/xhtml+xml,*/*;q=0.8"
 
 
@@ -200,6 +201,17 @@ def _decode_body(data: bytes, content_type: Optional[str]) -> str:
         # LookupError: unknown name. UnicodeError: codecs that reject errors="replace" or
         # are not text codecs (idna, punycode, undefined) -- the charset is attacker-chosen.
         return data.decode("utf-8", errors="replace")
+
+
+def _refusal_message(code: str, cap: int) -> str:
+    """The user-facing error for a policy refusal; the code stays in it for logs and tests."""
+    from text_to_audio import safe_fetch
+
+    if code == safe_fetch.TOO_LARGE:
+        return f"Page is too large to fetch (over {cap} bytes uncompressed): {code}"
+    if code == safe_fetch.REDIRECT_LIMIT:
+        return f"Too many redirects (more than {safe_fetch.MAX_REDIRECTS}): {code}"
+    return f"URL blocked by security policy: {code}"
 
 
 def fetch_url_content(
@@ -268,7 +280,7 @@ def fetch_url_content(
                     refused.host or host,
                     refused.code,
                 )
-                return False, "", f"URL blocked by security policy: {refused.code}"
+                return False, "", _refusal_message(refused.code, cap)
             if refused.code == safe_fetch.HTTP_STATUS:
                 status = refused.status or 0
                 handled = _handle_http_error(status, url)
