@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from text_to_audio.models import Article, Feed, FollowedFeed
 
@@ -349,9 +349,18 @@ class ImportFollowedFeedsRobustnessTests(NetworkTripwire):
         self.attacker_feed = Feed.objects.create(user=self.attacker, name="Evil")
         task = MagicMock()
         task.id = "tid"
-        patcher = patch("text_to_audio.tasks.process_article.delay", return_value=task)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        # Full-text extraction must stay offline whatever an earlier test left configured: in the
+        # full suite an OpenAI key was present and GPT extraction tripped the network tripwire.
+        no_gpt = override_settings(USE_GPT_FOR_URL_EXTRACTION=False)
+        no_gpt.enable()
+        self.addCleanup(no_gpt.disable)
+        for patcher in (
+            patch("text_to_audio.tasks.process_article.delay", return_value=task),
+            patch("appconfig.utils.get_firecrawl_api_key", return_value=None),
+            patch("appconfig.utils.get_use_firecrawl_by_default", return_value=False),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def _follow(self, user, feed, url, **kwargs):
         kwargs.setdefault("fetch_full_text", False)  # the model default is True
