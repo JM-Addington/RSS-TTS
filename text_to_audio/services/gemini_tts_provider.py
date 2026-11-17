@@ -24,9 +24,11 @@ logger = logging.getLogger(__name__)
 
 
 # Available Gemini TTS models
+# AIDEV-NOTE: 2.5 flash/pro preview TTS shut down 2026-11-17 (#243); track Google's Gemini deprecations page
+# AIDEV-NOTE: "pro" has no 3.8 TTS model; kept as alias of flash so stored "pro" config values still work
 GEMINI_TTS_MODELS = {
-    "flash": "gemini-2.5-flash-preview-tts",
-    "pro": "gemini-2.5-pro-preview-tts",
+    "flash": "gemini-3.8-flash-tts",
+    "pro": "gemini-3.8-flash-tts",
 }
 
 # Voice names (same 30 voices as Chirp3-HD)
@@ -160,7 +162,7 @@ class GeminiTTSProvider:
                 - "Narrate like a documentary"
                 - "Whisper mysteriously"
             output_format: Audio format (wav or mp3) - Note: API returns WAV
-            model: Model to use: "flash" (faster) or "pro" (higher quality)
+            model: Model to use: "flash" (faster) or "pro" (alias of flash since #243)
 
         Returns:
             Audio bytes (WAV format)

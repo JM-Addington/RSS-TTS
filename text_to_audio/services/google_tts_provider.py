@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 GEMINI_TTS_MODELS = {
     "flash": "gemini-2.5-flash-tts",  # Low-latency, cost-efficient
     "pro": "gemini-2.5-pro-tts",  # High-quality, more control
+    # AIDEV-NOTE: preview model, not on the 2026-11-17 shutdown list; watch Google's deprecations page
     "flash-lite": "gemini-2.5-flash-lite-preview-tts",  # Single-speaker preview
 }
 
