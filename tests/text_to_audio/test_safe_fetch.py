@@ -8,6 +8,7 @@ a mutant that leaves every cell here green means the guard is untested -- do not
 """
 
 import unittest
+from unittest.mock import patch
 
 from text_to_audio import safe_fetch
 from text_to_audio.safe_fetch import FetchRefused, fetch_url
@@ -281,6 +282,44 @@ class PinningTests(unittest.TestCase):
         self.assertEqual(conn.server_hostname, "example.com")
         self.assertEqual(conn.assert_hostname, "example.com")
         pool.close()
+
+    def test_connect_pinned_builds_pool_at_ip_and_sends_host_header(self):
+        """The default connector: pool at the IP, Host = name, no redirect, no decode."""
+        import urllib3
+
+        seen = {}
+
+        class FakePool:
+            ConnectionCls = urllib3.connection.HTTPSConnection
+
+            def __init__(self, **kwargs):
+                seen["pool"] = kwargs
+
+            def urlopen(self, method, path, **kwargs):
+                seen["urlopen"] = (method, path, kwargs)
+                return FakeResponse(200)
+
+        for scheme, attr in (
+            ("https", "HTTPSConnectionPool"),
+            ("http", "HTTPConnectionPool"),
+        ):
+            with self.subTest(scheme=scheme), patch.object(urllib3, attr, FakePool):
+                response = safe_fetch.connect_pinned(
+                    ip=PUBLIC_IP,
+                    host="example.com",
+                    path="/p",
+                    timeout=5,
+                    scheme=scheme,
+                )
+                safe_fetch.release(response)
+                self.assertEqual(seen["pool"]["host"], PUBLIC_IP)
+                method, path, kwargs = seen["urlopen"]
+                self.assertEqual((method, path), ("GET", "/p"))
+                self.assertEqual(kwargs["headers"]["Host"], "example.com")
+                self.assertEqual(kwargs["headers"]["Accept-Encoding"], "identity")
+                self.assertIs(kwargs["redirect"], False)
+                self.assertIs(kwargs["decode_content"], False)
+                self.assertIs(kwargs["preload_content"], False)
 
 
 class SizeCapTests(RefusalHelper):
