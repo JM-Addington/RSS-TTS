@@ -3,6 +3,7 @@
 # mypy: ignore-errors
 
 import os
+import socket
 import uuid
 from unittest import mock
 
@@ -548,6 +549,15 @@ class TestFollowedFeedCreateViewMessages(TestCase):
         )
         self.feed = Feed.objects.create(user=self.user, name="Destination Feed")
         self.client.login(username="followuser", password="testpassword")
+        # FollowedFeedForm.clean_url resolves the host (#190); answer public, offline.
+        dns = mock.patch(
+            "socket.getaddrinfo",
+            return_value=[
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+            ],
+        )
+        dns.start()
+        self.addCleanup(dns.stop)
 
     def test_followed_feed_create_shows_success_message(self):
         """POST valid followed feed data should set a success message."""
