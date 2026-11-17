@@ -1,6 +1,7 @@
 """Custom validators for the text_to_audio app.
 
-AIDEV-NOTE: SSRF validator — blocks private IPs, cloud metadata, bad schemes at SUBMIT time.
+AIDEV-NOTE: SSRF validator — blocks private IPs, cloud metadata, bad schemes at SUBMIT time, and
+again as fetch_url_content's early pre-check.
 It does NOT block DNS rebinding or redirects: it resolves the name, then the fetcher resolves again
 and may follow a Location anywhere. Those are stopped only by text_to_audio/safe_fetch.py (#190),
 which pins the connect to the address it checked. Treat this as early user feedback, not a boundary.

@@ -220,7 +220,9 @@ def fetch_url_content(
     """Fetch HTML content from a URL with retry mechanism.
 
     The fetch goes through text_to_audio.safe_fetch.fetch_url (pinned connect, every redirect
-    re-validated, byte cap). ``timeout`` bounds each WHOLE attempt (redirects included).
+    re-validated, byte cap). ``timeout`` bounds each WHOLE fetch attempt (redirects and their
+    resolves included). The validator pre-check before the loop does its own, unbounded,
+    getaddrinfo, outside that bound.
 
     Args:
         url: The URL to fetch content from.
@@ -257,7 +259,8 @@ def fetch_url_content(
 
     cap = int(getattr(settings, "ARTICLE_URL_MAX_BYTES", DEFAULT_ARTICLE_URL_MAX_BYTES))
     retry_count = 0
-    last_error = None
+    last_error = None  # for the USER: may name the URL
+    last_log = None  # for the LOG: host-only, never the URL (query strings carry tokens)
 
     while retry_count < max_retries:
         try:
@@ -290,6 +293,7 @@ def fetch_url_content(
                     last_error = (
                         f"500 Server Error: The server at '{url}' encountered an error."
                     )
+                    last_log = "500 Server Error"
                     retry_count += 1
                     _handle_retry(retry_count, max_retries, host, "Server error")
                     continue
@@ -297,6 +301,7 @@ def fetch_url_content(
                 return False, "", f"HTTP Error {status}: Unable to access '{url}'."
             if refused.code == safe_fetch.TIMEOUT:
                 last_error = f"Connection timed out after {timeout} seconds."
+                last_log = "timeout"
                 retry_count += 1
                 _handle_retry(retry_count, max_retries, host, "Timeout")
                 continue
@@ -305,6 +310,7 @@ def fetch_url_content(
                 f"Connection Error: Unable to connect to '{url}'. "
                 f"The site may be down or the URL may be invalid."
             )
+            last_log = refused.code
             retry_count += 1
             _handle_retry(retry_count, max_retries, host, "Connection error")
             continue
@@ -337,7 +343,7 @@ def fetch_url_content(
         "Max retries (%s) exceeded for host %s: %s [FETCH-URL-MAXRETRY]",
         max_retries,
         host,
-        last_error,
+        last_log,
     )
     return False, "", f"Failed after {max_retries} attempts: {last_error}"
 
