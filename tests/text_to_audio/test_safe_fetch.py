@@ -216,9 +216,7 @@ class RedirectTests(RefusalHelper):
 
     def test_ten_redirects_allowed(self):
         hops = [redirect(f"/{i}") for i in range(1, 10)]
-        connector = FakeConnector(
-            redirect("https://www.example.com/0"), *hops, ok()
-        )
+        connector = FakeConnector(redirect("https://www.example.com/0"), *hops, ok())
         result = fetch_url(
             "http://example.com/",
             cap=CAP,
@@ -354,7 +352,10 @@ class PinningTests(unittest.TestCase):
                 return FakeResponse(200)
 
         for host, expected in (
-            ("2606:2800:220:1:248:1893:25c8:1946", "[2606:2800:220:1:248:1893:25c8:1946]"),
+            (
+                "2606:2800:220:1:248:1893:25c8:1946",
+                "[2606:2800:220:1:248:1893:25c8:1946]",
+            ),
             ("example.com", "example.com"),
             (PUBLIC_IP, PUBLIC_IP),
         ):

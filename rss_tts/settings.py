@@ -54,9 +54,7 @@ USE_FIRECRAWL_BY_DEFAULT = os.environ.get(
 ).lower() in ("1", "true", "yes")
 
 # Byte caps for server-side fetches of user-supplied URLs (text_to_audio/safe_fetch.py, #190)
-ARTICLE_URL_MAX_BYTES = int(
-    os.environ.get("ARTICLE_URL_MAX_BYTES", 20 * 1024 * 1024)
-)
+ARTICLE_URL_MAX_BYTES = int(os.environ.get("ARTICLE_URL_MAX_BYTES", 20 * 1024 * 1024))
 FOLLOWED_FEED_MAX_BYTES = int(
     os.environ.get("FOLLOWED_FEED_MAX_BYTES", 10 * 1024 * 1024)
 )

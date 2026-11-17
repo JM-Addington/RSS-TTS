@@ -2221,7 +2221,9 @@ def _import_one_followed_feed(followed, feed_cap: int) -> bool:
     response_headers = {"content-location": fetched.final_url or followed.url}
     if fetched.content_type:
         response_headers["content-type"] = fetched.content_type
-    parsed = feedparser.parse(io.BytesIO(fetched.data), response_headers=response_headers)
+    parsed = feedparser.parse(
+        io.BytesIO(fetched.data), response_headers=response_headers
+    )
 
     entries = getattr(parsed, "entries", [])
     if not entries:

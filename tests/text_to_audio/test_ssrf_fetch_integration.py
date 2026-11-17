@@ -11,9 +11,8 @@ import tempfile
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from django.core.exceptions import ValidationError
-
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from text_to_audio.models import Article, Feed, FollowedFeed
@@ -390,9 +389,7 @@ class ImportFollowedFeedsRobustnessTests(NetworkTripwire):
                 )
             }
         )
-        self.assertEqual(
-            list(Article.objects.values_list("title", flat=True)), []
-        )
+        self.assertEqual(list(Article.objects.values_list("title", flat=True)), [])
 
     def test_newer_feed_exception_does_not_stop_older_feed(self):
         victim = self._follow(self.user, self.feed, "https://good.example.com/rss")

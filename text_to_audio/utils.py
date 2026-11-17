@@ -260,7 +260,9 @@ def fetch_url_content(
     cap = int(getattr(settings, "ARTICLE_URL_MAX_BYTES", DEFAULT_ARTICLE_URL_MAX_BYTES))
     retry_count = 0
     last_error = None  # for the USER: may name the URL
-    last_log = None  # for the LOG: host-only, never the URL (query strings carry tokens)
+    last_log = (
+        None  # for the LOG: host-only, never the URL (query strings carry tokens)
+    )
 
     while retry_count < max_retries:
         try:
