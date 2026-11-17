@@ -522,6 +522,16 @@ def read_capped(response, cap: int, deadline: float, clock) -> bytes:
     return bytes(received)
 
 
+def next_url(current: str, location: str) -> str:
+    """``location`` resolved against ``current``, or FetchRefused(url_host). urljoin runs urlsplit,
+    which raises ValueError on e.g. "http://[x/": a refusal, never a bare exception out of
+    fetch_url (callers loop over many users' feeds). The result is NOT checked here."""
+    try:
+        return urljoin(current, location)
+    except ValueError:
+        raise FetchRefused(URL_HOST) from None
+
+
 def fetch_url(
     url: str,
     *,
@@ -599,12 +609,7 @@ def fetch_url(
                     # AIDEV-NOTE: security; back to the TOP of the loop, so the new URL goes
                     # through checked_target in full, under the same ports policy (M-HOP).
                     # Invalidated if a redirect is ever followed by urllib3 (redirect=True).
-                    try:
-                        current = urljoin(current, str(location))
-                    except ValueError:
-                        # urljoin runs urlsplit, which raises on e.g. "http://[x/": a refusal,
-                        # never a bare exception out of fetch_url (callers loop over many feeds).
-                        raise FetchRefused(URL_HOST) from None
+                    current = next_url(current, str(location))
                     continue
                 if status != 200:
                     raise FetchRefused(HTTP_STATUS, status=status)
