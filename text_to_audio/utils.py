@@ -221,7 +221,13 @@ def fetch_url_content(
     """
     from text_to_audio import safe_fetch
 
-    host = urllib.parse.urlsplit(url).hostname if isinstance(url, str) else None
+    # AIDEV-NOTE: never raises on a malformed URL (#249 review): feed entry links are attacker text
+    # that never passed URLValidator, and urlsplit raises ValueError on e.g. "http://[::1".
+    try:
+        host = urllib.parse.urlsplit(url).hostname if isinstance(url, str) else None
+    except ValueError:
+        logger.warning("Malformed URL refused before fetch [FETCH-URL-MALFORMED]")
+        return False, "", "URL blocked by security policy: invalid URL"
 
     # AIDEV-NOTE: Defense-in-depth SSRF check — re-validates before fetch (#190). Early, friendly
     # message only: the guarantee is fetch_url below (redirects/rebinding are invisible here).
