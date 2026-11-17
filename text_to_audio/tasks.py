@@ -25,6 +25,7 @@ from pydub import AudioSegment  # type: ignore
 from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
+from .safe_fetch import FetchRefused, fetch_url
 from .services.chunk_tone_service import ChunkToneService
 from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
 from .services.voice_configuration import VoiceConfigurationService
@@ -2165,20 +2166,51 @@ def process_incoming_email(self, email_payload: dict) -> str:
     return f"Article {article.pk} created successfully"
 
 
+FOLLOWED_FEED_ACCEPT = (
+    "application/rss+xml,application/atom+xml,application/xml,text/xml,*/*;q=0.1"
+)
+
+
 @shared_task
 def import_followed_feeds() -> str:
     """Check followed RSS feeds and create articles for new entries."""
+
+    from urllib.parse import urlsplit
 
     from .models import FollowedFeed
 
     followed_feeds = FollowedFeed.objects.filter(is_active=True)
     processed_feeds = 0
+    feed_cap = int(getattr(settings, "FOLLOWED_FEED_MAX_BYTES", 10 * 1024 * 1024))
 
     for followed in followed_feeds:
+        feed_host = urlsplit(followed.url).hostname
+        # AIDEV-NOTE: security; the feed is fetched through safe_fetch and feedparser only ever sees
+        # BYTES (M-FEED, #190). feedparser.parse(<url>) fetches by itself via urllib, following
+        # redirects to any address. Invalidated if a URL string is ever passed to feedparser.parse.
         try:
-            parsed = feedparser.parse(followed.url)
+            fetched = fetch_url(
+                followed.url,
+                cap=feed_cap,
+                accept=FOLLOWED_FEED_ACCEPT,
+            )
+        except FetchRefused as refused:
+            logger.warning(
+                "Followed feed %s fetch refused for host %s: %s [FEED-FETCH-REFUSED]",
+                followed.pk,
+                refused.host or feed_host,
+                refused.code,
+            )
+            continue
+        try:
+            parsed = feedparser.parse(fetched.data)
         except Exception as exc:  # pragma: no cover - safeguard
-            logger.error("Failed to fetch feed %s: %s", followed.url, exc)
+            logger.error(
+                "Failed to parse followed feed %s from host %s: %s [FEED-PARSE-FAIL]",
+                followed.pk,
+                feed_host,
+                type(exc).__name__,
+            )
             continue
 
         entries = getattr(parsed, "entries", [])
