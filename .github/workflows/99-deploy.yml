@@ -23,7 +23,7 @@ on:
 jobs:
   build-and-push:
     timeout-minutes: 15
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
