@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import re
@@ -14,6 +15,7 @@ import traceback
 import uuid
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import feedparser
 import openai
@@ -25,6 +27,7 @@ from pydub import AudioSegment  # type: ignore
 from rss_tts.celery import app as celery_app  # For task revocation
 
 from .models import Article  # Import OpenAIUsageStats in helper method
+from .safe_fetch import FetchRefused, fetch_url
 from .services.chunk_tone_service import ChunkToneService
 from .services.content_analysis import MAX_ANALYSIS_WORDS, ContentAnalysisService
 from .services.voice_configuration import VoiceConfigurationService
@@ -2165,6 +2168,117 @@ def process_incoming_email(self, email_payload: dict) -> str:
     return f"Article {article.pk} created successfully"
 
 
+FOLLOWED_FEED_ACCEPT = (
+    "application/rss+xml,application/atom+xml,application/xml,text/xml,*/*;q=0.1"
+)
+
+
+def _safe_hostname(url) -> str | None:
+    """The hostname of ``url`` for a log line, or None when it does not parse (never raises)."""
+    try:
+        return urlsplit(url).hostname
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def _import_one_followed_feed(followed, feed_cap: int) -> bool:
+    """Fetch, parse and enqueue one followed feed. True when it was processed to the end."""
+    feed_host = _safe_hostname(followed.url)
+    # AIDEV-NOTE: security; fetched ONLY through safe_fetch (M-FEED, #190): feedparser.parse(<url>)
+    # fetches by itself via urllib, following redirects to any address.
+    try:
+        fetched = fetch_url(
+            followed.url,
+            cap=feed_cap,
+            accept=FOLLOWED_FEED_ACCEPT,
+        )
+    except FetchRefused as refused:
+        logger.warning(
+            "Followed feed %s fetch refused for host %s: %s [FEED-FETCH-REFUSED]",
+            followed.pk,
+            refused.host or feed_host,
+            refused.code,
+        )
+        return False
+
+    encoding = (fetched.content_encoding or "identity").strip().lower()
+    if encoding not in ("", "identity"):
+        # We send Accept-Encoding: identity and never decode: compressed bytes hold no entries,
+        # and marking the feed checked would hide that it never imports.
+        logger.warning(
+            "Followed feed %s from host %s sent unsupported Content-Encoding %s "
+            "[FEED-FETCH-ENCODING]",
+            followed.pk,
+            fetched.final_host,
+            encoding,
+        )
+        return False
+
+    # AIDEV-NOTE: security; the body reaches feedparser as a STREAM (M-FEED-STREAM, #249 review).
+    # feedparser.parse(<bytes>) is NOT inert: a bytes arg that is not a URL is open()ed as a local
+    # PATH (6.0.x _open_resource), so a body "/etc/x" or "/dev/zero" reads the worker's disk.
+    # Only hasattr(read) skips that. content-location = final URL resolves relative entry links.
+    response_headers = {"content-location": fetched.final_url or followed.url}
+    if fetched.content_type:
+        response_headers["content-type"] = fetched.content_type
+    parsed = feedparser.parse(
+        io.BytesIO(fetched.data), response_headers=response_headers
+    )
+
+    entries = getattr(parsed, "entries", [])
+    if not entries:
+        followed.last_checked = timezone.now()
+        followed.save(update_fields=["last_checked"])
+        return False
+
+    new_entries: list = []
+    for entry in entries:
+        guid = (
+            getattr(entry, "id", None)
+            or getattr(entry, "guid", None)
+            or getattr(entry, "link", None)
+        )
+        if followed.last_guid and guid == followed.last_guid:
+            break
+        new_entries.append(entry)
+
+    for entry in reversed(new_entries):
+        guid = (
+            getattr(entry, "id", None)
+            or getattr(entry, "guid", None)
+            or getattr(entry, "link", None)
+        )
+        title = getattr(entry, "title", "")[:1024]
+        link = getattr(entry, "link", "")
+        text = ""
+
+        if followed.fetch_full_text and link:
+            success, extracted, _ = process_url_to_text(link)
+            if success and extracted:
+                text = extracted
+
+        if not text:
+            text = getattr(entry, "summary", None) or getattr(entry, "description", "")
+
+        article = Article.objects.create(
+            feed=followed.destination_feed,
+            title=title or "Untitled Article",
+            source_url=link,
+            text_content=text or "",
+            status=Article.PROCESSING,
+        )
+
+        task = process_article.delay(article.pk)
+        article.celery_task_id = task.id
+        article.save(update_fields=["celery_task_id", "updated_at"])
+
+        followed.last_guid = guid
+
+    followed.last_checked = timezone.now()
+    followed.save(update_fields=["last_guid", "last_checked"])
+    return True
+
+
 @shared_task
 def import_followed_feeds() -> str:
     """Check followed RSS feeds and create articles for new entries."""
@@ -2173,67 +2287,20 @@ def import_followed_feeds() -> str:
 
     followed_feeds = FollowedFeed.objects.filter(is_active=True)
     processed_feeds = 0
+    feed_cap = int(getattr(settings, "FOLLOWED_FEED_MAX_BYTES", 10 * 1024 * 1024))
 
     for followed in followed_feeds:
+        # AIDEV-NOTE: every feed belongs to SOME user and its content is attacker-controlled; one
+        # feed's exception must not stop the others (newest feeds run first: ordering -created_at).
         try:
-            parsed = feedparser.parse(followed.url)
-        except Exception as exc:  # pragma: no cover - safeguard
-            logger.error("Failed to fetch feed %s: %s", followed.url, exc)
-            continue
-
-        entries = getattr(parsed, "entries", [])
-        if not entries:
-            followed.last_checked = timezone.now()
-            followed.save(update_fields=["last_checked"])
-            continue
-
-        new_entries: list = []
-        for entry in entries:
-            guid = (
-                getattr(entry, "id", None)
-                or getattr(entry, "guid", None)
-                or getattr(entry, "link", None)
+            if _import_one_followed_feed(followed, feed_cap):
+                processed_feeds += 1
+        except Exception as exc:  # noqa: BLE001
+            # Not logger.exception: a traceback's messages may carry the full feed/entry URL.
+            logger.error(
+                "Followed feed %s from host %s failed: %s [FEED-IMPORT-FAIL]",
+                followed.pk,
+                _safe_hostname(followed.url),
+                type(exc).__name__,
             )
-            if followed.last_guid and guid == followed.last_guid:
-                break
-            new_entries.append(entry)
-
-        for entry in reversed(new_entries):
-            guid = (
-                getattr(entry, "id", None)
-                or getattr(entry, "guid", None)
-                or getattr(entry, "link", None)
-            )
-            title = getattr(entry, "title", "")[:1024]
-            link = getattr(entry, "link", "")
-            text = ""
-
-            if followed.fetch_full_text and link:
-                success, extracted, _ = process_url_to_text(link)
-                if success and extracted:
-                    text = extracted
-
-            if not text:
-                text = getattr(entry, "summary", None) or getattr(
-                    entry, "description", ""
-                )
-
-            article = Article.objects.create(
-                feed=followed.destination_feed,
-                title=title or "Untitled Article",
-                source_url=link,
-                text_content=text or "",
-                status=Article.PROCESSING,
-            )
-
-            task = process_article.delay(article.pk)
-            article.celery_task_id = task.id
-            article.save(update_fields=["celery_task_id", "updated_at"])
-
-            followed.last_guid = guid
-
-        followed.last_checked = timezone.now()
-        followed.save(update_fields=["last_guid", "last_checked"])
-        processed_feeds += 1
-
     return f"Processed {processed_feeds} followed feeds"

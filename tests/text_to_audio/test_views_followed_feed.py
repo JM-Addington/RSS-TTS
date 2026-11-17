@@ -1,5 +1,8 @@
 """Tests for the FollowedFeed UI (Forms and Views)."""
 
+import socket
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
@@ -36,6 +39,15 @@ class FollowedFeedUITests(TestCase):
     def setUp(self):
         """Log in the user for each test."""
         self.client.login(username="ui_testuser", password="password123")
+        # FollowedFeedForm.clean_url resolves the host (#190); answer public, offline.
+        dns = patch(
+            "socket.getaddrinfo",
+            return_value=[
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+            ],
+        )
+        dns.start()
+        self.addCleanup(dns.stop)
 
     def test_followed_feed_list_view(self):
         """Test the FollowedFeedListView."""

@@ -53,6 +53,12 @@ USE_FIRECRAWL_BY_DEFAULT = os.environ.get(
     "USE_FIRECRAWL_BY_DEFAULT", "False"
 ).lower() in ("1", "true", "yes")
 
+# Byte caps for server-side fetches of user-supplied URLs (text_to_audio/safe_fetch.py, #190)
+ARTICLE_URL_MAX_BYTES = int(os.environ.get("ARTICLE_URL_MAX_BYTES", 20 * 1024 * 1024))
+FOLLOWED_FEED_MAX_BYTES = int(
+    os.environ.get("FOLLOWED_FEED_MAX_BYTES", 10 * 1024 * 1024)
+)
+
 # ChunkTone LLM Service Feature Flag
 ENABLE_CHUNK_TONE_LLM = os.getenv("ENABLE_CHUNK_TONE_LLM", "true").lower() == "true"
 

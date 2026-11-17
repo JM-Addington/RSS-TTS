@@ -1,6 +1,10 @@
 """Custom validators for the text_to_audio app.
 
-AIDEV-NOTE: SSRF validator — blocks private IPs, cloud metadata, bad schemes, DNS rebinding
+AIDEV-NOTE: SSRF validator — blocks private IPs, cloud metadata, bad schemes at SUBMIT time, and
+again as fetch_url_content's early pre-check.
+It does NOT block DNS rebinding or redirects: it resolves the name, then the fetcher resolves again
+and may follow a Location anywhere. Those are stopped only by text_to_audio/safe_fetch.py (#190),
+which pins the connect to the address it checked. Treat this as early user feedback, not a boundary.
 """
 
 import ipaddress
@@ -9,6 +13,8 @@ import socket
 import urllib.parse
 
 from django.core.exceptions import ValidationError
+
+from text_to_audio.safe_fetch import DEFAULT_PORTS
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +78,17 @@ def validate_url_not_ssrf(url: str) -> None:
     if parsed.scheme not in ALLOWED_SCHEMES:
         raise ValidationError(
             f"URL scheme '{parsed.scheme}' is not allowed. Only HTTP and HTTPS are permitted."
+        )
+
+    # 1b. Port: the fetch's own policy object (safe_fetch.DEFAULT_PORTS, 80/443), so a URL the
+    # fetch will refuse is refused here, at submit, with a message (#249 review).
+    try:
+        port = parsed.port
+    except ValueError:
+        raise ValidationError("URL has an invalid port.")
+    if port is not None and port != DEFAULT_PORTS[parsed.scheme]:
+        raise ValidationError(
+            "Only the standard ports are allowed (80 for HTTP, 443 for HTTPS)."
         )
 
     # 2. Extract hostname

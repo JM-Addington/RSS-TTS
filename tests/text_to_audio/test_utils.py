@@ -1,11 +1,12 @@
 """Tests for text_to_audio utility functions."""
 
+import socket
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import requests
 from django.test import TestCase
 
+from text_to_audio.safe_fetch import FetchResult
 from text_to_audio.utils import (
     extract_article_text,
     fetch_url_content,
@@ -13,36 +14,43 @@ from text_to_audio.utils import (
     sanitize_text_for_tts,
 )
 
+PUBLIC_DNS = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))]
+
 
 class UrlUtilsTests(TestCase):
     """Test URL processing utility functions."""
 
-    @patch("text_to_audio.utils.requests.get")
-    def test_fetch_url_content_success(self, mock_get):
+    @patch("socket.getaddrinfo", return_value=PUBLIC_DNS)
+    @patch("text_to_audio.safe_fetch.fetch_url")
+    def test_fetch_url_content_success(self, mock_get, _dns):
         """Test fetching URL content successfully."""
-        # Setup mock response
-        mock_response = MagicMock()
-        mock_response.text = (
-            "<html><body><article>Test article content</article></body></html>"
+        html = "<html><body><article>Test article content</article></body></html>"
+        mock_get.return_value = FetchResult(
+            data=html.encode("utf-8"),
+            host="example.com",
+            final_host="example.com",
+            redirects=0,
+            status=200,
+            content_type="text/html",
+            content_encoding=None,
         )
-        mock_response.status_code = 200
-        mock_get.return_value = mock_response
 
         # Call the function
         success, content, error = fetch_url_content("https://example.com")
 
         # Assert results
         self.assertTrue(success)
-        self.assertEqual(content, mock_response.text)
+        self.assertEqual(content, html)
         self.assertIsNone(error)
-        mock_get.assert_called_once_with("https://example.com", timeout=10)
+        mock_get.assert_called_once()
+        self.assertEqual(mock_get.call_args.args, ("https://example.com",))
+        self.assertEqual(mock_get.call_args.kwargs["total_timeout"], 10)
 
-    @patch("text_to_audio.utils.requests.get")
-    @patch("text_to_audio.utils.requests.RequestException", new=Exception)
-    def test_fetch_url_content_failure(self, mock_get):
-        """Test handling of a failed URL fetch."""
-        # Setup mock to return a proper exception that's handled
-        mock_get.side_effect = requests.RequestException("Connection error")
+    @patch("socket.getaddrinfo", return_value=PUBLIC_DNS)
+    @patch("text_to_audio.safe_fetch.fetch_url")
+    def test_fetch_url_content_failure(self, mock_get, _dns):
+        """Test handling of an unexpected fetch failure (not retried)."""
+        mock_get.side_effect = RuntimeError("Connection error")
 
         # Call the function
         success, content, error = fetch_url_content("https://example.com")
@@ -53,7 +61,7 @@ class UrlUtilsTests(TestCase):
         self.assertIsNotNone(error)
         if error:
             self.assertIn("Error fetching URL", error)
-        mock_get.assert_called_once_with("https://example.com", timeout=10)
+        mock_get.assert_called_once()
 
     def test_extract_article_text_success(self):
         """Test extracting article text from HTML content."""

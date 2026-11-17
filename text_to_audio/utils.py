@@ -8,6 +8,7 @@ import json
 import logging
 import re
 import time
+import urllib.parse
 from typing import Any, Dict, List, Optional, Tuple
 
 import PyPDF2
@@ -157,19 +158,60 @@ def _handle_http_error(status_code: int, url: str) -> Optional[Tuple[bool, str, 
     return None
 
 
-def _handle_retry(retry_count: int, max_retries: int, url: str, error: str) -> None:
+def _handle_retry(
+    retry_count: int, max_retries: int, host: Optional[str], error: str
+) -> None:
     """Handle retry logic with exponential backoff.
 
     Args:
         retry_count: Current retry count.
         max_retries: Maximum number of retries allowed.
-        url: The URL being accessed.
+        host: The host being accessed (logged instead of the full URL).
         error: Error message to log.
     """
-    logger.warning(f"Attempt {retry_count}/{max_retries}: {error} for {url}")
+    logger.warning(
+        "Attempt %s/%s: %s for host %s [FETCH-URL-RETRY]",
+        retry_count,
+        max_retries,
+        error,
+        host,
+    )
     if retry_count < max_retries:
         # Exponential backoff
         time.sleep(2**retry_count)
+
+
+# AIDEV-NOTE: byte caps for user-URL fetches (#190); overridable in settings. The cap is what keeps a
+# hostile URL from streaming an unbounded body into the worker's memory. It counts UNCOMPRESSED bytes
+# (safe_fetch sends Accept-Encoding: identity): 5 MiB refused 9/60 cnn.com articles (max 6.3 MiB).
+DEFAULT_ARTICLE_URL_MAX_BYTES = 20 * 1024 * 1024
+ARTICLE_URL_ACCEPT = "text/html,application/xhtml+xml,*/*;q=0.8"
+
+
+def _decode_body(data: bytes, content_type: Optional[str]) -> str:
+    """Decode a fetched body using the Content-Type charset (default utf-8, errors replaced)."""
+    charset = "utf-8"
+    if content_type:
+        match = re.search(r"charset\s*=\s*\"?([A-Za-z0-9._:-]+)", content_type, re.I)
+        if match:
+            charset = match.group(1)
+    try:
+        return data.decode(charset, errors="replace")
+    except (LookupError, UnicodeError):
+        # LookupError: unknown name. UnicodeError: codecs that reject errors="replace" or
+        # are not text codecs (idna, punycode, undefined) -- the charset is attacker-chosen.
+        return data.decode("utf-8", errors="replace")
+
+
+def _refusal_message(code: str, cap: int) -> str:
+    """The user-facing error for a policy refusal; the code stays in it for logs and tests."""
+    from text_to_audio import safe_fetch
+
+    if code == safe_fetch.TOO_LARGE:
+        return f"Page is too large to fetch (over {cap} bytes uncompressed): {code}"
+    if code == safe_fetch.REDIRECT_LIMIT:
+        return f"Too many redirects (more than {safe_fetch.MAX_REDIRECTS}): {code}"
+    return f"URL blocked by security policy: {code}"
 
 
 def fetch_url_content(
@@ -177,73 +219,134 @@ def fetch_url_content(
 ) -> Tuple[bool, str, Optional[str]]:
     """Fetch HTML content from a URL with retry mechanism.
 
+    The fetch goes through text_to_audio.safe_fetch.fetch_url (pinned connect, every redirect
+    re-validated, byte cap). ``timeout`` bounds each WHOLE fetch attempt (redirects and their
+    resolves included). The validator pre-check before the loop does its own, unbounded,
+    getaddrinfo, outside that bound.
+
     Args:
         url: The URL to fetch content from.
-        timeout: Request timeout in seconds.
+        timeout: Wall-clock bound in seconds for each attempt.
         max_retries: Maximum number of retry attempts for recoverable errors.
 
     Returns:
         Tuple of (success, content, error_message).
         If successful, error_message will be None.
     """
-    # AIDEV-NOTE: Defense-in-depth SSRF check — re-validates before fetch (#190)
+    from text_to_audio import safe_fetch
+
+    # AIDEV-NOTE: never raises on a malformed URL (#249 review): feed entry links are attacker text
+    # that never passed URLValidator, and urlsplit raises ValueError on e.g. "http://[::1".
+    try:
+        host = urllib.parse.urlsplit(url).hostname if isinstance(url, str) else None
+    except ValueError:
+        logger.warning("Malformed URL refused before fetch [FETCH-URL-MALFORMED]")
+        return False, "", "URL blocked by security policy: invalid URL"
+
+    # AIDEV-NOTE: Defense-in-depth SSRF check — re-validates before fetch (#190). Early, friendly
+    # message only: the guarantee is fetch_url below (redirects/rebinding are invisible here).
     try:
         from text_to_audio.validators import validate_url_not_ssrf
 
         validate_url_not_ssrf(url)
     except Exception as ssrf_exc:
         logger.warning(
-            "SSRF check blocked URL in fetch_url_content: %s — %s", url, ssrf_exc
+            "SSRF check blocked URL for host %s: %s [FETCH-SSRF-PRECHECK]",
+            host,
+            ssrf_exc,
         )
         return False, "", f"URL blocked by security policy: {ssrf_exc}"
 
+    cap = int(getattr(settings, "ARTICLE_URL_MAX_BYTES", DEFAULT_ARTICLE_URL_MAX_BYTES))
     retry_count = 0
-    last_error = None
+    last_error = None  # for the USER: may name the URL
+    last_log = (
+        None  # for the LOG: host-only, never the URL (query strings carry tokens)
+    )
 
     while retry_count < max_retries:
         try:
             logger.info(
-                f"Fetching URL: {url} (Attempt {retry_count + 1}/{max_retries})"
+                "Fetching URL on host %s (Attempt %s/%s) [FETCH-URL-ATTEMPT]",
+                host,
+                retry_count + 1,
+                max_retries,
             )
-            response = requests.get(url, timeout=timeout)
-
-            # Handle common HTTP error status codes
-            result = _handle_http_error(response.status_code, url)
-            if result:
-                return result
-
-            # Handle server error (status code 500)
-            if response.status_code == 500:
-                last_error = (
-                    f"500 Server Error: The server at '{url}' encountered an error."
+            result = safe_fetch.fetch_url(
+                url,
+                cap=cap,
+                total_timeout=timeout,
+                accept=ARTICLE_URL_ACCEPT,
+            )
+        except safe_fetch.FetchRefused as refused:
+            if refused.code in safe_fetch.POLICY_CODES:
+                logger.warning(
+                    "Fetch refused for host %s: %s [FETCH-URL-REFUSED]",
+                    refused.host or host,
+                    refused.code,
                 )
+                return False, "", _refusal_message(refused.code, cap)
+            if refused.code == safe_fetch.HTTP_STATUS:
+                status = refused.status or 0
+                handled = _handle_http_error(status, url)
+                if handled:
+                    return handled
+                if status == 500:
+                    last_error = (
+                        f"500 Server Error: The server at '{url}' encountered an error."
+                    )
+                    last_log = "500 Server Error"
+                    retry_count += 1
+                    _handle_retry(retry_count, max_retries, host, "Server error")
+                    continue
+                # A 2xx other than 200, or a redirect status without a Location.
+                return False, "", f"HTTP Error {status}: Unable to access '{url}'."
+            if refused.code == safe_fetch.TIMEOUT:
+                last_error = f"Connection timed out after {timeout} seconds."
+                last_log = "timeout"
                 retry_count += 1
-                _handle_retry(retry_count, max_retries, url, "Server error")
+                _handle_retry(retry_count, max_retries, host, "Timeout")
                 continue
-
-            # Success - return the content
-            return True, response.text, None
-
-        except requests.Timeout:
-            last_error = f"Connection timed out after {timeout} seconds."
-            retry_count += 1
-            _handle_retry(retry_count, max_retries, url, "Timeout")
-
-        except requests.ConnectionError:
+            # dns_failed / connect_failed: transient network trouble, retried.
             last_error = (
                 f"Connection Error: Unable to connect to '{url}'. "
                 f"The site may be down or the URL may be invalid."
             )
+            last_log = refused.code
             retry_count += 1
-            _handle_retry(retry_count, max_retries, url, "Connection error")
+            _handle_retry(retry_count, max_retries, host, "Connection error")
+            continue
+        except Exception as e:  # noqa: BLE001 -- unexpected failure, not retried
+            logger.error(
+                "Error fetching URL on host %s: %s [FETCH-URL-ERROR]",
+                host,
+                type(e).__name__,
+            )
+            return False, "", f"Error fetching URL {url}: {str(e)}"
 
-        except requests.RequestException as e:
-            error_message = f"Error fetching URL {url}: {str(e)}"
-            logger.error(error_message)
-            return False, "", error_message
+        encoding = (result.content_encoding or "identity").strip().lower()
+        if encoding not in ("", "identity"):
+            # We sent Accept-Encoding: identity and never decode, so compressed bytes are not text.
+            logger.warning(
+                "Unsupported Content-Encoding from host %s: %s [FETCH-URL-ENCODING]",
+                result.final_host,
+                encoding,
+            )
+            return (
+                False,
+                "",
+                f"Unsupported content encoding '{encoding}' from '{url}'.",
+            )
+
+        return True, _decode_body(result.data, result.content_type), None
 
     # If we've exhausted our retries
-    logger.error(f"Max retries ({max_retries}) exceeded for URL {url}: {last_error}")
+    logger.error(
+        "Max retries (%s) exceeded for host %s: %s [FETCH-URL-MAXRETRY]",
+        max_retries,
+        host,
+        last_log,
+    )
     return False, "", f"Failed after {max_retries} attempts: {last_error}"
 
 
