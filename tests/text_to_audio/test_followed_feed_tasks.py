@@ -23,7 +23,20 @@ def fetched(url, **kwargs):
         status=200,
         content_type="application/rss+xml",
         content_encoding=None,
+        final_url="https://example.com/rss",
     )
+
+
+def assert_parsed_from_stream(test, mock_parse):
+    """feedparser got the fetched bytes as a STREAM (a bytes arg is open()ed as a path) plus the
+    final URL as base; never a URL string or raw bytes (M-FEED, M-FEED-STREAM)."""
+    mock_parse.assert_called_once()
+    source = mock_parse.call_args.args[0]
+    test.assertNotIsInstance(source, (str, bytes))
+    test.assertEqual(source.read(), FEED_BYTES)
+    headers = mock_parse.call_args.kwargs["response_headers"]
+    test.assertEqual(headers["content-location"], "https://example.com/rss")
+    test.assertEqual(headers["content-type"], "application/rss+xml")
 
 
 class ImportFollowedFeedsTests(TestCase):
@@ -70,7 +83,7 @@ class ImportFollowedFeedsTests(TestCase):
         mock_process_url.assert_called_once_with("https://example.com/a1")
         mock_delay.assert_called_once_with(article.pk)
         self.assertEqual(mock_fetch.call_args.args, ("https://example.com/rss",))
-        mock_parse.assert_called_once_with(FEED_BYTES)
+        assert_parsed_from_stream(self, mock_parse)
 
     @patch("text_to_audio.tasks.fetch_url", side_effect=fetched)
     @patch("text_to_audio.tasks.process_article.delay")
@@ -102,4 +115,4 @@ class ImportFollowedFeedsTests(TestCase):
         article = Article.objects.get(title="A2")
         self.assertEqual(article.text_content, "summary2")
         mock_delay.assert_called_once_with(article.pk)
-        mock_parse.assert_called_once_with(FEED_BYTES)
+        assert_parsed_from_stream(self, mock_parse)

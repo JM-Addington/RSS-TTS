@@ -355,6 +355,7 @@ class ImportFollowedFeedsRobustnessTests(NetworkTripwire):
         self.addCleanup(patcher.stop)
 
     def _follow(self, user, feed, url, **kwargs):
+        kwargs.setdefault("fetch_full_text", False)  # the model default is True
         return FollowedFeed.objects.create(
             user=user, url=url, destination_feed=feed, **kwargs
         )

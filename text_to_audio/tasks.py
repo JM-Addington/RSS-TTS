@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import os
 import re
@@ -2185,9 +2186,8 @@ def import_followed_feeds() -> str:
 
     for followed in followed_feeds:
         feed_host = urlsplit(followed.url).hostname
-        # AIDEV-NOTE: security; the feed is fetched through safe_fetch and feedparser only ever sees
-        # BYTES (M-FEED, #190). feedparser.parse(<url>) fetches by itself via urllib, following
-        # redirects to any address. Invalidated if a URL string is ever passed to feedparser.parse.
+        # AIDEV-NOTE: security; fetched ONLY through safe_fetch (M-FEED, #190): feedparser.parse(<url>)
+        # fetches by itself via urllib, following redirects to any address.
         try:
             fetched = fetch_url(
                 followed.url,
@@ -2202,8 +2202,17 @@ def import_followed_feeds() -> str:
                 refused.code,
             )
             continue
+        # AIDEV-NOTE: security; the body reaches feedparser as a STREAM (M-FEED-STREAM, #249 review).
+        # feedparser.parse(<bytes>) is NOT inert: a bytes arg that is not a URL is open()ed as a local
+        # PATH (6.0.x _open_resource), so a body "/etc/x" or "/dev/zero" reads the worker's disk.
+        # Only hasattr(read) skips that. content-location = final URL resolves relative entry links.
         try:
-            parsed = feedparser.parse(fetched.data)
+            response_headers = {"content-location": fetched.final_url or followed.url}
+            if fetched.content_type:
+                response_headers["content-type"] = fetched.content_type
+            parsed = feedparser.parse(
+                io.BytesIO(fetched.data), response_headers=response_headers
+            )
         except Exception as exc:  # pragma: no cover - safeguard
             logger.error(
                 "Failed to parse followed feed %s from host %s: %s [FEED-PARSE-FAIL]",
