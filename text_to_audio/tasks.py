@@ -2202,6 +2202,18 @@ def import_followed_feeds() -> str:
                 refused.code,
             )
             continue
+        encoding = (fetched.content_encoding or "identity").strip().lower()
+        if encoding not in ("", "identity"):
+            # We send Accept-Encoding: identity and never decode: compressed bytes hold no entries,
+            # and marking the feed checked would hide that it never imports.
+            logger.warning(
+                "Followed feed %s from host %s sent unsupported Content-Encoding %s "
+                "[FEED-FETCH-ENCODING]",
+                followed.pk,
+                fetched.final_host,
+                encoding,
+            )
+            continue
         # AIDEV-NOTE: security; the body reaches feedparser as a STREAM (M-FEED-STREAM, #249 review).
         # feedparser.parse(<bytes>) is NOT inert: a bytes arg that is not a URL is open()ed as a local
         # PATH (6.0.x _open_resource), so a body "/etc/x" or "/dev/zero" reads the worker's disk.
