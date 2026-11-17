@@ -251,9 +251,7 @@ class PinningTests(unittest.TestCase):
     def test_one_resolve_per_hop(self):
         resolver = FakeResolver()
         connector = FakeConnector(redirect("https://b.example/"), ok())
-        fetch_url(
-            "https://a.example/", cap=CAP, resolver=resolver, connector=connector
-        )
+        fetch_url("https://a.example/", cap=CAP, resolver=resolver, connector=connector)
         self.assertEqual(resolver.calls, ["a.example", "b.example"])
 
     def test_pool_kwargs_pin_ip_and_check_cert_against_name(self):
@@ -269,6 +267,20 @@ class PinningTests(unittest.TestCase):
         )
         self.assertEqual(http_kwargs["host"], PUBLIC_IP)
         self.assertEqual(http_kwargs["port"], 80)
+
+    def test_installed_urllib3_accepts_pinned_kwargs(self):
+        """The real pool class takes the kwargs and keeps the IP as its host (no connect made)."""
+        import urllib3
+
+        kwargs = safe_fetch.pinned_pool_kwargs(
+            "https", ip=PUBLIC_IP, host="example.com", timeout=5
+        )
+        pool = urllib3.HTTPSConnectionPool(**kwargs)
+        conn = pool._new_conn()  # builds the connection object; does not connect
+        self.assertEqual(conn.host, PUBLIC_IP)
+        self.assertEqual(conn.server_hostname, "example.com")
+        self.assertEqual(conn.assert_hostname, "example.com")
+        pool.close()
 
 
 class SizeCapTests(RefusalHelper):
@@ -380,4 +392,6 @@ class AddressAllowedTests(unittest.TestCase):
 
     def test_public_allowed(self):
         self.assertTrue(safe_fetch.address_allowed(PUBLIC_IP))
-        self.assertTrue(safe_fetch.address_allowed("2606:2800:220:1:248:1893:25c8:1946"))
+        self.assertTrue(
+            safe_fetch.address_allowed("2606:2800:220:1:248:1893:25c8:1946")
+        )

@@ -106,9 +106,7 @@ class FetchUrlContentSSRFTests(NetworkTripwire):
 
         body = "<html>café</html>".encode("latin-1")
         connector = self._connector(
-            FakeResponse(
-                200, {"Content-Type": "text/html; charset=iso-8859-1"}, body
-            )
+            FakeResponse(200, {"Content-Type": "text/html; charset=iso-8859-1"}, body)
         )
         with patch("socket.getaddrinfo", fake_getaddrinfo({})), patch(
             "text_to_audio.safe_fetch.connect_pinned", connector
@@ -242,7 +240,9 @@ class FollowedFeedFormSSRFTests(NetworkTripwire):
         self.assertIn("url", form.errors)
 
     def test_name_resolving_private_rejected(self):
-        with patch("socket.getaddrinfo", fake_getaddrinfo({"evil.example": "127.0.0.1"})):
+        with patch(
+            "socket.getaddrinfo", fake_getaddrinfo({"evil.example": "127.0.0.1"})
+        ):
             form = self._form("http://evil.example/rss")
             self.assertFalse(form.is_valid())
         self.assertIn("url", form.errors)
