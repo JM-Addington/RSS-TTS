@@ -206,17 +206,18 @@ class RedirectTests(RefusalHelper):
         self.assertEqual(len(connector.calls), 1)
 
     def test_redirect_chain_over_limit_refused(self):
-        connector = FakeConnector(
-            redirect("/1"), redirect("/2"), redirect("/3"), redirect("/4"), ok()
-        )
+        # The policy is 10 hops (requests allowed 30; 3 refused real doi.org/nature.com chains).
+        hops = [redirect(f"/{i}") for i in range(1, 12)]
+        connector = FakeConnector(*hops, ok())
         self.assertRefused(
             "http://example.com/", safe_fetch.REDIRECT_LIMIT, connector=connector
         )
-        self.assertEqual(len(connector.calls), 4)
+        self.assertEqual(len(connector.calls), 11)
 
-    def test_three_redirects_allowed(self):
+    def test_ten_redirects_allowed(self):
+        hops = [redirect(f"/{i}") for i in range(1, 10)]
         connector = FakeConnector(
-            redirect("/1"), redirect("https://www.example.com/2"), redirect("/3"), ok()
+            redirect("https://www.example.com/0"), *hops, ok()
         )
         result = fetch_url(
             "http://example.com/",
@@ -224,10 +225,30 @@ class RedirectTests(RefusalHelper):
             resolver=FakeResolver(),
             connector=connector,
         )
-        self.assertEqual(result.redirects, 3)
+        self.assertEqual(result.redirects, 10)
         self.assertEqual(result.host, "example.com")
         self.assertEqual(result.final_host, "www.example.com")
-        self.assertEqual(connector.calls[-1]["path"], "/3")
+        self.assertEqual(connector.calls[-1]["path"], "/9")
+        self.assertEqual(result.final_url, "https://www.example.com/9")
+
+    def test_final_url_is_url_asked_for_when_no_redirect(self):
+        result = fetch_url(
+            "https://feeds.example.com/rss?x=1",
+            cap=CAP,
+            resolver=FakeResolver(),
+            connector=FakeConnector(ok()),
+        )
+        self.assertEqual(result.final_url, "https://feeds.example.com/rss?x=1")
+
+    def test_malformed_location_refused_not_raised(self):
+        """A Location urljoin/urlsplit cannot parse is url_host, never a bare ValueError."""
+        for location in ("http://[x/", "http://[::1", "https://[example.com]/"):
+            with self.subTest(location=location):
+                connector = FakeConnector(redirect(location), ok())
+                self.assertRefused(
+                    "http://example.com/", safe_fetch.URL_HOST, connector=connector
+                )
+                self.assertEqual(len(connector.calls), 1)
 
 
 class PinningTests(unittest.TestCase):
@@ -320,6 +341,35 @@ class PinningTests(unittest.TestCase):
                 self.assertIs(kwargs["redirect"], False)
                 self.assertIs(kwargs["decode_content"], False)
                 self.assertIs(kwargs["preload_content"], False)
+
+    def test_ipv6_host_header_is_bracketed(self):
+        """RFC 7230 Host for an IPv6 literal is ``[addr]``; a name or IPv4 is sent as is."""
+        seen: dict = {}
+
+        class FakePool:
+            ConnectionCls = object
+
+            def urlopen(self, method, path, **kwargs):
+                seen["headers"] = kwargs["headers"]
+                return FakeResponse(200)
+
+        for host, expected in (
+            ("2606:2800:220:1:248:1893:25c8:1946", "[2606:2800:220:1:248:1893:25c8:1946]"),
+            ("example.com", "example.com"),
+            (PUBLIC_IP, PUBLIC_IP),
+        ):
+            with self.subTest(host=host):
+                watchdog = safe_fetch.Watchdog(5)
+                response = safe_fetch.open_pinned(
+                    FakePool(),
+                    watchdog,
+                    host=host,
+                    path="/",
+                    accept="*/*",
+                    user_agent="ua",
+                )
+                safe_fetch.release(response)
+                self.assertEqual(seen["headers"]["Host"], expected)
 
 
 class SizeCapTests(RefusalHelper):
@@ -425,6 +475,7 @@ class AddressAllowedTests(unittest.TestCase):
             "0.0.0.0",
             "224.0.0.1",
             "not-an-ip",
+            "168.63.129.16",  # Azure WireServer: public, reachable only from inside Azure
         ):
             with self.subTest(raw=raw):
                 self.assertFalse(safe_fetch.address_allowed(raw))
