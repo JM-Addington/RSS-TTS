@@ -287,7 +287,7 @@ class PinningTests(unittest.TestCase):
         """The default connector: pool at the IP, Host = name, no redirect, no decode."""
         import urllib3
 
-        seen = {}
+        seen: dict = {}
 
         class FakePool:
             ConnectionCls = urllib3.connection.HTTPSConnection
