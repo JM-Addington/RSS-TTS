@@ -516,6 +516,19 @@ class FollowedFeedForm(forms.ModelForm):
                     "You don't have any feeds yet."
                 )
 
+    def clean_url(self):
+        """Reject internal/private feed URLs early (#190).
+
+        AIDEV-NOTE: user-feedback check only; the real guard is safe_fetch in import_followed_feeds,
+        which re-checks every run and every redirect (a name can start resolving privately later).
+        """
+        url = self.cleaned_data.get("url")
+        if url:
+            from text_to_audio.validators import validate_url_not_ssrf
+
+            validate_url_not_ssrf(url)
+        return url
+
 
 class VoiceSampleForm(forms.Form):
     """Form for generating a voice sample from custom text."""
