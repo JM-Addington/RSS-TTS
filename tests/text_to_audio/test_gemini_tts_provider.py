@@ -155,7 +155,7 @@ class GeminiTTSProviderTest(TestCase):
 
             # Verify the call arguments
             call_args = mock_client.models.generate_content.call_args
-            self.assertEqual(call_args.kwargs["model"], "gemini-2.5-flash-preview-tts")
+            self.assertEqual(call_args.kwargs["model"], "gemini-3.8-flash-tts")
             self.assertEqual(call_args.kwargs["contents"], "Hello world")
 
     def test_synthesize_speech_with_prompt(self):
@@ -193,7 +193,7 @@ class GeminiTTSProviderTest(TestCase):
 
             # Verify prompt is prepended to content
             call_args = mock_client.models.generate_content.call_args
-            self.assertEqual(call_args.kwargs["model"], "gemini-2.5-pro-preview-tts")
+            self.assertEqual(call_args.kwargs["model"], "gemini-3.8-flash-tts")
             self.assertEqual(
                 call_args.kwargs["contents"],
                 "Speak in a warm, friendly tone: Hello world",
@@ -278,7 +278,7 @@ class GeminiTTSProviderTest(TestCase):
             provider.synthesize_speech(text="Test", voice_name="Kore")
 
             call_args = mock_client.models.generate_content.call_args
-            self.assertEqual(call_args.kwargs["model"], "gemini-2.5-flash-preview-tts")
+            self.assertEqual(call_args.kwargs["model"], "gemini-3.8-flash-tts")
 
     def test_synthesize_speech_unknown_model_defaults_to_flash(self):
         """Test synthesis falls back to flash for unknown model."""
@@ -306,7 +306,7 @@ class GeminiTTSProviderTest(TestCase):
             provider.synthesize_speech(text="Test", voice_name="Kore", model="unknown")
 
             call_args = mock_client.models.generate_content.call_args
-            self.assertEqual(call_args.kwargs["model"], "gemini-2.5-flash-preview-tts")
+            self.assertEqual(call_args.kwargs["model"], "gemini-3.8-flash-tts")
 
     # --- Multi-Speaker Tests ---
 
@@ -428,8 +428,8 @@ class GeminiTTSProviderTest(TestCase):
 
     def test_gemini_tts_models(self):
         """Test GEMINI_TTS_MODELS constants."""
-        self.assertEqual(GEMINI_TTS_MODELS["flash"], "gemini-2.5-flash-preview-tts")
-        self.assertEqual(GEMINI_TTS_MODELS["pro"], "gemini-2.5-pro-preview-tts")
+        self.assertEqual(GEMINI_TTS_MODELS["flash"], "gemini-3.8-flash-tts")
+        self.assertEqual(GEMINI_TTS_MODELS["pro"], "gemini-3.8-flash-tts")
 
     # --- is_gemini_api_available Tests ---
 
